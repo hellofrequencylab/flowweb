@@ -133,7 +133,8 @@ fw run show <run_id>
 Every failure ends the run in one transaction (status, `run.<status>` event, leases, work order
 back to `issued`, row back to `ready` or `blocked`) and keeps the worktree for inspection. On
 success the worktree is removed (the branch is on the host). Exit code 0 only when the PR is open
-and the row is `verifying`.
+and the row is `verifying`. A diff-policy violation sets `policy_code: "DIFF_POLICY"` on the report
+and `fw run start` exits 3 (refused by policy); every other failure exits 1.
 
 ## `fw doctor` and `fw gc` (FW-C-008)
 

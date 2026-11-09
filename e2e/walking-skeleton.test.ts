@@ -134,6 +134,7 @@ interface StartReport {
   status: string;
   failure_class: string | null;
   reason: string | null;
+  policy_code: string | null;
   row_status: string;
   branch: string | null;
   worktree: string | null;
@@ -340,8 +341,14 @@ describe('walking skeleton: failure cases', () => {
       '--scenario',
       'forbidden_path',
     );
-    expect(r.code).toBe(1);
-    expect(r.body).toMatchObject({ ok: false, status: 'failed', failure_class: 'no_artifact', pr: null });
+    expect(r.code).toBe(3); // refused by policy (decision 22)
+    expect(r.body).toMatchObject({
+      ok: false,
+      status: 'failed',
+      failure_class: 'no_artifact',
+      policy_code: 'DIFF_POLICY',
+      pr: null,
+    });
     expect(r.body.reason).toMatch(/diff policy violation/);
     expect(r.body.branch).toBe(`fw/quarantine/${r.body.run_id}`);
     expect(sh(w.repo, 'git', ['branch', '--list', 'fw/quarantine/*'])).toContain(r.body.run_id!);

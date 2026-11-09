@@ -83,6 +83,7 @@ function fakeClient(overrides: Partial<CoreClient> = {}): CoreClient {
       status: 'succeeded',
       failure_class: null,
       reason: null,
+      policy_code: null,
       row_status: 'verifying',
       work_order_id: 'wo_x',
       branch: 'fw/FW-C-001/run_x',
@@ -186,6 +187,10 @@ describe('help', () => {
       expect(words.join(' ')).toBe(c.path.join(' '));
     });
     expect(helpText()).toContain('exit codes');
+  });
+
+  test('the help names exit code 3 for a policy refusal', () => {
+    expect(helpText()).toMatch(/3 refused by policy/);
   });
 
   test('no command is a usage error', async () => {
@@ -341,6 +346,66 @@ describe('exit codes', () => {
     const e = Object.assign(new Error('event log writer lock is held by pid 1'), { code: 'LOCKED' });
     const r = await run(['ledger', 'sync'], fakeClient({ ledgerSync: async () => Promise.reject(e) }));
     expect(r.code).toBe(EXIT.LOCKED);
+  });
+
+  test.each([
+    ['SIZE_NOT_DISPATCHABLE', 'size XL has no caps in the core policy size table'],
+    ['SELF_VERIFY', 'self-verification refused: agt_w cannot be both doer and verifier of FW-C-001'],
+    ['DIFF_POLICY', 'diff policy violation'],
+  ])(
+    'a policy refusal (%s) from wo issue exits 3 under --json with one JSON document',
+    async (code, message) => {
+      const e = Object.assign(new Error(message), { code });
+      const r = await run(
+        ['wo', 'issue', 'FW-C-001', '--json'],
+        fakeClient({ woIssue: async () => Promise.reject(e) }),
+      );
+      expect(r.code).toBe(EXIT.POLICY);
+      expect(JSON.parse(r.out).error.code).toBe(code);
+    },
+  );
+
+  test('a policy refusal exits 3 without --json too, with the reason on stderr', async () => {
+    const e = Object.assign(new Error('size XL is not dispatchable'), { code: 'SIZE_NOT_DISPATCHABLE' });
+    const r = await run(
+      ['run', 'start', 'FW-C-001'],
+      fakeClient({ runStart: async () => Promise.reject(e) }),
+    );
+    expect(r.code).toBe(EXIT.POLICY);
+    expect(r.err).toBe('fw run start: size XL is not dispatchable');
+  });
+
+  test('a run refused by the diff policy exits 3; the code is mapped, not the message', async () => {
+    const base = await fakeClient().runStart!('FW-C-001');
+    const failed = {
+      ...base,
+      ok: false,
+      status: 'failed',
+      failure_class: 'no_artifact',
+      reason: 'diff policy violation (tier0_path CODEOWNERS); branch quarantined as fw/quarantine/run_x',
+      pr: null,
+    };
+    const refused = await run(
+      ['run', 'start', 'FW-C-001', '--json'],
+      fakeClient({ runStart: async () => ({ ...failed, policy_code: 'DIFF_POLICY' }) }),
+    );
+    expect(refused.code).toBe(EXIT.POLICY);
+    expect(JSON.parse(refused.out).policy_code).toBe('DIFF_POLICY');
+    // The same words without the code are an ordinary failure: the CLI never reads the message.
+    const plain = await run(['run', 'start', 'FW-C-001'], fakeClient({ runStart: async () => failed }));
+    expect(plain.code).toBe(EXIT.FAILED);
+  });
+
+  test.each([
+    ['ROW_NOT_READY', EXIT.FAILED],
+    ['ALREADY_ISSUED', EXIT.FAILED],
+    ['REFUSED_BY_DATABASE', EXIT.FAILED],
+    ['INTERNAL', EXIT.FAILED],
+    ['LOCKED', EXIT.LOCKED],
+  ])('%s is not a policy refusal (exit %i)', async (code, want) => {
+    const e = Object.assign(new Error('refused by policy, says the message'), { code });
+    const r = await run(['wo', 'issue', 'FW-C-001'], fakeClient({ woIssue: async () => Promise.reject(e) }));
+    expect(r.code).toBe(want);
   });
 
   test('a broken chain exits 1 with one line', async () => {

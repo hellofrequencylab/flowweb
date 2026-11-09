@@ -1,6 +1,7 @@
 // fw command router. Global options: --json (one JSON document on stdout), --home <dir> (FW_HOME),
 // --repo <dir> (the checkout to act on; default the current directory), --help.
-// Exit codes: 0 ok, 1 refused or failed check, 2 usage, 4 the database writer lock is held.
+// Exit codes: 0 ok, 1 failed or refused (not by policy), 2 usage, 3 refused by policy (error codes in
+// POLICY_CODES, output.ts), 4 the database writer lock is held.
 import { resolve } from 'node:path';
 import { parseArgs } from 'node:util';
 import { type CoreClient, type CoreClientFactory, loadCoreClientFactory } from './client.ts';
@@ -37,7 +38,8 @@ export function helpText(): string {
     '  --repo <dir>    repository checkout to act on (default: current directory)',
     '  --help, -h      this help',
     '',
-    'exit codes: 0 ok, 1 refused or failed check, 2 usage, 4 database writer lock held',
+    'exit codes: 0 ok, 1 failed or refused, 2 usage, 3 refused by policy (XL size, self-verification,',
+    '            diff policy), 4 database writer lock held',
   ].join('\n');
 }
 

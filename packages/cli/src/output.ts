@@ -29,6 +29,19 @@ export const processIo: Io = {
 /** Error codes that are a usage problem (exit 2) rather than a refusal (exit 1). */
 const USAGE_CODES = new Set(['BAD_ARGUMENT', 'USAGE']);
 
+/**
+ * Error codes that mean a policy refused the request (exit 3), as opposed to a failed check or a
+ * row in the wrong state (exit 1). Decision 22 of docs/decisions/C0-owner-questions.md.
+ *   SIZE_NOT_DISPATCHABLE  the core policy size table has no caps for the row's size (XL)
+ *   SELF_VERIFY            the same agent was named as doer and verifier
+ *   DIFF_POLICY            the run's change broke the diff policy (out of scope or a Tier 0 path)
+ */
+export const POLICY_CODES: ReadonlySet<string> = new Set([
+  'SIZE_NOT_DISPATCHABLE',
+  'SELF_VERIFY',
+  'DIFF_POLICY',
+]);
+
 export interface CliError {
   code: string;
   message: string;
@@ -51,6 +64,7 @@ export function toCliError(e: unknown): CliError {
 
 export function exitCodeFor(err: CliError): number {
   if (err.code === 'LOCKED') return EXIT.LOCKED;
+  if (POLICY_CODES.has(err.code)) return EXIT.POLICY;
   if (USAGE_CODES.has(err.code)) return EXIT.USAGE;
   return EXIT.FAILED;
 }
