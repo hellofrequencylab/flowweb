@@ -9,7 +9,7 @@ import { LedgerError } from './errors.ts';
 import { isLegalTransition, transitionRow } from './fsm.ts';
 import { gitHead } from './git.ts';
 import { codeFromRowId } from './ids.ts';
-import { checkedProbe, executeCommandProbe, type ProbeRunResult, recordProbeResult } from './probe.ts';
+import { executeCommandProbe, type ProbeRunResult, recordProbeResult, runnableProbe } from './probe.ts';
 import { getDbRow, type RowStatus } from './rows.ts';
 
 export type PremiseOutcome = 'ready' | 'parked' | 'unchanged';
@@ -44,7 +44,7 @@ export async function retestPremise(w: Writer, code: string, opts: PremiseOption
       { code: rowCode, status: row.status },
     );
   const actor = opts.actor ?? ownerActor(w);
-  const probe = checkedProbe(w, row, actor);
+  const probe = runnableProbe(w, row, opts.repoDir, actor);
   const baseSha = gitHead(opts.repoDir) ?? null;
   const result = await executeCommandProbe(probe, {
     cwd: opts.repoDir,

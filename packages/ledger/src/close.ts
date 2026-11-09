@@ -13,7 +13,7 @@ import { LedgerError, surfaceDbRefusal } from './errors.ts';
 import { isLegalTransition, transitionRow } from './fsm.ts';
 import { gitHead, gitTrackedClean } from './git.ts';
 import { codeFromRowId } from './ids.ts';
-import { checkedProbe, executeCommandProbe, recordProbeResult } from './probe.ts';
+import { executeCommandProbe, recordProbeResult, runnableProbe } from './probe.ts';
 import { getDbRow } from './rows.ts';
 
 export interface CloseOptions {
@@ -130,7 +130,7 @@ export async function closeRow(w: Writer, code: string, opts: CloseOptions): Pro
     );
 
   const actor = opts.actor ?? ownerActor(w);
-  const probe = checkedProbe(w, row, actor);
+  const probe = runnableProbe(w, row, opts.repoDir, actor);
   const result = await executeCommandProbe(probe, {
     cwd: opts.repoDir,
     ...(opts.timeoutMs !== undefined ? { timeoutMs: opts.timeoutMs } : {}),
