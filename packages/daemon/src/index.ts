@@ -128,3 +128,10 @@ export {
   WorktreeManager,
   type WorktreeManagerOptions,
 } from './runtime/worktrees.ts';
+export {
+  SPEND_GROUP_NAMES,
+  type SpendGroup,
+  type SpendQuery,
+  type SpendRow,
+  spendRollup,
+} from './spend.ts';

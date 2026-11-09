@@ -84,3 +84,7 @@ export function table(rows: string[][]): string {
 }
 
 export const short = (h: string | null | undefined, n = 12) => (h ? h.slice(0, n) : '-');
+
+/** A dollar figure, or `unknown` when no cost was reported (never $0 for a missing cost). */
+export const usd = (v: number | null | undefined) =>
+  v === null || v === undefined ? 'unknown' : `$${v.toFixed(4)}`;
