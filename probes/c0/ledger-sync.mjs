@@ -2,13 +2,13 @@
 // Surface: `fw ledger sync --json` and `fw ledger show <ID> --json`, run inside a scratch git repo
 // that holds a copy of ledger/rows/, with a fresh FW_HOME; the database is read with node:sqlite.
 // Acceptance (FW-C-005 and KICKOFF Prompt 3):
-//   - all 67 row files import into ledger_rows with status open and one ledger.row_created event each
+//   - every row file of ledger/rows/ (the 67 backlog rows) imports into ledger_rows with status open and one ledger.row_created event each
 //   - the second sync is idempotent (no new rows, no new ledger.row_created events, rows unchanged)
 //   - editing the probe of an already-synced row file is refused (exit 1, the row id named), leaves
 //     ledger_rows untouched, and is recorded as a tamper event
 //   - status is never read from or written to row files: a row file carrying "status": "done" is not
 //     imported as done, and sync never modifies a row file
-import { cpSync, readFileSync, writeFileSync } from 'node:fs';
+import { cpSync, readdirSync, readFileSync, writeFileSync } from 'node:fs';
 import { join } from 'node:path';
 import {
   check,
@@ -24,7 +24,7 @@ import {
   treeHash,
 } from './_lib.mjs';
 
-const ROWS = 67;
+const ROWS = readdirSync(join(root, 'ledger/rows')).filter((n) => n.endsWith('.json')).length;
 
 function snapshot(db) {
   return JSON.stringify(db.prepare('SELECT * FROM ledger_rows ORDER BY id').all());
@@ -75,7 +75,6 @@ await probe('c0/ledger-sync', async () => {
     .prepare('SELECT type, payload FROM events WHERE seq > ?')
     .all(eventsBeforeTamper)
     .filter((e) => /tamper/i.test(e.type) || /tamper/i.test(e.payload));
-  check(tamperEvents.length >= 1, 'no tamper event was recorded for the refused probe change');
   db.close();
   check(treeHash(join(proj, 'ledger/rows')) !== rowsBefore, 'sanity: the fixture edit happened');
 
@@ -95,4 +94,9 @@ await probe('c0/ledger-sync', async () => {
   db.close();
   check(st.status === 0 || st.status === 1, `sync with a status field exited ${st.status}`);
   check(treeHash(join(proj, 'ledger/rows')) === withStatus, 'fw ledger sync modified a row file');
+
+  // Checked last so every other line is proven first. FW-C-005 asks for a tamper event; the code
+  // refuses and writes nothing (decision 19). audit.finding_raised (what a tampered probe run
+  // records) would satisfy this line without a schema change.
+  check(tamperEvents.length >= 1, 'no tamper event was recorded for the refused probe change (FW-C-005 line 2)');
 });
