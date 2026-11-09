@@ -2,6 +2,7 @@ import { type ReactNode, useState } from 'react';
 import { ApiError } from '../api/client';
 import type { Resource } from '../api/resource';
 import type { Envelope } from '../api/types';
+import { UNREACHABLE } from '../hosted/auth';
 import { age, clock, useNow } from './time';
 
 /**
@@ -63,7 +64,7 @@ export function LoadError({
   onRetry: () => void;
 }) {
   const msg =
-    error instanceof ApiError ? `fwd answered: ${error.message} (${error.code}).` : "Can't reach fwd.";
+    error instanceof ApiError ? `fwd answered: ${error.message} (${error.code}).` : `${UNREACHABLE}.`;
   return (
     <div className="callout callout-warn" role="alert">
       <p>

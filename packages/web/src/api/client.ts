@@ -4,7 +4,7 @@
  * the view models the screens use (types.ts). Screens never see wire shapes,
  * so when FW-C-018 generates the typed client only this file changes.
  */
-import { accessToken, HOSTED, signOutHosted } from '../hosted/auth';
+import { accessToken, HOSTED, signOutHosted, UNREACHABLE } from '../hosted/auth';
 import { parseUnifiedDiff, sha256Hex } from './diff';
 import type * as V from './types';
 import type * as W from './wire';
@@ -25,7 +25,7 @@ export class ApiError extends Error {
 /** fwd could not be reached at all (network error, daemon down, proxy 502). */
 export class UnreachableError extends Error {
   constructor() {
-    super("Can't reach fwd");
+    super(UNREACHABLE);
   }
 }
 

@@ -8,6 +8,8 @@
 
 const env = import.meta.env;
 export const HOSTED = env.VITE_FW_HOSTED === '1';
+/** What "the daemon is unreachable" means to the reader: on the mirror, no sync has arrived. */
+export const UNREACHABLE = HOSTED ? 'No data from your machine yet' : "Can't reach fwd";
 const URL_ = String(env.VITE_SUPABASE_URL ?? '').replace(/\/$/, '');
 const KEY = String(env.VITE_SUPABASE_ANON_KEY ?? '');
 const STORE = 'fw.hosted.session';
