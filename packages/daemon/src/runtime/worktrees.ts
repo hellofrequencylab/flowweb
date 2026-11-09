@@ -210,7 +210,7 @@ export class WorktreeManager {
       entries = await this.list();
       for (const e of entries) {
         if (active.has(e.run_id)) continue;
-        const r = await this.remove(e.run_id, { force: opts.force });
+        const r = await this.remove(e.run_id, opts.force !== undefined ? { force: opts.force } : {});
         if (r.removed) res.removed.push(e.run_id);
         else if (r.reason === 'dirty') res.skipped_dirty.push(e.run_id);
       }

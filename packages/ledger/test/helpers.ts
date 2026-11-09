@@ -94,8 +94,11 @@ export function fwHome(parent: string): string {
   return home;
 }
 
-/** Every table's rows as canonical text, for "the database did not change" checks. */
-export function dumpTables(store: Store): string {
+/**
+ * Every table's rows as canonical text, for "the database did not change" checks. With eventsUpTo,
+ * events after that seq are left out (to check that only new events were appended).
+ */
+export function dumpTables(store: Store, opts: { eventsUpTo?: number } = {}): string {
   const r = store.reader();
   const tables = r
     .all<{ name: string }>(
@@ -103,7 +106,10 @@ export function dumpTables(store: Store): string {
     )
     .map((t) => t.name);
   return tables
-    .map((t) => `${t}\n${JSON.stringify(r.all(`SELECT * FROM "${t}" ORDER BY rowid`))}`)
+    .map((t) => {
+      const upTo = t === 'events' && opts.eventsUpTo !== undefined ? ` WHERE seq <= ${opts.eventsUpTo}` : '';
+      return `${t}\n${JSON.stringify(r.all(`SELECT * FROM "${t}"${upTo} ORDER BY rowid`))}`;
+    })
     .join('\n');
 }
 

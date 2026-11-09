@@ -7,6 +7,7 @@ import { isAbsolute, join, resolve } from 'node:path';
 import { type Reader, sha256Hex } from '@fw/eventlog';
 import type { PairingStore, Principal } from '../auth.ts';
 import { isInside, RUN_ID_RE } from '../runtime/paths.ts';
+import { spendRollup } from '../spend.ts';
 import { rowIdOf } from './codes.ts';
 import {
   ApiError,
@@ -84,7 +85,8 @@ const RUN_STATUSES = [
 ] as const;
 const CARD_STATUSES = ['open', 'snoozed', 'answered', 'expired', 'withdrawn'] as const;
 const REPORT_KINDS = ['daily', 'weekly', 'on_change', 'run'] as const;
-const SPEND_GROUPS = { project: 'project_id', agent: 'agent_id', vendor: 'vendor' } as const;
+/** The groupings docs/api/LOCAL-API-V1.md lists for GET /v1/spend. */
+const API_SPEND_GROUPS = ['project', 'agent', 'vendor'] as const;
 
 type Row = Record<string, unknown>;
 
@@ -465,24 +467,11 @@ export function buildRouter(deps: ApiDeps): Router {
 
   // ---- spend and budgets ---------------------------------------------------------------------
   r.get('/v1/spend', ({ query }) => {
-    const group = oneOf(query, 'group_by', ['project', 'agent', 'vendor'] as const) ?? 'project';
-    const col = SPEND_GROUPS[group];
+    const by = oneOf(query, 'group_by', API_SPEND_GROUPS) ?? 'project';
     const from = isoParam(query, 'from') ?? null;
     const to = isoParam(query, 'to') ?? null;
     const page = pageOf(query);
-    return env(() =>
-      paged(page, (limit, offset) =>
-        reader.all<Row>(
-          `SELECT ${col} AS ${col}, ROUND(SUM(usd), 6) AS usd, SUM(tokens_in) AS tokens_in,
-                  SUM(tokens_out) AS tokens_out, SUM(tokens_cached) AS tokens_cached, COUNT(*) AS entries,
-                  MIN(ts) AS first_ts, MAX(ts) AS last_ts
-             FROM spend_entries
-            WHERE (@from IS NULL OR ts >= @from) AND (@to IS NULL OR ts < @to)
-            GROUP BY ${col} ORDER BY usd DESC, ${col} LIMIT @limit OFFSET @offset`,
-          { from, to, limit, offset },
-        ),
-      ),
-    );
+    return env(() => paged(page, (limit, offset) => spendRollup(reader, { by, from, to, limit, offset })));
   });
 
   r.get('/v1/budgets', ({ query }) => {

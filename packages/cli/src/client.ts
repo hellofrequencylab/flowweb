@@ -45,6 +45,7 @@ export interface SyncRefusal {
   stored_hash?: string;
   file_hash?: string;
   cycle?: string[];
+  finding_id?: string;
 }
 
 export interface SyncReport {
@@ -142,6 +143,8 @@ export interface RunStartReport {
   status: string;
   failure_class: string | null;
   reason: string | null;
+  /** The error code when a policy refused the run's change (for example DIFF_POLICY), else null. */
+  policy_code: string | null;
   row_status: string;
   work_order_id: string | null;
   branch: string | null;
@@ -190,6 +193,60 @@ export interface RunDetail extends RunSummary {
   events: { seq: number; ts: string; type: string; payload: Record<string, unknown> }[];
 }
 
+/** The spend rollup groupings `fw spend --by` accepts. */
+export const SPEND_GROUPS = ['agent', 'run', 'vendor', 'day', 'project'] as const;
+export type SpendGroup = (typeof SPEND_GROUPS)[number];
+
+/**
+ * One group of the spend rollup (the same query as `GET /v1/spend`). The key column is named after
+ * the group: agent_id, run_id, vendor, day or project_id. `usd` is null when the group has no spend
+ * entries; `unknown_runs` counts the group's runs with no spend recorded (cost unknown, never 0).
+ */
+export interface SpendGroupRow {
+  [key: string]: string | number | null | undefined;
+  usd: number | null;
+  tokens_in: number;
+  tokens_out: number;
+  tokens_cached: number;
+  entries: number;
+  first_ts: string | null;
+  last_ts: string | null;
+  unknown_runs?: number;
+}
+
+export type ControlLevel = 'enforced' | 'best_effort' | 'absent';
+
+/** `fw doctor`: the sandbox self-test a run would get, in this home. */
+export interface DoctorReport {
+  home: string;
+  sandbox: {
+    run_id: string;
+    mode: string;
+    platform: string;
+    /** The weakest level across all controls. */
+    level: ControlLevel;
+    controls: Record<string, { level: ControlLevel; detail: string }>;
+    child_env_keys: string[];
+    notes: string[];
+    checked_at: string;
+  };
+}
+
+export interface GcEntry {
+  run_id: string;
+  path: string;
+  /** null when the database has no such run. */
+  status: string | null;
+}
+
+/** `fw gc`: run directories removed (terminal or unknown runs) and kept (active runs). */
+export interface GcReport {
+  home: string;
+  removed: GcEntry[];
+  kept: GcEntry[];
+  skipped: { name: string; reason: string }[];
+}
+
 export interface CoreClient {
   ledgerSync(opts?: { rowsDir?: string }): Promise<SyncReport>;
   ledgerList(opts?: { status?: string; lane?: string }): Promise<RowView[]>;
@@ -203,6 +260,11 @@ export interface CoreClient {
   runStart?(code: string, opts?: RunStartOptions): Promise<RunStartReport>;
   runList?(opts?: { status?: string; limit?: number }): Promise<RunSummary[]>;
   runShow?(runId: string): Promise<RunDetail>;
+  /** Spend rollup: optional, served by the provider that reads spend_entries (the daemon). */
+  spendRollup?(opts: { by: SpendGroup }): Promise<SpendGroupRow[]>;
+  /** Maintenance commands: optional for the same reason (the sandbox lives in the daemon). */
+  doctor?(): Promise<DoctorReport>;
+  gc?(): Promise<GcReport>;
   close(): void;
 }
 
