@@ -1,5 +1,5 @@
 import { expect, test } from 'vitest';
-import { PACKAGE } from '../src/index.ts';
+import { PACKAGE } from '../src/index';
 
 test('@fw/web resolves', () => {
   expect(PACKAGE).toBe('@fw/web');

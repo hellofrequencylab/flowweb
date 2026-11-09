@@ -1,0 +1,509 @@
+/**
+ * View models the web UI reads from fwd's local API (/api/v1).
+ *
+ * These are the shapes the screens need. Where a field mirrors a contract in
+ * packages/contracts/json-schema (decision-card, evidence-bundle, ledger-row,
+ * run-result, approval-response, event-envelope), it keeps that contract's
+ * name and enum values. When FW-C-018 generates the typed client from
+ * openapi.json, this file is replaced by the generated types and any
+ * difference is a bug in one or the other. See API.md.
+ *
+ * Rule: every response carries `data_as_of` (when fwd read it from the
+ * database). The UI never shows a value without knowing its age.
+ */
+
+export type Iso = string; // RFC 3339 timestamp
+export type Sha256 = string;
+export type GitSha = string;
+export type Vendor = 'anthropic' | 'openai' | 'google' | 'local' | 'other';
+
+export interface Envelope {
+  data_as_of: Iso;
+}
+
+/* ---------- session ---------- */
+
+export interface Session {
+  paired_at: Iso;
+  device_label?: string | null;
+}
+
+/* ---------- status (the strip, banners, global state) ---------- */
+
+export type KillState = 'ready' | 'stopping' | 'stopped';
+export type SandboxEgress = 'enforced' | 'best_effort' | 'none';
+
+export interface Status extends Envelope {
+  kill_switch: {
+    state: KillState;
+    engaged_at?: Iso;
+    engaged_by?: 'owner' | 'system';
+    runs_halted?: number;
+    runs_to_halt?: number;
+    keys_revoked?: boolean;
+  };
+  cards_open: number;
+  running_runs: number;
+  oldest_card_created_at?: Iso;
+  /** Missing when fwd does not report it yet: shown as Unknown, never as $0. */
+  spend_today?: SpendToday;
+  breaker?: { tripped: boolean; reason?: string };
+  paused_by_budget?: boolean;
+  sandbox_egress: SandboxEgress;
+  integrity: Integrity;
+  /** Last event sequence number fwd has written. */
+  last_seq: number;
+  version: string;
+}
+
+export interface SpendToday {
+  usd: number;
+  cap_usd: number;
+  vendors_reporting: string[];
+  /** Unknown when fwd does not say how many vendors are configured. */
+  vendors_configured?: string[];
+  forecast_usd?: number;
+  estimated: boolean;
+}
+
+export interface Integrity {
+  ok: boolean;
+  verified_up_to_seq: number;
+  checked_at: Iso;
+  failed_at_seq?: number | null;
+}
+
+/* ---------- Dawn Log ---------- */
+
+export interface DawnLog extends Envelope {
+  /** null when no digest exists yet, or it failed its own check: the screen shows live counts, labelled. */
+  digest: {
+    id: string;
+    produced_at: Iso;
+    since: Iso;
+    self_check_ok: boolean;
+    failed_query_ids: string[];
+    headline: string;
+  } | null;
+  since: Iso;
+  rows_done: LandedRow[];
+  rows_watching: LandedRow[];
+  runs: { succeeded: number; failed: number; halted: number; total: number };
+}
+
+export interface LandedRow {
+  row_id: string; // human id, e.g. "FW-C-019"
+  ledger_row_id: string; // lr_...
+  title: string;
+  merged_sha: GitSha;
+  probe_result_id?: string;
+  probe_status: ProbeStatus;
+  probe_at?: Iso;
+}
+
+/* ---------- Captain's Table ---------- */
+
+export type CardVariant = 'approve' | 'choose' | 'answer' | 'review' | 'unblock';
+export type Urgency = 'now' | 'today' | 'this_week' | 'whenever';
+export type AutonomyTier = 'L0' | 'L1' | 'L2' | 'L3' | 'L4' | 'L5';
+
+/** Lifecycle of a card as fwd sees it. */
+export type CardState =
+  | 'open'
+  | 'approving' // response posted, waiting for fwd to confirm
+  | 'approved'
+  | 'denied'
+  | 'answered'
+  | 'snoozed'
+  | 'expired'
+  | 'withdrawn'
+  | 'stale'; // head moved after the card was raised
+
+export interface CardSummary {
+  id: string;
+  variant: CardVariant;
+  title: string;
+  project_name?: string;
+  row_id?: string;
+  created_at: Iso;
+  deadline_at?: Iso;
+  urgency: Urgency;
+  state: CardState;
+}
+
+export interface CardList extends Envelope {
+  cards: CardSummary[];
+}
+
+interface CardBase {
+  id: string;
+  variant: CardVariant;
+  state: CardState;
+  title: string;
+  ask: string;
+  urgency: Urgency;
+  /** From the routing policy; null until fwd reports it (C1). */
+  autonomy_tier: string | null;
+  project_id: string | null;
+  project_name?: string;
+  row_id?: string;
+  asked_by?: 'verifier' | 'chief_of_staff' | 'worker' | 'system';
+  created_at: Iso;
+  deadline_at?: Iso;
+  default_on_timeout: string;
+  evidence_bundle_id?: string;
+  /** Which policy rule sent this to the Owner; null until fwd reports it (C1). */
+  why: { rule_id: string; text: string } | null;
+  resolution?: {
+    at: Iso;
+    by: 'owner' | 'system';
+    decision: string;
+    reason?: string;
+  };
+  snoozed_until?: Iso;
+}
+
+export interface ApproveCard extends CardBase {
+  variant: 'approve';
+  approval_id: string;
+  headline: string;
+  payload_preview: {
+    format: 'diff' | 'text' | 'email' | 'sql' | 'invite';
+    excerpt?: string;
+    full_ref: string;
+    payload_hash: Sha256;
+  };
+  head_sha: GitSha | null;
+  expires_at?: Iso;
+  /** The PR head fwd sees now. Differs from head_sha when the agent pushed again. */
+  current_head_sha?: GitSha;
+  head_observed_at?: Iso;
+  pr?: { url: string; number: number };
+  replacement_card_id?: string;
+  risk: {
+    blast_radius: string;
+    reversible: boolean;
+    rollback_tested?: boolean;
+    scan_status: 'green' | 'warn';
+  };
+  cost_usd?: number | null;
+  files?: DiffFileStat[];
+  merge_slot?: { held: boolean; expires_at?: Iso | null } | null;
+}
+
+export interface ChooseCard extends CardBase {
+  variant: 'choose';
+  options: {
+    id: string;
+    label: string;
+    consequence: string;
+    cost_usd?: number;
+    reversible?: boolean;
+  }[];
+  recommended_option: string;
+  recommendation_reason: string;
+}
+
+export interface AnswerCard extends CardBase {
+  variant: 'answer';
+  question: string;
+  answer_type: 'text' | 'number' | 'date' | 'yes_no' | 'choice';
+  constraints?: { min?: number; max?: number; max_length?: number; choices?: string[] };
+  suggested_answer?: string;
+  basis_gap?: string;
+}
+
+export interface ReviewCard extends CardBase {
+  variant: 'review';
+  artifact: { kind: string; ref: string; title?: string };
+  verifier_summary?: string;
+}
+
+export interface UnblockCard extends CardBase {
+  variant: 'unblock';
+  blocker: { kind: string; description: string; since: Iso };
+  suggested_actions: { id: string; label: string; consequence?: string }[];
+}
+
+export type DecisionCard = ApproveCard | ChooseCard | AnswerCard | ReviewCard | UnblockCard;
+
+export interface CardDetail extends Envelope {
+  card: DecisionCard;
+}
+
+export interface DiffFileStat {
+  path: string;
+  added: number;
+  removed: number;
+}
+
+export type CheckStatus = 'pass' | 'fail' | 'warn' | 'skipped' | 'pending';
+export interface CheckSummary {
+  name: string;
+  kind: string;
+  status: CheckStatus;
+}
+
+export type ReasonCode = 'wrong_approach' | 'not_now' | 'too_risky' | 'needs_test' | 'other';
+
+/** POST /api/v1/cards/:id/respond. Mirrors approval-response.json for approve cards. */
+export type CardResponse =
+  | { decision: 'approved'; payload_hash: Sha256; head_sha: GitSha }
+  | { decision: 'denied'; payload_hash?: Sha256; reason_code: ReasonCode; comment?: string }
+  | { decision: 'changes_requested'; comment: string }
+  | { decision: 'chosen'; option_id: string }
+  | { decision: 'answered'; answer: string | null; used_default?: boolean; dont_know?: boolean }
+  | { decision: 'action'; action_id: string }
+  | { decision: 'snoozed'; until: Iso };
+
+/* ---------- Evidence ---------- */
+
+export interface Evidence extends Envelope {
+  bundle_id: string;
+  bundle_hash: Sha256;
+  payload_hash: Sha256;
+  diff_hash?: Sha256;
+  subject: { kind: string; ref: string; sha?: GitSha | null };
+  captured_by: 'ci_sandbox' | 'kernel';
+  scan_red: boolean;
+  checks: {
+    name: string;
+    kind: string;
+    status: Exclude<CheckStatus, 'pending'>;
+    ran_at: Iso;
+    summary?: string;
+    artifact_ref?: string;
+  }[];
+  independent_check?: {
+    vendor: string;
+    verdict: 'concur' | 'concerns' | 'reject';
+    summary?: string;
+    findings_ref?: string;
+    same_vendor_review: boolean;
+  };
+  blast_radius: {
+    summary: string;
+    affected: string[];
+    reversible: boolean;
+    rollback_plan: string;
+    rollback_tested: boolean;
+  };
+  files: DiffFileStat[];
+  tests_removed_or_skipped: string[];
+  probe: { exit_code: number; tail: string; duration_ms: number; output_ref?: string } | null;
+  cost: { usd?: number; input_tokens?: number; output_tokens?: number; estimated: boolean };
+  sandbox?: { level: SandboxEgress; controls: string[] };
+  adapter?: { name: string; version: string };
+  screenshots: { ref: string; viewport: string; label: string }[];
+  not_verified: string[];
+}
+
+export interface ParsedDiff extends Envelope {
+  /** sha256 of the raw bytes, computed in the browser. */
+  sha256: Sha256;
+  files: DiffFile[];
+}
+
+export interface DiffFile {
+  path: string;
+  status: 'added' | 'modified' | 'deleted' | 'renamed';
+  /** n is the line's position in the raw diff, a stable key. */
+  hunks: { header: string; n: number; lines: { n: number; op: '+' | '-' | ' '; text: string }[] }[];
+}
+
+/* ---------- Projects, ledger ---------- */
+
+export interface Project {
+  id: string;
+  name: string;
+  repo: string | null;
+  status: 'active' | 'paused' | 'archived';
+  rows_open?: number;
+  rows_in_progress?: number;
+  rows_waiting_on_owner?: number;
+  last_run_at?: Iso | null;
+}
+
+export interface ProjectList extends Envelope {
+  projects: Project[];
+}
+
+/** Mirrors ledger-row.json status enum, plus the UI split of watching vs done. */
+export type RowStatus =
+  | 'open'
+  | 'ready'
+  | 'claimed'
+  | 'running'
+  | 'verifying'
+  | 'awaiting_approval'
+  | 'merging'
+  | 'watching'
+  | 'done'
+  | 'blocked'
+  | 'parked'
+  | 'regressed';
+
+export type ProbeStatus = 'never' | 'pass' | 'fail' | 'error';
+
+export interface RowSummary {
+  ledger_row_id: string;
+  row_id: string;
+  title: string;
+  status: RowStatus;
+  blocked_reason?: string | null;
+  priority: 'P0' | 'P1' | 'P2' | 'P3';
+  lane: string;
+  depends_on: string[];
+  last_probe: {
+    status: ProbeStatus;
+    at?: Iso | null;
+    target_kind?: 'branch' | 'merged' | 'deployed' | 'external' | null;
+  };
+  last_run_id?: string | null;
+  evidence_bundle_id?: string | null;
+  updated_at: Iso;
+}
+
+export interface RowList extends Envelope {
+  rows: RowSummary[];
+}
+
+export interface RowDetail extends Envelope {
+  row: RowSummary & {
+    description?: string;
+    size: string;
+    probe: {
+      kind: string;
+      measures: string;
+      command: string;
+      runs_against: string;
+      content_hash: Sha256;
+    };
+    last_probe_detail?: {
+      status: ProbeStatus;
+      sha?: GitSha | null;
+      at?: Iso | null;
+      output_ref?: string | null;
+    };
+    premise?: { retested_at: Iso; still_valid: boolean | null };
+    acceptance?: { text: string; last_result: ProbeStatus; at?: Iso | null }[];
+    merged_sha?: GitSha | null;
+  };
+  evidence: { id: string; created_at: Iso; scan_red: boolean }[];
+  runs: RunSummary[];
+}
+
+/* ---------- Runs ---------- */
+
+export type RunStatus =
+  | 'queued'
+  | 'starting'
+  | 'running'
+  | 'paused'
+  | 'checking'
+  | 'finished_unchecked'
+  | 'artifact_verified'
+  | 'claimed_unverified'
+  | 'failed'
+  | 'timed_out'
+  | 'halted'
+  | 'cancelled';
+
+export interface RunSummary {
+  run_id: string;
+  row_id?: string;
+  role?: 'worker' | 'verifier' | 'chief_of_staff' | 'program_lead';
+  vendor: Vendor;
+  adapter: string;
+  status: RunStatus;
+  started_at?: Iso;
+  ended_at?: Iso;
+  /** Last heartbeat from the agent process. "running" is only shown while this is fresh. */
+  heartbeat_at?: Iso | null;
+  cost_usd: number;
+  cost_estimated: boolean;
+  sandbox: SandboxEgress;
+}
+
+export interface RunList extends Envelope {
+  runs: RunSummary[];
+}
+
+export interface RunDetail extends Envelope {
+  run: RunSummary & {
+    exit_code?: number | null;
+    failure_class?: string | null;
+    input_tokens: number;
+    output_tokens: number;
+    turns: number;
+    tool_version?: string | null;
+    model?: string;
+    branch?: string | null;
+    summary?: string;
+  };
+  artifacts_verified: { kind: string; ref: string; sha?: string | null; verified_at?: string | null }[];
+  artifacts_claimed: { id: string; kind?: string; claim: string; ref?: string }[];
+  verifier?: {
+    verdict: 'concur' | 'concerns' | 'reject';
+    vendor: string;
+    summary: string;
+    same_vendor_review: boolean;
+  } | null;
+}
+
+export interface RunSteps extends Envelope {
+  steps: {
+    id: string;
+    seq: number;
+    kind: string;
+    label: string;
+    at: Iso;
+    ended_at?: Iso | null;
+    excerpt?: string;
+    blocked_by_policy?: string | null;
+    external_text: boolean;
+    cost_usd: number;
+  }[];
+}
+
+export interface EventList extends Envelope {
+  events: EventItem[];
+}
+
+/* ---------- Spend ---------- */
+
+export interface Spend extends Envelope {
+  today?: SpendToday;
+  by_day: { day: string; usd: number }[];
+  by_project: { key: string; label: string; usd: number }[];
+  by_vendor: { key: string; label: string; usd: number }[];
+  refused: { seq: number; at: Iso; type: string; summary: string }[];
+  breaker?: {
+    tripped: boolean;
+    reason?: string | null;
+    daily_usd: number | null;
+    velocity_usd_per_hour: number | null;
+  };
+}
+
+/* ---------- Settings / policy ---------- */
+
+export interface PolicyFile extends Envelope {
+  path: string;
+  commit: GitSha;
+  sha256: Sha256;
+  text: string;
+}
+
+/* ---------- Events ---------- */
+
+export interface EventItem {
+  seq: number;
+  ts: Iso;
+  type: string;
+  actor: string;
+  summary: string;
+}
+
+/** Resources a live event can invalidate. Derived from the event type in live.tsx. */
+export type Topic = 'status' | 'cards' | 'dawn' | 'rows' | 'runs' | 'spend';

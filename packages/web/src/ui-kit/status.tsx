@@ -1,0 +1,118 @@
+import type { CheckStatus, ProbeStatus, RowStatus, RunStatus } from '../api/types';
+import { Icon, type IconName } from './Icon';
+import { clock } from './time';
+
+export type Tone = 'ok' | 'fail' | 'warn' | 'unknown' | 'neutral' | 'attention';
+
+export interface StatusSpec {
+  word: string;
+  tone: Tone;
+  icon: IconName;
+}
+
+/** A status is always a shape and a word. Colour only reinforces. */
+export function StatusLabel({ spec, detail }: { spec: StatusSpec; detail?: string }) {
+  return (
+    <span className={`status status-${spec.tone}`}>
+      <Icon name={spec.icon} />
+      <span>{spec.word}</span>
+      {detail && <span className="muted">· {detail}</span>}
+    </span>
+  );
+}
+
+export const ROW_STATUS: Record<RowStatus, StatusSpec> = {
+  open: { word: 'Open', tone: 'neutral', icon: 'open' },
+  ready: { word: 'Ready', tone: 'neutral', icon: 'open' },
+  claimed: { word: 'Claimed', tone: 'neutral', icon: 'dot' },
+  running: { word: 'Running', tone: 'neutral', icon: 'running' },
+  verifying: { word: 'Verifying', tone: 'neutral', icon: 'clock' },
+  awaiting_approval: { word: 'Waiting for you', tone: 'attention', icon: 'waiting' },
+  merging: { word: 'Merging', tone: 'neutral', icon: 'running' },
+  watching: { word: 'Merged, watching (not verified)', tone: 'unknown', icon: 'notverified' },
+  done: { word: 'Done (verified)', tone: 'ok', icon: 'pass' },
+  blocked: { word: 'Blocked', tone: 'warn', icon: 'blocked' },
+  parked: { word: 'Parked', tone: 'neutral', icon: 'paused' },
+  regressed: { word: 'Regressed', tone: 'fail', icon: 'fail' },
+};
+
+/**
+ * "Running" is only true while the agent's heartbeat is fresh. Without one the
+ * UI says when it last heard from it.
+ */
+export function runStatusSpec(
+  status: RunStatus,
+  heartbeatAt?: string,
+  now = Date.now(),
+): StatusSpec & { detail?: string } {
+  switch (status) {
+    case 'queued':
+      return { word: 'Queued', tone: 'neutral', icon: 'clock' };
+    case 'starting':
+      return { word: 'Starting', tone: 'neutral', icon: 'clock' };
+    case 'running': {
+      // Agreed with Core: Running only while the lease heartbeat is under 120 s old.
+      const fresh = heartbeatAt && now - new Date(heartbeatAt).getTime() < 120_000;
+      if (fresh) return { word: 'Running', tone: 'neutral', icon: 'running' };
+      return {
+        word: heartbeatAt ? `No signal since ${clock(heartbeatAt)}` : 'No signal',
+        tone: 'unknown',
+        icon: 'unknown',
+      };
+    }
+    case 'paused':
+      return { word: 'Paused', tone: 'neutral', icon: 'paused' };
+    case 'checking':
+      return { word: 'Checking', tone: 'neutral', icon: 'clock' };
+    case 'finished_unchecked':
+      return { word: 'Finished, not checked', tone: 'unknown', icon: 'notverified' };
+    case 'artifact_verified':
+      return { word: 'Artifact verified', tone: 'ok', icon: 'pass' };
+    case 'claimed_unverified':
+      return { word: 'Claimed done, not verified', tone: 'unknown', icon: 'notverified' };
+    case 'failed':
+      return { word: 'Failed', tone: 'fail', icon: 'fail' };
+    case 'timed_out':
+      return { word: 'Timed out', tone: 'fail', icon: 'clock' };
+    case 'halted':
+      return { word: 'Halted by you', tone: 'neutral', icon: 'stopped' };
+    case 'cancelled':
+      return { word: 'Cancelled', tone: 'neutral', icon: 'skipped' };
+  }
+}
+
+export const CHECK_STATUS: Record<CheckStatus, StatusSpec> = {
+  pass: { word: 'Pass', tone: 'ok', icon: 'pass' },
+  fail: { word: 'Fail', tone: 'fail', icon: 'fail' },
+  warn: { word: 'Warning', tone: 'warn', icon: 'warn' },
+  // Skipped is never a pass.
+  skipped: { word: 'Skipped, not verified', tone: 'unknown', icon: 'notverified' },
+  pending: { word: 'Loading', tone: 'unknown', icon: 'clock' },
+};
+
+export const PROBE_STATUS: Record<ProbeStatus, StatusSpec> = {
+  pass: { word: 'Pass', tone: 'ok', icon: 'pass' },
+  fail: { word: 'Fail', tone: 'fail', icon: 'fail' },
+  error: { word: 'Error', tone: 'warn', icon: 'warn' },
+  never: { word: 'Not verified (never ran)', tone: 'unknown', icon: 'notverified' },
+};
+
+/** A probe pass on a branch is not a pass on the merged code. */
+export function probeSpec(status: ProbeStatus, target?: string): StatusSpec {
+  if (status === 'pass' && target && target !== 'merged' && target !== 'deployed') {
+    return { word: `Pass on ${target}, not verified on merged code`, tone: 'unknown', icon: 'notverified' };
+  }
+  return PROBE_STATUS[status];
+}
+
+export const VERDICT: Record<'concur' | 'concerns' | 'reject', StatusSpec> = {
+  concur: { word: 'Agrees', tone: 'ok', icon: 'pass' },
+  concerns: { word: 'Concerns', tone: 'warn', icon: 'warn' },
+  reject: { word: 'Rejects', tone: 'fail', icon: 'fail' },
+};
+
+export const SANDBOX: Record<'enforced' | 'best_effort' | 'none', StatusSpec> = {
+  enforced: { word: 'Egress enforced', tone: 'ok', icon: 'lock' },
+  best_effort: { word: 'Egress best effort', tone: 'warn', icon: 'warn' },
+  none: { word: 'No sandbox egress control', tone: 'fail', icon: 'fail' },
+};
