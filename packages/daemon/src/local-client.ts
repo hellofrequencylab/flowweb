@@ -78,6 +78,8 @@ export function createCoreClient(opts: LocalClientOptions): DaemonCoreClient {
     ledgerClose: viaLedger(ledger.ledgerClose),
     woIssue: viaLedger(ledger.woIssue),
     auditVerify: viaLedger(ledger.auditVerify),
+    streamAdd: viaLedger(ledger.streamAdd),
+    streamList: viaLedger(ledger.streamList),
     async runStart(code, o = {}) {
       return runStart(open(true).writer!, code, {
         home,

@@ -1,9 +1,15 @@
 // FW-C-006: router, --json, exit codes, help. Runs main() in-process against a fake CoreClient.
+import { mkdtempSync, writeFileSync } from 'node:fs';
+import { tmpdir } from 'node:os';
+import { join } from 'node:path';
 import { describe, expect, test } from 'vitest';
 import type { CoreClient, CoreClientFactory } from '../src/client.ts';
 import { COMMANDS, EXIT, helpText, type Io, invocationCwd, main } from '../src/index.ts';
 
 const SHA = 'a'.repeat(40);
+/** A file for options that name one (`fw stream add -f`). */
+const SAMPLE_FILE = join(mkdtempSync(join(tmpdir(), 'fw-cli-main-')), 'sample.json');
+writeFileSync(SAMPLE_FILE, '{}');
 
 function fakeClient(overrides: Partial<CoreClient> = {}): CoreClient {
   const view = {
@@ -116,6 +122,8 @@ function fakeClient(overrides: Partial<CoreClient> = {}): CoreClient {
     }),
     spendRollup: async ({ by }) => (by === 'agent' ? spendByAgent : []),
     doctor: async () => doctorReport,
+    streamAdd: async () => ({ stream: {} as never, approval_id: null, event_seq: 1 }),
+    streamList: async () => [],
     gc: async () => ({
       home: '/h',
       removed: [{ run_id: 'run_done', path: '/h/runs/run_done', status: 'succeeded' }],
@@ -184,7 +192,11 @@ function run(argv: string[], client: CoreClient = fakeClient()) {
 
 const sampleArgs = (path: string[]) => {
   const c = COMMANDS.find((x) => x.path.join(' ') === path.join(' '))!;
-  return [...c.path, ...c.args.map(() => 'FW-C-001'), ...(c.required ?? []).flatMap((o) => [`--${o}`, SHA])];
+  return [
+    ...c.path,
+    ...c.args.map(() => 'FW-C-001'),
+    ...(c.required ?? []).flatMap((o) => [`--${o}`, o === 'file' ? SAMPLE_FILE : SHA]),
+  ];
 };
 
 describe('help', () => {

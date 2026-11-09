@@ -35,11 +35,13 @@ const USAGE_CODES = new Set(['BAD_ARGUMENT', 'USAGE']);
  *   SIZE_NOT_DISPATCHABLE  the core policy size table has no caps for the row's size (XL)
  *   SELF_VERIFY            the same agent was named as doer and verifier
  *   DIFF_POLICY            the run's change broke the diff policy (out of scope or a Tier 0 path)
+ *   APPROVAL_REQUIRED      a stream tier above L2 named no recorded Owner approval
  */
 export const POLICY_CODES: ReadonlySet<string> = new Set([
   'SIZE_NOT_DISPATCHABLE',
   'SELF_VERIFY',
   'DIFF_POLICY',
+  'APPROVAL_REQUIRED',
 ]);
 
 export interface CliError {
