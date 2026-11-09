@@ -1,0 +1,35 @@
+{
+  "id": "WS-P0-039",
+  "title": "Done only when the ledger sees an artifact",
+  "core_milestone": "C0",
+  "phase": 0,
+  "epic": "E0.7 Diff-policy and evidence",
+  "priority": "P0",
+  "size": "S",
+  "lane": "kernel",
+  "agent_suitability": "agent",
+  "gate": "none",
+  "depends_on": [
+    "WS-P0-036",
+    "WS-P0-016"
+  ],
+  "description": "A Run may only complete a row when an artifact pointer (PR URL plus head SHA) is verified to exist on the git host; \"Completed\" text alone never advances status.",
+  "acceptance": [
+    "Run with claimed success and no PR leaves the row in verifying with a flagged event",
+    "PR pointer is re-fetched and head SHA compared",
+    "Test covers an agent that fabricates a PR URL"
+  ],
+  "verify_probe": "pnpm probe kernel/artifact-required",
+  "files_hint": [
+    "packages/ledger/src/artifact-guard.ts"
+  ],
+  "origin": "full-plan row, included",
+  "core_adaptation": "Mirrors the SQL rule that a run succeeds only with a kernel-verified run_artifacts row.",
+  "full_depends_on": [
+    "WS-P0-036",
+    "WS-P0-016"
+  ],
+  "full_files_hint": [
+    "packages/ledger/src/artifact-guard.ts"
+  ]
+}

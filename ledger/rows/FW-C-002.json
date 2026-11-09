@@ -1,0 +1,34 @@
+{
+  "id": "FW-C-002",
+  "title": "Vendor the Core contracts into @fw/contracts",
+  "core_milestone": "C0",
+  "phase": 0,
+  "epic": "C0.2 Schemas and storage",
+  "priority": "P0",
+  "size": "M",
+  "lane": "kernel",
+  "agent_suitability": "agent",
+  "gate": "none",
+  "depends_on": [
+    "FW-C-001"
+  ],
+  "description": "Copy contracts-core/json-schema into packages/contracts, generate TypeScript types and Ajv validators, test the 17 valid and 4 invalid examples, and pin the copy with SCHEMA-SNAPSHOT.sha256 so schema drift is a Tier 0 change.",
+  "acceptance": [
+    "All 17 schema files compile under Ajv 2020-12, the 17 valid examples pass and the 4 invalid examples are rejected",
+    "Generated types are committed and pnpm -r typecheck fails if they drift from the schemas",
+    "A schema edit without a matching SCHEMA-SNAPSHOT.sha256 update fails CI"
+  ],
+  "verify_probe": "pnpm probe kernel/contracts-core",
+  "files_hint": [
+    "packages/contracts/json-schema/",
+    "packages/contracts/src/",
+    "packages/contracts/SCHEMA-SNAPSHOT.sha256"
+  ],
+  "origin": "new Core row",
+  "derived_from": [
+    "WS-P0-010",
+    "WS-P0-011",
+    "WS-P0-012",
+    "WS-P0-013"
+  ]
+}

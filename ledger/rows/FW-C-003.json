@@ -1,0 +1,31 @@
+{
+  "id": "FW-C-003",
+  "title": "Apply schema.core.sql with a forward-only migration runner",
+  "core_milestone": "C0",
+  "phase": 0,
+  "epic": "C0.2 Schemas and storage",
+  "priority": "P0",
+  "size": "M",
+  "lane": "kernel",
+  "agent_suitability": "agent",
+  "gate": "none",
+  "depends_on": [
+    "FW-C-001"
+  ],
+  "description": "Ship schema.core.sql as migration 0001, a forward-only runner on better-sqlite3 (WAL, foreign_keys ON for every connection, busy_timeout), and run the 54 behaviour tests in CI.",
+  "acceptance": [
+    "A fresh database created by the runner passes tests/schema_core_test.py (54 of 54)",
+    "The store port cannot hand out a connection with foreign_keys off (test)",
+    "The runner refuses a migration whose file hash differs from the one recorded when it was applied"
+  ],
+  "verify_probe": "pnpm probe kernel/schema-core",
+  "files_hint": [
+    "packages/contracts/sql/0001_core.sql",
+    "packages/eventlog/src/store.ts",
+    "tests/schema_core_test.py"
+  ],
+  "origin": "new Core row",
+  "derived_from": [
+    "WS-P0-015"
+  ]
+}

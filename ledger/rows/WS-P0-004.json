@@ -1,0 +1,34 @@
+{
+  "id": "WS-P0-004",
+  "title": "CI skeleton: lint, typecheck, unit, probe-immutability",
+  "core_milestone": "C0",
+  "phase": 0,
+  "epic": "E0.1 Repo and guardrails",
+  "priority": "P0",
+  "size": "S",
+  "lane": "devex",
+  "agent_suitability": "agent",
+  "gate": "none",
+  "depends_on": [
+    "FW-C-001"
+  ],
+  "description": "Add ci.yml with install, lint, typecheck, unit tests and a job that fails if probes/ or Tier 0 paths changed in a PR without a human approval label.",
+  "acceptance": [
+    "A PR with a type error fails CI",
+    "A PR that edits a file under probes/ from an agent identity fails CI",
+    "CI runtime on an empty change is under 4 minutes"
+  ],
+  "verify_probe": "pnpm probe devex/ci-skeleton",
+  "files_hint": [
+    ".github/workflows/ci.yml",
+    "scripts/check-tier0.mjs"
+  ],
+  "origin": "full-plan row, included",
+  "full_depends_on": [
+    "WS-P0-001"
+  ],
+  "full_files_hint": [
+    ".github/workflows/ci.yml",
+    "scripts/check-tier0.mjs"
+  ]
+}

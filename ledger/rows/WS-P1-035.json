@@ -1,0 +1,37 @@
+{
+  "id": "WS-P1-035",
+  "title": "Dev-from-backlog stream template",
+  "core_milestone": "C1",
+  "phase": 1,
+  "epic": "E1.1 Daemon, streams, scheduler, reconciler",
+  "priority": "P0",
+  "size": "M",
+  "lane": "workstreams",
+  "agent_suitability": "agent",
+  "gate": "none",
+  "depends_on": [
+    "WS-P1-003",
+    "WS-P0-040",
+    "FW-C-014",
+    "FW-C-011"
+  ],
+  "description": "Ship the first stream template (FR-TPL-001, first entry of FR-STR-004): pick the next ready ledger row, compile a Work Order, run it at the configured tier, open a PR. The template library framework arrives in WS-P3-001.",
+  "acceptance": [
+    "fw stream add -f with this template creates a stream that picks the next ready row",
+    "A run produces a PR and an evidence bundle on a fixture repo",
+    "The template contains no vendor names"
+  ],
+  "verify_probe": "pnpm probe workstreams/dev-template",
+  "files_hint": [
+    "packages/daemon/src/streams/src/templates/dev-from-backlog.ts"
+  ],
+  "origin": "full-plan row, included",
+  "core_adaptation": "This is the dev-from-backlog workstream of Core; WIP limit 2 per project.",
+  "full_depends_on": [
+    "WS-P1-003",
+    "WS-P0-040"
+  ],
+  "full_files_hint": [
+    "packages/streams/src/templates/dev-from-backlog.ts"
+  ]
+}

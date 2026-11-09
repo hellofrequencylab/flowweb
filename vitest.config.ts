@@ -1,2 +1,2 @@
 import { defineConfig } from 'vitest/config';
-export default defineConfig({ test: { include: ['packages/*/test/**/*.test.ts'], testTimeout: 30000 } });
+export default defineConfig({ test: { include: ['packages/*/test/**/*.test.ts'], exclude: ['**/node_modules/**', '.claude/**'], testTimeout: 30000 } });

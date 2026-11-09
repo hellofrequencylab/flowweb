@@ -1,0 +1,33 @@
+{
+  "id": "FW-C-019",
+  "title": "Web shell: pairing, status strip, kill button, PWA manifest",
+  "core_milestone": "C2",
+  "phase": 4,
+  "epic": "C2.1 API and shell",
+  "priority": "P0",
+  "size": "M",
+  "lane": "ui",
+  "agent_suitability": "agent",
+  "gate": "none",
+  "depends_on": [
+    "FW-C-018"
+  ],
+  "description": "A Vite and React static bundle served by fwd. A pairing code printed in the terminal creates an httpOnly session; responsive at 360, 768 and 1280; light and dark from tokens with no hard-coded colours; an installable manifest (no offline writes); a persistent status strip with last-updated time and a Kill switch button.",
+  "acceptance": [
+    "An unpaired browser sees only the pairing screen",
+    "The installability check passes on loopback",
+    "The kill button engages the switch through the API and the strip shows halted only after the daemon confirms"
+  ],
+  "verify_probe": "pnpm probe ui/web-shell",
+  "files_hint": [
+    "packages/web/src/shell/",
+    "packages/web/public/manifest.webmanifest"
+  ],
+  "origin": "new Core row",
+  "derived_from": [
+    "WS-P4-001",
+    "WS-P4-002",
+    "WS-P4-006",
+    "WS-P4-026"
+  ]
+}

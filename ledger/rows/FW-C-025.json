@@ -1,0 +1,35 @@
+{
+  "id": "FW-C-025",
+  "title": "Projects, ledger, runs and spend screens",
+  "core_milestone": "C2",
+  "phase": 4,
+  "epic": "C2.2 Daily screens",
+  "priority": "P1",
+  "size": "L",
+  "lane": "ui",
+  "agent_suitability": "agent",
+  "gate": "none",
+  "depends_on": [
+    "FW-C-020",
+    "WS-P0-025"
+  ],
+  "description": "Projects with WIP and open rows; ledger table filterable by status and priority with premise state, probe status and evidence link; row detail (probe, work order, runs, events); runs list and detail (steps, artifacts, cost, verifier result); spend by day, project and stream against budgets with breaker status. Read-only: budgets are edited in policy/.",
+  "acceptance": [
+    "A row page shows what the probe measures, the last probe status and the premise re-test time",
+    "The spend page totals equal fw spend for the same period",
+    "Run detail shows kernel-verified and merely claimed artifacts distinctly"
+  ],
+  "verify_probe": "pnpm probe ui/ledger-runs-spend",
+  "files_hint": [
+    "packages/web/src/projects/",
+    "packages/web/src/ledger/",
+    "packages/web/src/runs/",
+    "packages/web/src/spend/"
+  ],
+  "origin": "new Core row",
+  "derived_from": [
+    "WS-P4-016",
+    "WS-P4-019",
+    "WS-P4-020"
+  ]
+}
