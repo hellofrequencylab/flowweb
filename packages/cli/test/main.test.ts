@@ -127,6 +127,11 @@ function fakeClient(overrides: Partial<CoreClient> = {}): CoreClient {
   };
 }
 
+/** The client with one optional method missing, as from a provider that does not serve it. */
+function without(client: CoreClient, method: keyof CoreClient): CoreClient {
+  return Object.fromEntries(Object.entries(client).filter(([k]) => k !== method)) as unknown as CoreClient;
+}
+
 const control = (level: 'enforced' | 'best_effort' | 'absent', detail: string) => ({ level, detail });
 const doctorReport = {
   home: '/h',
@@ -335,7 +340,7 @@ describe('exit codes', () => {
   });
 
   test('run commands on a client without them exit 1 with CLIENT_UNAVAILABLE', async () => {
-    const r = await run(['run', 'list', '--json'], fakeClient({ runList: undefined }));
+    const r = await run(['run', 'list', '--json'], without(fakeClient(), 'runList'));
     expect(r.code).toBe(EXIT.FAILED);
     expect(JSON.parse(r.out).error.code).toBe('CLIENT_UNAVAILABLE');
   });
@@ -524,7 +529,7 @@ describe('fw spend (WS-P0-025)', () => {
   });
 
   test('a client without the rollup exits 1 with CLIENT_UNAVAILABLE', async () => {
-    const r = await run(['spend', '--json'], fakeClient({ spendRollup: undefined }));
+    const r = await run(['spend', '--json'], without(fakeClient(), 'spendRollup'));
     expect(r.code).toBe(EXIT.FAILED);
     expect(JSON.parse(r.out).error.code).toBe('CLIENT_UNAVAILABLE');
   });
