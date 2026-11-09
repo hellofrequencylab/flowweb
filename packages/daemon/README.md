@@ -107,15 +107,20 @@ A 501 body is `{ "error": { "code": "not_implemented", "details": { "row": "..."
 
 `src/pipeline/run-start.ts`. In C0 the CLI calls it in-process: this package declares
 `fw.coreClient` (priority 20, above the ledger's 10) in `package.json`, and `src/local-client.ts`
-wraps the ledger client and adds `runStart`, `runList` and `runShow`. The CLI still imports only
-`@fw/contracts`.
+wraps the ledger client and adds `runStart`, `runList`, `runShow` and `spendRollup`. The CLI still
+imports only `@fw/contracts`.
 
 ```sh
 fw ledger sync
 fw run start FW-T-001 --adapter fake [--scenario forbidden_path] [--host local:/path/origin.git] [--base main] [--max-wall-clock-s 60]
 fw run list [--status failed]
 fw run show <run_id>
+fw spend [--by agent|run|vendor|day|project] [--json]
 ```
+
+`fw spend` and `GET /v1/spend` share one query (`src/spend.ts`), so they print the same numbers.
+`fw spend` also counts, per group, the runs with no spend entries (`unknown_runs`); a group made
+only of such runs shows `usd: null` and prints `unknown`, never $0 (owner decision 32).
 
 | Step                 | What happens                                                                                                                                                                                                                                                                                           | On failure                                |
 | -------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ | ----------------------------------------- |

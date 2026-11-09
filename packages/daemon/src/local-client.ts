@@ -16,6 +16,7 @@ import {
 } from '@fw/ledger';
 import { listRuns, type RunDetail, type RunSummary, showRun } from './pipeline/queries.ts';
 import { type RunStartReport, runStart } from './pipeline/run-start.ts';
+import { SPEND_GROUP_NAMES, type SpendGroup, type SpendRow, spendRollup } from './spend.ts';
 
 export interface RunStartRequest {
   adapter?: string;
@@ -30,6 +31,7 @@ export interface DaemonCoreClient extends LocalCoreClient {
   runStart(code: string, opts?: RunStartRequest): Promise<RunStartReport>;
   runList(opts?: { status?: string; limit?: number }): Promise<RunSummary[]>;
   runShow(runId: string): Promise<RunDetail>;
+  spendRollup(opts: { by: string }): Promise<(SpendRow & { unknown_runs?: number })[]>;
 }
 
 export function createCoreClient(opts: LocalClientOptions): DaemonCoreClient {
@@ -88,6 +90,11 @@ export function createCoreClient(opts: LocalClientOptions): DaemonCoreClient {
     },
     async runShow(runId) {
       return showRun(open(false).reader(), runId);
+    },
+    async spendRollup({ by }) {
+      if (!SPEND_GROUP_NAMES.includes(by as SpendGroup))
+        throw new LedgerError('BAD_ARGUMENT', `--by must be one of ${SPEND_GROUP_NAMES.join(', ')}`);
+      return spendRollup(open(false).reader(), { by: by as SpendGroup, unknown: true });
     },
     close() {
       store?.close();

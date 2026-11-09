@@ -7,11 +7,18 @@ import { type CoreClient, type CoreClientFactory, loadCoreClientFactory } from '
 import { auditCommands } from './commands/audit.ts';
 import { ledgerCommands } from './commands/ledger.ts';
 import { runCommands } from './commands/run.ts';
+import { spendCommands } from './commands/spend.ts';
 import type { Command } from './commands/types.ts';
 import { woCommands } from './commands/wo.ts';
 import { EXIT, exitCodeFor, type Io, processIo, toCliError } from './output.ts';
 
-export const COMMANDS: Command[] = [...ledgerCommands, ...woCommands, ...runCommands, ...auditCommands];
+export const COMMANDS: Command[] = [
+  ...ledgerCommands,
+  ...woCommands,
+  ...runCommands,
+  ...spendCommands,
+  ...auditCommands,
+];
 
 const GLOBAL = ['json', 'home', 'repo', 'help'];
 const BOOLEAN = new Set(['json', 'help']);

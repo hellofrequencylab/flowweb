@@ -1,6 +1,6 @@
 // fw run start | list | show
 import type { CoreClient, RunStartOptions } from '../client.ts';
-import { EXIT, short, table } from '../output.ts';
+import { EXIT, short, table, usd } from '../output.ts';
 import type { Command } from './types.ts';
 
 class UnsupportedError extends Error {
@@ -18,9 +18,6 @@ function need<K extends 'runStart' | 'runList' | 'runShow'>(
     );
   return fn.bind(client) as NonNullable<CoreClient[K]>;
 }
-
-const usd = (v: number | null | undefined) =>
-  v === null || v === undefined ? 'unknown' : `$${v.toFixed(4)}`;
 
 function positiveInt(v: string | undefined, name: string): number | undefined {
   if (v === undefined) return undefined;

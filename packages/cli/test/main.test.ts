@@ -113,6 +113,7 @@ function fakeClient(overrides: Partial<CoreClient> = {}): CoreClient {
       steps: 0,
       events: [],
     }),
+    spendRollup: async ({ by }) => (by === 'agent' ? spendByAgent : []),
     close: () => {},
     ...overrides,
   };
@@ -130,6 +131,14 @@ const runSummary = {
   ended_at: 'now',
   cost_usd: null,
 };
+
+const spendRow = { tokens_in: 10, tokens_out: 2, tokens_cached: 0, first_ts: 'now', last_ts: 'now' };
+/** Two agents with spend (one of them with a run that reported no cost) and one with no spend at all. */
+const spendByAgent = [
+  { ...spendRow, agent_id: 'agt_two', usd: 0.5, entries: 1, unknown_runs: 0 },
+  { ...spendRow, agent_id: 'agt_one', usd: 0.1875, entries: 2, unknown_runs: 1 },
+  { ...spendRow, agent_id: 'agt_none', usd: null, entries: 0, unknown_runs: 2, tokens_in: 0, tokens_out: 0 },
+];
 
 function run(argv: string[], client: CoreClient = fakeClient()) {
   const out: string[] = [];
@@ -151,8 +160,11 @@ describe('help', () => {
     const listed = r.out
       .split('\n')
       .filter((l) => l.startsWith('  fw '))
-      .map((l) => l.trim().split(/\s+/).slice(1, 3).join(' '));
-    expect(listed).toEqual(COMMANDS.map((c) => c.path.join(' ')));
+      .map((l) => l.trim().split(/\s+/).slice(1));
+    // Each line starts with its command's words (one word for `fw spend`, two for the others).
+    expect(listed.map((words, i) => words.slice(0, COMMANDS[i]?.path.length).join(' '))).toEqual(
+      COMMANDS.map((c) => c.path.join(' ')),
+    );
     expect(helpText()).toContain('exit codes');
   });
 
@@ -316,5 +328,78 @@ describe('exit codes', () => {
       fakeClient({ ledgerShow: async () => Promise.reject(new Error('x')), close: () => closed++ }),
     );
     expect(closed).toBe(2);
+  });
+});
+
+describe('fw spend (WS-P0-025)', () => {
+  test('--json prints the rollup per agent with a total; a missing cost is null, never 0', async () => {
+    const r = await run(['spend', '--by', 'agent', '--json']);
+    expect(r.code).toBe(EXIT.OK);
+    const body = JSON.parse(r.out);
+    expect(body.by).toBe('agent');
+    expect(body.groups).toEqual(spendByAgent);
+    expect(body.total).toEqual({ usd: 0.6875, entries: 3, unknown_runs: 3 });
+  });
+
+  test('the default grouping is agent', async () => {
+    let asked: string | undefined;
+    await run(
+      ['spend', '--json'],
+      fakeClient({
+        spendRollup: async ({ by }) => {
+          asked = by;
+          return [];
+        },
+      }),
+    );
+    expect(asked).toBe('agent');
+  });
+
+  test('the text form prints unknown for a group with no reported cost, and never $0', async () => {
+    const r = await run(['spend', '--by', 'agent']);
+    expect(r.code).toBe(EXIT.OK);
+    const line = (id: string) => r.out.split('\n').find((l) => l.startsWith(id)) ?? '';
+    expect(line('agt_two')).toContain('$0.5000');
+    expect(line('agt_one')).toContain('$0.1875');
+    expect(line('agt_none')).toMatch(/\bunknown\b/);
+    expect(r.out).not.toMatch(/\$0\.0000/);
+    expect(line('total')).toContain('$0.6875');
+    expect(r.out).toMatch(/3 runs reported no cost \(unknown/);
+  });
+
+  test('a rollup where nothing reported a cost has an unknown total', async () => {
+    const none = spendByAgent.slice(2);
+    const r = await run(['spend', '--by', 'run', '--json'], fakeClient({ spendRollup: async () => none }));
+    expect(JSON.parse(r.out).total).toEqual({ usd: null, entries: 0, unknown_runs: 2 });
+    const t = await run(['spend', '--by', 'run'], fakeClient({ spendRollup: async () => none }));
+    expect(t.out.split('\n').find((l) => l.startsWith('total'))).toMatch(/\bunknown\b/);
+  });
+
+  test.each(['agent', 'run', 'vendor', 'day', 'project'])('--by %s is passed to the client', async (by) => {
+    let asked: string | undefined;
+    const r = await run(
+      ['spend', '--by', by],
+      fakeClient({
+        spendRollup: async (o) => {
+          asked = o.by;
+          return [];
+        },
+      }),
+    );
+    expect(r.code).toBe(EXIT.OK);
+    expect(asked).toBe(by);
+    expect(r.out).toBe('no spend recorded');
+  });
+
+  test('an unknown grouping is a usage error', async () => {
+    const r = await run(['spend', '--by', 'moon', '--json']);
+    expect(r.code).toBe(EXIT.USAGE);
+    expect(JSON.parse(r.out).error.code).toBe('BAD_ARGUMENT');
+  });
+
+  test('a client without the rollup exits 1 with CLIENT_UNAVAILABLE', async () => {
+    const r = await run(['spend', '--json'], fakeClient({ spendRollup: undefined }));
+    expect(r.code).toBe(EXIT.FAILED);
+    expect(JSON.parse(r.out).error.code).toBe('CLIENT_UNAVAILABLE');
   });
 });

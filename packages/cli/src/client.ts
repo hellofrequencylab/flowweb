@@ -190,6 +190,27 @@ export interface RunDetail extends RunSummary {
   events: { seq: number; ts: string; type: string; payload: Record<string, unknown> }[];
 }
 
+/** The spend rollup groupings `fw spend --by` accepts. */
+export const SPEND_GROUPS = ['agent', 'run', 'vendor', 'day', 'project'] as const;
+export type SpendGroup = (typeof SPEND_GROUPS)[number];
+
+/**
+ * One group of the spend rollup (the same query as `GET /v1/spend`). The key column is named after
+ * the group: agent_id, run_id, vendor, day or project_id. `usd` is null when the group has no spend
+ * entries; `unknown_runs` counts the group's runs with no spend recorded (cost unknown, never 0).
+ */
+export interface SpendGroupRow {
+  [key: string]: string | number | null | undefined;
+  usd: number | null;
+  tokens_in: number;
+  tokens_out: number;
+  tokens_cached: number;
+  entries: number;
+  first_ts: string | null;
+  last_ts: string | null;
+  unknown_runs?: number;
+}
+
 export interface CoreClient {
   ledgerSync(opts?: { rowsDir?: string }): Promise<SyncReport>;
   ledgerList(opts?: { status?: string; lane?: string }): Promise<RowView[]>;
@@ -203,6 +224,8 @@ export interface CoreClient {
   runStart?(code: string, opts?: RunStartOptions): Promise<RunStartReport>;
   runList?(opts?: { status?: string; limit?: number }): Promise<RunSummary[]>;
   runShow?(runId: string): Promise<RunDetail>;
+  /** Spend rollup: optional, served by the provider that reads spend_entries (the daemon). */
+  spendRollup?(opts: { by: SpendGroup }): Promise<SpendGroupRow[]>;
   close(): void;
 }
 
