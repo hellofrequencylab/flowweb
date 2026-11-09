@@ -81,7 +81,7 @@ export function BottomNav() {
 export function MorePage() {
   const items: { to: string; label: string; desc: string; icon: IconName }[] = [
     { to: '/runs', label: 'Runs', desc: 'Every run, live and finished', icon: 'runs' },
-    { to: '/spend', label: 'Spend', desc: 'Today against the cap, and the last two weeks', icon: 'spend' },
+    { to: '/spend', label: 'Spend', desc: 'Today against the cap, and the last seven days', icon: 'spend' },
     { to: '/projects', label: 'Projects', desc: 'Repositories FlowWeb works in', icon: 'ledger' },
     {
       to: '/settings',

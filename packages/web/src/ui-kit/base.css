@@ -972,6 +972,40 @@ table.data .status {
 
 /* ---------- page patterns ---------- */
 
+.step-btn {
+  display: flex;
+  align-items: center;
+  gap: var(--space-5);
+  width: 100%;
+  min-height: var(--hit-min);
+  padding: 0 var(--space-3);
+  border: 0;
+  border-radius: var(--radius-sm);
+  background: transparent;
+  color: var(--text-primary);
+  font: var(--type-body);
+  text-align: left;
+  cursor: pointer;
+}
+.step-btn:hover {
+  background: var(--surface-hover);
+}
+.step-btn[aria-expanded="true"] {
+  background: var(--surface-selected);
+}
+.step-time {
+  flex: none;
+  font-size: var(--text-xs);
+  color: var(--text-tertiary);
+}
+.step-label {
+  flex: 1;
+  min-width: 0;
+}
+.step-btn > .icon:last-child {
+  color: var(--text-tertiary);
+}
+
 .loading {
   display: flex;
   align-items: center;

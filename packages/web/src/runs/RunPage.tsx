@@ -108,13 +108,14 @@ export function RunPage({ id }: { id: string }) {
                     <li key={s.id}>
                       <button
                         type="button"
-                        className="btn btn-quiet"
-                        style={{ textDecoration: 'none', padding: 0, minHeight: 'var(--fw-target)' }}
+                        className="step-btn"
                         aria-expanded={sel === s.id}
                         onClick={() => setSel(sel === s.id ? null : s.id)}
                       >
-                        <span className="mono xs muted">{clock(s.at)}</span>&nbsp;
-                        {s.blocked_by_policy ? <Icon name="blocked" /> : null} {s.label}
+                        <span className="step-time mono">{clock(s.at)}</span>
+                        {s.blocked_by_policy ? <Icon name="blocked" /> : null}
+                        <span className="step-label">{s.label}</span>
+                        <Icon name={sel === s.id ? 'chevron-down' : 'chevron-right'} />
                       </button>
                       {s.blocked_by_policy && (
                         <div className="small">
