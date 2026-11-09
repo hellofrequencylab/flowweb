@@ -1,4 +1,5 @@
 import { type Connection, useLive } from '../api/live';
+import { HOSTED } from '../hosted/auth';
 import { Icon } from '../ui-kit/Icon';
 import { age, clock, usd, useNow } from '../ui-kit/time';
 import { usePrefs } from './prefs';
@@ -7,8 +8,9 @@ import { Link } from './router';
 const CONN: Record<Connection, { word: string; icon: 'pass' | 'warn' | 'unknown' | 'clock' }> = {
   connecting: { word: 'Connecting', icon: 'clock' },
   live: { word: 'Live', icon: 'pass' },
-  delayed: { word: 'Updates delayed', icon: 'warn' },
-  down: { word: "Can't reach fwd", icon: 'unknown' },
+  // The hosted mirror never has a live stream; say what it is instead of "delayed".
+  delayed: { word: HOSTED ? 'Mirror of your machine' : 'Updates delayed', icon: 'warn' },
+  down: { word: HOSTED ? 'Not synced' : "Can't reach fwd", icon: 'unknown' },
 };
 
 /** Always visible. Every value here is either current or plainly marked otherwise. */

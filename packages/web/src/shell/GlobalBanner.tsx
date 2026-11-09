@@ -1,5 +1,6 @@
 import { useState } from 'react';
 import { useLive } from '../api/live';
+import { HOSTED, UNREACHABLE } from '../hosted/auth';
 import { age, clock, useNow } from '../ui-kit/time';
 import { ReleaseDialog } from './KillSwitch';
 import { Link } from './router';
@@ -46,14 +47,20 @@ export function GlobalBanner() {
   if (connection === 'down') {
     return (
       <div className="banner banner-serious" role="alert">
-        <strong>Can't reach fwd.</strong>
+        <strong>{UNREACHABLE}.</strong>
         <span>
           Showing nothing as current.{last ? ` Last update ${clock(last)}, ${age(last, now)}.` : ''} Approvals
           are disabled.
         </span>
         <span className="spacer" />
         <span>
-          To stop everything from a terminal: <code>fw kill</code>
+          {HOSTED ? (
+            <>Start FlowWeb and the relay on your machine (Settings, Machines)</>
+          ) : (
+            <>
+              To stop everything from a terminal: <code>fw kill</code>
+            </>
+          )}
         </span>
       </div>
     );

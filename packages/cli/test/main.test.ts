@@ -384,16 +384,16 @@ describe('exit codes', () => {
   });
 });
 
-describe('invocation directory', () => {
-  test('INIT_CWD counts only under `pnpm fw`', () => {
+describe('working directory', () => {
+  test('INIT_CWD is used only when fw was started by the `pnpm fw` script', () => {
     expect(invocationCwd({ npm_lifecycle_event: 'fw', INIT_CWD: '/typed/here' }, '/workspace')).toBe(
       '/typed/here',
     );
-    // A fw spawned by another pnpm script (pnpm probe, pnpm test) inherits INIT_CWD: ignore it.
+    // Another pnpm script (pnpm probe, pnpm test) leaks INIT_CWD into an fw it spawns elsewhere.
     expect(invocationCwd({ npm_lifecycle_event: 'probe', INIT_CWD: '/workspace' }, '/fixture')).toBe(
       '/fixture',
     );
     expect(invocationCwd({ INIT_CWD: '/workspace' }, '/fixture')).toBe('/fixture');
-    expect(invocationCwd({ npm_lifecycle_event: 'fw' }, '/fixture')).toBe('/fixture');
+    expect(invocationCwd({ npm_lifecycle_event: 'fw' }, '/workspace')).toBe('/workspace');
   });
 });

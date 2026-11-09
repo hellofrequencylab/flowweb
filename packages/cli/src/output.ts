@@ -9,22 +9,22 @@ export interface Io {
   cwd: string;
 }
 
+/**
+ * The directory the user ran fw from. `pnpm fw` runs the script from the workspace root and puts
+ * where the user typed the command in INIT_CWD. INIT_CWD is trusted only for that `fw` script:
+ * any other pnpm script (`pnpm probe`, `pnpm test`) leaks its own INIT_CWD into every child it
+ * starts, and an fw spawned there with its own cwd must use that cwd, not the workspace root.
+ */
+export function invocationCwd(env: NodeJS.ProcessEnv, cwd: string): string {
+  return env.npm_lifecycle_event === 'fw' && env.INIT_CWD ? env.INIT_CWD : cwd;
+}
+
 export const processIo: Io = {
   out: (t) => process.stdout.write(`${t}\n`),
   err: (t) => process.stderr.write(`${t}\n`),
   env: process.env,
   cwd: invocationCwd(process.env, process.cwd()),
 };
-
-/**
- * Where the command was typed. `pnpm fw` runs the script from the workspace root and puts the
- * user's directory in INIT_CWD. Any other pnpm script also sets INIT_CWD, and its child processes
- * inherit it, so INIT_CWD counts only when this process is the `fw` script itself; otherwise a
- * `fw` spawned by `pnpm probe` or `pnpm test` would act on the workspace instead of its own cwd.
- */
-export function invocationCwd(env: NodeJS.ProcessEnv, cwd: string): string {
-  return env.npm_lifecycle_event === 'fw' && env.INIT_CWD ? env.INIT_CWD : cwd;
-}
 
 /** Error codes that are a usage problem (exit 2) rather than a refusal (exit 1). */
 const USAGE_CODES = new Set(['BAD_ARGUMENT', 'USAGE']);

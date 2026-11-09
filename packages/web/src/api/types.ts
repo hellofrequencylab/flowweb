@@ -28,6 +28,11 @@ export interface Session {
   device_label?: string | null;
 }
 
+/** Hosted mirror only: machines pushing to the live site. */
+export interface MachineList extends Envelope {
+  machines: import('./wire').WMachine[];
+}
+
 /* ---------- status (the strip, banners, global state) ---------- */
 
 export type KillState = 'ready' | 'stopping' | 'stopped';
