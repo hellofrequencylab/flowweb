@@ -1,0 +1,33 @@
+{
+  "id": "FW-C-023",
+  "title": "Digest stream and query registry",
+  "core_milestone": "C2",
+  "phase": 3,
+  "epic": "C2.3 Streams",
+  "priority": "P0",
+  "size": "M",
+  "lane": "workstreams",
+  "agent_suitability": "agent",
+  "gate": "none",
+  "depends_on": [
+    "WS-P1-004",
+    "WS-P0-025",
+    "FW-C-002"
+  ],
+  "description": "A registry of parameterised read-only queries (id, SQL over views, result hash). The daily digest stream renders a status-report from query ids only; an optional Chief of Staff narrative is accepted only if every sentence cites a query id and each number recomputes, otherwise the template renders. Each digest is a ledger row whose probe checks the report exists, every line cites and the recompute matches.",
+  "acceptance": [
+    "A digest with an uncited line fails its probe and is not published",
+    "Recomputing each cited query reproduces every number",
+    "When nothing changed overnight the report says so plainly"
+  ],
+  "verify_probe": "pnpm probe workstreams/digest",
+  "files_hint": [
+    "packages/daemon/src/streams/digest/",
+    "packages/ledger/src/queries/"
+  ],
+  "origin": "new Core row",
+  "derived_from": [
+    "WS-P3-023",
+    "WS-P3-024"
+  ]
+}

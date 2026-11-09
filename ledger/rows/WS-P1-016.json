@@ -1,0 +1,37 @@
+{
+  "id": "WS-P1-016",
+  "title": "Adapter registry and capability routing",
+  "core_milestone": "C1",
+  "phase": 1,
+  "epic": "E1.4 Second vendor and routing",
+  "priority": "P0",
+  "size": "M",
+  "lane": "adapters",
+  "agent_suitability": "agent",
+  "gate": "none",
+  "depends_on": [
+    "WS-P1-015",
+    "WS-P0-030"
+  ],
+  "description": "Select an adapter per Work Order by required capability, cost tier and privacy tier; fall back with a logged reason.",
+  "acceptance": [
+    "Order needing schema output is routed only to adapters declaring it",
+    "Fallback emits route_fallback with reason",
+    "Routing table is data in Tier 1"
+  ],
+  "verify_probe": "pnpm probe adapters/routing",
+  "files_hint": [
+    "packages/adapters/src/sdk/src/registry.ts",
+    "config/routing.json"
+  ],
+  "origin": "full-plan row, included",
+  "core_adaptation": "Two real adapters; the routing table is config/routing.json.",
+  "full_depends_on": [
+    "WS-P1-015",
+    "WS-P0-030"
+  ],
+  "full_files_hint": [
+    "packages/adapter-sdk/src/registry.ts",
+    "config/routing.json"
+  ]
+}

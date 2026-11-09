@@ -1,0 +1,33 @@
+{
+  "id": "FW-C-018",
+  "title": "Typed local API and live event stream",
+  "core_milestone": "C2",
+  "phase": 4,
+  "epic": "C2.1 API and shell",
+  "priority": "P0",
+  "size": "L",
+  "lane": "kernel",
+  "agent_suitability": "agent",
+  "gate": "none",
+  "depends_on": [
+    "WS-P1-001",
+    "FW-C-002",
+    "FW-C-010",
+    "FW-C-012"
+  ],
+  "description": "Fastify routes for every Core read (rows, runs, cards, spend, events) and write (answer a card, approve, kill, resume); OpenAPI and a TypeScript client generated from the contracts; an SSE stream resumable by seq; loopback bind with an Origin check; no business logic in routes.",
+  "acceptance": [
+    "Every route is exercised by a contract test through the generated client",
+    "The SSE stream resumes from Last-Event-ID without gaps or duplicates",
+    "A request from a non-loopback origin, or without the session token, gets 401 or 403"
+  ],
+  "verify_probe": "pnpm probe kernel/local-api",
+  "files_hint": [
+    "packages/daemon/src/api/",
+    "packages/contracts/openapi.json"
+  ],
+  "origin": "new Core row",
+  "derived_from": [
+    "WS-P4-005"
+  ]
+}

@@ -1,0 +1,30 @@
+{
+  "id": "FW-C-028",
+  "title": "Out-of-band notification webhook",
+  "core_milestone": "C2",
+  "phase": 1,
+  "epic": "C2.3 Streams",
+  "priority": "P1",
+  "size": "S",
+  "lane": "adapters",
+  "agent_suitability": "agent",
+  "gate": "none",
+  "depends_on": [
+    "WS-P1-024",
+    "FW-C-010"
+  ],
+  "description": "One channel for interrupt-class events (approval needed, run halted, breaker tripped, chain failure, kill switch engaged): a configurable ntfy-compatible webhook plus a terminal bell; deduplicated per card, quiet hours, and title plus deep link only, never diff or secret content.",
+  "acceptance": [
+    "A pending approval sends one notification and one reminder before expiry",
+    "Quiet hours hold ordinary notifications but never a kill-switch or chain-failure alert",
+    "A payload scan finds no diff, secret or message body"
+  ],
+  "verify_probe": "pnpm probe adapters/notify-webhook",
+  "files_hint": [
+    "packages/daemon/src/notify.ts"
+  ],
+  "origin": "new Core row",
+  "derived_from": [
+    "WS-P1-027"
+  ]
+}

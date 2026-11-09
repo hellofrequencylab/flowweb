@@ -1,0 +1,37 @@
+{
+  "id": "WS-P1-006",
+  "title": "Reconciler: compare the world to the ledger",
+  "core_milestone": "C1",
+  "phase": 1,
+  "epic": "E1.1 Daemon, streams, scheduler, reconciler",
+  "priority": "P0",
+  "size": "L",
+  "lane": "kernel",
+  "agent_suitability": "agent",
+  "gate": "none",
+  "depends_on": [
+    "WS-P1-004",
+    "WS-P0-036",
+    "WS-P0-016",
+    "WS-P1-008"
+  ],
+  "description": "Periodically compare open PRs, merged PRs and branches on the git host with ledger rows; repair status drift and open a row for anything unexplained.",
+  "acceptance": [
+    "A PR merged outside the tool moves its row to merged and queues the probe",
+    "An open PR with no row creates an orphan_pr row",
+    "Reconcile pass is idempotent (second run produces zero changes)"
+  ],
+  "verify_probe": "pnpm probe kernel/reconciler",
+  "files_hint": [
+    "packages/daemon/src/scheduler/src/reconciler/"
+  ],
+  "origin": "full-plan row, included",
+  "full_depends_on": [
+    "WS-P1-004",
+    "WS-P0-036",
+    "WS-P0-016"
+  ],
+  "full_files_hint": [
+    "packages/scheduler/src/reconciler/"
+  ]
+}

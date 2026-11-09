@@ -1,0 +1,36 @@
+{
+  "id": "WS-P0-023",
+  "title": "Hash-chained audit and verify command",
+  "core_milestone": "C0",
+  "phase": 0,
+  "epic": "E0.4 Event log and audit chain",
+  "priority": "P0",
+  "size": "M",
+  "lane": "security",
+  "agent_suitability": "agent",
+  "gate": "none",
+  "depends_on": [
+    "FW-C-004",
+    "FW-C-006"
+  ],
+  "description": "Chain each event to the hash of the previous one and add fw audit verify that walks the chain and reports the first broken link.",
+  "acceptance": [
+    "Flipping one byte in a stored payload makes verify fail naming the sequence number",
+    "Verify of 100k events completes in under 5 s",
+    "Chain head can be exported for external anchoring"
+  ],
+  "verify_probe": "pnpm probe security/audit-chain",
+  "files_hint": [
+    "packages/eventlog/src/chain.ts",
+    "packages/cli/src/commands/audit.ts"
+  ],
+  "origin": "full-plan row, included",
+  "core_adaptation": "One chain only: the events table. There is no separate audit process in Core.",
+  "full_depends_on": [
+    "WS-P0-022"
+  ],
+  "full_files_hint": [
+    "packages/eventlog/src/chain.ts",
+    "apps/cli/src/commands/audit.ts"
+  ]
+}

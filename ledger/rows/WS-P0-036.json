@@ -1,0 +1,33 @@
+{
+  "id": "WS-P0-036",
+  "title": "Git host edge adapter: branch, PR, status",
+  "core_milestone": "C0",
+  "phase": 0,
+  "epic": "E0.7 Diff-policy and evidence",
+  "priority": "P0",
+  "size": "M",
+  "lane": "adapters",
+  "agent_suitability": "agent",
+  "gate": "none",
+  "depends_on": [
+    "WS-P0-026"
+  ],
+  "description": "Implement branch push, PR create, PR read and check-status read over the git host CLI or API with a fine-scoped token.",
+  "acceptance": [
+    "PR creation against a sandbox repo returns URL and head SHA",
+    "Token scope check refuses a token with admin rights",
+    "Rate-limit and 5xx responses are retried with backoff and logged"
+  ],
+  "verify_probe": "pnpm probe adapters/git-edge",
+  "files_hint": [
+    "packages/daemon/src/edge-git/src/"
+  ],
+  "origin": "full-plan row, included",
+  "core_adaptation": "Uses the gh CLI with a fine-scoped token; the same port is implemented by a local bare-repo host for tests.",
+  "full_depends_on": [
+    "WS-P0-026"
+  ],
+  "full_files_hint": [
+    "packages/edge-git/src/"
+  ]
+}

@@ -1,0 +1,35 @@
+{
+  "id": "WS-P0-020",
+  "title": "Premise re-test before work",
+  "core_milestone": "C0",
+  "phase": 0,
+  "epic": "E0.3 Ledger",
+  "priority": "P0",
+  "size": "M",
+  "lane": "kernel",
+  "agent_suitability": "agent",
+  "gate": "none",
+  "depends_on": [
+    "WS-P0-019",
+    "WS-P0-016"
+  ],
+  "description": "Before a row can move to claimed, run its probe against the base commit; if it already passes, mark the row done-by-other and stop.",
+  "acceptance": [
+    "A row whose probe already passes is not claimable",
+    "The event log records premise_retest with result",
+    "A failing probe allows claim"
+  ],
+  "verify_probe": "pnpm probe kernel/premise-retest",
+  "files_hint": [
+    "packages/ledger/src/premise.ts"
+  ],
+  "origin": "full-plan row, included",
+  "core_adaptation": "A probe that already passes parks the row as already_satisfied; the SQL trigger refuses ready unless the probe failed.",
+  "full_depends_on": [
+    "WS-P0-019",
+    "WS-P0-016"
+  ],
+  "full_files_hint": [
+    "packages/ledger/src/premise.ts"
+  ]
+}

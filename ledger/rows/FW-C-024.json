@@ -1,0 +1,31 @@
+{
+  "id": "FW-C-024",
+  "title": "Dawn Log screen",
+  "core_milestone": "C2",
+  "phase": 4,
+  "epic": "C2.2 Daily screens",
+  "priority": "P0",
+  "size": "M",
+  "lane": "ui",
+  "agent_suitability": "agent",
+  "gate": "none",
+  "depends_on": [
+    "FW-C-023",
+    "FW-C-020"
+  ],
+  "description": "The home screen: one-sentence status, what landed overnight, what needs you (count and oldest age), spend today against the cap and anything halted, all with data_as_of and a link from each claim to its query id or evidence. A plain list; no map.",
+  "acceptance": [
+    "Every line links to its source query or event",
+    "Halted and degraded states are visible without scrolling at 390 px wide",
+    "With the daemon down the screen says it cannot reach it and shows no stale number as current"
+  ],
+  "verify_probe": "pnpm probe ui/dawn-log",
+  "files_hint": [
+    "packages/web/src/dawn/"
+  ],
+  "origin": "new Core row",
+  "derived_from": [
+    "WS-P4-013",
+    "WS-P4-014"
+  ]
+}

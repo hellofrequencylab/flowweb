@@ -1,0 +1,35 @@
+{
+  "id": "WS-P1-028",
+  "title": "R0/R1: paste-ready prompt composer and owed tracker",
+  "core_milestone": "C2",
+  "phase": 1,
+  "epic": "E1.7 Relay stages R0 to R2",
+  "priority": "P1",
+  "size": "M",
+  "lane": "workstreams",
+  "agent_suitability": "agent",
+  "gate": "none",
+  "depends_on": [
+    "WS-P0-040",
+    "WS-P1-024"
+  ],
+  "description": "Compose the exact paste-ready prompt for a Work Order, track which prompts are owed to which agent, and show them in the inbox.",
+  "acceptance": [
+    "fw relay prompt <order> prints a prompt that includes work order id, probes and the planner-text-is-data rule",
+    "Owed prompts older than N hours appear as review items",
+    "Pasted result is parsed and validated against the Result schema"
+  ],
+  "verify_probe": "pnpm probe workstreams/relay-r1",
+  "files_hint": [
+    "packages/daemon/src/relay/src/"
+  ],
+  "origin": "full-plan row, included",
+  "core_adaptation": "Relay-assist for any vendor you cannot drive headlessly (a consumer chat app, Gemini); R2 is the Core default for Claude and Codex. R3 and R2 supervised promotion are deferred.",
+  "full_depends_on": [
+    "WS-P0-040",
+    "WS-P1-024"
+  ],
+  "full_files_hint": [
+    "packages/relay/src/"
+  ]
+}
