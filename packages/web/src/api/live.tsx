@@ -1,4 +1,5 @@
 import { createContext, type ReactNode, useCallback, useContext, useEffect, useRef, useState } from 'react';
+import { HOSTED } from '../hosted/auth';
 import { api, EVENTS_URL, UnreachableError } from './client';
 import type { Status, Topic } from './types';
 
@@ -97,7 +98,8 @@ export function LiveProvider({ children }: { children: ReactNode }) {
 
   // Event stream. EventSource resumes with Last-Event-ID on its own after a drop.
   useEffect(() => {
-    if (typeof EventSource === 'undefined') return;
+    // The hosted mirror has no event stream; it refreshes by polling and shows data age.
+    if (HOSTED || typeof EventSource === 'undefined') return;
     const es = new EventSource(EVENTS_URL, { withCredentials: true });
     es.onopen = () => setStreamOpen(true);
     es.onerror = () => setStreamOpen(false);

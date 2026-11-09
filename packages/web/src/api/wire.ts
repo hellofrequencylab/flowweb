@@ -394,6 +394,22 @@ export interface WSession {
   device_label?: string | null;
 }
 
+/** Hosted mirror only: GET /hosted/machines (not part of fwd's API). */
+export interface WMachine {
+  id: string;
+  label: string;
+  created_at: string;
+  last_seen_at: string | null;
+  revoked_at: string | null;
+  report: {
+    relay_version?: string;
+    label?: string;
+    fwd_version?: string | null;
+    head_seq?: number | null;
+    entries?: number;
+  };
+}
+
 /** GET /policy (agreed) */
 export interface WPolicy {
   path: string;
