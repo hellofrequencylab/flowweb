@@ -28,11 +28,21 @@ function readLock(path: string): { text: string; pid: number | undefined } | und
 function isAlive(pid: number): boolean {
   try {
     process.kill(pid, 0);
-    return true;
   } catch (e) {
     // EPERM: the process exists but belongs to someone else.
     return (e as NodeJS.ErrnoException).code === 'EPERM';
   }
+  // A zombie (killed, not yet reaped) still answers kill(pid, 0) but holds nothing: on Linux, read
+  // its state from /proc so a crashed holder whose parent never reaps it does not keep the lock.
+  if (process.platform === 'linux') {
+    try {
+      const stat = readFileSync(`/proc/${pid}/stat`, 'utf8');
+      if (stat.slice(stat.lastIndexOf(')') + 2, stat.lastIndexOf(')') + 3) === 'Z') return false;
+    } catch {
+      // Gone between the two calls, or /proc unreadable: fall back to the kill(pid, 0) answer.
+    }
+  }
+  return true;
 }
 
 export function acquireWriterLock(path: string): WriterLock {

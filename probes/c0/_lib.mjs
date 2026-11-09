@@ -14,6 +14,7 @@ import { createHash } from 'node:crypto';
 import { cpSync, existsSync, mkdirSync, mkdtempSync, readdirSync, readFileSync, statSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { dirname, join, relative, resolve } from 'node:path';
+import { pathToFileURL } from 'node:url';
 
 export const root = resolve(process.env.FW_REPO_ROOT ?? join(import.meta.dirname, '../..'));
 export const TSX = join(root, 'node_modules/.bin/tsx');
@@ -111,6 +112,26 @@ export function fwJson(args, opts) {
   return { ...r, json };
 }
 
+/**
+ * Starts a TypeScript entry point (fwd, the fw CLI) as ONE node process with tsx as an import hook,
+ * not through the tsx wrapper (which forks a second process). A SIGKILL then hits the program itself,
+ * and this process stays its parent and reaps it, so no zombie keeps holding a pid-based lock.
+ */
+export function spawnTs(file, args, opts = {}) {
+  const loader = pathToFileURL(join(root, 'node_modules/tsx/dist/loader.mjs')).href;
+  return spawnBg(process.execPath, ['--import', loader, file, ...args], opts);
+}
+
+/** Kills a child started by spawnBg/spawnTs and waits until it has exited (and been reaped). */
+export async function killAndWait(child, signal = 'SIGKILL') {
+  if (child.exitCode !== null || child.signalCode !== null) return;
+  const exited = new Promise((r) => child.once('exit', r));
+  try {
+    process.kill(child.pid, signal);
+  } catch {}
+  await exited;
+}
+
 /** Starts a long-running child (for example fwd). Caller kills it. */
 export function spawnBg(cmd, args, { cwd = root, env = {}, detached = true } = {}) {
   const child = spawn(cmd, args, { cwd, env: baseEnv(env), detached, stdio: ['ignore', 'pipe', 'pipe'] });
@@ -127,6 +148,30 @@ export function spawnBg(cmd, args, { cwd = root, env = {}, detached = true } = {
 
 export function dbPath(home) {
   return join(home, 'db', 'fw.sqlite');
+}
+
+/**
+ * dbPath(home) with its db/ directory created, for probes that open the store directly. openStore
+ * does not create directories (fwd and the CLI create $FW_HOME/db first).
+ */
+export function storePath(home) {
+  mkdirSync(join(home, 'db'), { recursive: true });
+  return dbPath(home);
+}
+
+/**
+ * Installs the Tier 0 core-policy.yaml as $FW_HOME/config/core-policy.yaml, the first place the
+ * work-order compiler looks (packages/ledger/src/policy.ts). The fixture repos do not carry one.
+ */
+export function installPolicy(home) {
+  mkdirSync(join(home, 'config'), { recursive: true });
+  cpSync(join(root, 'contracts-core/core-policy.yaml'), join(home, 'config/core-policy.yaml'));
+  return home;
+}
+
+/** A fresh FW_HOME with the core policy installed, for probes that issue work orders or runs. */
+export function pipelineHome(tag = 'pipe') {
+  return installPolicy(freshHome(tag));
 }
 
 /** Opens $FW_HOME/db/fw.sqlite read-only with node:sqlite (independent of the implementation). */
@@ -197,31 +242,39 @@ export function canonical(v) {
     .join(',')}}`;
 }
 
-/** Independent re-computation of the event chain (mirrors verify_chain in tests/schema_core_test.py). */
+/**
+ * Independent re-computation of the event chain: hash = sha256(prev_hash + "\n" + canonical(envelope
+ * without hash)). Optional envelope fields that are NULL in the row (project_id, stream_id,
+ * work_order_id, run_id, causation_id) are left out of the envelope, as the event-envelope contract
+ * types them as strings and contracts-core/examples/20-event-envelope.json only reproduces that way
+ * (docs/decisions/C0-owner-questions.md item 5; tests/schema_core_test.py hashes them as null, which
+ * the Owner still has to reconcile). envelopeOfRow is checked against example 20 by c0/event-chain.
+ */
+export function envelopeOfRow(r) {
+  const env = {
+    seq: Number(r.seq),
+    id: r.id,
+    ts: r.ts,
+    type: r.type,
+    version: Number(r.version),
+    actor: { kind: r.actor_kind, id: r.actor_id },
+  };
+  for (const k of ['project_id', 'stream_id', 'work_order_id', 'run_id']) if (r[k] != null) env[k] = r[k];
+  env.correlation_id = r.correlation_id;
+  if (r.causation_id != null) env.causation_id = r.causation_id;
+  env.idempotency_key = r.idempotency_key;
+  env.payload = typeof r.payload === 'string' ? JSON.parse(r.payload) : r.payload;
+  env.payload_hash = r.payload_hash;
+  env.prev_hash = r.prev_hash;
+  return env;
+}
+
 export function recomputeChain(rows) {
   let prev = ZERO_HASH;
   for (const r of rows) {
-    const payload = JSON.parse(r.payload);
-    const env = {
-      seq: Number(r.seq),
-      id: r.id,
-      ts: r.ts,
-      type: r.type,
-      version: Number(r.version),
-      actor: { kind: r.actor_kind, id: r.actor_id },
-      project_id: r.project_id,
-      stream_id: r.stream_id,
-      work_order_id: r.work_order_id,
-      run_id: r.run_id,
-      correlation_id: r.correlation_id,
-      causation_id: r.causation_id,
-      idempotency_key: r.idempotency_key,
-      payload,
-      payload_hash: r.payload_hash,
-      prev_hash: r.prev_hash,
-    };
+    const env = envelopeOfRow(r);
     if (r.prev_hash !== prev) return { ok: false, seq: Number(r.seq), reason: 'prev_hash does not match' };
-    if (r.payload_hash !== sha256(canonical(payload))) {
+    if (r.payload_hash !== sha256(canonical(env.payload))) {
       return { ok: false, seq: Number(r.seq), reason: 'payload_hash does not match canonical payload' };
     }
     if (r.hash !== sha256(`${prev}\n${canonical(env)}`)) {
@@ -262,7 +315,12 @@ export function writeFiles(dir, files) {
   }
 }
 
-/** A row definition for fixture projects (same shape as ledger/rows/*.json). */
+/**
+ * A row definition for fixture projects (same shape as ledger/rows/*.json). The fake vendor's
+ * success scenario writes fw-fake/<run_id>.md (docs/decisions/C0-owner-questions.md item 34), so the
+ * default scope is fw-fake/** and the default probe passes once such a note exists. The scenario is
+ * also a [fake:<name>] title tag (FW-C-007); pipeline probes pass it as `fw run start --scenario`.
+ */
 export function fixtureRow(
   id,
   {
@@ -271,7 +329,7 @@ export function fixtureRow(
     probe = 'node check-feature.mjs',
     depends_on = [],
     lane = 'kernel',
-    files_hint = ['src/feature.txt'],
+    files_hint = ['fw-fake/**'],
   } = {},
 ) {
   return {
@@ -295,7 +353,7 @@ export function fixtureRow(
 
 export const rowFile = (row) => ({ [`ledger/rows/${row.id}.json`]: `${JSON.stringify(row, null, 2)}\n` });
 
-/** A repo with the given files, committed on main and pushed to a local bare remote. */
+/** A repo with the given files, committed on main and pushed to a local bare remote (origin). */
 export function projectFromFiles(files) {
   const base = tmpDir('proj');
   const remote = join(base, 'remote.git');
@@ -303,6 +361,9 @@ export function projectFromFiles(files) {
   mkdirSync(work);
   git(base, 'init', '-q', '--bare', '-b', 'main', remote);
   git(work, 'init', '-q', '-b', 'main');
+  git(work, 'config', 'user.name', 'probe-owner');
+  git(work, 'config', 'user.email', 'owner@example.invalid');
+  git(work, 'config', 'commit.gpgsign', 'false');
   writeFiles(work, files);
   git(work, 'add', '.');
   git(work, 'commit', '-qm', 'fixture');
@@ -311,22 +372,38 @@ export function projectFromFiles(files) {
   return { base, remote, work };
 }
 
+/** The probe of the default fixture row: passes once a fake-vendor note exists under fw-fake/. */
+export const CHECK_FEATURE = `import { existsSync, readdirSync } from 'node:fs';
+process.exit(existsSync('fw-fake') && readdirSync('fw-fake').some((n) => n.endsWith('.md')) ? 0 : 1);
+`;
+
 /**
- * A fixture project: one row definition (FW-C-901 by default) whose probe fails until
- * src/feature.txt exists, pushed to a local bare remote. Used by the pipeline probes with the fake
- * vendor, whose "success" scenario writes the first files_hint path.
+ * A fixture project: one row definition (FW-C-901 by default) whose probe fails until the fake
+ * vendor has written its note, pushed to a local bare remote (origin). Row files live in the project
+ * repo (item 36). CODEOWNERS and probes/ exist so forbidden_path has Tier 0 files to touch.
  */
 export function fixtureProject({ scenario = 'success', rowId = 'FW-C-901', size = 'S', extraRows = [] } = {}) {
   const files = {
     'README.md': '# fixture project\n',
-    'check-feature.mjs':
-      "import { existsSync } from 'node:fs';\nprocess.exit(existsSync('src/feature.txt') ? 0 : 1);\n",
+    'check-feature.mjs': CHECK_FEATURE,
     CODEOWNERS: '* @fixture-owner\n',
     'probes/README.md': 'fixture probes dir\n',
     ...rowFile(fixtureRow(rowId, { scenario, size })),
   };
   for (const r of extraRows) Object.assign(files, rowFile(fixtureRow(r.id, r)));
   return { ...projectFromFiles(files), rowId };
+}
+
+/** Row status straight from the database (ledger_rows.id is 'lr_' + the code without hyphens). */
+export function rowStatusOf(db, code) {
+  return db.prepare("SELECT status FROM ledger_rows WHERE id = 'lr_' || replace(?, '-', '')").get(code)?.status;
+}
+
+/** Branch names under a prefix (for example 'fw/') in a repository (a checkout or a bare remote). */
+export function branches(repo, prefix = '') {
+  return git(repo, 'for-each-ref', '--format=%(refname:short)', `refs/heads/${prefix}`)
+    .split('\n')
+    .filter(Boolean);
 }
 
 /** Environment for pipeline probes: fake vendor, local git host, no network, no keys. */
@@ -408,29 +485,43 @@ export function runProbe(path, extraArgs = []) {
 }
 
 // ---------------------------------------------------------------------------------------------
-// Adapter helpers. Assumed adapter surface (see probes/c0/README.md, "Assumed surfaces"):
-//   createAdapter(name, options?) -> adapter with
-//     start(input: vendor-adapter-input.json) -> AsyncIterable<event>; the last event is
-//       { type: 'result', result: run-result.json }
-//     kill(): stops the current run and its whole process group
-//     fingerprint(): Promise<{ version: string, help_sha256: string }>
-//     capabilities(): { supports_resume, supports_schema, supports_budget_cap }
-//   The fake vendor picks its scenario from a "[fake:<scenario>]" tag in work_order.title.
+// Adapter helpers, on the real adapter surface (packages/adapters/src/sdk/types.ts):
+//   createAdapter(name, options?) -> VendorAdapter {
+//     name, vendor, capabilities: { supports_resume, supports_schema, supports_budget_cap },
+//     start(input, opts?) -> AdapterRun { events: AsyncIterable<AdapterEvent>, result, meta,
+//                                          kill(reason), pgid() },
+//     fingerprint(), preflight() }
+//   The fake vendor picks its scenario from a "[fake:<scenario>]" tag in work_order.title
+//   (FAKE_SCENARIOS in @fw/adapters; StartOptions.scenario overrides it).
 // ---------------------------------------------------------------------------------------------
 
-/** vendor-adapter-input.json built from the contract example, pointed at a scratch workspace. */
+/** A scratch git repository with one commit, used as an adapter workspace (a run worktree). */
+export function gitWorkspace(tag = 'ws') {
+  const dir = tmpDir(tag);
+  git(dir, 'init', '-q', '-b', 'main');
+  writeFiles(dir, { 'README.md': '# probe workspace\n', CODEOWNERS: '* @probe-owner\n' });
+  git(dir, 'add', '-A');
+  git(dir, 'commit', '-qm', 'initial');
+  return { path: dir, base_commit: git(dir, 'rev-parse', 'HEAD') };
+}
+
+/** vendor-adapter-input.json built from the contract example, pointed at a scratch git workspace. */
 export function adapterInput({
   scenario = 'success',
   workspace,
   maxWallClockS = 30,
   maxUsd = 1.5,
-  files = ['src/feature.txt'],
+  files = ['fw-fake/**'],
 } = {}) {
   const input = JSON.parse(readFileSync(join(root, 'contracts-core/examples/19-vendor-adapter-input.json'), 'utf8'));
-  const ws = workspace ?? tmpDir('ws');
+  const ws = workspace ? { path: workspace, base_commit: git(workspace, 'rev-parse', 'HEAD') } : gitWorkspace();
+  input.run_id = `run_probe${Math.random().toString(36).slice(2, 10)}`;
   input.work_order.title = `Probe fixture [fake:${scenario}]`;
   input.work_order.scope.touches = files;
-  input.workspace.path = ws;
+  input.work_order.base_commit = ws.base_commit;
+  input.workspace = { path: ws.path, branch: 'fw/probe', base_commit: ws.base_commit, read_only: false };
+  input.instruction_files = [];
+  input.sandbox = { isolation: 'worktree_only', network_policy: 'deny_all' };
   input.budget.max_usd = maxUsd;
   input.work_order.budget.caps.max_usd = maxUsd;
   input.caps.max_wall_clock_s = maxWallClockS;
@@ -438,26 +529,48 @@ export function adapterInput({
   return input;
 }
 
-/** Runs one adapter start() to completion; returns { events, result, ms }. */
-export async function drain(adapter, input, { timeoutMs = 60000 } = {}) {
+/** Runs one adapter start() to completion; returns { events, result, meta, run, ms }. */
+export async function drain(adapter, input, { timeoutMs = 60000, opts = {} } = {}) {
   const started = Date.now();
   const events = [];
-  let result;
+  const run = adapter.start(input, { killGraceMs: 300, ...opts });
   const timer = setTimeout(() => {
-    try {
-      adapter.kill();
-    } catch {}
+    void run.kill('probe timeout');
   }, timeoutMs);
   try {
-    for await (const ev of adapter.start(input)) {
-      events.push(ev);
-      if (ev?.type === 'result') result = ev.result;
-    }
+    for await (const ev of run.events) events.push(ev);
   } finally {
     clearTimeout(timer);
   }
-  return { events, result, ms: Date.now() - started };
+  const [result, meta] = await Promise.all([run.result, run.meta]);
+  return { events, result, meta, run, ms: Date.now() - started };
 }
+
+/**
+ * True while any process of the group is alive. Zombies (state Z in /proc/<pid>/stat) do not count:
+ * an orphaned vendor is reparented to an init that may never reap it, and a zombie runs nothing.
+ */
+export function groupAlive(pgid) {
+  if (!pgid) return false;
+  try {
+    process.kill(-pgid, 0);
+  } catch (e) {
+    return e.code !== 'ESRCH';
+  }
+  for (const name of readdirSync('/proc')) {
+    if (!/^\d+$/.test(name)) continue;
+    let stat;
+    try {
+      stat = readFileSync(`/proc/${name}/stat`, 'utf8');
+    } catch {
+      continue;
+    }
+    const rest = stat.slice(stat.lastIndexOf(')') + 2).split(' ');
+    if (Number(rest[2]) === pgid && rest[0] !== 'Z') return true;
+  }
+  return false;
+}
+
 
 export const RUN_RESULT_STATUSES = [
   'completed',
