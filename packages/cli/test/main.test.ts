@@ -113,10 +113,38 @@ function fakeClient(overrides: Partial<CoreClient> = {}): CoreClient {
       steps: 0,
       events: [],
     }),
+    doctor: async () => doctorReport,
+    gc: async () => ({
+      home: '/h',
+      removed: [{ run_id: 'run_done', path: '/h/runs/run_done', status: 'succeeded' }],
+      kept: [{ run_id: 'run_live', path: '/h/runs/run_live', status: 'running' }],
+      skipped: [],
+    }),
     close: () => {},
     ...overrides,
   };
 }
+
+const control = (level: 'enforced' | 'best_effort' | 'absent', detail: string) => ({ level, detail });
+const doctorReport = {
+  home: '/h',
+  sandbox: {
+    run_id: 'run_doctor-x',
+    mode: 'userdir',
+    platform: 'linux',
+    level: 'absent' as const,
+    controls: {
+      env_scrub: control('best_effort', 'only the allowlist'),
+      home_isolation: control('best_effort', 'HOME in the run dir'),
+      fs_write_confinement: control('best_effort', 'no OS isolation'),
+      egress: control('absent', 'no egress proxy configured'),
+      process_group_kill: control('enforced', 'grandchild gone'),
+    },
+    child_env_keys: ['HOME', 'PATH'],
+    notes: [],
+    checked_at: 'now',
+  },
+};
 
 const runSummary = {
   id: 'run_x',
@@ -148,11 +176,15 @@ describe('help', () => {
   test('fw --help lists exactly the implemented commands', async () => {
     const r = await run(['--help']);
     expect(r.code).toBe(EXIT.OK);
-    const listed = r.out
-      .split('\n')
-      .filter((l) => l.startsWith('  fw '))
-      .map((l) => l.trim().split(/\s+/).slice(1, 3).join(' '));
-    expect(listed).toEqual(COMMANDS.map((c) => c.path.join(' ')));
+    const listed = r.out.split('\n').filter((l) => l.startsWith('  fw '));
+    expect(listed).toHaveLength(COMMANDS.length);
+    // Each line starts with its command's words, in order (commands are one or two words).
+    COMMANDS.forEach((c, i) => {
+      const words = listed[i]!.trim()
+        .split(/\s+/)
+        .slice(1, 1 + c.path.length);
+      expect(words.join(' ')).toBe(c.path.join(' '));
+    });
     expect(helpText()).toContain('exit codes');
   });
 
@@ -206,6 +238,38 @@ describe('--json', () => {
       error: { code: 'REFUSED_BY_DATABASE', message: e.message, details: { code: 'FW-C-001' } },
     });
   });
+});
+
+describe('doctor and gc', () => {
+  test('fw doctor prints every control with its level', async () => {
+    const r = await run(['doctor']);
+    expect(r.code).toBe(EXIT.OK);
+    expect(r.out).toMatch(/overall absent/);
+    for (const [name, c] of Object.entries(doctorReport.sandbox.controls))
+      expect(r.out).toMatch(new RegExp(`${name}\\s+${c.level}\\s+${c.detail}`));
+  });
+
+  test('fw doctor --json is the report', async () => {
+    const r = await run(['doctor', '--json']);
+    expect(JSON.parse(r.out)).toEqual(doctorReport);
+  });
+
+  test('fw gc reports what it removed and what it kept', async () => {
+    const r = await run(['gc']);
+    expect(r.code).toBe(EXIT.OK);
+    expect(r.out).toContain('removed 1 run directory, kept 1 of active runs');
+    expect(r.out).toContain('removed run_done (succeeded)');
+    expect(r.out).toContain('kept    run_live (running)');
+  });
+
+  test.each([['doctor'], ['gc']])(
+    'fw %s on a client without it exits 1 with CLIENT_UNAVAILABLE',
+    async (cmd) => {
+      const r = await run([cmd, '--json'], fakeClient({ [cmd]: undefined }));
+      expect(r.code).toBe(EXIT.FAILED);
+      expect(JSON.parse(r.out).error.code).toBe('CLIENT_UNAVAILABLE');
+    },
+  );
 });
 
 describe('exit codes', () => {

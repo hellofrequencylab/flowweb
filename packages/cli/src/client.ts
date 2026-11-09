@@ -190,6 +190,39 @@ export interface RunDetail extends RunSummary {
   events: { seq: number; ts: string; type: string; payload: Record<string, unknown> }[];
 }
 
+export type ControlLevel = 'enforced' | 'best_effort' | 'absent';
+
+/** `fw doctor`: the sandbox self-test a run would get, in this home. */
+export interface DoctorReport {
+  home: string;
+  sandbox: {
+    run_id: string;
+    mode: string;
+    platform: string;
+    /** The weakest level across all controls. */
+    level: ControlLevel;
+    controls: Record<string, { level: ControlLevel; detail: string }>;
+    child_env_keys: string[];
+    notes: string[];
+    checked_at: string;
+  };
+}
+
+export interface GcEntry {
+  run_id: string;
+  path: string;
+  /** null when the database has no such run. */
+  status: string | null;
+}
+
+/** `fw gc`: run directories removed (terminal or unknown runs) and kept (active runs). */
+export interface GcReport {
+  home: string;
+  removed: GcEntry[];
+  kept: GcEntry[];
+  skipped: { name: string; reason: string }[];
+}
+
 export interface CoreClient {
   ledgerSync(opts?: { rowsDir?: string }): Promise<SyncReport>;
   ledgerList(opts?: { status?: string; lane?: string }): Promise<RowView[]>;
@@ -203,6 +236,9 @@ export interface CoreClient {
   runStart?(code: string, opts?: RunStartOptions): Promise<RunStartReport>;
   runList?(opts?: { status?: string; limit?: number }): Promise<RunSummary[]>;
   runShow?(runId: string): Promise<RunDetail>;
+  /** Maintenance commands: optional for the same reason (the sandbox lives in the daemon). */
+  doctor?(): Promise<DoctorReport>;
+  gc?(): Promise<GcReport>;
   close(): void;
 }
 
