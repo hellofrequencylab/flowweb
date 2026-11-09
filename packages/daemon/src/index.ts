@@ -2,6 +2,20 @@ export const PACKAGE = '@fw/daemon';
 
 export { rowCodeOf, rowIdOf } from './api/codes.ts';
 export {
+  CredentialError,
+  type CredentialErrorCode,
+  type CredentialRequest,
+  credentialFilePath,
+  HANDLE_RE,
+  type InjectedCredentials,
+  injectCredentials,
+  KEYCHAIN_SERVICE,
+  ResolvedCredential,
+  redactLiterals,
+  resolveCredential,
+  resolveCredentialHandle,
+} from './creds/index.ts';
+export {
   type Daemon,
   type DaemonOptions,
   DEFAULT_PORT,
@@ -26,6 +40,31 @@ export {
   type Runner,
   type TokenScopeReport,
 } from './edge-git/index.ts';
+export { createCoreClient, type DaemonCoreClient, type RunStartRequest } from './local-client.ts';
+export {
+  buildEvidenceBundle,
+  type EvidenceInput,
+  evidenceBundleHash,
+  prComment,
+} from './pipeline/evidence.ts';
+export { listRuns, type RunDetail, RunNotFoundError, type RunSummary, showRun } from './pipeline/queries.ts';
+export { endRun, releaseLeases, settleRowAfterFailure } from './pipeline/records.ts';
+export {
+  hostRepoOf,
+  PipelineError,
+  type RunStartOptions,
+  type RunStartReport,
+  resolveGitHost,
+  runStart,
+} from './pipeline/run-start.ts';
+export {
+  type Breach,
+  type SupervisedOutcome,
+  type SupervisedRun,
+  type SuperviseOptions,
+  startSupervised,
+  supervise,
+} from './pipeline/supervisor.ts';
 export { ORPHAN_STATES, type ReconcileReport, reconcileOnStart } from './reconciler.ts';
 export {
   type ArtifactCheck,

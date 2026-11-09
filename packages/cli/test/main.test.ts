@@ -76,10 +76,60 @@ function fakeClient(overrides: Partial<CoreClient> = {}): CoreClient {
       work_order: { budget: { caps: { max_usd: 1 } } } as never,
     }),
     auditVerify: async () => ({ ok: true, count: 3, head: 'd'.repeat(64) }),
+    runStart: async () => ({
+      code: 'FW-C-001',
+      ok: true,
+      run_id: 'run_x',
+      status: 'succeeded',
+      failure_class: null,
+      reason: null,
+      row_status: 'verifying',
+      work_order_id: 'wo_x',
+      branch: 'fw/FW-C-001/run_x',
+      worktree: null,
+      pr: { number: 1, url: 'file:///tmp/o.git/pull/1', head_sha: SHA, comment_url: null },
+      evidence_bundle_id: 'evb_x',
+      bundle_hash: 'b'.repeat(64),
+      sandbox_level: 'best_effort',
+      cost_usd: 0.01,
+      cost_estimated: false,
+    }),
+    runList: async () => [runSummary],
+    runShow: async () => ({
+      ...runSummary,
+      work_order_id: 'wo_x',
+      agent_id: 'agt_w',
+      workspace_path: null,
+      started_at: null,
+      turns: 2,
+      tokens_in: 1,
+      tokens_out: 1,
+      exit_code: 0,
+      cost: { usd: null, entries: 0, known: false },
+      artifacts: [],
+      evidence: [
+        { id: 'evb_x', bundle_hash: 'b'.repeat(64), subject_sha: SHA, scan_red: false, created_at: 'now' },
+      ],
+      steps: 0,
+      events: [],
+    }),
     close: () => {},
     ...overrides,
   };
 }
+
+const runSummary = {
+  id: 'run_x',
+  row: 'FW-C-001',
+  status: 'succeeded',
+  failure_class: null,
+  adapter: 'fake',
+  attempt: 1,
+  branch: 'fw/FW-C-001/run_x',
+  queued_at: 'now',
+  ended_at: 'now',
+  cost_usd: null,
+};
 
 function run(argv: string[], client: CoreClient = fakeClient()) {
   const out: string[] = [];
@@ -185,6 +235,42 @@ describe('exit codes', () => {
     expect(r.out).toContain('lr_FWC005');
     expect(r.out).toContain('1'.repeat(64));
     expect(r.out).toContain('2'.repeat(64));
+  });
+
+  test('a failed run start exits 1 with the failure class and reason', async () => {
+    const base = await fakeClient().runStart!('FW-C-001');
+    const r = await run(
+      ['run', 'start', 'FW-C-001', '--adapter', 'fake', '--scenario', 'over_budget'],
+      fakeClient({
+        runStart: async () => ({
+          ...base,
+          ok: false,
+          status: 'killed',
+          failure_class: 'budget',
+          reason: 'usd cap 0.5 exceeded',
+          pr: null,
+        }),
+      }),
+    );
+    expect(r.code).toBe(EXIT.FAILED);
+    expect(r.out).toContain('killed (budget) run_x: usd cap 0.5 exceeded');
+  });
+
+  test('run commands on a client without them exit 1 with CLIENT_UNAVAILABLE', async () => {
+    const r = await run(['run', 'list', '--json'], fakeClient({ runList: undefined }));
+    expect(r.code).toBe(EXIT.FAILED);
+    expect(JSON.parse(r.out).error.code).toBe('CLIENT_UNAVAILABLE');
+  });
+
+  test('run show without spend says the cost is unknown, and prints the bundle hash', async () => {
+    const r = await run(['run', 'show', 'run_x']);
+    expect(r.out).toContain('unknown (no spend recorded)');
+    expect(r.out).toContain('b'.repeat(64));
+  });
+
+  test('--max-wall-clock-s must be a positive whole number', async () => {
+    const r = await run(['run', 'start', 'FW-C-001', '--max-wall-clock-s', '0']);
+    expect(r.code).toBe(EXIT.USAGE);
   });
 
   test('a held writer lock exits 4', async () => {

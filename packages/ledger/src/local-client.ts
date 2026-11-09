@@ -4,7 +4,7 @@
 // package's package.json, so the CLI never imports a kernel package.
 // Read commands open the database read-only; write commands take the single writer lock.
 import { existsSync, mkdirSync } from 'node:fs';
-import { dirname, resolve } from 'node:path';
+import { dirname, join, resolve } from 'node:path';
 import { openStore, type Store, type VerifyResult } from '@fw/eventlog';
 import { type CloseReport, closeRow } from './close.ts';
 import { LedgerError } from './errors.ts';
@@ -50,7 +50,8 @@ export function createCoreClient(opts: LocalClientOptions): LocalCoreClient {
     if (!write && !existsSync(path))
       throw new LedgerError('NO_DATABASE', `no ledger database at ${path} (run fw ledger sync first)`);
     mkdirSync(dirname(path), { recursive: true });
-    store = openStore({ path, readonly: !write });
+    // One writer lock for the CLI and fwd: the same file fwd takes, so they can never both write.
+    store = openStore({ path, readonly: !write, lockPath: join(home, 'fwd.lock') });
     readonly = !write;
     return store;
   };
