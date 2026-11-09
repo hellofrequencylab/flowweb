@@ -1,0 +1,37 @@
+{
+  "id": "WS-P0-044",
+  "title": "Phase 0 demo script and exit review",
+  "core_milestone": "C0",
+  "phase": 0,
+  "epic": "E0.8 CLI and walking skeleton",
+  "priority": "P1",
+  "size": "S",
+  "lane": "docs",
+  "agent_suitability": "human",
+  "gate": "owner-approval",
+  "depends_on": [
+    "WS-P0-043",
+    "WS-P0-042",
+    "WS-P0-023"
+  ],
+  "description": "Write the executable demo script and run the Phase 0 exit checklist; Owner signs the review.",
+  "acceptance": [
+    "demo.sh runs end to end from a clean clone on the demo machine",
+    "Exit checklist in BUILD-PLAN Phase 0 is fully ticked in docs/phase-reviews/0.md",
+    "Kill criteria evaluated and recorded"
+  ],
+  "verify_probe": "bash scripts/probe-phase0-exit.sh",
+  "files_hint": [
+    "docs/phase-reviews/0.md",
+    "scripts/demo-p0.sh"
+  ],
+  "origin": "full-plan row, included",
+  "core_adaptation": "Records docs/milestone-reviews/C0.md; the demo is the C0 exit criterion in CORE-BACKLOG-VIEW.md.",
+  "full_depends_on": [
+    "WS-P0-043"
+  ],
+  "full_files_hint": [
+    "docs/phase-reviews/0.md",
+    "scripts/demo-p0.sh"
+  ]
+}

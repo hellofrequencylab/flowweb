@@ -1,0 +1,32 @@
+{
+  "id": "FW-C-017",
+  "title": "C1 exit: the safe loop on one real project for a week",
+  "core_milestone": "C1",
+  "phase": 1,
+  "epic": "C1.4 Exit",
+  "priority": "P0",
+  "size": "M",
+  "lane": "docs",
+  "agent_suitability": "human",
+  "gate": "owner-approval",
+  "depends_on": [
+    "FW-C-016",
+    "WS-P1-006",
+    "WS-P1-035"
+  ],
+  "description": "Run the loop on one real project: five rows through maker, verifier, approval and merge slot, one deliberate head-moves-after-approval drill and one kill drill. Record the result in docs/milestone-reviews/C1.md.",
+  "acceptance": [
+    "Five rows reach done through the slot with approvals bound to the head SHA",
+    "The drills produce the expected voided slot and the halted run",
+    "fw audit verify passes and spend stayed under the fleet daily cap on every day"
+  ],
+  "verify_probe": "bash scripts/probe-c1-exit.sh",
+  "files_hint": [
+    "docs/milestone-reviews/C1.md",
+    "scripts/probe-c1-exit.sh"
+  ],
+  "origin": "new Core row",
+  "derived_from": [
+    "WS-P1-033"
+  ]
+}

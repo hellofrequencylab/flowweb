@@ -1,0 +1,34 @@
+{
+  "id": "WS-P1-001",
+  "title": "Control-plane daemon skeleton",
+  "core_milestone": "C1",
+  "phase": 1,
+  "epic": "E1.1 Daemon, streams, scheduler, reconciler",
+  "priority": "P0",
+  "size": "M",
+  "lane": "kernel",
+  "agent_suitability": "agent",
+  "gate": "none",
+  "depends_on": [
+    "WS-P0-041"
+  ],
+  "description": "Create the long-running Node daemon with config loading, structured logging, graceful shutdown, and a local-only health endpoint; the CLI talks to it over a unix socket.",
+  "acceptance": [
+    "Daemon starts, reports healthy, and stops cleanly on SIGTERM with in-flight runs recorded as interrupted",
+    "Health endpoint binds to loopback only (verified by port scan test)",
+    "CLI fw status works against the daemon and falls back to direct DB read when it is down"
+  ],
+  "verify_probe": "pnpm probe kernel/daemon-lifecycle",
+  "files_hint": [
+    "packages/daemon/src/"
+  ],
+  "origin": "full-plan row, included",
+  "core_adaptation": "Single daemon fwd: owns the writer lock, hosts the pipeline, scheduler, reconciler, API and checks. The CLI becomes a client of it.",
+  "full_depends_on": [
+    "WS-P0-041"
+  ],
+  "full_files_hint": [
+    "apps/fwd/src/",
+    "apps/fwd/src/"
+  ]
+}

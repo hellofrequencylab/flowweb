@@ -1,0 +1,34 @@
+{
+  "id": "FW-C-011",
+  "title": "Merge slot and merge executor",
+  "core_milestone": "C1",
+  "phase": 2,
+  "epic": "C1.2 Gates",
+  "priority": "P0",
+  "size": "L",
+  "lane": "policy",
+  "agent_suitability": "pair",
+  "gate": "owner-approval",
+  "depends_on": [
+    "FW-C-010",
+    "WS-P0-036",
+    "WS-P1-008",
+    "FW-C-014"
+  ],
+  "description": "One slot per project and base branch. After verifier concurrence and green checks the Owner approves; the slot activates; head SHA and mergeability are revalidated immediately before the effect; the merge goes through the host with an expected-head compare-and-set (or the merge queue); the grant is consumed, merged_sha recorded and the probe runs on the merged artifact. Void on head change, base drift, expiry or kill switch; one bounded rebase attempt.",
+  "acceptance": [
+    "Pushing a commit after approval voids the slot and the approval, and nothing is merged (chaos test)",
+    "Two PRs queue; the second gets the slot only after the first lands and the base tip is rechecked",
+    "The merge call carries the approved head SHA as expected-head and a stale head is refused by the host"
+  ],
+  "verify_probe": "pnpm probe policy/merge-slot",
+  "files_hint": [
+    "packages/policy/src/merge-slot/",
+    "packages/daemon/src/edge-git/merge.ts"
+  ],
+  "origin": "new Core row",
+  "derived_from": [
+    "WS-P2-012",
+    "WS-P2-013"
+  ]
+}

@@ -1,0 +1,30 @@
+{
+  "id": "FW-C-015",
+  "title": "Container sandbox behind FW_SANDBOX=container",
+  "core_milestone": "C1",
+  "phase": 0,
+  "epic": "C1.3 Checks",
+  "priority": "P1",
+  "size": "L",
+  "lane": "runtime",
+  "agent_suitability": "pair",
+  "gate": "none",
+  "depends_on": [
+    "FW-C-008",
+    "WS-P0-028"
+  ],
+  "description": "Optional profile: each vendor process in a rootless podman or docker container (non-root, cap-drop ALL, read-only root, worktree read-write only, no sockets or home, egress only to the allowlist proxy) with an escape and egress self-test. The default stays the userdir sandbox.",
+  "acceptance": [
+    "A curl from inside the container to a non-allowlisted host fails and is logged",
+    "Host home and the container socket are not visible inside",
+    "The fake-vendor end-to-end test passes with FW_SANDBOX=userdir and with FW_SANDBOX=container"
+  ],
+  "verify_probe": "pnpm probe runtime/container-sandbox",
+  "files_hint": [
+    "packages/daemon/src/runtime/container.ts"
+  ],
+  "origin": "new Core row",
+  "derived_from": [
+    "WS-P0-033"
+  ]
+}

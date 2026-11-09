@@ -1,0 +1,33 @@
+{
+  "id": "WS-P0-027",
+  "title": "Adapter conformance suite v0",
+  "core_milestone": "C0",
+  "phase": 0,
+  "epic": "E0.5 Adapter contract and first vendor",
+  "priority": "P0",
+  "size": "L",
+  "lane": "adapters",
+  "agent_suitability": "pair",
+  "gate": "none",
+  "depends_on": [
+    "WS-P0-026",
+    "FW-C-007"
+  ],
+  "description": "Build a reusable conformance suite any adapter must pass: schema-valid output, nonzero exit equals failure, missing structured output equals failure, budget cap honored, wall-clock cap honored, session id stored.",
+  "acceptance": [
+    "Reference fake adapter passes all 8 cases",
+    "A deliberately broken fake fails the matching case each time",
+    "Suite runs against fixtures without network or keys"
+  ],
+  "verify_probe": "pnpm probe adapters/conformance-suite",
+  "files_hint": [
+    "packages/adapters/src/sdk/src/conformance/"
+  ],
+  "origin": "full-plan row, included",
+  "full_depends_on": [
+    "WS-P0-026"
+  ],
+  "full_files_hint": [
+    "packages/adapter-sdk/src/conformance/"
+  ]
+}

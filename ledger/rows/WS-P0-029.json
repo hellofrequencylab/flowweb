@@ -1,0 +1,33 @@
+{
+  "id": "WS-P0-029",
+  "title": "Credential handle v0 (OS keychain)",
+  "core_milestone": "C0",
+  "phase": 0,
+  "epic": "E0.5 Adapter contract and first vendor",
+  "priority": "P0",
+  "size": "M",
+  "lane": "security",
+  "agent_suitability": "pair",
+  "gate": "owner-approval",
+  "depends_on": [
+    "FW-C-001"
+  ],
+  "description": "Provide a credential handle abstraction backed by the OS keychain; secrets injected into the child process env only and never written to disk or the event log.",
+  "acceptance": [
+    "Handle resolves a secret from the keychain stub in tests",
+    "Secret is absent from process args and from any file under the run directory (scan)",
+    "Missing secret fails with a typed error and an actionable message"
+  ],
+  "verify_probe": "pnpm probe security/credential-handle",
+  "files_hint": [
+    "packages/daemon/src/creds/"
+  ],
+  "origin": "full-plan row, included",
+  "core_adaptation": "No broker process in Core: the daemon resolves handles (OS keychain, or a 0600 file under FW_HOME on headless Linux) and injects them into the vendor process only.",
+  "full_depends_on": [
+    "WS-P0-001"
+  ],
+  "full_files_hint": [
+    "apps/fwd-broker/src/creds/"
+  ]
+}

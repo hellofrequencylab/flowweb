@@ -1,0 +1,32 @@
+{
+  "id": "FW-C-021",
+  "title": "Captain's Table: the decision-card inbox",
+  "core_milestone": "C2",
+  "phase": 4,
+  "epic": "C2.2 Daily screens",
+  "priority": "P0",
+  "size": "L",
+  "lane": "ui",
+  "agent_suitability": "agent",
+  "gate": "none",
+  "depends_on": [
+    "FW-C-020",
+    "FW-C-010",
+    "WS-P1-024"
+  ],
+  "description": "List-first inbox of decision cards: approve or deny, choose, answer (review and unblock render generically). One card at a time with headline, facts row (blast radius, cost, deadline, default action), at most three actions, a why-this-reached-you line, snooze, and stale handling when the head SHA moved.",
+  "acceptance": [
+    "Approving posts a response bound to payload_hash and head SHA; a moved head shows the stale state and nothing merges",
+    "An expired card shows its default action and who applied it",
+    "The empty state appears only when the daemon reports zero open cards, never on a load failure"
+  ],
+  "verify_probe": "pnpm probe ui/captains-table",
+  "files_hint": [
+    "packages/web/src/table/"
+  ],
+  "origin": "new Core row",
+  "derived_from": [
+    "WS-P4-009",
+    "WS-P4-011"
+  ]
+}

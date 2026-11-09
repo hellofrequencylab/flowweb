@@ -1,0 +1,30 @@
+{
+  "id": "FW-C-020",
+  "title": "Honest UI and accessibility gate",
+  "core_milestone": "C2",
+  "phase": 4,
+  "epic": "C2.1 API and shell",
+  "priority": "P0",
+  "size": "M",
+  "lane": "ui",
+  "agent_suitability": "pair",
+  "gate": "none",
+  "depends_on": [
+    "FW-C-019"
+  ],
+  "description": "Components render only provable state: every status carries data_as_of; anything unverified reads not verified, never a green tick; nothing animates without an event. Keyboard-first (j and k, a, d, e, ?), visible focus, reduced motion respected, AA contrast from tokens, axe in CI on every screen.",
+  "acceptance": [
+    "A fixture whose probe never ran renders not verified on the row",
+    "axe reports zero serious or critical issues on all Core screens at 390 and 1280 wide",
+    "Every Core action is reachable by keyboard alone (Playwright test)"
+  ],
+  "verify_probe": "pnpm probe ui/honest-a11y",
+  "files_hint": [
+    "packages/web/src/ui-kit/"
+  ],
+  "origin": "new Core row",
+  "derived_from": [
+    "WS-P4-003",
+    "WS-P4-032"
+  ]
+}
