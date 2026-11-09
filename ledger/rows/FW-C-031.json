@@ -1,0 +1,36 @@
+{
+  "id": "FW-C-031",
+  "title": "Local saturation marketing flow (first real flow)",
+  "core_milestone": "C1",
+  "phase": 1,
+  "epic": "C1.5 First flow",
+  "priority": "P1",
+  "size": "L",
+  "lane": "workstreams",
+  "agent_suitability": "agent",
+  "gate": "none",
+  "depends_on": [
+    "WS-P1-003"
+  ],
+  "description": "Ship the first real flow: a marketing engine that saturates one local area, then proposes opening the next ring of areas. It researches and drafts at tier L1, every outward item (post or email) waits for the Owner, and Core never publishes or sends. Includes the flow definition (flows/local-saturation/), the decision logic (rings, saturation, expansion, spend cap), GET /v1/flows/{key}, and a Flows page in the web UI.",
+  "acceptance": [
+    "The shipped stream definition starts disabled at L1, its human gate is the Owner and covers every channel's action class, and it carries a dollar cap",
+    "fwd serves GET /v1/flows/local-saturation with rings around the seed, a next move and the budget; a fresh flow works ring 0 only",
+    "A seed saturated for hold_cycles produces a proposal naming ring 1, and the open ring does not move without the Owner",
+    "A used-up dollar or turn cap pauses the flow before anything else",
+    "The web UI shows the flow on a Flows page with no horizontal scroll at 390 px"
+  ],
+  "verify_probe": "pnpm probe flows/local-saturation",
+  "files_hint": [
+    "flows/local-saturation/",
+    "packages/daemon/src/flows/",
+    "packages/daemon/src/api/routes.ts",
+    "packages/daemon/test/",
+    "packages/web/src/flows/",
+    "packages/web/src/api/",
+    "packages/web/src/shell/",
+    "packages/web/mock/",
+    "docs/api/LOCAL-API-V1.md"
+  ],
+  "origin": "new Core row"
+}
