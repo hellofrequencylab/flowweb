@@ -1,5 +1,6 @@
 import { type FormEvent, useState } from 'react';
 import { ApiError, api } from '../api/client';
+import { Button } from '../ui-kit/Button';
 import { focusOnMount } from '../ui-kit/focus';
 import { Logo } from '../ui-kit/Logo';
 
@@ -49,13 +50,20 @@ export function Pairing({ onPaired }: { onPaired: () => void }) {
             <p className="callout callout-warn">Can't reach fwd. Check it is running, then try again.</p>
           )}
         </div>
-        <button
-          className="btn btn-primary btn-big"
+        <Button
+          variant="primary"
+          className="btn-big"
           type="submit"
-          disabled={state === 'pairing' || code.trim().length === 0}
+          disabledReason={
+            state === 'pairing'
+              ? 'Pairing. Waiting for fwd to answer.'
+              : code.trim().length === 0
+                ? 'Enter the code from the terminal first.'
+                : null
+          }
         >
           {state === 'pairing' ? 'Pairing' : 'Pair'}
-        </button>
+        </Button>
       </form>
       <p className="muted small">
         Daemon address: <code>{location.host}</code>

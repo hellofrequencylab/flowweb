@@ -52,7 +52,11 @@ export function AsOf({ res, label = 'as of' }: { res: Resource<Envelope>; label?
 }
 
 export function Loading({ what }: { what: string }) {
-  return <p className="muted">Loading {what}.</p>;
+  return (
+    <p className="loading" role="status">
+      <Icon name="clock" /> Loading {what}.
+    </p>
+  );
 }
 
 export function LoadError({
