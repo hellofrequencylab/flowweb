@@ -1,6 +1,6 @@
 # fwd local API v1 (the contract @fw/web codes against)
 
-Status: implemented in C0 for the read routes and `POST /pair` (see packages/daemon/README.md); other writes return 501 until their rows land. Owner: the Core thread. The web UI codes against this file; the daemon implements it.
+Status: implemented in C0 for the read routes and `POST /pair`, in C1 `POST /runs` for the CLI (see packages/daemon/README.md); other writes return 501 until their rows land. Owner: the Core thread. The web UI codes against this file; the daemon implements it.
 Subset of the full plan's `app-plan/03-contracts/API.md` section 5, same paths and names.
 
 ## Transport
@@ -21,7 +21,7 @@ Every GET returns:
 - `as_of`: when the daemon read the database. `head_seq`: the event log head at read time. The UI shows the age of `as_of` and shows "unknown" when the daemon is unreachable; it never fabricates state.
 - Lists are paged: `?limit=` (default 50, max 200) and `?cursor=`.
 
-Errors: `{ "error": { "code": "not_found" | "validation_failed" | "kill_switch_engaged" | "stale_hash" | "unauthorized" (401) | "forbidden" (403: bad Host or cross-origin write) | "method_not_allowed" (405) | "not_implemented" (501: route lands in a later row) | "internal", "message": "...", "details": {} } }` with matching HTTP status.
+Errors: `{ "error": { "code": "not_found" | "validation_failed" | "kill_switch_engaged" | "stale_hash" | "unauthorized" (401) | "forbidden" (403: bad Host or cross-origin write) | "method_not_allowed" (405) | "not_implemented" (501: route lands in a later row) | "unavailable" (503: fwd is stopping) | "internal", "message": "...", "details": {} } }` with matching HTTP status.
 
 ## Read routes (C0 ships the first block; C2 the rest)
 
@@ -58,6 +58,14 @@ Errors: `{ "error": { "code": "not_found" | "validation_failed" | "kill_switch_e
 | `DELETE /session` | | Sign out. C2. |
 
 Deny is `POST /approvals/{id}/respond` with `decision: "deny"` and a `reason_code`.
+
+## CLI-only write routes (the web never calls these)
+
+| Route | Body | Notes |
+|---|---|---|
+| `POST /runs` | `{ code, repo_dir, adapter?, scenario?, base?, host?, max_wall_clock_s? }` (`repo_dir` absolute; no other fields) | C1. `fw run start` while fwd is up: the pipeline runs inside fwd, which holds the writer. CLI token only; a browser session gets 403 `forbidden`. Answers when the run ends: the envelope with `data` = the `fw run start` report (`code, ok, run_id, status, failure_class, reason, policy_code, row_status, work_order_id, branch, worktree, pr, evidence_bundle_id, bundle_hash, sandbox_level, cost_usd, cost_estimated`); a refusal before a run starts is a report with `status: "refused"`. A kernel error answers `validation_failed` (400) or `not_found` (404) with the kernel's own code in `details.fw_code` (for example `BAD_ARGUMENT`, `NOT_FOUND`). While fwd stops it answers 503 `unavailable`, and a run in flight is interrupted: it ends `killed`, `failure_class: "killed"`, with one `run.killed` whose `detail` starts with `interrupted` (`cause: "interrupted"`), and the held request still gets that report before `system.stopped`. |
+
+`fw status` uses `GET /status` when fwd answers. When it does not, the CLI reports the same shape read from the database read-only, with `daemon: "down"`, `source: "database"`, `started_at: null` and `chain.head_seq` = the newest event seq; it never writes the database.
 
 ## Event types the UI should expect first
 

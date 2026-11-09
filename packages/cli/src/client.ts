@@ -247,7 +247,35 @@ export interface GcReport {
   skipped: { name: string; reason: string }[];
 }
 
+/**
+ * `fw status`: the status strip of GET /v1/status when fwd answers (`daemon: "up"`), else the same
+ * figures read from the database read-only (`daemon: "down"`, `started_at` null, `daemon_detail`
+ * saying why fwd was not asked). `chain.head_seq` is the event log head either way.
+ */
+export interface StatusReport {
+  [key: string]: unknown;
+  daemon: 'up' | 'down';
+  source: 'daemon' | 'database';
+  home: string;
+  database: boolean;
+  started_at: string | null;
+  version?: string;
+  daemon_detail?: string;
+  chain: {
+    ok: boolean | null;
+    head_seq: number | null;
+    head_hash: string | null;
+    verified_at: string | null;
+    failed_seq: number | null;
+  } | null;
+  running_runs?: number;
+  open_cards?: number;
+  kill?: { engaged: boolean | null; reason: string | null } | null;
+}
+
 export interface CoreClient {
+  /** fwd's status, or a read-only database read when fwd is down: optional, served by the daemon package. */
+  status?(): Promise<StatusReport>;
   ledgerSync(opts?: { rowsDir?: string }): Promise<SyncReport>;
   ledgerList(opts?: { status?: string; lane?: string }): Promise<RowView[]>;
   ledgerShow(code: string): Promise<RowDetail>;

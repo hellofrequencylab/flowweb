@@ -12,7 +12,8 @@ export type ErrorCode =
   | 'internal'
   | 'not_implemented'
   | 'forbidden'
-  | 'method_not_allowed';
+  | 'method_not_allowed'
+  | 'unavailable';
 
 /** Thrown by a handler; the router turns it into `{ error: { code, message, details } }`. */
 export class ApiError extends Error {
@@ -48,6 +49,20 @@ export function sendJson(
     ...headers,
   });
   res.end(text);
+}
+
+/** sendJson, resolving once the body is flushed to the socket (or the client went away). */
+export function sendJsonFlushed(res: ServerResponse, status: number, body: unknown): Promise<void> {
+  return new Promise((ok) => {
+    res.once('close', () => ok());
+    const text = JSON.stringify(body);
+    res.writeHead(status, {
+      'content-type': 'application/json; charset=utf-8',
+      'cache-control': 'no-store',
+      'content-length': Buffer.byteLength(text),
+    });
+    res.end(text, () => ok());
+  });
 }
 
 export function sendError(res: ServerResponse, err: ApiError, headers: Record<string, string> = {}): void {

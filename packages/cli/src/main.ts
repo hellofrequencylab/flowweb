@@ -9,6 +9,7 @@ import { auditCommands } from './commands/audit.ts';
 import { ledgerCommands } from './commands/ledger.ts';
 import { runCommands } from './commands/run.ts';
 import { spendCommands } from './commands/spend.ts';
+import { statusCommands } from './commands/status.ts';
 import { systemCommands } from './commands/system.ts';
 import type { Command } from './commands/types.ts';
 import { woCommands } from './commands/wo.ts';
@@ -21,6 +22,7 @@ export const COMMANDS: Command[] = [
   ...spendCommands,
   ...auditCommands,
   ...systemCommands,
+  ...statusCommands,
 ];
 
 const GLOBAL = ['json', 'home', 'repo', 'help'];

@@ -74,7 +74,7 @@ const DEFAULT_WALL_CLOCK_S = 30 * 60;
 const DEFAULT_TURNS = 100;
 
 export class PipelineError extends Error {
-  readonly code: 'BAD_ARGUMENT' | 'HOST_UNAVAILABLE';
+  readonly code: 'BAD_ARGUMENT' | 'HOST_UNAVAILABLE' | 'UNAVAILABLE';
   readonly details: Record<string, unknown>;
   constructor(code: PipelineError['code'], message: string, details: Record<string, unknown> = {}) {
     super(message);
@@ -108,6 +108,12 @@ export interface RunStartOptions {
   adapterFactory?: (name: AdapterName) => VendorAdapter;
   env?: NodeJS.ProcessEnv;
   now?: () => Date;
+  /**
+   * Aborted when the host stops (fwd on SIGTERM). The run in flight is killed (its whole vendor
+   * process group) and ends as killed, failure_class killed, with the abort reason (which says
+   * "interrupted") in its terminal event. A run aborted before its vendor starts ends as failed.
+   */
+  signal?: AbortSignal;
 }
 
 export interface RunStartReport {
@@ -143,6 +149,19 @@ class RunFailure extends Error {
     this.extra = extra;
     this.to = to;
   }
+}
+
+/** The reason an aborted signal carries, as text for the run's terminal event. */
+function abortReason(signal: AbortSignal): string {
+  const r: unknown = signal.reason;
+  const text = typeof r === 'string' ? r : r instanceof Error ? r.message : '';
+  return /interrupt/i.test(text) ? text : `interrupted${text ? `: ${text}` : ''}`;
+}
+
+/** Throws the interrupted failure when the host has stopped. */
+function throwIfInterrupted(signal: AbortSignal | undefined): void {
+  if (signal?.aborted)
+    throw new RunFailure('killed', abortReason(signal), { cause: 'interrupted' }, 'killed');
 }
 
 /** A started run whose change a policy refused. `code` is what the CLI maps to exit 3. */
@@ -280,6 +299,7 @@ export async function runStart(w: Writer, code: string, opts: RunStartOptions): 
   if (opts.maxWallClockS !== undefined && !(Number.isInteger(opts.maxWallClockS) && opts.maxWallClockS > 0))
     throw new PipelineError('BAD_ARGUMENT', '--max-wall-clock-s must be a positive whole number of seconds');
 
+  if (opts.signal?.aborted) throw new PipelineError('UNAVAILABLE', abortReason(opts.signal));
   let row = getDbRow(w, code);
   const rowCode = codeFromRowId(row.id);
   const report: RunStartReport = {
@@ -625,6 +645,8 @@ function evBase(c: ExecCtx) {
 
 async function execute(c: ExecCtx): Promise<void> {
   const { w, now, runId, order } = c;
+  const signal = c.opts.signal;
+  throwIfInterrupted(signal);
 
   // ---- 3. worktree ----
   const activeIds = new Set(
@@ -838,6 +860,8 @@ async function execute(c: ExecCtx): Promise<void> {
   }, HEARTBEAT_MS);
   heartbeat.unref();
   let out: SupervisedOutcome;
+  throwIfInterrupted(signal);
+  const onAbort = () => void sup?.stop(abortReason(signal!));
   try {
     sup = startSupervised(c.adapter, input, {
       onEvent,
@@ -847,8 +871,11 @@ async function execute(c: ExecCtx): Promise<void> {
         ...(c.opts.scenario !== undefined ? { scenario: c.opts.scenario } : {}),
       },
     });
+    if (signal?.aborted) onAbort();
+    else signal?.addEventListener('abort', onAbort, { once: true });
     out = await sup.done;
   } finally {
+    signal?.removeEventListener('abort', onAbort);
     clearInterval(heartbeat);
   }
 
@@ -957,7 +984,16 @@ async function execute(c: ExecCtx): Promise<void> {
     );
   }
   if (out.stopped)
-    throw new RunFailure('killed', out.stopped, { cause: 'supervisor', cost: costPayload }, 'killed');
+    throw new RunFailure(
+      'killed',
+      out.stopped,
+      {
+        cause: signal?.aborted ? 'interrupted' : 'supervisor',
+        cost: costPayload,
+        group_gone: out.group_gone,
+      },
+      'killed',
+    );
   if (result.status !== 'completed')
     throw new RunFailure(
       (out.meta.failure_class as FailureClass | null) ?? 'adapter',

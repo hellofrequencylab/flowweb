@@ -7,12 +7,16 @@ import { hostname } from 'node:os';
 import { join, resolve } from 'node:path';
 import { openStore, type Store, type Writer } from '@fw/eventlog';
 import { ApiError, sendError } from './api/http.ts';
-import { buildRouter, principalOf } from './api/routes.ts';
+import { buildRouter, principalOf, type RunStartBody } from './api/routes.ts';
 import type { ChainStatus } from './api/status.ts';
 import { hostAllowed, PairingStore, writeOriginAllowed } from './auth.ts';
+import { runStart } from './pipeline/run-start.ts';
 import { type ReconcileReport, reconcileOnStart } from './reconciler.ts';
+import { RunHost } from './run-host.ts';
 
 export const DEFAULT_PORT = 7317;
+/** How long a stop waits for interrupted runs to be recorded before it gives up (clean: false). */
+export const DEFAULT_STOP_TIMEOUT_MS = 20_000;
 export const LOOPBACK = '127.0.0.1';
 export const REPO_ROOT = resolve(import.meta.dirname, '../../..');
 export const VERSION: string = (
@@ -44,6 +48,8 @@ export interface DaemonOptions {
   ssePollMs?: number;
   sseHeartbeatMs?: number;
   log?: (line: string) => void;
+  /** How long stop() waits for in-flight runs to end (default DEFAULT_STOP_TIMEOUT_MS). */
+  stopTimeoutMs?: number;
   /** Test hook: runs after the reconciler and before the server listens. */
   beforeListen?: (writer: Writer) => void;
 }
@@ -61,7 +67,13 @@ export interface Daemon {
   readonly pairingCode: string | undefined;
   readonly cliTokenPath: string;
   verifyChainNow(): ChainStatus;
-  /** Appends system.stopped, ends streams, closes the server and the store. Idempotent. */
+  /** The runs fwd hosts (POST /v1/runs). */
+  readonly runs: RunHost;
+  /**
+   * Stops taking runs, interrupts the ones in flight (each is killed and recorded as ended with an
+   * "interrupted" terminal event), then appends system.stopped, ends streams, closes the server and
+   * the store. Idempotent.
+   */
   stop(reason?: string): Promise<void>;
 }
 
@@ -158,6 +170,20 @@ export async function startDaemon(opts: DaemonOptions): Promise<Daemon> {
   const devNoAuth = opts.devNoAuth === true;
   const pairingCode = devNoAuth ? undefined : pairing.ensurePairingCode(opts.forcePairingCode === true);
 
+  // ---- runs --------------------------------------------------------------------------------
+  const runs = new RunHost();
+  const startRun = (b: RunStartBody, signal: AbortSignal) =>
+    runStart(writer, b.code, {
+      home: fwHome,
+      repoDir: b.repo_dir,
+      signal,
+      ...(b.adapter !== undefined ? { adapter: b.adapter } : {}),
+      ...(b.scenario !== undefined ? { scenario: b.scenario } : {}),
+      ...(b.base !== undefined ? { base: b.base } : {}),
+      ...(b.host !== undefined ? { host: b.host } : {}),
+      ...(b.max_wall_clock_s !== undefined ? { maxWallClockS: b.max_wall_clock_s } : {}),
+    });
+
   // ---- http --------------------------------------------------------------------------------
   const streams = new Set<() => void>();
   let port = 0;
@@ -175,6 +201,7 @@ export async function startDaemon(opts: DaemonOptions): Promise<Daemon> {
       streams.add(end);
       return () => streams.delete(end);
     },
+    runs: { host: runs, start: startRun },
   });
 
   const handle = async (req: IncomingMessage, res: ServerResponse): Promise<void> => {
@@ -263,6 +290,16 @@ export async function startDaemon(opts: DaemonOptions): Promise<Daemon> {
   const stop = async (reason = 'stop requested'): Promise<void> => {
     if (stopped) return;
     stopped = true;
+    // Runs first: each one in flight is killed and recorded before system.stopped is written.
+    const drained = await runs.drain(
+      `interrupted: fwd stopping (${reason})`,
+      opts.stopTimeoutMs ?? DEFAULT_STOP_TIMEOUT_MS,
+    );
+    if (!drained.settled)
+      log(
+        `stop: ${drained.interrupted} run(s) did not end in time; the reconciler fails them on the next start`,
+      );
+    else if (drained.interrupted > 0) log(`stop: interrupted ${drained.interrupted} run(s)`);
     clearInterval(chainTimer);
     for (const end of [...streams]) end();
     await new Promise<void>((ok) => {
@@ -275,7 +312,7 @@ export async function startDaemon(opts: DaemonOptions): Promise<Daemon> {
         actor_kind: 'system',
         actor_id: 'fwd',
         idempotency_key: `${host_id}:${bootId}:stop`,
-        payload: { reason, clean: true, boot_id: bootId },
+        payload: { reason, clean: drained.settled, boot_id: bootId, runs_interrupted: drained.interrupted },
       });
     } finally {
       store.close();
@@ -294,6 +331,7 @@ export async function startDaemon(opts: DaemonOptions): Promise<Daemon> {
     pairingCode,
     cliTokenPath,
     verifyChainNow,
+    runs,
     stop,
   };
 }
