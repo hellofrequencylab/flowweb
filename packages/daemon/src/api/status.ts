@@ -147,6 +147,6 @@ export function statusOf(deps: StatusDeps): Json {
     paused_by_budget: pausedByBudget(reader),
     sandbox_level: lastSandboxLevel(reader),
     open_cards: count("SELECT COUNT(*) AS n FROM decision_cards WHERE status = 'open'"),
-    running_runs: count("SELECT COUNT(*) AS n FROM runs WHERE status = 'running'"),
+    running_runs: count("SELECT COUNT(*) AS n FROM runs WHERE status IN ('starting','running','validating')"),
   };
 }

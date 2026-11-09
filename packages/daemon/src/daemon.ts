@@ -180,17 +180,19 @@ export async function startDaemon(opts: DaemonOptions): Promise<Daemon> {
   const handle = async (req: IncomingMessage, res: ServerResponse): Promise<void> => {
     const method = (req.method ?? 'GET').toUpperCase();
     if (!hostAllowed(req.headers.host, port)) {
-      throw new ApiError(403, 'unauthorized', 'Host header must be 127.0.0.1 or localhost with the fwd port');
+      throw new ApiError(403, 'forbidden', 'Host header must be 127.0.0.1 or localhost with the fwd port');
     }
     const url = new URL(req.url ?? '/', `http://${LOOPBACK}:${port}`);
     const safe = method === 'GET' || method === 'HEAD' || method === 'OPTIONS';
     if (!safe && !writeOriginAllowed(req, port)) {
-      throw new ApiError(403, 'unauthorized', 'cross-origin writes are refused');
+      throw new ApiError(403, 'forbidden', 'cross-origin writes are refused');
     }
     const m = router.match(method, url.pathname);
     if (m.kind === 'not_found') throw new ApiError(404, 'not_found', `no route ${method} ${url.pathname}`);
     if (m.kind === 'method_not_allowed') {
-      throw new ApiError(405, 'not_found', `${method} is not allowed on ${url.pathname}`, { allow: m.allow });
+      throw new ApiError(405, 'method_not_allowed', `${method} is not allowed on ${url.pathname}`, {
+        allow: m.allow,
+      });
     }
     if (url.pathname !== '/v1/pair') {
       const principal = devNoAuth ? ({ kind: 'dev_no_auth' } as const) : pairing.authenticate(req);

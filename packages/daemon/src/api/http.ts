@@ -10,7 +10,9 @@ export type ErrorCode =
   | 'stale_hash'
   | 'unauthorized'
   | 'internal'
-  | 'not_implemented';
+  | 'not_implemented'
+  | 'forbidden'
+  | 'method_not_allowed';
 
 /** Thrown by a handler; the router turns it into `{ error: { code, message, details } }`. */
 export class ApiError extends Error {

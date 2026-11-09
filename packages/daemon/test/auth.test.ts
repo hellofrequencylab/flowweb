@@ -92,7 +92,7 @@ describe('auth', () => {
     for (const host of ['evil.example', `evil.example:${d.port}`, '127.0.0.1', `127.0.0.1:${d.port + 1}`]) {
       const res = await call(d.port, 'GET', '/v1/status', { headers: { host } });
       expect(res.status, host).toBe(403);
-      expect(res.json.error.code).toBe('unauthorized');
+      expect(res.json.error.code).toBe('forbidden');
     }
     const token = readFileSync(d.cliTokenPath, 'utf8').trim();
     const local = await call(d.port, 'GET', '/v1/status', {
