@@ -1,0 +1,35 @@
+{
+  "id": "FW-C-014",
+  "title": "Verifier role: read-only, clean context, different vendor",
+  "core_milestone": "C1",
+  "phase": 1,
+  "epic": "C1.1 Second vendor and review",
+  "priority": "P0",
+  "size": "L",
+  "lane": "runtime",
+  "agent_suitability": "pair",
+  "gate": "none",
+  "depends_on": [
+    "WS-P1-016",
+    "WS-P0-032",
+    "FW-C-008"
+  ],
+  "description": "A read-only run by a different agent, preferring a different vendor from the maker, with no maker transcript and no write mount, using an adversarial brief kept in prompts/ (Tier 1). It returns evidence-bundle.independent_check (concur, concerns or reject) with a reproduction command for each high finding. Single-vendor fallback sets same_vendor_review and is shown to the Owner. Advisory at L3: ground-truth gates outrank it.",
+  "acceptance": [
+    "The verifier cannot write to the worktree (a write attempt fails in a test)",
+    "A maker on claude gets a codex verifier when both are configured; a single-vendor config sets same_vendor_review",
+    "A fixture with a planted bug is caught by the fake verifier path with a reproduction command"
+  ],
+  "verify_probe": "pnpm probe runtime/verifier-role",
+  "files_hint": [
+    "packages/daemon/src/runtime/verifier.ts",
+    "prompts/review-adversarial.md",
+    "packages/adapters/src/sdk/review-pick.ts"
+  ],
+  "origin": "new Core row",
+  "derived_from": [
+    "WS-P1-020",
+    "WS-P1-021",
+    "WS-P1-022"
+  ]
+}

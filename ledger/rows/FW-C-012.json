@@ -1,0 +1,32 @@
+{
+  "id": "FW-C-012",
+  "title": "Kill switch that works with the daemon down",
+  "core_milestone": "C1",
+  "phase": 2,
+  "epic": "C1.2 Gates",
+  "priority": "P0",
+  "size": "M",
+  "lane": "security",
+  "agent_suitability": "pair",
+  "gate": "owner-approval",
+  "depends_on": [
+    "FW-C-010",
+    "WS-P0-029",
+    "WS-P1-001"
+  ],
+  "description": "fw kill and the status-strip button engage settings.kill_switch; the SQL trigger cascades to runs, leases, grants and approvals in one transaction and the supervisor kills process groups. Engaging works with the daemon down (direct database write plus pidfile kill). Only the Owner releases it with fw resume, after the halted items are listed.",
+  "acceptance": [
+    "Engaging halts a running fake-vendor run within 2 s and leaves no active lease",
+    "With fwd stopped, fw kill still engages and the next daemon start refuses to dispatch",
+    "Release by a non-Owner identity is rejected by the database (test)"
+  ],
+  "verify_probe": "pnpm probe security/kill-switch",
+  "files_hint": [
+    "packages/daemon/src/killswitch.ts",
+    "packages/cli/src/commands/kill.ts"
+  ],
+  "origin": "new Core row",
+  "derived_from": [
+    "WS-P2-027"
+  ]
+}

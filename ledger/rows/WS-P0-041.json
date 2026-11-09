@@ -1,0 +1,48 @@
+{
+  "id": "WS-P0-041",
+  "title": "fw run start <row>: the single-command pipeline",
+  "core_milestone": "C0",
+  "phase": 0,
+  "epic": "E0.8 CLI and walking skeleton",
+  "priority": "P0",
+  "size": "L",
+  "lane": "kernel",
+  "agent_suitability": "pair",
+  "gate": "none",
+  "depends_on": [
+    "WS-P0-040",
+    "WS-P0-020",
+    "WS-P0-030",
+    "FW-C-008",
+    "WS-P0-038",
+    "WS-P0-039",
+    "WS-P0-036",
+    "WS-P0-021"
+  ],
+  "description": "Orchestrate premise re-test, worktree, container run, probe, diff-policy, evidence bundle and PR creation as one command; a human merges.",
+  "acceptance": [
+    "Fake-vendor run of a fixture row ends with a PR, bundle and cost record",
+    "Failure at any stage leaves a typed failed event and no dangling worktree",
+    "fw run start is idempotent: re-running a done row refuses"
+  ],
+  "verify_probe": "pnpm probe e2e/walking-skeleton-fake",
+  "files_hint": [
+    "packages/cli/src/commands/run.ts",
+    "packages/daemon/src/pipeline.ts"
+  ],
+  "origin": "full-plan row, included",
+  "core_adaptation": "In-process library call from the CLI in C0 (no daemon yet); the same pipeline module becomes the daemon job in C1. The human merges.",
+  "full_depends_on": [
+    "WS-P0-040",
+    "WS-P0-020",
+    "WS-P0-030",
+    "WS-P0-033",
+    "WS-P0-038",
+    "WS-P0-039",
+    "WS-P0-036"
+  ],
+  "full_files_hint": [
+    "apps/cli/src/commands/run.ts",
+    "apps/fwd/src/pipeline.ts"
+  ]
+}

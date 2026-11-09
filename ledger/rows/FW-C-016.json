@@ -1,0 +1,33 @@
+{
+  "id": "FW-C-016",
+  "title": "Safety chaos suite",
+  "core_milestone": "C1",
+  "phase": 2,
+  "epic": "C1.3 Checks",
+  "priority": "P0",
+  "size": "L",
+  "lane": "devex",
+  "agent_suitability": "pair",
+  "gate": "none",
+  "depends_on": [
+    "FW-C-011",
+    "FW-C-012",
+    "FW-C-013",
+    "WS-P1-035",
+    "FW-C-007"
+  ],
+  "description": "End-to-end proofs on a local bare git host and the fake vendor: head moves after approval, approval replay, expired approval, double merge, kill during merge, budget breach mid-run, event tamper, fabricated PR claim, injection in repo text, and a worker editing a Tier 0 path. Each asserts the safe outcome and the event that records it.",
+  "acceptance": [
+    "All 10 scenarios pass in CI with no network",
+    "Each refusal scenario asserts nothing landed on the base branch",
+    "Removing any one guard makes at least one scenario fail (mutation check)"
+  ],
+  "verify_probe": "pnpm probe e2e/safety-chaos",
+  "files_hint": [
+    "e2e/chaos/"
+  ],
+  "origin": "new Core row",
+  "derived_from": [
+    "WS-P2-032"
+  ]
+}

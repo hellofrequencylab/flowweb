@@ -1,0 +1,36 @@
+{
+  "id": "WS-P0-038",
+  "title": "Evidence Bundle builder",
+  "core_milestone": "C0",
+  "phase": 0,
+  "epic": "E0.7 Diff-policy and evidence",
+  "priority": "P0",
+  "size": "M",
+  "lane": "kernel",
+  "agent_suitability": "agent",
+  "gate": "none",
+  "depends_on": [
+    "FW-C-002",
+    "FW-C-008",
+    "WS-P0-035"
+  ],
+  "description": "Assemble the bundle from the diff, probe output, test report, diff-policy result and cost, write the manifest and store its hash in the event log.",
+  "acceptance": [
+    "Bundle includes the literal diff rendered as text",
+    "Changing any member file changes the bundle hash",
+    "Bundle is attached to the PR as a comment with the hash"
+  ],
+  "verify_probe": "pnpm probe kernel/evidence-builder",
+  "files_hint": [
+    "packages/policy/src/approvals/src/evidence/"
+  ],
+  "origin": "full-plan row, included",
+  "full_depends_on": [
+    "WS-P0-013",
+    "WS-P0-034",
+    "WS-P0-035"
+  ],
+  "full_files_hint": [
+    "packages/approvals/src/evidence/"
+  ]
+}

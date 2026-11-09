@@ -1,0 +1,33 @@
+{
+  "id": "WS-P0-025",
+  "title": "Cost record per run",
+  "core_milestone": "C0",
+  "phase": 0,
+  "epic": "E0.4 Event log and audit chain",
+  "priority": "P0",
+  "size": "S",
+  "lane": "kernel",
+  "agent_suitability": "agent",
+  "gate": "none",
+  "depends_on": [
+    "FW-C-004"
+  ],
+  "description": "Record tokens in/out, dollars and wall clock per Run as events and expose a rollup per row, per project and per day.",
+  "acceptance": [
+    "Rollup equals the sum of run events in a fixture",
+    "Missing cost data is recorded as unknown, not zero",
+    "fw spend --by agent (per row: fw run show <run>) prints the rollup"
+  ],
+  "verify_probe": "pnpm probe kernel/cost-record",
+  "files_hint": [
+    "packages/policy/src/budget/src/cost/"
+  ],
+  "origin": "full-plan row, included",
+  "full_depends_on": [
+    "WS-P0-022",
+    "WS-P0-011"
+  ],
+  "full_files_hint": [
+    "packages/budget/src/cost/"
+  ]
+}

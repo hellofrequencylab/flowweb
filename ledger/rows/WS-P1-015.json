@@ -1,0 +1,36 @@
+{
+  "id": "WS-P1-015",
+  "title": "Codex exec adapter",
+  "core_milestone": "C1",
+  "phase": 1,
+  "epic": "E1.4 Second vendor and routing",
+  "priority": "P0",
+  "size": "L",
+  "lane": "adapters",
+  "agent_suitability": "agent",
+  "gate": "none",
+  "depends_on": [
+    "WS-P0-027",
+    "WS-P0-028",
+    "WS-P0-029"
+  ],
+  "description": "Implement the adapter over codex exec with JSONL events, output schema and resume, using API-key credentials.",
+  "acceptance": [
+    "Passes the conformance suite against recorded fixtures",
+    "Event stream maps to the common Run Result without vendor fields leaking into the kernel",
+    "Resume works in a two-step test"
+  ],
+  "verify_probe": "pnpm probe adapters/codex-conformance",
+  "files_hint": [
+    "packages/adapters/src/codex/src/"
+  ],
+  "origin": "full-plan row, included",
+  "full_depends_on": [
+    "WS-P0-027",
+    "WS-P0-028",
+    "WS-P0-029"
+  ],
+  "full_files_hint": [
+    "packages/adapter-codex/src/"
+  ]
+}

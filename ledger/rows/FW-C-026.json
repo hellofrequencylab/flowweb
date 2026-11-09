@@ -1,0 +1,33 @@
+{
+  "id": "FW-C-026",
+  "title": "Two rewards and calm mode",
+  "core_milestone": "C2",
+  "phase": 4,
+  "epic": "C2.2 Daily screens",
+  "priority": "P2",
+  "size": "M",
+  "lane": "ui",
+  "agent_suitability": "agent",
+  "gate": "none",
+  "depends_on": [
+    "FW-C-021",
+    "FW-C-011"
+  ],
+  "description": "Table cleared and Cargo landed, fired only from kernel-verified events (zero open cards; approval consumed plus a passing probe on the merged artifact) with a why-this-fired line and evidence link. One master switch, a per-reward toggle, calm mode (a single tick) and a reduced-motion fallback. A lint forbids XP for spend or activity, streaks and daily-login rewards.",
+  "acceptance": [
+    "Cargo landed fires once per merged row and never on a probe failure or a voided slot",
+    "Calm mode renders no animation and no sound",
+    "The red-line lint fails a PR that adds a streak counter or a spend-based reward"
+  ],
+  "verify_probe": "pnpm probe ui/rewards-calm",
+  "files_hint": [
+    "packages/web/src/rewards/",
+    "scripts/check-redlines.mjs"
+  ],
+  "origin": "new Core row",
+  "derived_from": [
+    "WS-P4-022",
+    "WS-P4-024",
+    "WS-P4-025"
+  ]
+}

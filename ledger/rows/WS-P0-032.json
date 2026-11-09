@@ -1,0 +1,32 @@
+{
+  "id": "WS-P0-032",
+  "title": "Git worktree manager",
+  "core_milestone": "C0",
+  "phase": 0,
+  "epic": "E0.6 Runner: worktree and container",
+  "priority": "P0",
+  "size": "M",
+  "lane": "runtime",
+  "agent_suitability": "agent",
+  "gate": "none",
+  "depends_on": [
+    "FW-C-001"
+  ],
+  "description": "Create, lock, list and remove one worktree per Work Order from a base commit; enforce one active worktree per order id.",
+  "acceptance": [
+    "Second worktree for the same order id is refused",
+    "Removal leaves no stale git metadata",
+    "Worktree path is outside the main checkout"
+  ],
+  "verify_probe": "pnpm probe runtime/worktree-manager",
+  "files_hint": [
+    "packages/daemon/src/runtime/src/worktree.ts"
+  ],
+  "origin": "full-plan row, included",
+  "full_depends_on": [
+    "WS-P0-001"
+  ],
+  "full_files_hint": [
+    "packages/runtime/src/worktree.ts"
+  ]
+}

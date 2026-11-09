@@ -1,0 +1,39 @@
+{
+  "id": "FW-C-030",
+  "title": "C2 exit: two-week daily-driver trial",
+  "core_milestone": "C2",
+  "phase": 4,
+  "epic": "C2.5 Exit",
+  "priority": "P0",
+  "size": "M",
+  "lane": "docs",
+  "agent_suitability": "human",
+  "gate": "owner-approval",
+  "depends_on": [
+    "FW-C-024",
+    "FW-C-021",
+    "FW-C-022",
+    "FW-C-025",
+    "FW-C-026",
+    "FW-C-027",
+    "WS-P1-028",
+    "FW-C-028",
+    "FW-C-029",
+    "FW-C-023"
+  ],
+  "description": "Use Core on the Owner real projects for two weeks. Log decision time, cards per day, approval rate, dollars and halts, and record in docs/milestone-reviews/C2.md which evolution trigger fires next.",
+  "acceptance": [
+    "The Owner clears the Table inside a 15-minute window on at least 10 of 14 days",
+    "No day exceeded the fleet cap and the honest-UI incident count is zero",
+    "Every evolution-map trigger is evaluated against the measured numbers and written down"
+  ],
+  "verify_probe": "bash scripts/probe-c2-exit.sh",
+  "files_hint": [
+    "docs/milestone-reviews/C2.md",
+    "scripts/probe-c2-exit.sh"
+  ],
+  "origin": "new Core row",
+  "derived_from": [
+    "WS-P4-033"
+  ]
+}

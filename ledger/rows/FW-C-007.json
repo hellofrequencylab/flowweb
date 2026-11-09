@@ -1,0 +1,29 @@
+{
+  "id": "FW-C-007",
+  "title": "Fake vendor adapter with scripted faults",
+  "core_milestone": "C0",
+  "phase": 0,
+  "epic": "C0.5 Adapters",
+  "priority": "P0",
+  "size": "M",
+  "lane": "adapters",
+  "agent_suitability": "agent",
+  "gate": "none",
+  "depends_on": [
+    "WS-P0-026"
+  ],
+  "description": "A deterministic adapter used by every test: success, schema-invalid output, nonzero exit, runaway process, cost overrun, fabricated artifact claim and injection-laden output, plus a recorder that turns a real CLI transcript into a replayable fixture.",
+  "acceptance": [
+    "Each of the seven scripted behaviours is selectable by a tag in the work order title",
+    "It runs with no network and no keys",
+    "The fabricated-claim script makes the artifact guard refuse the run (used by WS-P0-039)"
+  ],
+  "verify_probe": "pnpm probe adapters/fake-vendor",
+  "files_hint": [
+    "packages/adapters/src/fake/"
+  ],
+  "origin": "new Core row",
+  "derived_from": [
+    "WS-P0-027"
+  ]
+}
