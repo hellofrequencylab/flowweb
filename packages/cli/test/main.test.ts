@@ -1,7 +1,7 @@
 // FW-C-006: router, --json, exit codes, help. Runs main() in-process against a fake CoreClient.
 import { describe, expect, test } from 'vitest';
 import type { CoreClient, CoreClientFactory } from '../src/client.ts';
-import { COMMANDS, EXIT, helpText, type Io, main } from '../src/index.ts';
+import { COMMANDS, EXIT, helpText, type Io, invocationCwd, main } from '../src/index.ts';
 
 const SHA = 'a'.repeat(40);
 
@@ -401,5 +401,19 @@ describe('fw spend (WS-P0-025)', () => {
     const r = await run(['spend', '--json'], fakeClient({ spendRollup: undefined }));
     expect(r.code).toBe(EXIT.FAILED);
     expect(JSON.parse(r.out).error.code).toBe('CLIENT_UNAVAILABLE');
+  });
+});
+
+describe('working directory', () => {
+  test('INIT_CWD is used only when fw was started by the `pnpm fw` script', () => {
+    expect(invocationCwd({ npm_lifecycle_event: 'fw', INIT_CWD: '/typed/here' }, '/workspace')).toBe(
+      '/typed/here',
+    );
+    // Another pnpm script (pnpm probe, pnpm test) leaks INIT_CWD into an fw it spawns elsewhere.
+    expect(invocationCwd({ npm_lifecycle_event: 'probe', INIT_CWD: '/workspace' }, '/fixture')).toBe(
+      '/fixture',
+    );
+    expect(invocationCwd({ INIT_CWD: '/workspace' }, '/fixture')).toBe('/fixture');
+    expect(invocationCwd({ npm_lifecycle_event: 'fw' }, '/workspace')).toBe('/workspace');
   });
 });

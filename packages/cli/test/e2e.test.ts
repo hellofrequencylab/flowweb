@@ -43,6 +43,37 @@ function python(sql: string): string {
 }
 const contentHash = () => createHash('sha256').update(python('')).digest('hex');
 
+/** Read-only query against the database, rows as JSON. */
+function query(sql: string, ...params: (string | number)[]): Record<string, unknown>[] {
+  const r = spawnSync(
+    'python3',
+    [
+      '-I',
+      '-c',
+      'import json,sqlite3,sys\nc=sqlite3.connect("file:"+sys.argv[1]+"?mode=ro",uri=True)\nc.row_factory=sqlite3.Row\nprint(json.dumps([dict(x) for x in c.execute(sys.argv[2],json.loads(sys.argv[3]))]))',
+      db,
+      sql,
+      JSON.stringify(params),
+    ],
+    { encoding: 'utf8' },
+  );
+  if (r.status !== 0) throw new Error(r.stderr);
+  return JSON.parse(r.stdout) as Record<string, unknown>[];
+}
+
+/** Hash of every table except the events appended after seq `upTo`. */
+function contentHashUpTo(upTo: number): string {
+  const tables = query(
+    "SELECT name FROM sqlite_schema WHERE type = 'table' AND name NOT LIKE 'sqlite_%' ORDER BY name",
+  ).map((t) => String(t.name));
+  const h = createHash('sha256');
+  for (const t of tables)
+    h.update(
+      `${t}\n${JSON.stringify(query(`SELECT * FROM "${t}"${t === 'events' ? ` WHERE seq <= ${upTo}` : ''} ORDER BY rowid`))}\n`,
+    );
+  return h.digest('hex');
+}
+
 mkdirSync(rows, { recursive: true });
 mkdirSync(repo, { recursive: true });
 // The installed policy copy (CORE-SPEC 5.2); the work-order compiler reads its size table.
@@ -92,8 +123,9 @@ describe('fw ledger', () => {
     expect(JSON.parse(fw('ledger', 'next', '--json').out)).toMatchObject({ row: null });
   });
 
-  test('changing a probe path then syncing exits 1 and leaves the database content unchanged', () => {
-    const before = contentHash();
+  test('changing a probe path then syncing exits 1, records one tamper finding and changes nothing else', () => {
+    const head = Number(query('SELECT MAX(seq) AS seq FROM events')[0]!.seq);
+    const before = contentHashUpTo(head);
     const file = join(rows, 'FW-C-005.json');
     const original = readFileSync(file, 'utf8');
     writeFileSync(
@@ -103,11 +135,18 @@ describe('fw ledger', () => {
     try {
       const r = fw('ledger', 'sync', '--rows', rows);
       expect(r.code).toBe(1);
-      expect(r.out).toContain('REFUSED, nothing was written');
+      expect(r.out).toContain('REFUSED, no row was written');
       expect(r.out).toMatch(
-        /FW-C-005 \(lr_FWC005\): probe changed\n\s+stored [0-9a-f]{64}\n\s+file\s+[0-9a-f]{64}/,
+        /FW-C-005 \(lr_FWC005\): probe changed\n\s+stored [0-9a-f]{64}\n\s+file\s+[0-9a-f]{64}\n\s+tamper finding fnd_\S+ recorded/,
       );
-      expect(contentHash()).toBe(before);
+      const added = query('SELECT type, payload FROM events WHERE seq > ? ORDER BY seq', head);
+      expect(added.map((e) => e.type)).toEqual(['audit.finding_raised']);
+      expect(JSON.parse(String(added[0]!.payload))).toMatchObject({
+        check: 'probe_tamper',
+        ledger_row_id: 'lr_FWC005',
+        code: 'FW-C-005',
+      });
+      expect(contentHashUpTo(head)).toBe(before);
     } finally {
       writeFileSync(file, original);
     }

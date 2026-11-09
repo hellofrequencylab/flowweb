@@ -48,11 +48,12 @@ const sync: Command = {
         );
       return EXIT.OK;
     }
-    ctx.io.out(`ledger sync: REFUSED, nothing was written (${report.refused.length} refused; ${graph})`);
+    ctx.io.out(`ledger sync: REFUSED, no row was written (${report.refused.length} refused; ${graph})`);
     for (const r of report.refused) {
       if (r.reason === 'probe_changed')
         ctx.io.out(
-          `  ${r.code} (${r.id}): probe changed\n    stored ${r.stored_hash}\n    file   ${r.file_hash}`,
+          `  ${r.code} (${r.id}): probe changed\n    stored ${r.stored_hash}\n    file   ${r.file_hash}` +
+            (r.finding_id ? `\n    tamper finding ${r.finding_id} recorded (audit.finding_raised)` : ''),
         );
       else ctx.io.out(`  ${r.code}: ${r.reason}: ${r.message}`);
     }

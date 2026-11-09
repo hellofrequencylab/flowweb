@@ -34,7 +34,7 @@ Things the build hit where the handoff docs disagree with each other or leave a 
 ## Ledger
 
 18. **Probe result in the evidence bundle.** `evidence-bundle.json` forbids extra fields, so the probe output is bound by hash through `automated_evidence` / `intent_payload` and the API derives a flat `view`. If you want the probe result inline in `body`, that is a schema change, and it should happen before real closes (bundles are immutable).
-19. **Tamper on sync.** A changed probe in a row file makes `fw ledger sync` refuse and write nothing (no tamper event type exists in the schema). Running a probe whose stored hash no longer matches raises `audit.finding_raised`.
+19. **Tamper on sync.** A changed probe in a row file makes `fw ledger sync` refuse (exit 1) and write no row. No tamper event type exists in the schema, so before refusing, sync records the attempt as `audit.finding_raised` with check `probe_tamper`, the same payload a tampered probe run raises: the row (`ledger_row_id`, `code`, `evidence_refs`), `stored_hash` and `computed_hash` (the row file's probe hash). The finding is appended in its own transaction, apart from the row writes, so it persists while `ledger_rows` and every other table stay unchanged; each refused attempt records its own finding. Running a probe whose stored hash no longer matches raises the same finding.
 20. **`probes/MANIFEST.sha256`** (WS-P0-019) does not exist yet; you create it when you commit the probe pack. Until then the tamper check covers only the stored probe hash.
 21. **`fw ledger retest <code>`** was added: without it nothing moves a row from open to ready.
 22. **Exit code 3 for policy refusal** (FW-C-006) is not used yet; refusals exit 1, a held writer lock exits 4.

@@ -4,6 +4,7 @@
  * the view models the screens use (types.ts). Screens never see wire shapes,
  * so when FW-C-018 generates the typed client only this file changes.
  */
+import { accessToken, HOSTED, signOutHosted, UNREACHABLE } from '../hosted/auth';
 import { parseUnifiedDiff, sha256Hex } from './diff';
 import type * as V from './types';
 import type * as W from './wire';
@@ -24,7 +25,7 @@ export class ApiError extends Error {
 /** fwd could not be reached at all (network error, daemon down, proxy 502). */
 export class UnreachableError extends Error {
   constructor() {
-    super("Can't reach fwd");
+    super(UNREACHABLE);
   }
 }
 
@@ -44,12 +45,18 @@ async function raw(
   accept = 'application/json',
 ): Promise<Response> {
   let res: Response;
+  const headers: Record<string, string> =
+    body === undefined ? { Accept: accept } : { Accept: accept, 'Content-Type': 'application/json' };
+  if (HOSTED) {
+    // The live mirror has no cookie session; it takes the signed-in owner's token.
+    const token = await accessToken();
+    if (token) headers.Authorization = `Bearer ${token}`;
+  }
   try {
     res = await fetch(API_BASE + path, {
       method,
       credentials: 'same-origin',
-      headers:
-        body === undefined ? { Accept: accept } : { Accept: accept, 'Content-Type': 'application/json' },
+      headers,
       body: body === undefined ? undefined : JSON.stringify(body),
       cache: 'no-store',
     });
@@ -184,7 +191,7 @@ export function mapRunStatus(r: W.WRun): V.RunStatus {
     case 'killed':
       return 'halted';
     case 'succeeded':
-      return r.artifact_verified || r.artifacts?.some((a) => a.verified_by_kernel === 1)
+      return r.artifact_verified || r.artifacts?.some((a) => a.verified_by_kernel)
         ? 'artifact_verified'
         : 'finished_unchecked';
     case 'failed':
@@ -410,7 +417,16 @@ export const api = {
     return { paired_at: e.data.paired_at, device_label: e.data.device_label };
   },
   pair: (code: string) => post<unknown>('/pair', { code }),
-  signOut: () => raw('DELETE', '/session').then(() => undefined),
+  signOut: () => (HOSTED ? signOutHosted() : raw('DELETE', '/session').then(() => undefined)),
+
+  /** Hosted mirror only: machines whose relay pushes to this site. */
+  async machines(): Promise<V.MachineList> {
+    const e = await get<W.WMachine[]>('/hosted/machines');
+    return { data_as_of: e.as_of, machines: e.data };
+  },
+  /** Hosted mirror only: a new relay token, shown once. */
+  addMachine: (label: string) => post<{ token: string }>('/hosted/machines', { label }),
+  revokeMachine: (id: string) => post<unknown>(`/hosted/machines/${enc(id)}/revoke`, {}),
 
   async status(): Promise<V.Status> {
     const e = await get<W.WStatus>('/status');
@@ -646,11 +662,11 @@ export const api = {
         summary: r.result?.summary,
       },
       artifacts_verified: arts
-        .filter((a) => a.verified_by_kernel === 1)
+        .filter((a) => a.verified_by_kernel)
         .map((a) => ({ kind: a.kind, ref: a.ref, sha: a.sha, verified_at: a.verified_at })),
       artifacts_claimed: [
         ...arts
-          .filter((a) => a.verified_by_kernel !== 1)
+          .filter((a) => !a.verified_by_kernel)
           .map((a) => ({
             id: `artifact:${a.kind}:${a.ref}`,
             kind: a.kind,

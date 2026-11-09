@@ -1,6 +1,8 @@
 import { useState } from 'react';
 import { api } from '../api/client';
 import { useResource } from '../api/resource';
+import { HOSTED, signedInEmail } from '../hosted/auth';
+import { AccountsPanel, MachinesPanel } from '../hosted/Machines';
 import { KillControl } from '../shell/KillSwitch';
 import { type Prefs, usePrefs } from '../shell/prefs';
 import { Copy, ResourceView } from '../ui-kit/honest';
@@ -85,10 +87,17 @@ export function SettingsPage({
     <div className="stack">
       <h1 tabIndex={-1}>Settings</h1>
 
-      <section className="kill-panel" aria-labelledby="kill-h">
-        <h2 id="kill-h">Kill switch</h2>
-        <KillControl big />
-      </section>
+      {HOSTED ? (
+        <>
+          <MachinesPanel />
+          <AccountsPanel />
+        </>
+      ) : (
+        <section className="kill-panel" aria-labelledby="kill-h">
+          <h2 id="kill-h">Kill switch</h2>
+          <KillControl big />
+        </section>
+      )}
 
       <section className="panel" aria-labelledby="calm-h">
         <h2 id="calm-h">Calm and rewards</h2>
@@ -184,7 +193,11 @@ export function SettingsPage({
 
       <section className="panel" aria-labelledby="sess-h">
         <h2 id="sess-h">Session</h2>
-        <p>This browser has been paired since {when(pairedAt)}.</p>
+        <p>
+          {HOSTED
+            ? `Signed in as ${signedInEmail() ?? 'the owner'} since ${when(pairedAt)}.`
+            : `This browser has been paired since ${when(pairedAt)}.`}
+        </p>
         <button
           type="button"
           className="btn"

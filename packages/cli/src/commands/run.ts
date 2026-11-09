@@ -30,7 +30,7 @@ function positiveInt(v: string | undefined, name: string): number | undefined {
 const start: Command = {
   path: ['run', 'start'],
   usage:
-    'fw run start <code> [--adapter fake|claude] [--scenario <name>] [--base <branch>] [--host gh|local:<path>] [--max-wall-clock-s <n>]',
+    'fw run start <code> [--adapter fake|noop|claude] [--scenario <name>] [--base <branch>] [--host gh|local:<path>] [--max-wall-clock-s <n>]',
   summary: 'Run a ready row end to end: worktree, sandbox, adapter, policy, evidence, pull request',
   args: ['code'],
   options: ['adapter', 'scenario', 'base', 'host', 'max-wall-clock-s'],

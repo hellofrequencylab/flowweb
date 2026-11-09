@@ -11,4 +11,4 @@ export {
   type ProviderDecl,
 } from './client.ts';
 export { COMMANDS, helpText, main } from './main.ts';
-export { EXIT, exitCodeFor, type Io, toCliError } from './output.ts';
+export { EXIT, exitCodeFor, type Io, invocationCwd, toCliError } from './output.ts';

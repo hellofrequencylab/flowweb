@@ -9,12 +9,21 @@ export interface Io {
   cwd: string;
 }
 
+/**
+ * The directory the user ran fw from. `pnpm fw` runs the script from the workspace root and puts
+ * where the user typed the command in INIT_CWD. INIT_CWD is trusted only for that `fw` script:
+ * any other pnpm script (`pnpm probe`, `pnpm test`) leaks its own INIT_CWD into every child it
+ * starts, and an fw spawned there with its own cwd must use that cwd, not the workspace root.
+ */
+export function invocationCwd(env: NodeJS.ProcessEnv, cwd: string): string {
+  return env.npm_lifecycle_event === 'fw' && env.INIT_CWD ? env.INIT_CWD : cwd;
+}
+
 export const processIo: Io = {
   out: (t) => process.stdout.write(`${t}\n`),
   err: (t) => process.stderr.write(`${t}\n`),
   env: process.env,
-  // `pnpm fw` runs the script from the workspace root; INIT_CWD is where the user typed the command.
-  cwd: process.env.INIT_CWD ?? process.cwd(),
+  cwd: invocationCwd(process.env, process.cwd()),
 };
 
 /** Error codes that are a usage problem (exit 2) rather than a refusal (exit 1). */

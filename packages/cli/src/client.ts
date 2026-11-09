@@ -45,6 +45,7 @@ export interface SyncRefusal {
   stored_hash?: string;
   file_hash?: string;
   cycle?: string[];
+  finding_id?: string;
 }
 
 export interface SyncReport {
