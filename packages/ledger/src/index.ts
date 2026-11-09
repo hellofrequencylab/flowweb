@@ -48,14 +48,21 @@ export { type CorePolicy, loadCorePolicy, type SizeRule } from './policy.ts';
 export { type PremiseOptions, type PremiseOutcome, type PremiseReport, retestPremise } from './premise.ts';
 export {
   checkedProbe,
+  checkProbeManifest,
   type ExecuteOptions,
   executeCommandProbe,
+  type ManifestCheck,
+  type ManifestProblem,
   OUTPUT_TAIL_BYTES,
+  PROBE_MANIFEST,
   type ProbeRunResult,
   type ProbeStatus,
+  parseManifest,
+  probeFilesOf,
   type RecordedProbe,
   type RunRowProbeOptions,
   recordProbeResult,
+  runnableProbe,
   runRowProbe,
   type TargetKind,
 } from './probe.ts';

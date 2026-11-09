@@ -1,6 +1,6 @@
 // fw run start | list | show
 import type { CoreClient, RunStartOptions } from '../client.ts';
-import { EXIT, short, table } from '../output.ts';
+import { EXIT, POLICY_CODES, short, table, usd } from '../output.ts';
 import type { Command } from './types.ts';
 
 class UnsupportedError extends Error {
@@ -19,9 +19,6 @@ function need<K extends 'runStart' | 'runList' | 'runShow'>(
   return fn.bind(client) as NonNullable<CoreClient[K]>;
 }
 
-const usd = (v: number | null | undefined) =>
-  v === null || v === undefined ? 'unknown' : `$${v.toFixed(4)}`;
-
 function positiveInt(v: string | undefined, name: string): number | undefined {
   if (v === undefined) return undefined;
   const n = Number(v);
@@ -33,7 +30,7 @@ function positiveInt(v: string | undefined, name: string): number | undefined {
 const start: Command = {
   path: ['run', 'start'],
   usage:
-    'fw run start <code> [--adapter fake|claude] [--scenario <name>] [--base <branch>] [--host gh|local:<path>] [--max-wall-clock-s <n>]',
+    'fw run start <code> [--adapter fake|noop|claude] [--scenario <name>] [--base <branch>] [--host gh|local:<path>] [--max-wall-clock-s <n>]',
   summary: 'Run a ready row end to end: worktree, sandbox, adapter, policy, evidence, pull request',
   args: ['code'],
   options: ['adapter', 'scenario', 'base', 'host', 'max-wall-clock-s'],
@@ -66,7 +63,8 @@ const start: Command = {
       ctx.io.out(`run start ${r.code}: ${what}: ${r.reason ?? 'no reason recorded'}`);
       if (r.worktree && r.run_id) ctx.io.out(`  worktree kept: ${r.worktree}\n  row: ${r.row_status}`);
     }
-    return r.ok ? EXIT.OK : EXIT.FAILED;
+    if (r.ok) return EXIT.OK;
+    return r.policy_code && POLICY_CODES.has(r.policy_code) ? EXIT.POLICY : EXIT.FAILED;
   },
 };
 

@@ -134,6 +134,7 @@ interface StartReport {
   status: string;
   failure_class: string | null;
   reason: string | null;
+  policy_code: string | null;
   row_status: string;
   branch: string | null;
   worktree: string | null;
@@ -141,7 +142,11 @@ interface StartReport {
   evidence_bundle_id: string | null;
   bundle_hash: string | null;
   sandbox_level: string | null;
+  cost_usd: number | null;
 }
+
+/** What the fake vendor's success scenario reports as the run's total cost (packages/adapters/src/fake/vendor.mjs). */
+const FAKE_REPORTED_USD = 0.0123;
 
 const eventsOf = (w: World, runId: string) =>
   w.db((r) =>
@@ -204,6 +209,45 @@ describe('walking skeleton: success path', () => {
     const show = w.fw('run', 'show', r.run_id!);
     expect(show.code).toBe(0);
     expect(show.out).toContain(r.bundle_hash!);
+
+    // The cost record (decision 32): one spend entry per priced model turn, written as it streamed,
+    // plus one `<run>:final` entry for what the vendor's total adds beyond them. Together they equal
+    // the vendor's reported cost, and runs.cost_usd, fw run start and fw run show all report that sum.
+    const spend = w.db((d) =>
+      d.all<{ idempotency_key: string; usd: number }>(
+        'SELECT idempotency_key, usd FROM spend_entries WHERE run_id = ? ORDER BY ts, id',
+        [r.run_id],
+      ),
+    );
+    const turns = w.db((d) =>
+      d.all<{ seq: number; cost_usd: number }>(
+        "SELECT seq, cost_usd FROM run_steps WHERE run_id = ? AND kind = 'model_turn' ORDER BY seq",
+        [r.run_id],
+      ),
+    );
+    expect(turns).toHaveLength(2); // the success scenario streams two priced turns
+    const stepSpend = spend.filter((s) => s.idempotency_key.startsWith(`${r.run_id}:step:`));
+    const finalSpend = spend.filter((s) => s.idempotency_key === `${r.run_id}:final`);
+    expect(stepSpend.map((s) => s.idempotency_key)).toEqual(turns.map((t) => `${r.run_id}:step:${t.seq}`));
+    expect(stepSpend.map((s) => s.usd)).toEqual(turns.map((t) => t.cost_usd));
+    expect(stepSpend.every((s) => s.usd > 0)).toBe(true);
+    expect(finalSpend).toHaveLength(1);
+    expect(spend).toHaveLength(stepSpend.length + 1);
+    const spendSum = spend.reduce((sum, s) => sum + s.usd, 0);
+    expect(spendSum).toBeCloseTo(FAKE_REPORTED_USD, 9);
+    const runCost = w.db(
+      (d) =>
+        d.get<{ cost_usd: number | null }>('SELECT cost_usd FROM runs WHERE id = ?', [r.run_id])!.cost_usd,
+    );
+    expect(runCost).toBeCloseTo(spendSum, 9);
+    expect(r.cost_usd).toBeCloseTo(spendSum, 9);
+    const shownCost = w.json<{ cost: { usd: number | null; entries: number; known: boolean } }>(
+      'run',
+      'show',
+      r.run_id!,
+    ).body.cost;
+    expect(shownCost).toMatchObject({ entries: spend.length, known: true });
+    expect(shownCost.usd).toBeCloseTo(spendSum, 9);
 
     // Owner merges, the checkout follows main, then close.
     const merged = await w.host.merge(r.pr!.number);
@@ -297,8 +341,14 @@ describe('walking skeleton: failure cases', () => {
       '--scenario',
       'forbidden_path',
     );
-    expect(r.code).toBe(1);
-    expect(r.body).toMatchObject({ ok: false, status: 'failed', failure_class: 'no_artifact', pr: null });
+    expect(r.code).toBe(3); // refused by policy (decision 22)
+    expect(r.body).toMatchObject({
+      ok: false,
+      status: 'failed',
+      failure_class: 'no_artifact',
+      policy_code: 'DIFF_POLICY',
+      pr: null,
+    });
     expect(r.body.reason).toMatch(/diff policy violation/);
     expect(r.body.branch).toBe(`fw/quarantine/${r.body.run_id}`);
     expect(sh(w.repo, 'git', ['branch', '--list', 'fw/quarantine/*'])).toContain(r.body.run_id!);
@@ -315,6 +365,19 @@ describe('walking skeleton: failure cases', () => {
     expect(leaseStatuses(w, r.body.run_id!)).toEqual(['released']);
     expect(rowStatus(w, 'FW-T-002')).toBe('ready');
     expect(existsSync(r.body.worktree!)).toBe(true); // kept for inspection
+
+    // fw gc removes the finished run's directory, never its worktree or its quarantined branch.
+    const runDir = join(w.home, 'runs', r.body.run_id!);
+    expect(existsSync(runDir)).toBe(true);
+    const gc = w.json<{ removed: { run_id: string; status: string | null }[]; kept: unknown[] }>('gc');
+    expect(gc.code).toBe(0);
+    expect(gc.body.removed).toContainEqual(
+      expect.objectContaining({ run_id: r.body.run_id, status: 'failed' }),
+    );
+    expect(gc.body.kept).toEqual([]);
+    expect(existsSync(runDir)).toBe(false);
+    expect(existsSync(r.body.worktree!)).toBe(true);
+    expect(sh(w.repo, 'git', ['branch', '--list', 'fw/quarantine/*'])).toContain(r.body.run_id!);
   }, 60_000);
 
   test('over_budget: the run is killed with failure_class budget', () => {

@@ -73,6 +73,7 @@ export {
   checkRunArtifact,
 } from './runtime/artifact-guard.ts';
 export { branchChanges } from './runtime/branch-diff.ts';
+export { DOCTOR_RUN_PREFIX, type DoctorReport, runDoctor } from './runtime/doctor.ts';
 export {
   ExecError,
   type ExecOptions,
@@ -82,6 +83,7 @@ export {
   git,
   gitEnv,
 } from './runtime/exec.ts';
+export { type GcEntry, type GcReport, gcRunDirs, TERMINAL_RUN_STATES } from './runtime/gc.ts';
 export {
   assertRowId,
   assertRunId,
@@ -126,3 +128,10 @@ export {
   WorktreeManager,
   type WorktreeManagerOptions,
 } from './runtime/worktrees.ts';
+export {
+  SPEND_GROUP_NAMES,
+  type SpendGroup,
+  type SpendQuery,
+  type SpendRow,
+  spendRollup,
+} from './spend.ts';

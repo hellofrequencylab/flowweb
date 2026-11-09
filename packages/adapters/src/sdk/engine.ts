@@ -383,7 +383,7 @@ export function startRun(driver: Driver, input: VendorAdapterInput, opts: StartO
         const step = emitStep('tool_result', item.text, {
           tool_call_id: toolCallId(item.id),
           is_error: item.is_error,
-          ...(toolNames.has(item.id) ? { tool_name: toolNames.get(item.id) } : {}),
+          ...(toolNames.has(item.id) ? { tool_name: toolNames.get(item.id) as string } : {}),
         });
         appendInjection(injection, detectInjection(item.text, 'tool_result', `step:${step.seq}`));
         return;

@@ -118,6 +118,8 @@ export interface RunStartReport {
   status: string;
   failure_class: string | null;
   reason: string | null;
+  /** Set when a policy refused the run's change (`DIFF_POLICY`); the CLI exits 3 on it. */
+  policy_code: string | null;
   row_status: string;
   work_order_id: string | null;
   branch: string | null;
@@ -141,6 +143,11 @@ class RunFailure extends Error {
     this.extra = extra;
     this.to = to;
   }
+}
+
+/** A started run whose change a policy refused. `code` is what the CLI maps to exit 3. */
+class PolicyRefusal extends RunFailure {
+  readonly code = 'DIFF_POLICY';
 }
 
 const clip = (s: string, max = 500) => (s.length > max ? `${s.slice(0, max - 3)}...` : s);
@@ -282,6 +289,7 @@ export async function runStart(w: Writer, code: string, opts: RunStartOptions): 
     status: 'refused',
     failure_class: null,
     reason: null,
+    policy_code: null,
     row_status: row.status,
     work_order_id: null,
     branch: null,
@@ -571,6 +579,7 @@ export async function runStart(w: Writer, code: string, opts: RunStartOptions): 
       now,
     });
     report.reason = clip(redactLiterals(f.message, ctx.creds?.literals ?? []));
+    report.policy_code = f instanceof PolicyRefusal ? f.code : null;
     const out = finish();
     out.reason = report.reason;
     return out;
@@ -1344,7 +1353,7 @@ async function quarantine(c: ExecCtx, verdict: DiffVerdict): Promise<never> {
       });
   });
   if (q.quarantined) c.report.branch = q.to;
-  throw new RunFailure(
+  throw new PolicyRefusal(
     'no_artifact',
     `diff policy violation (${summary}); branch ${q.quarantined ? `quarantined as ${q.to}` : `not quarantined: ${q.reason}`}, nothing pushed`,
     { violations: verdict.violations, quarantine: q },
