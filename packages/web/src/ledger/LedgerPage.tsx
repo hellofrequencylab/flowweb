@@ -3,7 +3,8 @@ import { useResource } from '../api/resource';
 import type { RowStatus, RowSummary } from '../api/types';
 import { ProjectsSummary } from '../projects/ProjectsPage';
 import { Link, useRouter } from '../shell/router';
-import { AsOf, ResourceView } from '../ui-kit/honest';
+import { AsOf, Empty, ResourceView } from '../ui-kit/honest';
+import { PageHead, SectionHead } from '../ui-kit/page';
 import { probeSpec, ROW_STATUS, StatusLabel } from '../ui-kit/status';
 import { age, useNow } from '../ui-kit/time';
 
@@ -49,13 +50,21 @@ export function LedgerPage() {
 
   return (
     <>
-      <div className="row" style={{ alignItems: 'baseline' }}>
-        <h1 tabIndex={-1}>Projects and ledger</h1>
-        <span className="spacer" />
-        <AsOf res={res} />
-      </div>
+      <PageHead
+        title={<>Projects and ledger</>}
+        lede={
+          <>
+            Every row, its status and its last probe. Waiting on you first.
+            <span className="page-meta">
+              <AsOf res={res} />
+            </span>
+          </>
+        }
+      />
       <ProjectsSummary />
-      <h2 style={{ marginTop: 'var(--fw-space-5)' }}>Ledger</h2>
+      <div className="section">
+        <SectionHead title="Ledger" overline="One row per change, each with a probe" />
+      </div>
       <ResourceView res={res} what="ledger">
         {(d) => {
           const lanes = [...new Set(d.rows.map((r) => r.lane))].sort();
@@ -105,7 +114,7 @@ export function LedgerPage() {
                 {rows.length} of {d.rows.length} rows. Waiting on you first.
               </p>
               {rows.length === 0 ? (
-                <p className="muted">No rows match these filters.</p>
+                <Empty title="No rows match">Nothing in the ledger matches these filters.</Empty>
               ) : (
                 <div className="table-wrap">
                   <table className="data">
@@ -114,7 +123,7 @@ export function LedgerPage() {
                         <th>Row</th>
                         <th>Title</th>
                         <th>Status</th>
-                        <th>Pri</th>
+                        <th className="hide-narrow">Pri</th>
                         <th className="hide-narrow">Lane</th>
                         <th className="hide-narrow">Depends on</th>
                         <th className="hide-narrow">Last probe</th>
@@ -132,7 +141,7 @@ export function LedgerPage() {
                             <StatusLabel spec={ROW_STATUS[r.status]} />
                             {r.blocked_reason && <div className="xs muted">{r.blocked_reason}</div>}
                           </td>
-                          <td>{r.priority}</td>
+                          <td className="hide-narrow">{r.priority}</td>
                           <td className="hide-narrow">{r.lane}</td>
                           <td className="hide-narrow mono xs">{r.depends_on.join(', ') || 'none'}</td>
                           <td className="hide-narrow">

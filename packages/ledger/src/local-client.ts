@@ -12,6 +12,7 @@ import { dbPath, resolveHome, resolveProject } from './home.ts';
 import { type PremiseReport, retestPremise } from './premise.ts';
 import { listRows, nextRow, type RowDetail, retestCandidates, showRow } from './queries.ts';
 import type { RowView } from './rows.ts';
+import { addStream, listStreams, type StreamAddReport, type StreamView } from './streams/streams.ts';
 import { type SyncReport, syncRows } from './sync.ts';
 import { type IssueReport, issueWorkOrder } from './workorder/issue.ts';
 
@@ -34,6 +35,8 @@ export interface LocalCoreClient {
   ledgerClose(code: string, opts: { mergedSha: string; repoDir?: string }): Promise<CloseReport>;
   woIssue(code: string, opts?: { doer?: string; verifier?: string; repoDir?: string }): Promise<IssueReport>;
   auditVerify(): Promise<VerifyResult>;
+  streamAdd(definition: unknown, opts?: { approvalId?: string }): Promise<StreamAddReport>;
+  streamList(): Promise<StreamView[]>;
   close(): void;
 }
 
@@ -94,6 +97,12 @@ export function createCoreClient(opts: LocalClientOptions): LocalCoreClient {
     },
     async auditVerify() {
       return open(false).verifyChain();
+    },
+    async streamAdd(definition, o = {}) {
+      return addStream(writer(), definition, o.approvalId ? { approvalId: o.approvalId } : {});
+    },
+    async streamList() {
+      return listStreams(reader());
     },
     close() {
       store?.close();

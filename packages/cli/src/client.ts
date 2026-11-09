@@ -12,7 +12,7 @@
 import { existsSync, readdirSync, readFileSync } from 'node:fs';
 import { dirname, isAbsolute, join, resolve } from 'node:path';
 import { pathToFileURL } from 'node:url';
-import type { EvidenceBundle, LedgerRow, Probe, WorkOrder } from '@fw/contracts';
+import type { EvidenceBundle, LedgerRow, Probe, StreamDefinition, WorkOrder } from '@fw/contracts';
 
 export type RowStatus = LedgerRow['status'];
 
@@ -273,6 +273,30 @@ export interface StatusReport {
   kill?: { engaged: boolean | null; reason: string | null } | null;
 }
 
+/** One stored stream (`fw stream list`). */
+export interface StreamView {
+  id: string;
+  project_id: string;
+  key: string;
+  name: string;
+  template: string;
+  status: string;
+  default_tier: string;
+  version: number;
+  wip_limit: number;
+  trigger: string;
+  budget: StreamDefinition['budget'];
+  definition_hash: string;
+  last_fired_at: string | null;
+  created_at: string;
+}
+
+export interface StreamAddReport {
+  stream: StreamView;
+  approval_id: string | null;
+  event_seq: number;
+}
+
 export interface CoreClient {
   /** fwd's status, or a read-only database read when fwd is down: optional, served by the daemon package. */
   status?(): Promise<StatusReport>;
@@ -284,6 +308,9 @@ export interface CoreClient {
   ledgerClose(code: string, opts: { mergedSha: string; repoDir?: string }): Promise<CloseReport>;
   woIssue(code: string, opts?: { doer?: string; verifier?: string; repoDir?: string }): Promise<IssueReport>;
   auditVerify(): Promise<VerifyResult>;
+  /** Stream commands: optional, so a provider without the stream model still loads. */
+  streamAdd?(definition: unknown, opts?: { approvalId?: string }): Promise<StreamAddReport>;
+  streamList?(): Promise<StreamView[]>;
   /** Run commands: optional, because only a provider with the runtime (the daemon) serves them. */
   runStart?(code: string, opts?: RunStartOptions): Promise<RunStartReport>;
   runList?(opts?: { status?: string; limit?: number }): Promise<RunSummary[]>;

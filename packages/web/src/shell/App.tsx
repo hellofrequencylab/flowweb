@@ -3,6 +3,7 @@ import { ApiError, api, onUnauthorized } from '../api/client';
 import { LiveProvider } from '../api/live';
 import { consumeRedirect, HOSTED, signOutHosted } from '../hosted/auth';
 import { SignIn } from '../hosted/SignIn';
+import { Logo } from '../ui-kit/Logo';
 import { Layout } from './Layout';
 import { Pairing } from './Pairing';
 import { PrefsProvider } from './prefs';
@@ -73,7 +74,8 @@ export function App() {
 function Unreachable({ onRetry }: { onRetry: () => void }) {
   if (HOSTED)
     return (
-      <main className="main stack" style={{ maxWidth: '36rem', margin: '0 auto' }}>
+      <main className="gate stack">
+        <Logo size={40} />
         <h1>Can't reach FlowWeb</h1>
         <p>The live site is not answering, so nothing here can be shown as current.</p>
         <button type="button" className="btn" onClick={onRetry}>
@@ -82,7 +84,8 @@ function Unreachable({ onRetry }: { onRetry: () => void }) {
       </main>
     );
   return (
-    <main className="main stack" style={{ maxWidth: '36rem', margin: '0 auto' }}>
+    <main className="gate stack">
+      <Logo size={40} />
       <h1>Can't reach fwd</h1>
       <p>This page is served by fwd, but fwd is not answering. Nothing here can be shown as current.</p>
       <p>

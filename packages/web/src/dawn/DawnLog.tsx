@@ -6,10 +6,18 @@ import { UNREACHABLE } from '../hosted/auth';
 import { CargoLanded } from '../rewards/Rewards';
 import { usePrefs } from '../shell/prefs';
 import { Link } from '../shell/router';
-import { AsOf, Fact, LoadError, Loading, StaleNotice } from '../ui-kit/honest';
+import { AsOf, Empty, Fact, LoadError, Loading, StaleNotice } from '../ui-kit/honest';
 import { Icon } from '../ui-kit/Icon';
+import { type FigureItem, Figures, PageHead, SectionHead } from '../ui-kit/page';
 import { PROBE_STATUS, StatusLabel } from '../ui-kit/status';
 import { age, clock, usd, useNow, when } from '../ui-kit/time';
+
+function greeting(now: number) {
+  const h = new Date(now).getHours();
+  return h < 12 ? 'Good morning' : h < 18 ? 'Good afternoon' : 'Good evening';
+}
+
+const unknown = <span className="fact-unknown">Unknown</span>;
 
 /** Home. In under a minute: what happened, what needs you, whether anything is stopped or wrong. */
 export function DawnLog() {
@@ -21,15 +29,49 @@ export function DawnLog() {
   const d = dawn.data;
   const { prefs } = usePrefs();
   const rewards = prefs.rewards && prefs.rewardCargoLanded;
+  const live = st.honesty === 'current' && s;
+  const honest = dawn.honesty === 'current' && st.honesty === 'current';
+
+  const figures: FigureItem[] = [
+    {
+      label: d ? `done since ${when(d.since, now)}` : 'done',
+      value: d && honest ? d.rows_done.length : unknown,
+    },
+    live
+      ? {
+          label: s.cards_open === 1 ? 'needs you' : 'need you',
+          value: s.cards_open,
+          tone: s.cards_open > 0 ? 'waiting' : undefined,
+        }
+      : { label: 'need you', value: unknown },
+    d && honest && d.runs.failed > 0
+      ? { label: 'runs failed', value: d.runs.failed, tone: 'fail' }
+      : { label: 'runs finished', value: d && honest ? d.runs.total : unknown },
+    live && s.spend_today
+      ? {
+          label: s.spend_today.estimated ? 'spent today, estimated' : 'spent today',
+          value: usd(s.spend_today.usd),
+          of: `of ${usd(s.spend_today.cap_usd)}`,
+        }
+      : { label: 'spent today', value: unknown },
+  ];
 
   return (
     <>
-      <div className="row" style={{ alignItems: 'baseline' }}>
-        <h1 tabIndex={-1}>Dawn Log</h1>
-        <span className="spacer" />
-        {d?.digest?.self_check_ok && <span className="asof">Digest {clock(d.digest.produced_at)}</span>}
-        <AsOf res={dawn} label="Live counts as of" />
-      </div>
+      <PageHead
+        script={greeting(now)}
+        title="Dawn Log"
+        lede={
+          <>
+            {d ? <Summary d={d} s={s} honest={honest} /> : <span>Summary unknown until fwd answers.</span>}
+            <span className="page-meta">
+              {d?.digest?.self_check_ok && <span className="asof">Digest {clock(d.digest.produced_at)}</span>}
+              <AsOf res={dawn} label="Live counts as of" />
+            </span>
+          </>
+        }
+        aside={<Figures items={figures} label="Today at a glance" />}
+      />
 
       <Problems status={s} down={connection === 'down'} />
 
@@ -42,63 +84,41 @@ export function DawnLog() {
       {d && (
         <>
           <DigestNote d={d} />
-          <p style={{ fontSize: 'var(--fw-text-lg)' }}>
-            <Summary d={d} s={s} honest={dawn.honesty === 'current' && st.honesty === 'current'} />
-          </p>
+
+          <NeedsStrip res={st} now={now} />
 
           {isQuiet(d, s) && dawn.honesty === 'current' ? (
-            <p className="callout">
+            <Empty title="All quiet">
               Nothing changed since {clock(d.since)}. Checked: ledger, runs, spend, decision cards.
-            </p>
+            </Empty>
           ) : null}
 
-          <ul className="plain-list">
-            <li>
-              <h2 className="h-line">Needs you</h2>
-              <Fact
-                res={st}
-                pick={(x: Status) => x.cards_open}
-                format={(n) =>
-                  n === 0 ? (
-                    <span>
-                      Nothing is waiting. <span className="muted small">Checked {clock(s?.data_as_of)}.</span>
-                    </span>
-                  ) : (
-                    <span>
-                      <Link to="/table" className="status status-attention">
-                        <Icon name="waiting" /> {n} card{n === 1 ? '' : 's'} waiting
+          <section className="section" aria-labelledby="dawn-landed">
+            <SectionHead
+              id="dawn-landed"
+              overline="Probe passed on the merged code"
+              title={`Landed since ${when(d.since, now)}`}
+              meta={`${d.rows_done.length} row${d.rows_done.length === 1 ? '' : 's'}`}
+            />
+            {d.rows_done.length === 0 ? (
+              <Empty>No rows reached Done. Checked the ledger at {clock(d.data_as_of)}.</Empty>
+            ) : (
+              <ul className="item-list">
+                {d.rows_done.map((r) => (
+                  <li key={r.ledger_row_id} className="item">
+                    <StatusLabel spec={{ word: 'Done', tone: 'ok', icon: 'done' }} />
+                    <div className="item-main">
+                      <Link to={`/ledger/${r.ledger_row_id}`} className="item-title">
+                        <span className="mono item-id">{r.row_id}</span> {r.title}
                       </Link>
-                      {s?.oldest_card_created_at && (
-                        <span className="muted">
-                          {' '}
-                          · oldest waited {age(s.oldest_card_created_at, now).replace(' ago', '')}
-                        </span>
-                      )}
-                    </span>
-                  )
-                }
-              />
-            </li>
-
-            <li>
-              <h2 className="h-line">Landed since {when(d.since, now)}</h2>
-              {d.rows_done.length === 0 ? (
-                <p className="muted">No rows reached Done. Checked the ledger at {clock(d.data_as_of)}.</p>
-              ) : (
-                <ul className="plain-list">
-                  {d.rows_done.map((r) => (
-                    <li key={r.ledger_row_id} className="row">
-                      <StatusLabel spec={{ word: 'Done', tone: 'ok', icon: 'pass' }} />
-                      <Link to={`/ledger/${r.ledger_row_id}`}>
-                        {r.row_id} {r.title}
-                      </Link>
-                      <span className="muted small">
+                      <span className="item-meta">
                         merged <span className="mono">{r.merged_sha.slice(0, 7) || 'unknown'}</span>
+                        {' · '}
+                        <Link to={`/ledger/${r.ledger_row_id}#probe`}>
+                          Probe {PROBE_STATUS[r.probe_status].word.toLowerCase()}{' '}
+                          {r.probe_at ? clock(r.probe_at) : ''}
+                        </Link>
                       </span>
-                      <Link to={`/ledger/${r.ledger_row_id}#probe`} className="small">
-                        Probe {PROBE_STATUS[r.probe_status].word.toLowerCase()}{' '}
-                        {r.probe_at ? clock(r.probe_at) : ''}
-                      </Link>
                       {rewards && r.probe_status === 'pass' && r.merged_sha && (
                         <CargoLanded
                           rowId={r.row_id}
@@ -107,86 +127,167 @@ export function DawnLog() {
                           sha={r.merged_sha}
                         />
                       )}
-                    </li>
-                  ))}
-                </ul>
-              )}
-              {d.rows_watching.length > 0 && (
-                <>
-                  <h3 style={{ marginTop: 'var(--fw-space-4)' }}>Merged, watching</h3>
-                  <ul className="plain-list">
-                    {d.rows_watching.map((r) => (
-                      <li key={r.ledger_row_id} className="row">
-                        <StatusLabel spec={{ word: 'Not verified', tone: 'unknown', icon: 'notverified' }} />
-                        <Link to={`/ledger/${r.ledger_row_id}`}>
-                          {r.row_id} {r.title}
-                        </Link>
-                        <span className="muted small">Probe has not passed on the merged code yet.</span>
-                      </li>
-                    ))}
-                  </ul>
-                </>
-              )}
-            </li>
+                    </div>
+                  </li>
+                ))}
+              </ul>
+            )}
+          </section>
 
-            <li>
-              <h2 className="h-line">Runs since {when(d.since, now)}</h2>
-              <p className="row">
-                <Link to="/runs?status=succeeded">{d.runs.succeeded} succeeded</Link>
-                <Link to="/runs?status=failed">{d.runs.failed} failed</Link>
-                <Link to="/runs?status=halted">{d.runs.halted} halted</Link>
-                <span className="muted small">of {d.runs.total} finished</span>
+          {d.rows_watching.length > 0 && (
+            <section className="section" aria-labelledby="dawn-watching">
+              <SectionHead
+                id="dawn-watching"
+                overline="Merged, probe not yet passed"
+                title="Merged, watching"
+                meta={`${d.rows_watching.length} row${d.rows_watching.length === 1 ? '' : 's'}`}
+              />
+              <ul className="item-list">
+                {d.rows_watching.map((r) => (
+                  <li key={r.ledger_row_id} className="item">
+                    <StatusLabel spec={{ word: 'Not verified', tone: 'unknown', icon: 'notverified' }} />
+                    <div className="item-main">
+                      <Link to={`/ledger/${r.ledger_row_id}`} className="item-title">
+                        <span className="mono item-id">{r.row_id}</span> {r.title}
+                      </Link>
+                      <span className="item-meta">Probe has not passed on the merged code yet.</span>
+                    </div>
+                  </li>
+                ))}
+              </ul>
+            </section>
+          )}
+
+          <div className="section grid-2">
+            <section className="panel" aria-labelledby="dawn-runs">
+              <div className="panel-head">
+                <h2 id="dawn-runs">Runs since {when(d.since, now)}</h2>
+                <span className="asof">of {d.runs.total} finished</span>
+              </div>
+              <p className="chip-row">
+                <Link to="/runs?status=succeeded" className="status status-ok">
+                  <Icon name="pass" /> {d.runs.succeeded} succeeded
+                </Link>
+                <Link
+                  to="/runs?status=failed"
+                  className={`status status-${d.runs.failed ? 'fail' : 'neutral'}`}
+                >
+                  <Icon name="fail" /> {d.runs.failed} failed
+                </Link>
+                <Link
+                  to="/runs?status=halted"
+                  className={`status status-${d.runs.halted ? 'stop' : 'neutral'}`}
+                >
+                  <Icon name="halted" /> {d.runs.halted} halted
+                </Link>
               </p>
-            </li>
+            </section>
 
-            <li>
-              <h2 className="h-line">Spend today</h2>
+            <section className="panel" aria-labelledby="dawn-spend">
+              <div className="panel-head">
+                <h2 id="dawn-spend">Spend today</h2>
+                <Link to="/spend" className="small">
+                  Details
+                </Link>
+              </div>
               <Fact
                 res={st}
                 pick={(x: Status) => x.spend_today}
                 format={(sp) => (
-                  <span>
-                    <Link to="/spend">
-                      {usd(sp.usd, sp.estimated)} of {usd(sp.cap_usd)}
-                    </Link>
+                  <div className="stack">
+                    <p>
+                      <strong>{usd(sp.usd, sp.estimated)}</strong> of {usd(sp.cap_usd)} cap
+                    </p>
+                    <div className="meter" aria-hidden="true">
+                      <span
+                        className="meter-fill"
+                        style={{ width: `${Math.min(100, (sp.usd / (sp.cap_usd || 1)) * 100)}%` }}
+                      />
+                    </div>
                     {sp.vendors_configured && sp.vendors_reporting.length < sp.vendors_configured.length && (
-                      <span className="muted small">
-                        {' '}
-                        · partial: {sp.vendors_reporting.length} of {sp.vendors_configured.length} vendors
-                        reporting
-                      </span>
+                      <p className="small muted">
+                        Partial: {sp.vendors_reporting.length} of {sp.vendors_configured.length} vendors
+                        reporting.
+                      </p>
                     )}
-                  </span>
+                  </div>
                 )}
               />
-            </li>
+            </section>
 
-            <li>
-              <h2 className="h-line">Integrity</h2>
+            <section className="panel" aria-labelledby="dawn-integrity">
+              <div className="panel-head">
+                <h2 id="dawn-integrity">Integrity</h2>
+              </div>
               <Fact
                 res={st}
                 pick={(x: Status) => x.integrity}
                 format={(i) =>
                   i.ok ? (
-                    <span>
-                      Event log verified up to #{i.verified_up_to_seq} at {clock(i.checked_at)}.
-                    </span>
+                    <p className="row">
+                      <StatusLabel spec={{ word: 'Verified', tone: 'ok', icon: 'verified' }} />
+                      <span className="small muted">
+                        Event log up to #{i.verified_up_to_seq} at {clock(i.checked_at)}.
+                      </span>
+                    </p>
                   ) : (
                     <StatusLabel
                       spec={{
                         word: `Event log failed its integrity check at #${i.failed_at_seq ?? '?'}`,
                         tone: 'fail',
-                        icon: 'fail',
+                        icon: 'shield-x',
                       }}
                     />
                   )
                 }
               />
-            </li>
-          </ul>
+            </section>
+          </div>
         </>
       )}
     </>
+  );
+}
+
+/** The saffron "needs you" strip. Saffron means one thing: waiting on you. */
+function NeedsStrip({ res, now }: { res: ReturnType<typeof useStatusResource>; now: number }) {
+  const s = res.data;
+  if (res.honesty !== 'current' || !s)
+    return (
+      <div className="needs-strip needs-strip-unknown">
+        <span className="needs-strip-label">
+          Needs you: <Fact res={res} pick={(x: Status) => x.cards_open} />
+        </span>
+      </div>
+    );
+  if (s.cards_open === 0)
+    return (
+      <div className="needs-strip needs-strip-clear">
+        <Icon name="check" size={18} />
+        <span>
+          Nothing is waiting. <span className="muted">Checked {clock(s.data_as_of)}.</span>
+        </span>
+      </div>
+    );
+  const n = s.cards_open;
+  return (
+    <section className="needs-strip" aria-label="Needs you">
+      <span className="needs-strip-mark" aria-hidden="true">
+        <Icon name="waiting" size={17} />
+      </span>
+      <span className="needs-strip-label">
+        {n} card{n === 1 ? '' : 's'} need{n === 1 ? 's' : ''} you
+        {s.oldest_card_created_at && (
+          <span className="muted">
+            {' '}
+            · oldest waited {age(s.oldest_card_created_at, now).replace(' ago', '')}
+          </span>
+        )}
+      </span>
+      <Link to="/table" className="btn btn-primary">
+        Open the Table <Icon name="arrow-right" />
+      </Link>
+    </section>
   );
 }
 
@@ -203,7 +304,7 @@ function DigestNote({ d }: { d: Dawn }) {
   if (!d.digest) return <p className="small muted">No digest yet for today. Showing live counts.</p>;
   if (!d.digest.self_check_ok)
     return (
-      <p className="callout callout-warn" role="status">
+      <p className="callout callout-warn callout-block" role="status">
         Today's digest failed its own check. Showing live counts instead.
       </p>
     );
@@ -244,9 +345,11 @@ function Problems({ status: s, down }: { status: Status | null; down: boolean })
     );
   if (items.length === 0) return null;
   return (
-    <div className="callout callout-fail" role="alert" style={{ marginBottom: 'var(--fw-space-4)' }}>
-      <strong>Problems</strong>
-      <ul style={{ margin: 'var(--fw-space-2) 0 0', paddingLeft: 'var(--fw-space-5)' }}>
+    <div className="callout callout-fail callout-block" role="alert">
+      <strong className="callout-title">
+        <Icon name="problem" size={18} /> Problems
+      </strong>
+      <ul>
         {items.map((i) => (
           <li key={i}>{i}</li>
         ))}

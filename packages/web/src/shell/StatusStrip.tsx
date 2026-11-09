@@ -1,85 +1,111 @@
 import { type Connection, useLive } from '../api/live';
 import { HOSTED } from '../hosted/auth';
-import { Icon } from '../ui-kit/Icon';
+import { Icon, type IconName } from '../ui-kit/Icon';
+import { Logo } from '../ui-kit/Logo';
 import { age, clock, usd, useNow } from '../ui-kit/time';
+import { KillPill } from './KillSwitch';
+import { TopNav } from './Nav';
 import { usePrefs } from './prefs';
-import { Link } from './router';
+import { Link, useRouter } from './router';
 
-const CONN: Record<Connection, { word: string; icon: 'pass' | 'warn' | 'unknown' | 'clock' }> = {
+const CONN: Record<Connection, { word: string; icon: IconName }> = {
   connecting: { word: 'Connecting', icon: 'clock' },
   live: { word: 'Live', icon: 'pass' },
   // The hosted mirror never has a live stream; say what it is instead of "delayed".
-  delayed: { word: HOSTED ? 'Mirror of your machine' : 'Updates delayed', icon: 'warn' },
-  down: { word: HOSTED ? 'Not synced' : "Can't reach fwd", icon: 'unknown' },
+  delayed: { word: HOSTED ? 'Mirror of your machine' : 'Updates delayed', icon: 'delayed' },
+  down: { word: HOSTED ? 'Not synced' : "Can't reach fwd", icon: 'wifi-off' },
 };
 
-/** Always visible. Every value here is either current or plainly marked otherwise. */
+/**
+ * The top bar, always visible. Every value here is either current or plainly
+ * marked otherwise. Standing conditions (calm mode, budget pause, sandbox)
+ * sit on a second line as chips.
+ */
 export function StatusStrip({ onStop }: { onStop: () => void }) {
   const { connection, status, statusAt } = useLive();
   const { prefs } = usePrefs();
+  const { loc } = useRouter();
   const now = useNow(10_000);
   const current = connection === 'live' || connection === 'delayed';
   const s = status;
-  const kill = s?.kill_switch.state;
+  const last = statusAt ? new Date(statusAt).toISOString() : null;
+  const asof = last
+    ? connection === 'live'
+      ? `Updated ${clock(last)}`
+      : `Last update ${clock(last)}, ${age(last, now)}`
+    : 'No data yet';
+
+  type Condition = { icon: IconName; text: string; tone?: 'warn' | 'fail' };
+  const conditions: Condition[] = [];
+  if (prefs.calm) conditions.push({ icon: 'paused', text: 'Calm mode' });
+  if (s?.paused_by_budget) conditions.push({ icon: 'paused', text: 'Paused: budget', tone: 'warn' });
+  if (s?.breaker?.tripped) conditions.push({ icon: 'warn', text: 'Breaker tripped', tone: 'warn' });
+  if (s && s.sandbox_egress !== 'enforced')
+    conditions.push({
+      icon: 'warn',
+      text: `Sandbox egress ${s.sandbox_egress === 'best_effort' ? 'best effort' : 'none'}`,
+      tone: 'warn',
+    });
+  if (s && !s.integrity.ok) conditions.push({ icon: 'fail', text: 'Integrity check failed', tone: 'fail' });
 
   return (
-    <header className="strip">
-      <span className="strip-brand">FlowWeb</span>
-      <span
-        className={`status status-${connection === 'live' ? 'ok' : connection === 'down' ? 'unknown' : 'warn'}`}
-        role="status"
-      >
-        <Icon name={CONN[connection].icon} />
-        {CONN[connection].word}
-      </span>
-
-      {s && current && s.cards_open > 0 && (
-        <Link to="/table" className="chip chip-attention">
-          {s.cards_open} need{s.cards_open === 1 ? 's' : ''} you
+    <header className="topbar">
+      <div className="topbar-row">
+        <Link to="/" className="brand" aria-label="FlowWeb, Dawn Log">
+          <Logo />
         </Link>
-      )}
-      {s && current && s.cards_open === 0 && <span className="muted">Nothing needs you</span>}
-      {(!s || !current) && <span className="muted">Needs you: Unknown</span>}
+        <TopNav />
+        <span className="spacer" />
 
-      <span>
-        Spend:{' '}
-        {s?.spend_today && current ? (
-          <>
-            {usd(s.spend_today.usd, s.spend_today.estimated)} of {usd(s.spend_today.cap_usd)}
-          </>
-        ) : (
-          <span className="fact-unknown">Unknown</span>
-        )}
-      </span>
-
-      {prefs.calm && <span className="chip">Calm mode</span>}
-      {s?.paused_by_budget && <span className="chip">Paused: budget</span>}
-      {s?.breaker?.tripped && <span className="chip">Breaker tripped</span>}
-      {s && s.sandbox_egress !== 'enforced' && (
-        <span className="chip">
-          Sandbox egress {s.sandbox_egress === 'best_effort' ? 'best effort' : 'none'}
+        <span
+          className={`conn conn-${connection}`}
+          role="status"
+          title={asof}
+          aria-label={`${CONN[connection].word}. ${asof}`}
+        >
+          <Icon name={CONN[connection].icon} />
+          <span className="hide-narrow">{CONN[connection].word}</span>
         </span>
-      )}
-      {s && !s.integrity.ok && <span className="chip">Integrity check failed</span>}
-      {kill === 'stopped' && <span className="chip">Stopped</span>}
 
-      <span className="spacer" />
-      <span className="asof" title={statusAt ? new Date(statusAt).toISOString() : undefined}>
-        {statusAt
-          ? connection === 'live'
-            ? `Updated ${clock(new Date(statusAt).toISOString())}`
-            : `Last update ${clock(new Date(statusAt).toISOString())}, ${age(new Date(statusAt).toISOString(), now)}`
-          : 'No data yet'}
-      </span>
-      <button
-        type="button"
-        className="btn btn-stop"
-        onClick={onStop}
-        aria-haspopup="dialog"
-        aria-keyshortcuts="Control+Shift+."
-      >
-        <Icon name="stopped" /> {kill === 'stopped' ? 'Stopped' : kill === 'stopping' ? 'Stopping' : 'Stop'}
-      </button>
+        {s && current && s.cards_open > 0 && (
+          <Link to="/table" className="needs-pill">
+            {s.cards_open} need{s.cards_open === 1 ? 's' : ''} you
+          </Link>
+        )}
+        {(!s || !current) && <span className="topbar-meta hide-tablet">Needs you: Unknown</span>}
+
+        <span className="topbar-meta hide-tablet">
+          {s?.spend_today && current ? (
+            <>
+              <strong>{usd(s.spend_today.usd, s.spend_today.estimated)}</strong> of{' '}
+              {usd(s.spend_today.cap_usd)} today
+            </>
+          ) : (
+            <>
+              Spend: <span className="fact-unknown">Unknown</span>
+            </>
+          )}
+        </span>
+
+        <Link
+          to="/settings"
+          className="icon-btn topbar-settings"
+          aria-label="Settings"
+          aria-current={loc.path.startsWith('/settings') ? 'page' : undefined}
+        >
+          <Icon name="settings" size={18} />
+        </Link>
+        <KillPill onOpen={onStop} />
+      </div>
+      {conditions.length > 0 && (
+        <ul className="topbar-conditions" aria-label="Standing conditions">
+          {conditions.map((c) => (
+            <li key={c.text} className={`chip${c.tone ? ` chip-${c.tone}` : ''}`}>
+              <Icon name={c.icon} /> {c.text}
+            </li>
+          ))}
+        </ul>
+      )}
     </header>
   );
 }

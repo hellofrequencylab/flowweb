@@ -1,6 +1,8 @@
 import { type FormEvent, useState } from 'react';
 import { ApiError, api } from '../api/client';
+import { Button } from '../ui-kit/Button';
 import { focusOnMount } from '../ui-kit/focus';
+import { Logo } from '../ui-kit/Logo';
 
 /** First visit: proves the browser belongs to the Owner. */
 export function Pairing({ onPaired }: { onPaired: () => void }) {
@@ -19,16 +21,13 @@ export function Pairing({ onPaired }: { onPaired: () => void }) {
   };
 
   return (
-    <main
-      className="main stack"
-      style={{ maxWidth: '28rem', margin: '0 auto', paddingTop: 'var(--fw-space-6)' }}
-    >
+    <main className="gate stack">
+      <Logo size={40} />
       <h1>Pair this browser</h1>
       <p>Enter the code printed in the terminal where fwd is running.</p>
       <form onSubmit={submit} className="stack">
-        <label className="stack" style={{ display: 'block' }}>
-          <span>Pairing code</span>
-          <br />
+        <label className="field">
+          <span className="field-label">Pairing code</span>
           <input
             type="text"
             inputMode="numeric"
@@ -38,7 +37,7 @@ export function Pairing({ onPaired }: { onPaired: () => void }) {
             onChange={(e) => setCode(e.target.value)}
             aria-invalid={state === 'wrong'}
             aria-describedby="pair-msg"
-            style={{ width: '100%', fontFamily: 'var(--fw-font-mono)', fontSize: 'var(--fw-text-lg)' }}
+            className="field-big mono"
           />
         </label>
         <div id="pair-msg" role="status">
@@ -51,13 +50,20 @@ export function Pairing({ onPaired }: { onPaired: () => void }) {
             <p className="callout callout-warn">Can't reach fwd. Check it is running, then try again.</p>
           )}
         </div>
-        <button
-          className="btn btn-primary"
+        <Button
+          variant="primary"
+          className="btn-big"
           type="submit"
-          disabled={state === 'pairing' || code.trim().length === 0}
+          disabledReason={
+            state === 'pairing'
+              ? 'Pairing. Waiting for fwd to answer.'
+              : code.trim().length === 0
+                ? 'Enter the code from the terminal first.'
+                : null
+          }
         >
           {state === 'pairing' ? 'Pairing' : 'Pair'}
-        </button>
+        </Button>
       </form>
       <p className="muted small">
         Daemon address: <code>{location.host}</code>

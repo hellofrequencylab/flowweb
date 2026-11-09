@@ -6,7 +6,9 @@ import { TableCleared } from '../rewards/Rewards';
 import { chordPending, useKeys } from '../shell/keys';
 import { usePrefs } from '../shell/prefs';
 import { useRouter } from '../shell/router';
-import { AsOf, LoadError, Loading, StaleNotice } from '../ui-kit/honest';
+import { AsOf, Empty, LoadError, Loading, StaleNotice } from '../ui-kit/honest';
+import { Icon } from '../ui-kit/Icon';
+import { PageHead } from '../ui-kit/page';
 import { age, clock, useNow, when } from '../ui-kit/time';
 import { CardView, type Decided } from './CardView';
 
@@ -110,21 +112,28 @@ export function TablePage({ cardId }: { cardId?: string }) {
 
   return (
     <>
-      <div className="row" style={{ alignItems: 'baseline' }}>
-        <h1 tabIndex={-1}>Captain's Table</h1>
-        {list.honesty === 'current' && cards.length > 0 && (
-          <span className="muted">
-            {Math.min(progress.answered + 1, total)} of {total}
-          </span>
-        )}
-        <span className="spacer" />
-        <AsOf res={list} />
-      </div>
+      <PageHead
+        overline="Decisions waiting on you"
+        title="Captain's Table"
+        lede={
+          <>
+            {list.honesty === 'current' && cards.length > 0
+              ? `Card ${Math.min(progress.answered + 1, total)} of ${total} today. Nothing moves until you answer.`
+              : 'Every decision FlowWeb needs from you, one at a time.'}
+            <span className="page-meta">
+              <AsOf res={list} />
+            </span>
+          </>
+        }
+      />
 
       {last && (
-        <p className="callout small" role="status">
-          {last.summary} Recorded {clock(last.at)}.
-        </p>
+        <div className="callout callout-ok callout-row callout-block" role="status">
+          <Icon name="check" size={18} />
+          <p>
+            {last.summary} Recorded {clock(last.at)}.
+          </p>
+        </div>
       )}
 
       {list.honesty === 'loading' && <Loading what="the table" />}
@@ -139,56 +148,54 @@ export function TablePage({ cardId }: { cardId?: string }) {
           {cleared && prefs.rewards && prefs.rewardTableCleared ? (
             <TableCleared count={cleared.count} minutes={cleared.minutes} checkedAt={list.asOf!} />
           ) : (
-            <p>
-              <strong>Table's clear.</strong> Nothing needs you.{' '}
-              <span className="muted">Checked {clock(list.asOf)}.</span>
-            </p>
+            <Empty title="Table's clear.">
+              Nothing needs you. <span className="muted">Checked {clock(list.asOf)}.</span>
+            </Empty>
           )}
         </div>
       )}
 
       {list.data && cards.length > 0 && (
-        <div className={`table-layout ${showEvidence ? 'with-evidence' : ''}`}>
+        <div className="table-layout">
           {selected && (
-            <nav className="row show-narrow" aria-label="Move between cards">
+            <nav className="row show-narrow queue-steps" aria-label="Move between cards">
               <button
                 type="button"
-                className="btn"
+                className="btn btn-small"
                 disabled={idx <= 0}
                 onClick={() => go(`/table/${cards[idx - 1].id}`)}
               >
-                Previous
+                <Icon name="arrow-left" /> Previous
               </button>
               <span className="muted small">
                 Queue position {idx + 1} of {cards.length}
               </span>
               <button
                 type="button"
-                className="btn"
+                className="btn btn-small"
                 disabled={idx < 0 || idx >= cards.length - 1}
                 onClick={() => go(`/table/${cards[idx + 1].id}`)}
               >
-                Next
+                Next <Icon name="arrow-right" />
               </button>
             </nav>
           )}
           <nav aria-label="Waiting cards" className={selected ? 'hide-narrow' : ''}>
-            <ol className="plain-list queue" ref={queueRef} style={{ borderTop: 0 }}>
+            <ol className="queue" ref={queueRef}>
               {cards.map((c) => (
-                <li key={c.id} style={{ border: 0, padding: 0 }}>
+                <li key={c.id}>
                   <button
                     type="button"
                     className="queue-item"
                     aria-current={c.id === selected ? 'true' : undefined}
                     onClick={() => go(`/table/${c.id}`)}
                   >
-                    <span className="xs muted">
+                    <span className="queue-kind">
+                      <Icon name="waiting" size={13} />
                       {VARIANT_LABEL[c.variant]}
                       {c.row_id ? ` · ${c.row_id}` : ''}
                     </span>
-                    <br />
-                    <strong>{c.title}</strong>
-                    <br />
+                    <span className="queue-title">{c.title}</span>
                     <span className="xs muted">
                       {c.project_name ? `${c.project_name} · ` : ''}waiting{' '}
                       {age(c.created_at, now).replace(' ago', '')}

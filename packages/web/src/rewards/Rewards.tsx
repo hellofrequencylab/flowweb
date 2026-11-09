@@ -22,8 +22,8 @@ export function TableCleared({
   const still = useStill();
   return (
     <div className="reward" role="status">
-      <span className={still ? '' : 'reward-mark'} style={{ color: 'var(--fw-ok)' }}>
-        <Icon name="pass" size={24} />
+      <span className={`icon-tile reward-tile${still ? '' : ' reward-mark'}`}>
+        <Icon name="done" size={20} />
       </span>
       <div>
         <p style={{ margin: 0 }}>
@@ -76,17 +76,26 @@ export function CargoLanded({
   }, [show, ledgerRowId]);
   if (!show) return null;
   return (
-    <span className="reward small" role="status">
-      <span className={still ? '' : 'reward-mark'}>
-        <Icon name="pass" />
+    <span className="reward-inline" role="status">
+      <span className={`reward-icon${still ? '' : ' reward-mark'}`}>
+        <Icon name="done" size={16} />
       </span>
-      <span>
-        Cargo landed: {rowId} {title}. Probe passed on <span className="mono">{sha.slice(0, 7)}</span>.{' '}
-        <Link to={`/ledger/${ledgerRowId}#probe`}>Evidence</Link>{' '}
-        <button type="button" className="btn btn-quiet" onClick={() => setShow(false)}>
-          Dismiss
-        </button>
+      <span className="reward-text">
+        <strong>Cargo landed.</strong>{' '}
+        <span className="visually-hidden">
+          {rowId} {title}.{' '}
+        </span>
+        Probe passed on <span className="mono">{sha.slice(0, 7)}</span>.{' '}
+        <Link to={`/ledger/${ledgerRowId}#probe`}>Evidence</Link>
       </span>
+      <button
+        type="button"
+        className="icon-btn"
+        onClick={() => setShow(false)}
+        aria-label={`Dismiss cargo landed for ${rowId}`}
+      >
+        <Icon name="x" size={16} />
+      </button>
     </span>
   );
 }

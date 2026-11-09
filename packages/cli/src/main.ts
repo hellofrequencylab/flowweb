@@ -10,6 +10,7 @@ import { ledgerCommands } from './commands/ledger.ts';
 import { runCommands } from './commands/run.ts';
 import { spendCommands } from './commands/spend.ts';
 import { statusCommands } from './commands/status.ts';
+import { streamCommands } from './commands/stream.ts';
 import { systemCommands } from './commands/system.ts';
 import type { Command } from './commands/types.ts';
 import { woCommands } from './commands/wo.ts';
@@ -18,6 +19,7 @@ import { EXIT, exitCodeFor, type Io, processIo, toCliError } from './output.ts';
 export const COMMANDS: Command[] = [
   ...ledgerCommands,
   ...woCommands,
+  ...streamCommands,
   ...runCommands,
   ...spendCommands,
   ...auditCommands,
@@ -27,6 +29,7 @@ export const COMMANDS: Command[] = [
 
 const GLOBAL = ['json', 'home', 'repo', 'help'];
 const BOOLEAN = new Set(['json', 'help']);
+const SHORT: Record<string, string> = { f: 'file' };
 
 export function helpText(): string {
   const width = Math.max(...COMMANDS.map((c) => c.usage.length));
@@ -43,7 +46,8 @@ export function helpText(): string {
     '  --help, -h      this help',
     '',
     'exit codes: 0 ok, 1 failed or refused, 2 usage, 3 refused by policy (XL size, self-verification,',
-    '            diff policy), 4 database writer lock held',
+    '            diff policy,',
+    '            stream tier without approval), 4 database writer lock held',
   ].join('\n');
 }
 
@@ -52,6 +56,7 @@ function optionSpec() {
   const spec: Record<string, { type: 'string' | 'boolean'; short?: string }> = {};
   for (const n of names) spec[n] = { type: BOOLEAN.has(n) ? 'boolean' : 'string' };
   spec.help = { type: 'boolean', short: 'h' };
+  for (const [s, long] of Object.entries(SHORT)) if (spec[long]) spec[long].short = s;
   return spec;
 }
 
@@ -98,6 +103,7 @@ export async function main(argv: string[], io: Io = processIo, factory?: CoreCli
   const repoDir = resolve(io.cwd, typeof values.repo === 'string' ? values.repo : '.');
   if (typeof values.rows === 'string') values.rows = resolve(io.cwd, values.rows);
   if (typeof values.home === 'string') values.home = resolve(io.cwd, values.home);
+  if (typeof values.file === 'string') values.file = resolve(io.cwd, values.file);
   let client: CoreClient | undefined;
   try {
     const make = factory ?? (await loadCoreClientFactory(io.env));

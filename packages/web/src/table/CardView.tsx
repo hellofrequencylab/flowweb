@@ -73,7 +73,7 @@ export function CardView({
 
   return (
     <>
-      <article className="panel" aria-labelledby="card-heading">
+      <article className="request" aria-labelledby="card-heading">
         {res.honesty === 'loading' && <Loading what="the card" />}
         {!card && res.honesty !== 'loading' && (
           <LoadError what="this card" error={res.error} onRetry={res.reload} />
@@ -207,10 +207,15 @@ function CardBody({
   );
 
   return (
-    <div className="stack">
+    <div className="request-body">
       {/* 1. Type and autonomy */}
       <p className="row small">
-        <span className="chip">{VARIANT_LABEL[card.variant]}</span>
+        <span className="request-reason">
+          <span className="icon-tile">
+            <Icon name="waiting" size={17} />
+          </span>
+          {VARIANT_LABEL[card.variant]}
+        </span>
         {card.autonomy_tier ? (
           <span className="muted">
             {card.autonomy_tier} {TIER_NAME[card.autonomy_tier] ?? ''}
@@ -240,7 +245,7 @@ function CardBody({
       </p>
 
       {/* 3. Headline */}
-      <h2 id="card-heading" tabIndex={-1}>
+      <h2 id="card-heading" className="request-title" tabIndex={-1}>
         {card.variant === 'approve' ? card.headline : card.title}
       </h2>
       {card.variant !== 'approve' && <p>{card.ask}</p>}
@@ -575,36 +580,39 @@ function ChooseOptions({
       <legend className="visually-hidden">Options</legend>
       {card.options.map((o, i) => (
         <label key={o.id} className="option">
-          <span className="row">
-            <input
-              type="radio"
-              name={`opt-${card.id}`}
-              value={o.id}
-              checked={choice === o.id}
-              onChange={() => setChoice(o.id)}
-              disabled={disabled}
-            />
-            <strong>{o.label}</strong>
-            <span className="kbd" aria-hidden="true">
-              {i + 1}
+          <input
+            type="radio"
+            name={`opt-${card.id}`}
+            value={o.id}
+            checked={choice === o.id}
+            onChange={() => setChoice(o.id)}
+            disabled={disabled}
+          />
+          <span className="option-body">
+            <span className="option-head">
+              <strong>{o.label}</strong>
+              {o.id === card.recommended_option && (
+                <span className="status status-active">
+                  <Icon name="ready" /> Recommended
+                </span>
+              )}
+              <span className="kbd" aria-hidden="true">
+                {i + 1}
+              </span>
             </span>
-            {o.id === card.recommended_option && <span className="chip">Recommended</span>}
-          </span>
-          <span className="small">{o.consequence}</span>
-          <br />
-          <span className="xs muted">
-            {o.cost_usd !== undefined ? `Cost ${usd(o.cost_usd, true)}` : 'Cost unknown'} ·{' '}
-            {o.reversible === undefined
-              ? 'Undo: unknown'
-              : o.reversible
-                ? 'Can be undone'
-                : 'Cannot be undone'}
-          </span>
-          {o.id === card.recommended_option && (
-            <span className="small" style={{ display: 'block' }}>
-              Why recommended: {card.recommendation_reason}
+            <span className="small">{o.consequence}</span>
+            <span className="xs muted">
+              {o.cost_usd !== undefined ? `Cost ${usd(o.cost_usd, true)}` : 'Cost unknown'} ·{' '}
+              {o.reversible === undefined
+                ? 'Undo: unknown'
+                : o.reversible
+                  ? 'Can be undone'
+                  : 'Cannot be undone'}
             </span>
-          )}
+            {o.id === card.recommended_option && (
+              <span className="small">Why recommended: {card.recommendation_reason}</span>
+            )}
+          </span>
         </label>
       ))}
     </fieldset>
