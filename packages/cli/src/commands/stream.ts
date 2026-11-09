@@ -20,7 +20,7 @@ function unsupported(): never {
 
 const add: Command = {
   path: ['stream', 'add'],
-  usage: 'fw stream add -f <file> [--approval <apr_id>]',
+  usage: 'fw stream add [--approval <apr_id>] -f <file>',
   summary: 'Add a stream from a definition file; needs a budget, and an approval above tier L2',
   args: [],
   options: ['file', 'approval'],
