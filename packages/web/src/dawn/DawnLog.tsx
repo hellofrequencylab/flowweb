@@ -2,6 +2,7 @@ import { api } from '../api/client';
 import { useLive, useStatusResource } from '../api/live';
 import { useResource } from '../api/resource';
 import type { DawnLog as Dawn, Status } from '../api/types';
+import { UNREACHABLE } from '../hosted/auth';
 import { CargoLanded } from '../rewards/Rewards';
 import { usePrefs } from '../shell/prefs';
 import { Link } from '../shell/router';
@@ -227,7 +228,7 @@ function Summary({ d, s, honest }: { d: Dawn; s: Status | null; honest: boolean 
 /** Problems line: only when something is wrong, first thing on the page. */
 function Problems({ status: s, down }: { status: Status | null; down: boolean }) {
   const items: string[] = [];
-  if (down) items.push("Can't reach fwd. Every value below is Unknown.");
+  if (down) items.push(`${UNREACHABLE}. Every value below is Unknown.`);
   if (s?.kill_switch.state === 'stopped')
     items.push(`Kill switch engaged at ${clock(s.kill_switch.engaged_at)}.`);
   if (s?.kill_switch.state === 'stopping') items.push('Kill switch: stopping, not yet confirmed.');

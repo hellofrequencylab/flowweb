@@ -141,7 +141,11 @@ interface StartReport {
   evidence_bundle_id: string | null;
   bundle_hash: string | null;
   sandbox_level: string | null;
+  cost_usd: number | null;
 }
+
+/** What the fake vendor's success scenario reports as the run's total cost (packages/adapters/src/fake/vendor.mjs). */
+const FAKE_REPORTED_USD = 0.0123;
 
 const eventsOf = (w: World, runId: string) =>
   w.db((r) =>
@@ -204,6 +208,45 @@ describe('walking skeleton: success path', () => {
     const show = w.fw('run', 'show', r.run_id!);
     expect(show.code).toBe(0);
     expect(show.out).toContain(r.bundle_hash!);
+
+    // The cost record (decision 32): one spend entry per priced model turn, written as it streamed,
+    // plus one `<run>:final` entry for what the vendor's total adds beyond them. Together they equal
+    // the vendor's reported cost, and runs.cost_usd, fw run start and fw run show all report that sum.
+    const spend = w.db((d) =>
+      d.all<{ idempotency_key: string; usd: number }>(
+        'SELECT idempotency_key, usd FROM spend_entries WHERE run_id = ? ORDER BY ts, id',
+        [r.run_id],
+      ),
+    );
+    const turns = w.db((d) =>
+      d.all<{ seq: number; cost_usd: number }>(
+        "SELECT seq, cost_usd FROM run_steps WHERE run_id = ? AND kind = 'model_turn' ORDER BY seq",
+        [r.run_id],
+      ),
+    );
+    expect(turns).toHaveLength(2); // the success scenario streams two priced turns
+    const stepSpend = spend.filter((s) => s.idempotency_key.startsWith(`${r.run_id}:step:`));
+    const finalSpend = spend.filter((s) => s.idempotency_key === `${r.run_id}:final`);
+    expect(stepSpend.map((s) => s.idempotency_key)).toEqual(turns.map((t) => `${r.run_id}:step:${t.seq}`));
+    expect(stepSpend.map((s) => s.usd)).toEqual(turns.map((t) => t.cost_usd));
+    expect(stepSpend.every((s) => s.usd > 0)).toBe(true);
+    expect(finalSpend).toHaveLength(1);
+    expect(spend).toHaveLength(stepSpend.length + 1);
+    const spendSum = spend.reduce((sum, s) => sum + s.usd, 0);
+    expect(spendSum).toBeCloseTo(FAKE_REPORTED_USD, 9);
+    const runCost = w.db(
+      (d) =>
+        d.get<{ cost_usd: number | null }>('SELECT cost_usd FROM runs WHERE id = ?', [r.run_id])!.cost_usd,
+    );
+    expect(runCost).toBeCloseTo(spendSum, 9);
+    expect(r.cost_usd).toBeCloseTo(spendSum, 9);
+    const shownCost = w.json<{ cost: { usd: number | null; entries: number; known: boolean } }>(
+      'run',
+      'show',
+      r.run_id!,
+    ).body.cost;
+    expect(shownCost).toMatchObject({ entries: spend.length, known: true });
+    expect(shownCost.usd).toBeCloseTo(spendSum, 9);
 
     // Owner merges, the checkout follows main, then close.
     const merged = await w.host.merge(r.pr!.number);

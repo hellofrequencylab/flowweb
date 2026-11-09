@@ -741,8 +741,8 @@ function initialState(scenario = 'normal') {
                 kind: 'pull_request',
                 ref: `https://github.com/hellofrequencylab/flowweb/pull/${id.slice(6, 8)}`,
                 sha: git(id),
-                claimed_by_agent: 1,
-                verified_by_kernel: o.verified ? 1 : 0,
+                claimed_by_agent: true,
+                verified_by_kernel: Boolean(o.verified),
                 verified_at: o.verified ? ago(o.ended - 1) : null,
               },
             ]

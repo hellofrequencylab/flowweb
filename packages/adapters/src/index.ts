@@ -1,8 +1,10 @@
-// @fw/adapters: the vendor adapter SDK, the scripted fake vendor and the Claude headless adapter.
+// @fw/adapters: the vendor adapter SDK, the scripted fake vendor, the no-op reference adapter and the
+// Claude headless adapter.
 // Vendor names may appear in this package and nowhere else in the kernel.
 import { CLAUDE_API_KEY_ENV, type ClaudeAdapterOptions, createClaudeAdapter } from './claude/index.ts';
 import { createCodexAdapter } from './codex/index.ts';
 import { createFakeAdapter, type FakeAdapterOptions } from './fake/index.ts';
+import { createNoopAdapter } from './noop/index.ts';
 import type { VendorAdapter } from './sdk/types.ts';
 
 export const PACKAGE = '@fw/adapters';
@@ -31,6 +33,7 @@ export {
   FAKE_SCENARIOS,
   fakeScenarioOf,
 } from './fake/index.ts';
+export { createNoopAdapter, NOOP_DESCRIPTION, NOOP_MODEL, NOOP_VERSION } from './noop/index.ts';
 export type { Pricing, TokenUsage } from './sdk/cost.ts';
 export { costRecord, estimateUsd } from './sdk/cost.ts';
 export type { Driver, LineParser, PreparedRun, VendorItem } from './sdk/engine.ts';
@@ -41,7 +44,7 @@ export { buildSandboxEnv, DENY_ALL_PROXY, ENV_ALLOWLIST, groupAlive, killGroup }
 export { findSecrets, Redactor, SECRET_PATTERNS } from './sdk/redact.ts';
 export type * from './sdk/types.ts';
 
-export const ADAPTER_NAMES = ['fake', 'claude', 'codex'] as const;
+export const ADAPTER_NAMES = ['fake', 'noop', 'claude', 'codex'] as const;
 export type AdapterName = (typeof ADAPTER_NAMES)[number];
 
 /**
@@ -62,6 +65,8 @@ export interface AdapterCredential {
 export const ADAPTER_CREDENTIALS: Readonly<Record<AdapterName, readonly AdapterCredential[]>> = {
   // The fake vendor needs no key; when the handle exists it is injected so leak tests have a value to hunt.
   fake: [{ handle: 'crd_fake0001', env: 'FAKE_VENDOR_API_KEY', required: false, scopes: ['vendor.api'] }],
+  // The noop adapter runs nothing, so it is given nothing.
+  noop: [],
   claude: [{ handle: 'crd_claude0001', env: CLAUDE_API_KEY_ENV, required: true, scopes: ['vendor.api'] }],
   codex: [],
 };
@@ -83,6 +88,8 @@ export function createAdapter(name: AdapterName, options: CreateAdapterOptions =
   switch (name) {
     case 'fake':
       return createFakeAdapter(options.fake);
+    case 'noop':
+      return createNoopAdapter();
     case 'claude':
       return createClaudeAdapter(options.claude);
     case 'codex':
