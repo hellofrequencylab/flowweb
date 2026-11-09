@@ -297,6 +297,25 @@ export interface StreamAddReport {
   event_seq: number;
 }
 
+/** One project with its labels (`fw project list`). */
+export interface ProjectView {
+  id: string;
+  slug: string;
+  name: string;
+  kind: string;
+  status: string;
+  repo_url: string | null;
+  created_at: string;
+  brand: string | null;
+  category: string | null;
+}
+
+export interface ProjectLabelReport {
+  project: ProjectView;
+  changed_fields: ('brand' | 'category')[];
+  event_seq: number | null;
+}
+
 export interface CoreClient {
   /** fwd's status, or a read-only database read when fwd is down: optional, served by the daemon package. */
   status?(): Promise<StatusReport>;
@@ -311,6 +330,12 @@ export interface CoreClient {
   /** Stream commands: optional, so a provider without the stream model still loads. */
   streamAdd?(definition: unknown, opts?: { approvalId?: string }): Promise<StreamAddReport>;
   streamList?(): Promise<StreamView[]>;
+  /** Project commands: optional, so an older provider still loads. */
+  projectList?(filter?: { brand?: string; category?: string }): Promise<ProjectView[]>;
+  projectLabel?(
+    ref: string,
+    change: { brand?: string | null; category?: string | null },
+  ): Promise<ProjectLabelReport>;
   /** Run commands: optional, because only a provider with the runtime (the daemon) serves them. */
   runStart?(code: string, opts?: RunStartOptions): Promise<RunStartReport>;
   runList?(opts?: { status?: string; limit?: number }): Promise<RunSummary[]>;

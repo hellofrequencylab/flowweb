@@ -2,6 +2,7 @@
 // the 501 write routes, the startup reconciler and SSE. Auth is off here (devNoAuth); auth.test.ts covers it.
 import { request } from 'node:http';
 import { sha256Hex } from '@fw/eventlog';
+import { labelProject } from '@fw/ledger';
 import { afterAll, beforeAll, describe, expect, test } from 'vitest';
 import { type Daemon, startDaemon } from '../src/daemon.ts';
 import { call, DIFF_TEXT, IDS, type Res, seed, tempHome } from './api-fixtures.ts';
@@ -125,6 +126,20 @@ describe('projects and ledger', () => {
     const miss = await get('/projects/prj_nope');
     expect(miss.status).toBe(404);
     expect(miss.json.error.code).toBe('not_found');
+  });
+
+  test('projects carry brand and category, and filter by them', async () => {
+    const before = (await get(`/projects/${IDS.project}`)).json.data;
+    expect([before.brand, before.category]).toEqual([null, null]);
+    labelProject(d.writer, IDS.project, { brand: 'Frequency', category: 'marketing' });
+    const after = (await get(`/projects/${IDS.project}`)).json.data;
+    expect([after.brand, after.category]).toEqual(['Frequency', 'marketing']);
+    const ids = async (q: string) => (await get(`/projects?${q}`)).json.data.map((p: { id: string }) => p.id);
+    expect(await ids('brand=frequency')).toEqual([IDS.project]);
+    expect(await ids('category=marketing')).toEqual([IDS.project]);
+    expect(await ids('brand=Other')).toEqual([]);
+    expect(await ids('category=ops')).toEqual([]);
+    labelProject(d.writer, IDS.project, { brand: null, category: null });
   });
 
   test('ledger rows carry code and parsed JSON columns, unchanged column names', async () => {

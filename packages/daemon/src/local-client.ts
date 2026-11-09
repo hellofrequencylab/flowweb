@@ -159,6 +159,8 @@ export function createCoreClient(opts: LocalClientOptions): DaemonCoreClient {
     },
     streamAdd: viaLedger(ledger.streamAdd),
     streamList: viaLedger(ledger.streamList),
+    projectList: viaLedger(ledger.projectList),
+    projectLabel: viaLedger(ledger.projectLabel),
     async runStart(code, o = {}) {
       let writer: Writer;
       try {

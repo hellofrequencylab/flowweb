@@ -294,9 +294,16 @@ export function buildRouter(deps: ApiDeps): Router {
   // ---- projects -----------------------------------------------------------------------------
   r.get('/v1/projects', ({ query }) => {
     const page = pageOf(query);
+    const params = { brand: query.get('brand') || null, category: query.get('category') || null };
     return env(() =>
       paged(page, (limit, offset) =>
-        reader.all<Row>(`${PROJECT_SELECT} ORDER BY p.created_at, p.id LIMIT ? OFFSET ?`, [limit, offset]),
+        reader.all<Row>(
+          `SELECT * FROM (${PROJECT_SELECT}) x
+            WHERE (@brand IS NULL OR lower(trim(x.brand)) = lower(trim(@brand)))
+              AND (@category IS NULL OR x.category = lower(@category))
+            ORDER BY x.created_at, x.id LIMIT @limit OFFSET @offset`,
+          { ...params, limit, offset },
+        ),
       ),
     );
   });
