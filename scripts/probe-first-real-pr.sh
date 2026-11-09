@@ -39,8 +39,8 @@ PY
 }
 field() { python3 -I -c 'import json,sys; v=json.loads(sys.argv[1]); print("" if v is None else v.get(sys.argv[2]) if v.get(sys.argv[2]) is not None else "")' "$1" "$2"; }
 
-RUN="$(q "SELECT r.id, r.status, r.adapter_vendor, r.work_order_id FROM runs r JOIN work_orders w ON w.id = r.work_order_id JOIN ledger_rows l ON l.id = w.ledger_row_id WHERE l.title LIKE ? AND r.adapter_vendor IN ('anthropic','openai') ORDER BY r.queued_at DESC LIMIT 1" "%$ROW%")"
-[ "$RUN" != "null" ] || fail "no real-vendor run found for $ROW (rows are matched by id in the title; see probes/c0/README.md)"
+RUN="$(q "SELECT r.id, r.status, r.adapter_vendor, r.work_order_id FROM runs r JOIN work_orders w ON w.id = r.work_order_id JOIN ledger_rows l ON l.id = w.ledger_row_id WHERE l.id = 'lr_' || replace(?, '-', '') AND r.adapter_vendor IN ('anthropic','openai') ORDER BY r.queued_at DESC LIMIT 1" "$ROW")"
+[ "$RUN" != "null" ] || fail "no real-vendor run found for $ROW (the row id is lr_ plus the code without hyphens)"
 RUN_ID="$(field "$RUN" id)"
 [ "$(field "$RUN" status)" = "succeeded" ] || fail "run $RUN_ID is $(field "$RUN" status), want succeeded"
 ok "run $RUN_ID by $(field "$RUN" adapter_vendor) succeeded"
