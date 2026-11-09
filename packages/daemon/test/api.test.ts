@@ -350,6 +350,18 @@ describe('spend, budgets, cards, approvals, reports, policy', () => {
     expect(p.text).toContain('policy_version');
     expect(p.commit === null || /^[0-9a-f]{40}$/.test(p.commit)).toBe(true);
   });
+
+  test('/flows/local-saturation returns the rings, the next move and the budget; other keys are 404', async () => {
+    const res = await get('/flows/local-saturation');
+    expect(res.status).toBe(200);
+    const f = res.json.data;
+    expect(f.key).toBe('local-saturation');
+    expect(f.rings[0].open).toBe(true);
+    expect(f.decision.kind).toBe('keep_working');
+    expect(f.budget.max_usd).toBe(5);
+    expect(f.gate_on).toEqual(['publish_external', 'outbound_email_external']);
+    expect((await get('/flows/other')).status).toBe(404);
+  });
 });
 
 describe('errors', () => {

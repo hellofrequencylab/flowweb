@@ -1,0 +1,46 @@
+{
+  "version": 1,
+  "offer": {
+    "name": "Frequency",
+    "url": "https://frequencylocal.com",
+    "pitch": "Free, local, in-person community: find or start a Circle near you around what you love.",
+    "call_to_action": "Join a Circle near you",
+    "placeholder": true
+  },
+  "engine": {
+    "label": "ChatGPT sign-in through the Codex CLI on the Owner's Mac",
+    "fallback": "OpenAI API key, billed per token",
+    "runs_on": "local fwd only; the hosted mirror stores no subscription sign-in"
+  },
+  "seed_area_id": "vista",
+  "seed_is_placeholder": true,
+  "ring_width_km": 8,
+  "saturation": {
+    "threshold": 0.7,
+    "hold_cycles": 2,
+    "weights": { "coverage": 0.4, "cadence": 0.3, "response": 0.3 },
+    "touches_per_target_28d": 2,
+    "new_members_per_10k_28d": 5
+  },
+  "max_active_areas": 5,
+  "channels": [
+    { "key": "google_business_profile", "label": "Google Business Profile posts", "action_class": "publish_external", "placeholder": true },
+    { "key": "instagram", "label": "Instagram posts", "action_class": "publish_external", "placeholder": true },
+    { "key": "facebook_groups", "label": "Local Facebook groups", "action_class": "publish_external", "placeholder": true },
+    { "key": "nextdoor", "label": "Nextdoor", "action_class": "publish_external", "placeholder": true },
+    { "key": "event_listings", "label": "Local event listings", "action_class": "publish_external", "placeholder": true },
+    { "key": "partner_email", "label": "Email to local venues and businesses", "action_class": "outbound_email_external", "placeholder": true }
+  ],
+  "areas": [
+    { "id": "vista", "name": "Vista, CA", "lat": 33.2, "lng": -117.2425, "population": 101000 },
+    { "id": "san-marcos", "name": "San Marcos, CA", "lat": 33.1434, "lng": -117.1661, "population": 94000 },
+    { "id": "carlsbad", "name": "Carlsbad, CA", "lat": 33.1581, "lng": -117.3506, "population": 115000 },
+    { "id": "oceanside", "name": "Oceanside, CA", "lat": 33.1959, "lng": -117.3795, "population": 172000 },
+    { "id": "bonsall", "name": "Bonsall, CA", "lat": 33.2889, "lng": -117.2256, "population": 4000 },
+    { "id": "escondido", "name": "Escondido, CA", "lat": 33.1192, "lng": -117.0864, "population": 151000 },
+    { "id": "encinitas", "name": "Encinitas, CA", "lat": 33.037, "lng": -117.292, "population": 62000 },
+    { "id": "fallbrook", "name": "Fallbrook, CA", "lat": 33.3764, "lng": -117.2511, "population": 32000 },
+    { "id": "solana-beach", "name": "Solana Beach, CA", "lat": 32.9912, "lng": -117.2711, "population": 13000 },
+    { "id": "poway", "name": "Poway, CA", "lat": 32.9628, "lng": -117.0359, "population": 48000 }
+  ]
+}
