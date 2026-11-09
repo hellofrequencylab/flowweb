@@ -43,6 +43,17 @@ export { gitHead, gitTrackedClean } from './git.ts';
 export { analyzeGraph, type GraphReport } from './graph.ts';
 export { dbPath, loadHomeConfig, resolveHome, resolveProject } from './home.ts';
 export { codeFromRowId, isRowCode, resolveRowId, rowIdFromCode } from './ids.ts';
+export {
+  type AcquireLeaseInput,
+  acquireLease,
+  checkFence,
+  heartbeatLease,
+  LeaseError,
+  type LeaseErrorCode,
+  type LeaseGrant,
+  type LeaseOptions,
+  releaseLease,
+} from './leases/index.ts';
 export { createCoreClient, type LocalClientOptions, type LocalCoreClient } from './local-client.ts';
 export { type CorePolicy, loadCorePolicy, type SizeRule } from './policy.ts';
 export { type PremiseOptions, type PremiseOutcome, type PremiseReport, retestPremise } from './premise.ts';
