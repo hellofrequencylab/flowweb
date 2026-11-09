@@ -96,6 +96,7 @@ describe('GET /v1/status', () => {
     expect(s.paused_by_budget).toBe(false);
     expect(s.sandbox_level).toBe('best_effort');
     expect(s.open_cards).toBe(2);
+    expect(typeof s.oldest_open_card_at).toBe('string');
     expect(s.running_runs).toBe(1);
   });
 
@@ -107,6 +108,15 @@ describe('GET /v1/status', () => {
 });
 
 describe('projects and ledger', () => {
+  test('projects carry row counts; a row carries last_run_id and its events', async () => {
+    const p = (await get('/projects')).json.data[0];
+    for (const k of ['rows_open', 'rows_in_progress', 'rows_waiting_on_owner'])
+      expect(typeof p[k]).toBe('number');
+    const row = (await get(`/ledger/rows/${IDS.rowCode}`)).json.data;
+    expect(row.last_run_id).toBe(row.runs[0].id);
+    expect(Array.isArray(row.events)).toBe(true);
+  });
+
   test('/projects and /projects/{id}', async () => {
     const list = await get('/projects');
     expectEnvelope(list);
@@ -188,6 +198,14 @@ describe('runs', () => {
     expect(run.sandbox_level).toBe('best_effort');
     expect(run).not.toHaveProperty('_ledger_row_id');
     expect((await get('/runs/run_nope')).status).toBe(404);
+  });
+
+  test('a run lists its artifacts and says whether the kernel verified one', async () => {
+    const run = (await get(`/runs/${IDS.run}`)).json.data;
+    expect(run.artifact_verified).toBe(true);
+    expect(run.artifacts).toHaveLength(1);
+    expect(run.artifacts[0]).toMatchObject({ kind: 'pull_request', verified_by_kernel: true });
+    expect((await get(`/runs/${IDS.run2}`)).json.data.artifact_verified).toBe(false);
   });
 
   test('filters by status and row_id (id or code)', async () => {

@@ -47,6 +47,7 @@ export function runRow(row: Row): Row {
   return {
     ...parseJsonColumns(rest, JSON_COLUMNS.runs),
     row_code: rowCodeOf(_ledger_row_id as string | null),
+    ...(rest.artifact_verified !== undefined ? { artifact_verified: rest.artifact_verified === 1 } : {}),
   };
 }
 
@@ -84,10 +85,26 @@ export const RUN_SELECT = `
         WHERE e.subject_ref = r.id ORDER BY e.created_at DESC LIMIT 1),
       (SELECT COALESCE(json_extract(ev.payload, '$.sandbox_level'), json_extract(ev.payload, '$.sandbox.level'))
          FROM events ev WHERE ev.run_id = r.id AND ev.type = 'run.started' ORDER BY ev.seq DESC LIMIT 1)
-    ) AS sandbox_level
+    ) AS sandbox_level,
+    EXISTS (SELECT 1 FROM run_artifacts a WHERE a.run_id = r.id AND a.verified_by_kernel = 1) AS artifact_verified
   FROM runs r JOIN work_orders w ON w.id = r.work_order_id`;
 
 export const CARD_SELECT = `
-  SELECT c.*, json_extract(c.body, '$.source.ledger_row_id') AS _ledger_row_id FROM decision_cards c`;
+  SELECT c.*, json_extract(c.body, '$.source.ledger_row_id') AS _ledger_row_id,
+    (SELECT p.name FROM projects p WHERE p.id = c.project_id) AS project_name
+  FROM decision_cards c`;
+
+/**
+ * Per-project row counts for the web UI. "Open" is waiting to start (open, ready); "in progress" is
+ * claimed through merging; "waiting on owner" is awaiting_approval or blocked.
+ */
+export const PROJECT_SELECT = `
+  SELECT p.*,
+    (SELECT COUNT(*) FROM ledger_rows l WHERE l.project_id = p.id AND l.status IN ('open','ready')) AS rows_open,
+    (SELECT COUNT(*) FROM ledger_rows l WHERE l.project_id = p.id
+       AND l.status IN ('claimed','running','verifying','merging')) AS rows_in_progress,
+    (SELECT COUNT(*) FROM ledger_rows l WHERE l.project_id = p.id
+       AND l.status IN ('awaiting_approval','blocked')) AS rows_waiting_on_owner
+  FROM projects p`;
 
 export const URGENCY_ORDER = `CASE c.urgency WHEN 'now' THEN 0 WHEN 'today' THEN 1 WHEN 'this_week' THEN 2 ELSE 3 END`;
