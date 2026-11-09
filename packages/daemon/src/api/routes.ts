@@ -30,6 +30,7 @@ import {
   evidenceRow,
   JSON_COLUMNS,
   ledgerRow,
+  PROJECT_SELECT,
   parseJsonColumns,
   RUN_SELECT,
   runRow,
@@ -229,14 +230,14 @@ export function buildRouter(deps: ApiDeps): Router {
     const page = pageOf(query);
     return env(() =>
       paged(page, (limit, offset) =>
-        reader.all<Row>('SELECT * FROM projects ORDER BY created_at, id LIMIT ? OFFSET ?', [limit, offset]),
+        reader.all<Row>(`${PROJECT_SELECT} ORDER BY p.created_at, p.id LIMIT ? OFFSET ?`, [limit, offset]),
       ),
     );
   });
 
   r.get('/v1/projects/{id}', ({ params }) =>
     env(() => {
-      const row = reader.get<Row>('SELECT * FROM projects WHERE id = ?', [params.id]);
+      const row = reader.get<Row>(`${PROJECT_SELECT} WHERE p.id = ?`, [params.id]);
       if (!row) throw notFound('project', params.id);
       return { data: row };
     }),
@@ -308,7 +309,17 @@ export function buildRouter(deps: ApiDeps): Router {
           last_heartbeat_at: run.last_heartbeat_at,
           sandbox_level: run.sandbox_level,
         }));
-      return { data: { ...ledgerRow(row), evidence, runs } };
+      // Recent events that name this row in their payload (newest first).
+      const events = reader
+        .all<Row>(
+          `SELECT * FROM events
+            WHERE json_extract(payload, '$.ledger_row_id') = @id OR json_extract(payload, '$.row_id') = @id
+            ORDER BY seq DESC LIMIT 50`,
+          { id },
+        )
+        .map((e) => parseJsonColumns(e, JSON_COLUMNS.events));
+      const lastRunId = (runs[0]?.id as string | undefined) ?? null;
+      return { data: { ...ledgerRow(row), last_run_id: lastRunId, evidence, runs, events } };
     }),
   );
 
@@ -343,7 +354,18 @@ export function buildRouter(deps: ApiDeps): Router {
     env(() => {
       const row = reader.get<Row>(`${RUN_SELECT} WHERE r.id = ?`, [params.id]);
       if (!row) throw notFound('run', params.id);
-      return { data: runRow(row) };
+      const artifacts = reader
+        .all<Row>(
+          `SELECT kind, ref, sha, claimed_by_agent, verified_by_kernel, verified_at, created_at
+             FROM run_artifacts WHERE run_id = ? ORDER BY created_at, id`,
+          [params.id],
+        )
+        .map((a) => ({
+          ...a,
+          claimed_by_agent: a.claimed_by_agent === 1,
+          verified_by_kernel: a.verified_by_kernel === 1,
+        }));
+      return { data: { ...runRow(row), artifacts } };
     }),
   );
 

@@ -27,14 +27,14 @@ Errors: `{ "error": { "code": "not_found" | "validation_failed" | "kill_switch_e
 
 | Route | Returns | Notes |
 |---|---|---|
-| `GET /status` | `{ daemon: "up", version, started_at, kill: {engaged, engaged_at, reason, runs_to_halt, runs_halted, keys_revoked}, chain: {ok, head_seq, head_hash, verified_at, failed_seq}, spend: {today_usd, daily_cap_usd, vendors_reporting[]}, breaker: {tripped, reason}, paused_by_budget, sandbox_level, open_cards, running_runs }` | Status strip. Cheap; poll or use SSE. The UI says Stopping until `runs_halted == runs_to_halt`. |
+| `GET /status` | `{ daemon: "up", version, started_at, kill: {engaged, engaged_at, reason, runs_to_halt, runs_halted, keys_revoked}, chain: {ok, head_seq, head_hash, verified_at, failed_seq}, spend: {today_usd, daily_cap_usd, vendors_reporting[]}, breaker: {tripped, reason}, paused_by_budget, sandbox_level, open_cards, oldest_open_card_at, running_runs }` | Status strip. Cheap; poll or use SSE. The UI says Stopping until `runs_halted == runs_to_halt`. |
 | `GET /status-reports?kind=daily&limit=1` | `status_reports` rows, `body` parsed; self-check at `body.self_check {passed, failed_query_ids[]}` | Dawn Log. Empty until the digest stream (FW-C-023, C2). |
 | `GET /policy` | `{ path, commit, sha256, text }` | Read-only Settings view. |
 | `GET /session` | `{ paired_at, device_label }` | C2 with pairing. |
 | `GET /projects`, `GET /projects/{id}` | `projects` rows | |
 | `GET /ledger/rows?project_id=&status=&milestone=&q=` | `ledger_rows` rows | `probe` parsed. Status lives only here. |
 | `GET /ledger/rows/{id}` | row plus `evidence: evidence_bundles[]`, `runs: runs[]` (summary) | |
-| `GET /runs?status=&row_id=`, `GET /runs/{id}` | `runs` rows (with `cost_usd`, `sandbox_level`) | |
+| `GET /runs?status=&row_id=`, `GET /runs/{id}` | `runs` rows (with `cost_usd`, `sandbox_level`, `artifact_verified`); `/runs/{id}` adds `artifacts[]` (`run_artifacts` rows) | |
 | `GET /runs/{id}/steps` | `run_steps` rows, seq order | Platform-written trace. |
 | `GET /evidence-bundles/{id}` | `evidence_bundles` row; `body` parsed (exactly `evidence-bundle.json`), plus a derived `view`: `probe {exit_code, output_tail (last 4 KB, redacted), duration_ms}`, `diff {hash, files: [{path, added, removed}]}`, `policy [{rule, verdict, detail}]`, `sandbox {level, controls}`, `adapter {name, version, help_sha256}` | The Captain's Table evidence view. `view` is computed from `body.automated_evidence`, `body.intent_payload` and `body.provenance`; any part the bundle does not prove is null. |
 | `GET /evidence-bundles/{id}/diff` | `text/x-diff`: the exact bytes whose sha256 is `body.intent_payload.payload_hash` (= `view.diff.hash`) | Covered by the approval's `payload_hash`. |
@@ -75,3 +75,5 @@ Spend screen: refused-by-cap dispatches are `dispatch.refused_budget`; a cap hit
 - A run's `sandbox_level` is not a column; it comes from the run's `run.started` event payload.
 - No CORS headers are sent. A dev web server on another port must proxy `/v1` and rewrite `Host` to `127.0.0.1:<port>`.
 - Ledger rows: `probe_spec`, `probe_expected`, `links` and `depends_on` are returned parsed (there is no single `probe` column).
+- Fields added for the web UI (were PROPOSED in its `wire.ts`): `status.oldest_open_card_at`; projects carry `rows_open` (open, ready), `rows_in_progress` (claimed to merging) and `rows_waiting_on_owner` (awaiting_approval, blocked); `/ledger/rows/{id}` adds `last_run_id` and `events[]` (the 50 newest events whose payload names the row); runs carry `artifact_verified` and `/runs/{id}` `artifacts[]`; decision cards carry `project_name`.
+- Still not served, because C0 records no data for them: row `description`, `blocked_reason`, `acceptance[]`, `last_probe_sha/target/output_ref`; run `agent_role`, `model`, `cost_estimated` (owner question 14), `verifier`; step `label`, `excerpt`, `denied_by_policy`, `untrusted`; evidence view `tests_removed_or_skipped`, `tokens`, `verifier_summary`; approval `current_head_sha`, `merge_slot`, `cost_usd`; spend `vendors_reporting/vendors_total` as counts (status already lists `vendors_reporting[]` by name).

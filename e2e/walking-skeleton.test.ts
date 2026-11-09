@@ -461,6 +461,18 @@ describe('walking skeleton: failure cases', () => {
       }
     }
     expect(runId).toBeDefined();
+    // Kill only once the vendor has reached its hang (it reported the grandchild), so it is not still
+    // writing its first lines into a pipe that the kill is about to close.
+    for (let i = 0; i < 400; i++) {
+      const n = w.db((d) =>
+        d.get<{ n: number }>(
+          "SELECT COUNT(*) AS n FROM run_steps WHERE run_id = ? AND kind = 'tool_result'",
+          [runId],
+        ),
+      );
+      if ((n?.n ?? 0) > 0) break;
+      await new Promise((ok) => setTimeout(ok, 50));
+    }
     expect(runRow(w, runId!).status).toBe('running');
     if (process.platform === 'linux') {
       // The credential reached the vendor through its environment only, never its argv.
