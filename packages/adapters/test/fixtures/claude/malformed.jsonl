@@ -1,0 +1,9 @@
+{"type":"system","subtype":"init","session_id":"{{SESSION_ID}}","model":"claude-sonnet-synthetic","future_field":{"nested":[1,2,3]}}
+Warning: stray text on stdout from a plugin
+{"type":"assistant","message":{"id":"msg_04SynthA","content":"not an array"},"session_id":"{{SESSION_ID}}"}
+{"type":"assistant","message":{"id":"msg_04SynthB","role":"assistant","content":[{"type":"text","text":"partial"},{"type":"tool_use","name":"Bash"},{"type":"server_tool_use","id":"srvtoolu_1","name":"web_search"},{"type":"text","text":" ok"}],"usage":{"input_tokens":"many","output_tokens":-5,"cache_read_input_tokens":10}},"session_id":"{{SESSION_ID}}"}
+{"type":"user","message":{"role":"user","content":[{"type":"tool_result","content":"missing id"}]},"session_id":"{{SESSION_ID}}"}
+{"type":"stream_event","event":{"type":"content_block_delta","index":0,"delta":{"type":"text_delta","text":"hi"}},"session_id":"{{SESSION_ID}}"}
+{"type":"system","subtype":"hook_response","hook_name":"SessionStart","output":"ignored"}
+{"type":"assistant","message":{"id":"msg_04Synth
+{"type":"result","subtype":"success","is_error":false,"num_turns":2,"result":"Done.","session_id":"{{SESSION_ID}}","usage":{"input_tokens":5,"output_tokens":9},"structured_output":"not an object"}
