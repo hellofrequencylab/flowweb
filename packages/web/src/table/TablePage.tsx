@@ -156,7 +156,7 @@ export function TablePage({ cardId }: { cardId?: string }) {
       )}
 
       {list.data && cards.length > 0 && (
-        <div className={`table-layout ${showEvidence ? 'with-evidence' : ''}`}>
+        <div className="table-layout">
           {selected && (
             <nav className="row show-narrow queue-steps" aria-label="Move between cards">
               <button

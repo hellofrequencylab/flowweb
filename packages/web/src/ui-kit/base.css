@@ -672,7 +672,10 @@ code,
   color: color-mix(in srgb, var(--tone) 70%, var(--text-primary));
   font: var(--weight-regular) var(--text-sm) / 1.2 var(--font-sans);
   letter-spacing: 0.005em;
-  overflow-wrap: anywhere;
+  overflow-wrap: break-word;
+}
+table.data .status {
+  white-space: nowrap;
 }
 .status-icon {
   display: inline-flex;
@@ -968,6 +971,19 @@ code,
 }
 
 /* ---------- page patterns ---------- */
+
+.loading {
+  display: flex;
+  align-items: center;
+  gap: var(--space-3);
+  margin: 0;
+  padding: var(--space-7) var(--space-8);
+  border-radius: var(--radius-lg);
+  background: var(--texture-dots), var(--surface-soft);
+  box-shadow: var(--shadow-inset);
+  font: var(--type-small);
+  color: var(--text-secondary);
+}
 
 /* Pairing, sign-in and unreachable: one centred card. */
 .gate {
@@ -1417,20 +1433,24 @@ dl.facts dd {
   gap: var(--space-8);
   align-items: start;
 }
-.table-layout.with-evidence {
+/* Three columns only when there is an evidence column to show. */
+.table-layout:has(> .evidence-col) {
   grid-template-columns: 260px minmax(0, 1fr) minmax(0, 1fr);
 }
 @media (max-width: 1180px) {
-  .table-layout.with-evidence {
+  .table-layout:has(> .evidence-col) {
     grid-template-columns: 260px minmax(0, 1fr);
   }
-  .table-layout.with-evidence .evidence-col {
+  .table-layout .evidence-col {
     grid-column: 1 / -1;
   }
 }
+.card-actions > .spacer {
+  min-width: var(--space-6);
+}
 @media (max-width: 767px) {
   .table-layout,
-  .table-layout.with-evidence {
+  .table-layout:has(> .evidence-col) {
     grid-template-columns: minmax(0, 1fr);
   }
 }
@@ -1601,6 +1621,9 @@ dl.facts dd {
 /* ---------- diff and output ---------- */
 
 .diff {
+  /* One column as wide as the longest line, so line tints run the full width when scrolled. */
+  display: grid;
+  grid-template-columns: minmax(100%, max-content);
   border-radius: var(--radius-lg);
   background: var(--surface-raised);
   box-shadow: var(--shadow-card);
@@ -1624,6 +1647,7 @@ dl.facts dd {
   font-family: var(--font-sans);
 }
 .diff-hunk {
+  white-space: pre;
   padding: var(--space-2) 14px;
   color: var(--text-tertiary);
   background: var(--surface-soft);
@@ -2049,6 +2073,14 @@ dialog .kill-card {
   }
   50% {
     opacity: 0.35;
+  }
+}
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    animation: none !important;
+    transition: none !important;
   }
 }
 :root[data-calm="on"] *,
