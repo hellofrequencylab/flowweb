@@ -1,7 +1,7 @@
 /**
- * Wire shapes from fwd's local API v1 (/mnt/project-files/flowweb-core/LOCAL-API-V1.md).
- * Field names are schema.core.sql column names. Fields marked PROPOSED are
- * ones the web UI has asked the Core thread to add; the UI treats them as
+ * Wire shapes from fwd's local API v1 (docs/api/LOCAL-API-V1.md).
+ * Field names are schema.core.sql column names. Fields marked PROPOSED are not
+ * served yet (see the doc's "Still not served" list); the UI treats them as
  * optional and falls back honestly ("Unknown") when they are missing.
  */
 
@@ -48,7 +48,7 @@ export interface WStatus {
   };
   breaker?: { tripped: boolean; reason?: string | null };
   paused_by_budget?: boolean;
-  /** PROPOSED */
+  /** Served from c0/08. */
   oldest_open_card_at?: string | null;
 }
 
@@ -61,7 +61,7 @@ export interface WProject {
   default_branch: string;
   status: 'active' | 'paused' | 'archived';
   wip_limit: number;
-  /** PROPOSED aggregates */
+  /** Served from c0/08: open+ready, claimed..merging, awaiting_approval+blocked. */
   rows_open?: number;
   rows_in_progress?: number;
   rows_waiting_on_owner?: number;
@@ -116,7 +116,7 @@ export interface WLedgerRow {
   /** PROPOSED: acceptance items with last result */
   acceptance?: { text: string; last_result: 'never' | 'pass' | 'fail' | 'error'; at?: string | null }[];
   evidence_bundle_id: string | null;
-  /** PROPOSED: most recent run */
+  /** Served from c0/08 on /ledger/rows/{id}. */
   last_run_id?: string | null;
   watch_until: string | null;
   updated_at: string;
@@ -126,7 +126,7 @@ export interface WLedgerRow {
 export interface WLedgerRowDetail extends WLedgerRow {
   evidence: { id: string; created_at: string; scan_red: 0 | 1 }[];
   runs: WRun[];
-  /** PROPOSED: recent events for this row */
+  /** Served from c0/08: the 50 newest events whose payload names the row. */
   events?: WEvent[];
 }
 
@@ -167,19 +167,19 @@ export interface WRun {
   sandbox_level: 'enforced' | 'best_effort' | 'none';
   /** Derived from leases.heartbeat_at (agreed). Running is shown only while under 120 s old. */
   last_heartbeat_at?: string | null;
-  /** PROPOSED: true when any run_artifacts row has verified_by_kernel = 1 */
+  /** Served (c0/08): true when any run_artifacts row has verified_by_kernel = 1 */
   artifact_verified?: boolean;
   /** PROPOSED */
   model?: string;
   branch: string | null;
   result?: { summary?: string; claims?: { claim: string; evidence_ref?: string }[] } | null;
-  /** PROPOSED: run_artifacts rows */
+  /** Served from c0/08 on /runs/{id}. */
   artifacts?: {
     kind: string;
     ref: string;
     sha: string | null;
-    claimed_by_agent: 0 | 1;
-    verified_by_kernel: 0 | 1;
+    claimed_by_agent: boolean;
+    verified_by_kernel: boolean;
     verified_at: string | null;
   }[];
   /** PROPOSED: verifier run result for this run */
@@ -293,8 +293,9 @@ export interface WCard {
   created_at: string;
   /** Joined in by the daemon (agreed). */
   row_code?: string | null;
-  /** PROPOSED */
+  /** Served from c0/08. */
   project_name?: string;
+  /** PROPOSED */
   asked_by?: 'verifier' | 'chief_of_staff' | 'worker' | 'system';
   snoozed_until?: string | null;
 }
