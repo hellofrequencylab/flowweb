@@ -138,7 +138,31 @@ only of such runs shows `usd: null` and prints `unknown`, never $0 (owner decisi
 Every failure ends the run in one transaction (status, `run.<status>` event, leases, work order
 back to `issued`, row back to `ready` or `blocked`) and keeps the worktree for inspection. On
 success the worktree is removed (the branch is on the host). Exit code 0 only when the PR is open
-and the row is `verifying`.
+and the row is `verifying`. A diff-policy violation sets `policy_code: "DIFF_POLICY"` on the report
+and `fw run start` exits 3 (refused by policy); every other failure exits 1.
+
+## `fw doctor` and `fw gc` (FW-C-008)
+
+Both are served by the same in-process client (`doctor()` and `gc()`), and neither takes the writer
+lock, so they work while `fwd` runs.
+
+```sh
+fw doctor [--json]   # the sandbox self-test a run gets, each control enforced | best_effort | absent
+fw gc [--json]       # remove $FW_HOME/runs/<run_id> of finished runs; prints what it removed and kept
+```
+
+- `fw doctor` (`src/runtime/doctor.ts`) runs `prepareSandbox` with the daemon's own environment and
+  `sandboxSelfTest` in a throwaway `runs/run_doctor-<hex>` directory, removes it, and prints the
+  report. It needs no database. It always exits 0: a control graded `absent` is reported, not an
+  error (in C0 egress is `absent` unless `FW_EGRESS_PROXY` is set).
+- `fw gc` (`src/runtime/gc.ts`) calls `removeRunDir` for each run directory whose run is
+  `succeeded`, `failed`, `timed_out`, `killed` or `cancelled`, or has no row in the database (a run
+  inserts its row before it creates its directory, so such a directory has no run behind it). A
+  `queued`, `starting`, `running`, `paused` or `validating` run is kept. A name that is not a run id
+  is skipped. It never touches `$FW_HOME/worktrees`, branches or the database. If the database cannot
+  be read, it removes nothing. A removed run's `diff.patch` and `steps.jsonl` go with it, so
+  `GET /v1/evidence-bundles/{id}/diff` for that run answers 404 afterwards; the bundle and its hashes
+  stay in the database.
 
 ## Tests
 

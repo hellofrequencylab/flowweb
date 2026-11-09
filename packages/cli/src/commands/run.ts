@@ -1,6 +1,6 @@
 // fw run start | list | show
 import type { CoreClient, RunStartOptions } from '../client.ts';
-import { EXIT, short, table, usd } from '../output.ts';
+import { EXIT, POLICY_CODES, short, table, usd } from '../output.ts';
 import type { Command } from './types.ts';
 
 class UnsupportedError extends Error {
@@ -63,7 +63,8 @@ const start: Command = {
       ctx.io.out(`run start ${r.code}: ${what}: ${r.reason ?? 'no reason recorded'}`);
       if (r.worktree && r.run_id) ctx.io.out(`  worktree kept: ${r.worktree}\n  row: ${r.row_status}`);
     }
-    return r.ok ? EXIT.OK : EXIT.FAILED;
+    if (r.ok) return EXIT.OK;
+    return r.policy_code && POLICY_CODES.has(r.policy_code) ? EXIT.POLICY : EXIT.FAILED;
   },
 };
 

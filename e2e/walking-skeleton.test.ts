@@ -134,6 +134,7 @@ interface StartReport {
   status: string;
   failure_class: string | null;
   reason: string | null;
+  policy_code: string | null;
   row_status: string;
   branch: string | null;
   worktree: string | null;
@@ -340,8 +341,14 @@ describe('walking skeleton: failure cases', () => {
       '--scenario',
       'forbidden_path',
     );
-    expect(r.code).toBe(1);
-    expect(r.body).toMatchObject({ ok: false, status: 'failed', failure_class: 'no_artifact', pr: null });
+    expect(r.code).toBe(3); // refused by policy (decision 22)
+    expect(r.body).toMatchObject({
+      ok: false,
+      status: 'failed',
+      failure_class: 'no_artifact',
+      policy_code: 'DIFF_POLICY',
+      pr: null,
+    });
     expect(r.body.reason).toMatch(/diff policy violation/);
     expect(r.body.branch).toBe(`fw/quarantine/${r.body.run_id}`);
     expect(sh(w.repo, 'git', ['branch', '--list', 'fw/quarantine/*'])).toContain(r.body.run_id!);
@@ -358,6 +365,19 @@ describe('walking skeleton: failure cases', () => {
     expect(leaseStatuses(w, r.body.run_id!)).toEqual(['released']);
     expect(rowStatus(w, 'FW-T-002')).toBe('ready');
     expect(existsSync(r.body.worktree!)).toBe(true); // kept for inspection
+
+    // fw gc removes the finished run's directory, never its worktree or its quarantined branch.
+    const runDir = join(w.home, 'runs', r.body.run_id!);
+    expect(existsSync(runDir)).toBe(true);
+    const gc = w.json<{ removed: { run_id: string; status: string | null }[]; kept: unknown[] }>('gc');
+    expect(gc.code).toBe(0);
+    expect(gc.body.removed).toContainEqual(
+      expect.objectContaining({ run_id: r.body.run_id, status: 'failed' }),
+    );
+    expect(gc.body.kept).toEqual([]);
+    expect(existsSync(runDir)).toBe(false);
+    expect(existsSync(r.body.worktree!)).toBe(true);
+    expect(sh(w.repo, 'git', ['branch', '--list', 'fw/quarantine/*'])).toContain(r.body.run_id!);
   }, 60_000);
 
   test('over_budget: the run is killed with failure_class budget', () => {

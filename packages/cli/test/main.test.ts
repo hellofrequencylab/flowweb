@@ -83,6 +83,7 @@ function fakeClient(overrides: Partial<CoreClient> = {}): CoreClient {
       status: 'succeeded',
       failure_class: null,
       reason: null,
+      policy_code: null,
       row_status: 'verifying',
       work_order_id: 'wo_x',
       branch: 'fw/FW-C-001/run_x',
@@ -114,10 +115,38 @@ function fakeClient(overrides: Partial<CoreClient> = {}): CoreClient {
       events: [],
     }),
     spendRollup: async ({ by }) => (by === 'agent' ? spendByAgent : []),
+    doctor: async () => doctorReport,
+    gc: async () => ({
+      home: '/h',
+      removed: [{ run_id: 'run_done', path: '/h/runs/run_done', status: 'succeeded' }],
+      kept: [{ run_id: 'run_live', path: '/h/runs/run_live', status: 'running' }],
+      skipped: [],
+    }),
     close: () => {},
     ...overrides,
   };
 }
+
+const control = (level: 'enforced' | 'best_effort' | 'absent', detail: string) => ({ level, detail });
+const doctorReport = {
+  home: '/h',
+  sandbox: {
+    run_id: 'run_doctor-x',
+    mode: 'userdir',
+    platform: 'linux',
+    level: 'absent' as const,
+    controls: {
+      env_scrub: control('best_effort', 'only the allowlist'),
+      home_isolation: control('best_effort', 'HOME in the run dir'),
+      fs_write_confinement: control('best_effort', 'no OS isolation'),
+      egress: control('absent', 'no egress proxy configured'),
+      process_group_kill: control('enforced', 'grandchild gone'),
+    },
+    child_env_keys: ['HOME', 'PATH'],
+    notes: [],
+    checked_at: 'now',
+  },
+};
 
 const runSummary = {
   id: 'run_x',
@@ -157,15 +186,20 @@ describe('help', () => {
   test('fw --help lists exactly the implemented commands', async () => {
     const r = await run(['--help']);
     expect(r.code).toBe(EXIT.OK);
-    const listed = r.out
-      .split('\n')
-      .filter((l) => l.startsWith('  fw '))
-      .map((l) => l.trim().split(/\s+/).slice(1));
-    // Each line starts with its command's words (one word for `fw spend`, two for the others).
-    expect(listed.map((words, i) => words.slice(0, COMMANDS[i]?.path.length).join(' '))).toEqual(
-      COMMANDS.map((c) => c.path.join(' ')),
-    );
+    const listed = r.out.split('\n').filter((l) => l.startsWith('  fw '));
+    expect(listed).toHaveLength(COMMANDS.length);
+    // Each line starts with its command's words, in order (commands are one or two words).
+    COMMANDS.forEach((c, i) => {
+      const words = listed[i]!.trim()
+        .split(/\s+/)
+        .slice(1, 1 + c.path.length);
+      expect(words.join(' ')).toBe(c.path.join(' '));
+    });
     expect(helpText()).toContain('exit codes');
+  });
+
+  test('the help names exit code 3 for a policy refusal', () => {
+    expect(helpText()).toMatch(/3 refused by policy/);
   });
 
   test('no command is a usage error', async () => {
@@ -218,6 +252,38 @@ describe('--json', () => {
       error: { code: 'REFUSED_BY_DATABASE', message: e.message, details: { code: 'FW-C-001' } },
     });
   });
+});
+
+describe('doctor and gc', () => {
+  test('fw doctor prints every control with its level', async () => {
+    const r = await run(['doctor']);
+    expect(r.code).toBe(EXIT.OK);
+    expect(r.out).toMatch(/overall absent/);
+    for (const [name, c] of Object.entries(doctorReport.sandbox.controls))
+      expect(r.out).toMatch(new RegExp(`${name}\\s+${c.level}\\s+${c.detail}`));
+  });
+
+  test('fw doctor --json is the report', async () => {
+    const r = await run(['doctor', '--json']);
+    expect(JSON.parse(r.out)).toEqual(doctorReport);
+  });
+
+  test('fw gc reports what it removed and what it kept', async () => {
+    const r = await run(['gc']);
+    expect(r.code).toBe(EXIT.OK);
+    expect(r.out).toContain('removed 1 run directory, kept 1 of active runs');
+    expect(r.out).toContain('removed run_done (succeeded)');
+    expect(r.out).toContain('kept    run_live (running)');
+  });
+
+  test.each([['doctor'], ['gc']])(
+    'fw %s on a client without it exits 1 with CLIENT_UNAVAILABLE',
+    async (cmd) => {
+      const r = await run([cmd, '--json'], fakeClient({ [cmd]: undefined }));
+      expect(r.code).toBe(EXIT.FAILED);
+      expect(JSON.parse(r.out).error.code).toBe('CLIENT_UNAVAILABLE');
+    },
+  );
 });
 
 describe('exit codes', () => {
@@ -289,6 +355,66 @@ describe('exit codes', () => {
     const e = Object.assign(new Error('event log writer lock is held by pid 1'), { code: 'LOCKED' });
     const r = await run(['ledger', 'sync'], fakeClient({ ledgerSync: async () => Promise.reject(e) }));
     expect(r.code).toBe(EXIT.LOCKED);
+  });
+
+  test.each([
+    ['SIZE_NOT_DISPATCHABLE', 'size XL has no caps in the core policy size table'],
+    ['SELF_VERIFY', 'self-verification refused: agt_w cannot be both doer and verifier of FW-C-001'],
+    ['DIFF_POLICY', 'diff policy violation'],
+  ])(
+    'a policy refusal (%s) from wo issue exits 3 under --json with one JSON document',
+    async (code, message) => {
+      const e = Object.assign(new Error(message), { code });
+      const r = await run(
+        ['wo', 'issue', 'FW-C-001', '--json'],
+        fakeClient({ woIssue: async () => Promise.reject(e) }),
+      );
+      expect(r.code).toBe(EXIT.POLICY);
+      expect(JSON.parse(r.out).error.code).toBe(code);
+    },
+  );
+
+  test('a policy refusal exits 3 without --json too, with the reason on stderr', async () => {
+    const e = Object.assign(new Error('size XL is not dispatchable'), { code: 'SIZE_NOT_DISPATCHABLE' });
+    const r = await run(
+      ['run', 'start', 'FW-C-001'],
+      fakeClient({ runStart: async () => Promise.reject(e) }),
+    );
+    expect(r.code).toBe(EXIT.POLICY);
+    expect(r.err).toBe('fw run start: size XL is not dispatchable');
+  });
+
+  test('a run refused by the diff policy exits 3; the code is mapped, not the message', async () => {
+    const base = await fakeClient().runStart!('FW-C-001');
+    const failed = {
+      ...base,
+      ok: false,
+      status: 'failed',
+      failure_class: 'no_artifact',
+      reason: 'diff policy violation (tier0_path CODEOWNERS); branch quarantined as fw/quarantine/run_x',
+      pr: null,
+    };
+    const refused = await run(
+      ['run', 'start', 'FW-C-001', '--json'],
+      fakeClient({ runStart: async () => ({ ...failed, policy_code: 'DIFF_POLICY' }) }),
+    );
+    expect(refused.code).toBe(EXIT.POLICY);
+    expect(JSON.parse(refused.out).policy_code).toBe('DIFF_POLICY');
+    // The same words without the code are an ordinary failure: the CLI never reads the message.
+    const plain = await run(['run', 'start', 'FW-C-001'], fakeClient({ runStart: async () => failed }));
+    expect(plain.code).toBe(EXIT.FAILED);
+  });
+
+  test.each([
+    ['ROW_NOT_READY', EXIT.FAILED],
+    ['ALREADY_ISSUED', EXIT.FAILED],
+    ['REFUSED_BY_DATABASE', EXIT.FAILED],
+    ['INTERNAL', EXIT.FAILED],
+    ['LOCKED', EXIT.LOCKED],
+  ])('%s is not a policy refusal (exit %i)', async (code, want) => {
+    const e = Object.assign(new Error('refused by policy, says the message'), { code });
+    const r = await run(['wo', 'issue', 'FW-C-001'], fakeClient({ woIssue: async () => Promise.reject(e) }));
+    expect(r.code).toBe(want);
   });
 
   test('a broken chain exits 1 with one line', async () => {

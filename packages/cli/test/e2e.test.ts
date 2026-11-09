@@ -166,7 +166,7 @@ describe('fw wo issue', () => {
     expect(JSON.parse(r.out).error.code).toBe('ROW_NOT_READY');
   });
 
-  test('self-verification is refused', () => {
+  test('self-verification is refused by policy (exit 3)', () => {
     const r = fw(
       'wo',
       'issue',
@@ -177,7 +177,7 @@ describe('fw wo issue', () => {
       'agt_worker0001',
       '--json',
     );
-    expect(r.code).toBe(1);
+    expect(r.code).toBe(3);
     expect(JSON.parse(r.out).error.code).toBe('SELF_VERIFY');
   });
 });

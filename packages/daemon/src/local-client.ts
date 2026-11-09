@@ -16,6 +16,8 @@ import {
 } from '@fw/ledger';
 import { listRuns, type RunDetail, type RunSummary, showRun } from './pipeline/queries.ts';
 import { type RunStartReport, runStart } from './pipeline/run-start.ts';
+import { type DoctorReport, runDoctor } from './runtime/doctor.ts';
+import { type GcReport, gcRunDirs } from './runtime/gc.ts';
 import { SPEND_GROUP_NAMES, type SpendGroup, type SpendRow, spendRollup } from './spend.ts';
 
 export interface RunStartRequest {
@@ -32,6 +34,8 @@ export interface DaemonCoreClient extends LocalCoreClient {
   runList(opts?: { status?: string; limit?: number }): Promise<RunSummary[]>;
   runShow(runId: string): Promise<RunDetail>;
   spendRollup(opts: { by: string }): Promise<(SpendRow & { unknown_runs?: number })[]>;
+  doctor(): Promise<DoctorReport>;
+  gc(): Promise<GcReport>;
 }
 
 export function createCoreClient(opts: LocalClientOptions): DaemonCoreClient {
@@ -95,6 +99,18 @@ export function createCoreClient(opts: LocalClientOptions): DaemonCoreClient {
       if (!SPEND_GROUP_NAMES.includes(by as SpendGroup))
         throw new LedgerError('BAD_ARGUMENT', `--by must be one of ${SPEND_GROUP_NAMES.join(', ')}`);
       return spendRollup(open(false).reader(), { by: by as SpendGroup, unknown: true });
+    },
+    async doctor() {
+      return runDoctor(home);
+    },
+    async gc() {
+      // No database means no run was ever started in this home, so no directory has a live run.
+      if (!existsSync(path)) return gcRunDirs(home, () => undefined);
+      const r = open(false).reader();
+      return gcRunDirs(
+        home,
+        (runId) => r.get<{ status: string }>('SELECT status FROM runs WHERE id = ?', [runId])?.status,
+      );
     },
     close() {
       store?.close();
