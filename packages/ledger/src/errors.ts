@@ -22,7 +22,9 @@ export type LedgerErrorCode =
   | 'AGENT_INVALID'
   | 'ALREADY_ISSUED'
   | 'WORK_ORDER_INVALID'
-  | 'POLICY_MISSING';
+  | 'POLICY_MISSING'
+  | 'ALREADY_EXISTS'
+  | 'APPROVAL_REQUIRED';
 
 export class LedgerError extends Error {
   readonly code: LedgerErrorCode;
