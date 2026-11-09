@@ -13,7 +13,8 @@ export interface ChainStatus {
 export interface StatusDeps {
   reader: Reader;
   version: string;
-  startedAt: string;
+  /** null when fwd is down (fw status reading the database directly). */
+  startedAt: string | null;
   chain: () => ChainStatus;
 }
 

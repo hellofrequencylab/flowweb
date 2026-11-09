@@ -354,6 +354,32 @@ describe('errors', () => {
   });
 });
 
+describe('POST /v1/runs', () => {
+  const post = (body: unknown) => call(d.port, 'POST', '/v1/runs', { body });
+
+  test('checks the body before any run starts', async () => {
+    for (const [body, message] of [
+      [{ repo_dir: '/tmp' }, /code is required/],
+      [{ code: 'FW-C-001' }, /repo_dir is required/],
+      [{ code: 'FW-C-001', repo_dir: 'relative/dir' }, /absolute/],
+      [{ code: 'FW-C-001', repo_dir: '/tmp', max_wall_clock_s: 0 }, /positive whole number/],
+      [{ code: 'FW-C-001', repo_dir: '/tmp', surprise: true }, /unknown field/],
+    ] as const) {
+      const res = await post(body);
+      expect(res.status, JSON.stringify(body)).toBe(400);
+      expect(res.json.error.code).toBe('validation_failed');
+      expect(res.json.error.message).toMatch(message);
+    }
+    expect(d.runs.size).toBe(0);
+  });
+
+  test('a kernel error keeps its own code in details.fw_code', async () => {
+    const res = await post({ code: 'FW-Z-999', repo_dir: '/tmp' });
+    expect(res.status).toBe(404);
+    expect(res.json.error).toMatchObject({ code: 'not_found', details: { fw_code: 'NOT_FOUND' } });
+  });
+});
+
 describe('GET /v1/events/stream (SSE)', () => {
   interface Sse {
     text: () => string;
