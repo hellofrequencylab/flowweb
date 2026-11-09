@@ -65,4 +65,8 @@ export interface OpenStoreOptions {
   readonly?: boolean;
   /** Clock override for tests. */
   now?: () => Date;
+  /** Migration 0001 file. Default: schema.core.sql at the repo root (../../schema.core.sql from this package). */
+  schemaPath?: string;
+  /** Writer lock file. Default: `${path}.lock` next to the database. */
+  lockPath?: string;
 }
