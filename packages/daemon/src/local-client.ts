@@ -16,6 +16,8 @@ import {
 } from '@fw/ledger';
 import { listRuns, type RunDetail, type RunSummary, showRun } from './pipeline/queries.ts';
 import { type RunStartReport, runStart } from './pipeline/run-start.ts';
+import { type DoctorReport, runDoctor } from './runtime/doctor.ts';
+import { type GcReport, gcRunDirs } from './runtime/gc.ts';
 
 export interface RunStartRequest {
   adapter?: string;
@@ -30,6 +32,8 @@ export interface DaemonCoreClient extends LocalCoreClient {
   runStart(code: string, opts?: RunStartRequest): Promise<RunStartReport>;
   runList(opts?: { status?: string; limit?: number }): Promise<RunSummary[]>;
   runShow(runId: string): Promise<RunDetail>;
+  doctor(): Promise<DoctorReport>;
+  gc(): Promise<GcReport>;
 }
 
 export function createCoreClient(opts: LocalClientOptions): DaemonCoreClient {
@@ -88,6 +92,18 @@ export function createCoreClient(opts: LocalClientOptions): DaemonCoreClient {
     },
     async runShow(runId) {
       return showRun(open(false).reader(), runId);
+    },
+    async doctor() {
+      return runDoctor(home);
+    },
+    async gc() {
+      // No database means no run was ever started in this home, so no directory has a live run.
+      if (!existsSync(path)) return gcRunDirs(home, () => undefined);
+      const r = open(false).reader();
+      return gcRunDirs(
+        home,
+        (runId) => r.get<{ status: string }>('SELECT status FROM runs WHERE id = ?', [runId])?.status,
+      );
     },
     close() {
       store?.close();

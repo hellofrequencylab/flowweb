@@ -5,8 +5,10 @@ export {
   type CoreClient,
   type CoreClientFactory,
   type CoreClientOptions,
+  type DoctorReport,
   findProviders,
   findWorkspaceRoot,
+  type GcReport,
   loadCoreClientFactory,
   type ProviderDecl,
 } from './client.ts';
