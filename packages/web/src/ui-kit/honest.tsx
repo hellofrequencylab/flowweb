@@ -3,6 +3,7 @@ import { ApiError } from '../api/client';
 import type { Resource } from '../api/resource';
 import type { Envelope } from '../api/types';
 import { UNREACHABLE } from '../hosted/auth';
+import { Icon } from './Icon';
 import { age, clock, useNow } from './time';
 
 /**
@@ -66,19 +67,25 @@ export function LoadError({
   const msg =
     error instanceof ApiError ? `fwd answered: ${error.message} (${error.code}).` : `${UNREACHABLE}.`;
   return (
-    <div className="callout callout-warn" role="alert">
+    <div className="callout callout-warn callout-row" role="alert">
+      <Icon name="warn" size={18} />
       <p>
         <strong>Could not load {what}.</strong> {msg} Nothing here is shown as current.
       </p>
-      <button type="button" className="btn" onClick={onRetry}>
-        Retry
+      <button type="button" className="btn btn-small" onClick={onRetry}>
+        <Icon name="retry" /> Retry
       </button>
     </div>
   );
 }
 
-export function Empty({ children }: { children: ReactNode }) {
-  return <p className="muted">{children}</p>;
+export function Empty({ title, children }: { title?: string; children: ReactNode }) {
+  return (
+    <div className="empty">
+      {title && <strong className="empty-title">{title}</strong>}
+      <p>{children}</p>
+    </div>
+  );
 }
 
 /**
@@ -107,11 +114,18 @@ export function ResourceView<T extends Envelope>({
 export function StaleNotice({ res, what }: { res: Resource<Envelope>; what: string }) {
   const now = useNow();
   return (
-    <div className="callout callout-warn" role="status" style={{ marginBottom: 'var(--fw-space-4)' }}>
-      <strong>Not current.</strong> This {what} is from {clock(res.asOf)}, {age(res.asOf, now)}. Values below
-      are the last known, not the present.{' '}
-      <button type="button" className="btn btn-quiet" onClick={res.reload}>
-        Retry
+    <div
+      className="callout callout-warn callout-row"
+      role="status"
+      style={{ marginBottom: 'var(--space-6)' }}
+    >
+      <Icon name="delayed" size={18} />
+      <p>
+        <strong>Not current.</strong> This {what} is from {clock(res.asOf)}, {age(res.asOf, now)}. Values
+        below are the last known, not the present.
+      </p>
+      <button type="button" className="btn btn-small" onClick={res.reload}>
+        <Icon name="retry" /> Retry
       </button>
     </div>
   );
@@ -131,7 +145,7 @@ export function Copy({ text, label }: { text: string; label?: string }) {
       }}
       aria-label={`Copy ${label ?? text}`}
     >
-      {done ? 'Copied' : 'Copy'}
+      <Icon name={done ? 'check' : 'copy'} /> {done ? 'Copied' : 'Copy'}
     </button>
   );
 }

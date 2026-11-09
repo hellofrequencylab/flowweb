@@ -3,6 +3,7 @@ import { api } from '../api/client';
 import { useResource } from '../api/resource';
 import type { SpendToday } from '../api/types';
 import { AsOf, ResourceView } from '../ui-kit/honest';
+import { Figures, PageHead } from '../ui-kit/page';
 import { StatusLabel } from '../ui-kit/status';
 import { usd, useNow, when } from '../ui-kit/time';
 
@@ -13,14 +14,47 @@ export function SpendPage() {
   const [asTable, setAsTable] = useState(false);
   return (
     <>
-      <div className="row" style={{ alignItems: 'baseline' }}>
-        <h1 tabIndex={-1}>Spend</h1>
-        <span className="spacer" />
-        <AsOf res={res} />
-      </div>
+      <PageHead
+        overline="Read-only"
+        title="Spend"
+        lede={
+          <>
+            What agents cost today and this week. Caps live in the policy file.
+            <span className="page-meta">
+              <AsOf res={res} />
+            </span>
+          </>
+        }
+        aside={
+          <Figures
+            label="Spend at a glance"
+            items={[
+              res.honesty === 'current' && res.data?.today
+                ? {
+                    label: res.data.today.estimated ? 'today, estimated' : 'today',
+                    value: usd(res.data.today.usd),
+                    of: `of ${usd(res.data.today.cap_usd)}`,
+                  }
+                : { label: 'today', value: <span className="fact-unknown">Unknown</span> },
+              res.honesty === 'current' && res.data
+                ? {
+                    label: `last ${res.data.by_day.length} days`,
+                    value: usd(res.data.by_day.reduce((a, x) => a + x.usd, 0)),
+                  }
+                : { label: 'last 7 days', value: <span className="fact-unknown">Unknown</span> },
+              res.honesty === 'current' && res.data
+                ? {
+                    label: 'stopped by a cap',
+                    value: res.data.refused.length,
+                  }
+                : { label: 'stopped by a cap', value: <span className="fact-unknown">Unknown</span> },
+            ]}
+          />
+        }
+      />
       <ResourceView res={res} what="spend">
         {(d) => (
-          <div className="stack">
+          <div className="stack-lg">
             <section className="panel">
               <h2>Today</h2>
               {d.today ? (
@@ -65,12 +99,12 @@ export function SpendPage() {
               )}
             </section>
 
-            <div className="row" style={{ alignItems: 'stretch' }}>
-              <section className="panel" style={{ flex: '1 1 260px', marginTop: 0 }}>
+            <div className="grid-2">
+              <section className="panel">
                 <h2>By project</h2>
                 <Groups groups={d.by_project} />
               </section>
-              <section className="panel" style={{ flex: '1 1 260px', marginTop: 0 }}>
+              <section className="panel">
                 <h2>By vendor</h2>
                 <Groups groups={d.by_vendor} />
               </section>
@@ -142,45 +176,15 @@ function Meter({ t }: { t: SpendToday }) {
   const partial = t.vendors_configured && t.vendors_reporting.length < t.vendors_configured.length;
   return (
     <div className="stack">
-      <p style={{ fontSize: 'var(--fw-text-xl)', margin: 0 }}>
-        {usd(t.usd, t.estimated)}{' '}
-        <span className="muted" style={{ fontSize: 'var(--fw-text-md)' }}>
-          of {usd(t.cap_usd)} daily cap
-        </span>
+      <p className="spend-now">
+        {usd(t.usd, t.estimated)} <span className="muted">of {usd(t.cap_usd)} daily cap</span>
       </p>
-      <div
-        // Decorative: the sentence above states spend and cap in words.
-        aria-hidden="true"
-        style={{
-          position: 'relative',
-          height: '12px',
-          background: 'var(--fw-surface-2)',
-          borderRadius: 'var(--fw-radius)',
-        }}
-      >
-        <div
-          style={{
-            width: `${pct}%`,
-            height: '100%',
-            background: 'var(--fw-text-muted)',
-            borderRadius: 'var(--fw-radius)',
-          }}
-        />
-        {fpct !== null && (
-          <div
-            title="Forecast"
-            style={{
-              position: 'absolute',
-              top: '-3px',
-              left: `${fpct}%`,
-              width: '2px',
-              height: '18px',
-              background: 'var(--fw-text)',
-            }}
-          />
-        )}
+      {/* Decorative: the sentence above states spend and cap in words. */}
+      <div className="meter" aria-hidden="true">
+        <span className="meter-fill" style={{ width: `${pct}%` }} />
+        {fpct !== null && <span className="meter-cap" title="Forecast" style={{ left: `${fpct}%` }} />}
       </div>
-      <p className="small muted" style={{ margin: 0 }}>
+      <p className="small muted">
         Cap marked at the right edge.
         {t.forecast_usd ? ` Forecast for today: ${usd(t.forecast_usd, true)}.` : ' No forecast.'}
       </p>
@@ -201,11 +205,10 @@ function DayBars({ days, cap }: { days: { day: string; usd: number }[]; cap?: nu
   const H = 120;
   const T = 16; // room for the cap label
   return (
-    <figure style={{ margin: 0 }}>
+    <figure className="bars-figure">
       <svg
+        className="bars"
         viewBox={`0 ${-T} ${days.length * 48} ${H + 36 + T}`}
-        width="100%"
-        style={{ maxWidth: '560px' }}
         role="img"
         aria-label="Spend per day for the last 7 days"
       >
@@ -216,10 +219,10 @@ function DayBars({ days, cap }: { days: { day: string; usd: number }[]; cap?: nu
               x2={days.length * 48}
               y1={H - (cap / max) * H}
               y2={H - (cap / max) * H}
-              stroke="var(--fw-text-muted)"
+              className="cap-line"
               strokeDasharray="4 3"
             />
-            <text x="2" y={H - (cap / max) * H - 4} fontSize="10" fill="var(--fw-text-muted)">
+            <text x="2" y={H - (cap / max) * H - 4} fontSize="10">
               cap {usd(cap)}
             </text>
           </>
@@ -228,11 +231,18 @@ function DayBars({ days, cap }: { days: { day: string; usd: number }[]; cap?: nu
           const h = (d.usd / max) * H;
           return (
             <g key={d.day}>
-              <rect x={i * 48 + 10} y={H - h} width="28" height={h} fill="var(--fw-text-muted)" rx="2" />
-              <text x={i * 48 + 24} y={H + 14} fontSize="10" textAnchor="middle" fill="var(--fw-text)">
+              <rect
+                x={i * 48 + 10}
+                y={H - h}
+                width="28"
+                height={h}
+                rx="8"
+                className={i === days.length - 1 ? 'bar bar-today' : 'bar'}
+              />
+              <text x={i * 48 + 24} y={H + 14} fontSize="10" textAnchor="middle" className="bar-day">
                 {d.day.slice(5)}
               </text>
-              <text x={i * 48 + 24} y={H + 28} fontSize="10" textAnchor="middle" fill="var(--fw-text-muted)">
+              <text x={i * 48 + 24} y={H + 28} fontSize="10" textAnchor="middle">
                 {usd(d.usd)}
               </text>
             </g>

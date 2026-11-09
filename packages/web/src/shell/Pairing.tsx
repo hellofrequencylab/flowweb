@@ -1,6 +1,7 @@
 import { type FormEvent, useState } from 'react';
 import { ApiError, api } from '../api/client';
 import { focusOnMount } from '../ui-kit/focus';
+import { Logo } from '../ui-kit/Logo';
 
 /** First visit: proves the browser belongs to the Owner. */
 export function Pairing({ onPaired }: { onPaired: () => void }) {
@@ -19,16 +20,13 @@ export function Pairing({ onPaired }: { onPaired: () => void }) {
   };
 
   return (
-    <main
-      className="main stack"
-      style={{ maxWidth: '28rem', margin: '0 auto', paddingTop: 'var(--fw-space-6)' }}
-    >
+    <main className="gate stack">
+      <Logo size={40} />
       <h1>Pair this browser</h1>
       <p>Enter the code printed in the terminal where fwd is running.</p>
       <form onSubmit={submit} className="stack">
-        <label className="stack" style={{ display: 'block' }}>
-          <span>Pairing code</span>
-          <br />
+        <label className="field">
+          <span className="field-label">Pairing code</span>
           <input
             type="text"
             inputMode="numeric"
@@ -38,7 +36,7 @@ export function Pairing({ onPaired }: { onPaired: () => void }) {
             onChange={(e) => setCode(e.target.value)}
             aria-invalid={state === 'wrong'}
             aria-describedby="pair-msg"
-            style={{ width: '100%', fontFamily: 'var(--fw-font-mono)', fontSize: 'var(--fw-text-lg)' }}
+            className="field-big mono"
           />
         </label>
         <div id="pair-msg" role="status">
@@ -52,7 +50,7 @@ export function Pairing({ onPaired }: { onPaired: () => void }) {
           )}
         </div>
         <button
-          className="btn btn-primary"
+          className="btn btn-primary btn-big"
           type="submit"
           disabled={state === 'pairing' || code.trim().length === 0}
         >

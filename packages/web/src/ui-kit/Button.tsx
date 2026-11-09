@@ -1,4 +1,5 @@
 import { type ButtonHTMLAttributes, type ReactNode, useId } from 'react';
+import { Icon } from './Icon';
 
 /**
  * Every disabled button says why, in words, next to it.
@@ -27,7 +28,7 @@ export function Button({
       disabled={disabled}
       aria-describedby={disabledReason ? id : rest['aria-describedby']}
       aria-keyshortcuts={shortcut}
-      className={`btn ${variant !== 'default' ? `btn-${variant}` : ''} ${className}`}
+      className={['btn', variant !== 'default' && `btn-${variant}`, className].filter(Boolean).join(' ')}
     >
       {children}
       {shortcut && (
@@ -42,6 +43,7 @@ export function Button({
     <span className="action-group">
       {btn}
       <span id={id} className="disabled-reason">
+        <Icon name="lock" size={13} />
         {disabledReason}
       </span>
     </span>
