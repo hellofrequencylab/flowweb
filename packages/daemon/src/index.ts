@@ -1,5 +1,15 @@
 export const PACKAGE = '@fw/daemon';
 
+export { rowCodeOf, rowIdOf } from './api/codes.ts';
+export {
+  type Daemon,
+  type DaemonOptions,
+  DEFAULT_PORT,
+  ensureFwHome,
+  HOME_DIRS,
+  LOOPBACK,
+  startDaemon,
+} from './daemon.ts';
 export {
   assertBranchName,
   GhHost,
@@ -16,6 +26,7 @@ export {
   type Runner,
   type TokenScopeReport,
 } from './edge-git/index.ts';
+export { ORPHAN_STATES, type ReconcileReport, reconcileOnStart } from './reconciler.ts';
 export {
   type ArtifactCheck,
   type ArtifactGuardInput,
