@@ -31,7 +31,7 @@ Errors: `{ "error": { "code": "not_found" | "validation_failed" | "kill_switch_e
 | `GET /status-reports?kind=daily&limit=1` | `status_reports` rows, `body` parsed; self-check at `body.self_check {passed, failed_query_ids[]}` | Dawn Log. Empty until the digest stream (FW-C-023, C2). |
 | `GET /policy` | `{ path, commit, sha256, text }` | Read-only Settings view. |
 | `GET /session` | `{ paired_at, device_label }` | C2 with pairing. |
-| `GET /projects`, `GET /projects/{id}` | `projects` rows | |
+| `GET /projects?brand=&category=`, `GET /projects/{id}` | `projects` rows, plus `brand` and `category` | `brand` matches ignoring case and outer spaces. |
 | `GET /ledger/rows?project_id=&status=&milestone=&q=` | `ledger_rows` rows | `probe` parsed. Status lives only here. |
 | `GET /ledger/rows/{id}` | row plus `evidence: evidence_bundles[]`, `runs: runs[]` (summary) | |
 | `GET /runs?status=&row_id=`, `GET /runs/{id}` | `runs` rows (with `cost_usd`, `sandbox_level`, `artifact_verified`); `/runs/{id}` adds `artifacts[]` (`run_artifacts` rows) | |
@@ -84,4 +84,5 @@ Spend screen: refused-by-cap dispatches are `dispatch.refused_budget`; a cap hit
 - No CORS headers are sent. A dev web server on another port must proxy `/v1` and rewrite `Host` to `127.0.0.1:<port>`.
 - Ledger rows: `probe_spec`, `probe_expected`, `links` and `depends_on` are returned parsed (there is no single `probe` column).
 - Fields added for the web UI (were PROPOSED in its `wire.ts`): `status.oldest_open_card_at`; projects carry `rows_open` (open, ready), `rows_in_progress` (claimed to merging) and `rows_waiting_on_owner` (awaiting_approval, blocked); `/ledger/rows/{id}` adds `last_run_id` and `events[]` (the 50 newest events whose payload names the row); runs carry `artifact_verified` and `/runs/{id}` `artifacts[]`; decision cards carry `project_name`.
+- Project labels: `brand` (free text, for example `Frequency`) and `category` (`marketing`, `product`, `ops`, `sales`, `support`, `finance`, `other`), both null when unset. They live in one JSON document in `settings('project_labels')`, keyed by project id, so they needed no schema change. Set them with `fw project label <project> --brand <b> --category <c>`; each change writes one `project.updated` event. The hosted mirror filters on both.
 - Still not served, because C0 records no data for them: row `description`, `blocked_reason`, `acceptance[]`, `last_probe_sha/target/output_ref`; run `agent_role`, `model`, `cost_estimated` (owner question 14), `verifier`; step `label`, `excerpt`, `denied_by_policy`, `untrusted`; evidence view `tests_removed_or_skipped`, `tokens`, `verifier_summary`; approval `current_head_sha`, `merge_slot`, `cost_usd`; spend `vendors_reporting/vendors_total` as counts (status already lists `vendors_reporting[]` by name).

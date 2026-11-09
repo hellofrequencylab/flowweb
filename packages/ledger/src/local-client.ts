@@ -10,6 +10,14 @@ import { type CloseReport, closeRow } from './close.ts';
 import { LedgerError } from './errors.ts';
 import { dbPath, resolveHome, resolveProject } from './home.ts';
 import { type PremiseReport, retestPremise } from './premise.ts';
+import {
+  type LabelChange,
+  type LabelReport,
+  labelProject,
+  listProjects,
+  type ProjectFilter,
+  type ProjectView,
+} from './projects/labels.ts';
 import { listRows, nextRow, type RowDetail, retestCandidates, showRow } from './queries.ts';
 import type { RowView } from './rows.ts';
 import { addStream, listStreams, type StreamAddReport, type StreamView } from './streams/streams.ts';
@@ -37,6 +45,8 @@ export interface LocalCoreClient {
   auditVerify(): Promise<VerifyResult>;
   streamAdd(definition: unknown, opts?: { approvalId?: string }): Promise<StreamAddReport>;
   streamList(): Promise<StreamView[]>;
+  projectList(filter?: ProjectFilter): Promise<ProjectView[]>;
+  projectLabel(ref: string, change: LabelChange): Promise<LabelReport>;
   close(): void;
 }
 
@@ -103,6 +113,12 @@ export function createCoreClient(opts: LocalClientOptions): LocalCoreClient {
     },
     async streamList() {
       return listStreams(reader());
+    },
+    async projectList(filter = {}) {
+      return listProjects(reader(), filter);
+    },
+    async projectLabel(ref, change) {
+      return labelProject(writer(), ref, change);
     },
     close() {
       store?.close();

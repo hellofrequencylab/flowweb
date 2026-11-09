@@ -13,14 +13,15 @@ export function mirrorKey(path, params) {
 
 /**
  * List routes the relay copies in full (no filters). The server filters them here.
- * `fields` are equality filters the UI sends; `q` is a substring search.
+ * `fields` are equality filters the UI sends (`fold` ones ignore case and outer spaces, as fwd
+ * does for a project's brand); `q` is a substring search.
  */
 export const LISTS = {
   '/ledger/rows': { fields: ['status', 'project_id', 'milestone'], q: ['code', 'title'] },
   '/runs': { fields: ['status', 'row_id', 'project_id'] },
   '/events': { fields: ['type', 'run_id', 'project_id'], afterSeq: true },
   '/decision-cards': { fields: ['status', 'project_id'] },
-  '/projects': { fields: [] },
+  '/projects': { fields: ['brand', 'category'], fold: ['brand'] },
   '/budgets': { fields: [] },
   '/status-reports': { fields: ['kind'] },
 };
@@ -32,7 +33,9 @@ export function filterList(route, envelope, params) {
   let data = Array.isArray(envelope.data) ? envelope.data : [];
   for (const f of spec.fields) {
     const want = params.get(f);
-    if (want !== null && want !== '') data = data.filter((x) => String(x?.[f] ?? '') === want);
+    if (want === null || want === '') continue;
+    const norm = spec.fold?.includes(f) ? (v) => v.trim().toLowerCase() : (v) => v;
+    data = data.filter((x) => norm(String(x?.[f] ?? '')) === norm(want));
   }
   const q = params.get('q');
   if (q && spec.q) {

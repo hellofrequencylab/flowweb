@@ -36,6 +36,22 @@ test('list routes filter the full copy and keep fwd as_of', () => {
   );
 });
 
+test('projects filter by brand (any case) and category', () => {
+  const projects = {
+    as_of: '2026-11-09T10:00:00.000Z',
+    data: [
+      { id: 'prj_a', brand: 'Frequency', category: 'marketing' },
+      { id: 'prj_b', brand: 'Frequency', category: 'product' },
+      { id: 'prj_c', brand: null, category: null },
+    ],
+  };
+  const ids = (q) => filterList('/projects', projects, new URLSearchParams(q)).data.map((p) => p.id);
+  assert.deepEqual(ids('brand=frequency'), ['prj_a', 'prj_b']);
+  assert.deepEqual(ids('brand=Frequency&category=product'), ['prj_b']);
+  assert.deepEqual(ids('category=Product'), []);
+  assert.deepEqual(ids(''), ['prj_a', 'prj_b', 'prj_c']);
+});
+
 test('events honour after_seq and limit', () => {
   const ev = env([{ seq: 1 }, { seq: 2 }, { seq: 3 }]);
   const out = filterList('/events', ev, new URLSearchParams('after_seq=1&limit=1'));

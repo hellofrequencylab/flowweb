@@ -125,6 +125,8 @@ function fakeClient(overrides: Partial<CoreClient> = {}): CoreClient {
     status: async () => statusUp,
     streamAdd: async () => ({ stream: {} as never, approval_id: null, event_seq: 1 }),
     streamList: async () => [],
+    projectList: async () => [],
+    projectLabel: async () => ({ project: {} as never, changed_fields: [], event_seq: null }),
     gc: async () => ({
       home: '/h',
       removed: [{ run_id: 'run_done', path: '/h/runs/run_done', status: 'succeeded' }],

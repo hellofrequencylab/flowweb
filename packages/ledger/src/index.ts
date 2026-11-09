@@ -78,6 +78,20 @@ export {
   type TargetKind,
 } from './probe.ts';
 export {
+  findProject,
+  type LabelChange,
+  type LabelReport,
+  labelProject,
+  listProjects,
+  PROJECT_CATEGORIES,
+  PROJECT_LABELS_KEY,
+  type ProjectCategory,
+  type ProjectFilter,
+  type ProjectLabels,
+  type ProjectView,
+  readLabels,
+} from './projects/labels.ts';
+export {
   type EvidenceView,
   type ListFilter,
   listRows,
