@@ -1,5 +1,5 @@
 import { createContext, type ReactNode, useCallback, useContext, useEffect, useRef, useState } from 'react';
-import { HOSTED } from '../hosted/auth';
+import { HOSTED, UNREACHABLE } from '../hosted/auth';
 import { api, EVENTS_URL, UnreachableError } from './client';
 import type { Status, Topic } from './types';
 
@@ -160,7 +160,7 @@ export function useLive(): LiveCtx {
 export function useWriteBlock(): string | null {
   const { connection, status } = useLive();
   if (connection === 'down' || connection === 'connecting')
-    return "Can't reach fwd. Approvals need a live connection.";
+    return `${UNREACHABLE}. Approvals need a live connection.`;
   if (status?.kill_switch.state === 'stopped' || status?.kill_switch.state === 'stopping')
     return 'Everything is stopped. Release the kill switch to approve.';
   return null;
