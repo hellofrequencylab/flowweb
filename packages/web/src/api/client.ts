@@ -184,7 +184,7 @@ export function mapRunStatus(r: W.WRun): V.RunStatus {
     case 'killed':
       return 'halted';
     case 'succeeded':
-      return r.artifact_verified || r.artifacts?.some((a) => a.verified_by_kernel === 1)
+      return r.artifact_verified || r.artifacts?.some((a) => a.verified_by_kernel)
         ? 'artifact_verified'
         : 'finished_unchecked';
     case 'failed':
@@ -646,11 +646,11 @@ export const api = {
         summary: r.result?.summary,
       },
       artifacts_verified: arts
-        .filter((a) => a.verified_by_kernel === 1)
+        .filter((a) => a.verified_by_kernel)
         .map((a) => ({ kind: a.kind, ref: a.ref, sha: a.sha, verified_at: a.verified_at })),
       artifacts_claimed: [
         ...arts
-          .filter((a) => a.verified_by_kernel !== 1)
+          .filter((a) => !a.verified_by_kernel)
           .map((a) => ({
             id: `artifact:${a.kind}:${a.ref}`,
             kind: a.kind,
