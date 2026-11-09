@@ -95,8 +95,8 @@ describe('importing CORE-BACKLOG.json', () => {
   });
 });
 
-describe('a changed probe is refused and nothing changes', () => {
-  test('editing the probe path of a synced row: refused with the id and both hashes, database content unchanged', () => {
+describe('a changed probe is refused, recorded as a tamper finding, and no row changes', () => {
+  test('editing the probe path of a synced row: refused with the id and both hashes, one audit finding, nothing else changes', () => {
     const rowsDir = fixtureRows(join(dir, 'tamper-rows'));
     const store = fileStore(dir, 'tamper.sqlite');
     syncInto(store, rowsDir);
@@ -108,21 +108,79 @@ describe('a changed probe is refused and nothing changes', () => {
     // A new row in the same sync must not be created either: all or nothing.
     writeRows(rowsDir, [row('FW-C-951')]);
     const before = dumpTables(store);
+    const headBefore = store.reader().get<{ seq: number }>('SELECT MAX(seq) AS seq FROM events')!.seq;
     const rep = syncInto(store, rowsDir);
     expect(rep.applied).toBe(false);
     expect(rep.created).toEqual([]);
+    const newHash = probeHash(probeFromDefinition(def));
     expect(rep.refused).toEqual([
       expect.objectContaining({
         code: 'FW-C-005',
         id: 'lr_FWC005',
         reason: 'probe_changed',
         stored_hash: oldHash,
-        file_hash: probeHash(probeFromDefinition(def)),
+        file_hash: newHash,
+        finding_id: expect.stringMatching(/^fnd_/),
       }),
     ]);
     expect(rep.refused[0]!.file_hash).not.toBe(oldHash);
-    expect(dumpTables(store)).toBe(before);
+
+    // Exactly one event was appended, and it is the tamper finding naming the row and both hashes.
+    const added = store
+      .reader()
+      .all<{ type: string; payload: string; project_id: string }>(
+        'SELECT type, payload, project_id FROM events WHERE seq > ? ORDER BY seq',
+        [headBefore],
+      );
+    expect(added.map((e) => e.type)).toEqual(['audit.finding_raised']);
+    const payload = JSON.parse(added[0]!.payload);
+    expect(payload).toMatchObject({
+      finding_id: rep.refused[0]!.finding_id,
+      check: 'probe_tamper',
+      severity: 'high',
+      source: 'auditor',
+      breaker_requested: false,
+      evidence_refs: ['lr_FWC005'],
+      ledger_row_id: 'lr_FWC005',
+      code: 'FW-C-005',
+      stored_hash: oldHash,
+      computed_hash: newHash,
+    });
+    expect(payload.affected).toEqual({ project_id: added[0]!.project_id });
+    expect(store.verifyChain().ok).toBe(true);
+
+    // Everything except that one event is exactly as before: no row, no bootstrap, no other event.
+    expect(dumpTables(store)).not.toBe(before);
+    expect(dumpTables(store, { eventsUpTo: headBefore })).toBe(before);
     store.close();
+  });
+
+  test('the finding persists across a reopen, and each refused attempt records its own finding', () => {
+    const rowsDir = fixtureRows(join(dir, 'tamper-again'));
+    const store = fileStore(dir, 'tamper-again.sqlite');
+    syncInto(store, rowsDir);
+    const file = join(rowsDir, 'FW-C-006.json');
+    const def = JSON.parse(readFileSync(file, 'utf8'));
+    def.verify_probe = 'pnpm probe cli/something-easier';
+    writeFileSync(file, JSON.stringify(def));
+    const rowsBefore = JSON.stringify(store.reader().all('SELECT * FROM ledger_rows ORDER BY id'));
+    const first = syncInto(store, rowsDir);
+    const second = syncInto(store, rowsDir);
+    expect(first.refused[0]!.finding_id).not.toBe(second.refused[0]!.finding_id);
+    store.close();
+    const reopened = fileStore(dir, 'tamper-again.sqlite');
+    const findings = reopened
+      .reader()
+      .all<{ payload: string }>("SELECT payload FROM events WHERE type = 'audit.finding_raised' ORDER BY seq")
+      .map((e) => JSON.parse(e.payload));
+    expect(findings.map((f) => f.finding_id)).toEqual([
+      first.refused[0]!.finding_id,
+      second.refused[0]!.finding_id,
+    ]);
+    expect(findings.every((f) => f.check === 'probe_tamper' && f.ledger_row_id === 'lr_FWC006')).toBe(true);
+    expect(JSON.stringify(reopened.reader().all('SELECT * FROM ledger_rows ORDER BY id'))).toBe(rowsBefore);
+    expect(reopened.verifyChain().ok).toBe(true);
+    reopened.close();
   });
 });
 
