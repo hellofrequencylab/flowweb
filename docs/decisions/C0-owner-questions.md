@@ -37,7 +37,7 @@ Things the build hit where the handoff docs disagree with each other or leave a 
 19. **Tamper on sync.** A changed probe in a row file makes `fw ledger sync` refuse and write nothing (no tamper event type exists in the schema). Running a probe whose stored hash no longer matches raises `audit.finding_raised`.
 20. **`probes/MANIFEST.sha256`** (WS-P0-019) does not exist yet; you create it when you commit the probe pack. Until then the tamper check covers only the stored probe hash.
 21. **`fw ledger retest <code>`** was added: without it nothing moves a row from open to ready.
-22. **Exit code 3 for policy refusal** (FW-C-006) is not used yet; refusals exit 1, a held writer lock exits 4.
+22. **Exit code 3 for policy refusal** (FW-C-006). Decided in code: the CLI maps error codes, never message text (`POLICY_CODES` in `packages/cli/src/output.ts`). Exit 3 for `SIZE_NOT_DISPATCHABLE` (an XL row in `fw wo issue` or `fw run start`), `SELF_VERIFY` (same doer and verifier) and `DIFF_POLICY` (a run whose change touched a path outside its scope or a Tier 0 path; `fw run start` reports it as `policy_code`). A held writer lock (`LOCKED`) exits 4, usage errors 2, everything else 1, including a row that is not ready and a kill-switch or budget refusal at dispatch. Owner: say if those dispatch refusals should also be 3.
 23. **Row owners.** `agent` rows are owned by the chief-of-staff agent; `pair` and `human` rows by you (`own_local`).
 24. **The ledger-row contract cannot validate a row definition file** (it requires `status` and an `lr_` id). Sync maps the file to the contract before validating.
 
