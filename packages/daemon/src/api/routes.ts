@@ -118,7 +118,7 @@ function gitHead(repoRoot: string): string | null {
   }
 }
 
-/** The diff a bundle points at: `body.diff.path` under FW_HOME, else runs/<run>/diff.patch for a run bundle. */
+/** The diff a bundle points at: `body.diff.path` or `intent_payload.rendered_ref` under FW_HOME, else runs/<run>/diff.patch. */
 function storedDiff(fwHome: string, bundle: Row): { hash: string; candidates: string[] } | undefined {
   const body = (bundle.body ?? {}) as Row;
   const diff = (body.diff ?? {}) as Row;
@@ -133,6 +133,11 @@ function storedDiff(fwHome: string, bundle: Row): { hash: string; candidates: st
   const candidates: string[] = [];
   if (typeof diff.path === 'string') {
     candidates.push(isAbsolute(diff.path) ? diff.path : resolve(fwHome, diff.path));
+  }
+  // `fw run start` bundles: intent_payload.rendered_ref is the stored diff, relative to FW_HOME.
+  if (intent.format === 'diff' && typeof intent.rendered_ref === 'string') {
+    const p = intent.rendered_ref;
+    candidates.push(isAbsolute(p) ? p : resolve(fwHome, p));
   }
   const ref = bundle.subject_ref;
   if (typeof ref === 'string' && RUN_ID_RE.test(ref))
@@ -524,7 +529,7 @@ export function buildRouter(deps: ApiDeps): Router {
       let files: unknown = null;
       if (typeof card.evidence_bundle_id === 'string') {
         const eb = reader.get<{ files: string | null }>(
-          "SELECT json_extract(body, '$.diff.files') AS files FROM evidence_bundles WHERE id = ?",
+          "SELECT COALESCE(json_extract(body, '$.diff.files'), json_extract(body, '$.blast_radius.affected')) AS files FROM evidence_bundles WHERE id = ?",
           [card.evidence_bundle_id],
         );
         if (eb?.files) files = JSON.parse(eb.files);

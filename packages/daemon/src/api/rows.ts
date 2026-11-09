@@ -1,6 +1,7 @@
 // Row shaping for the API: JSON columns returned parsed, derived read-only fields added.
 // Field names are the SQLite column names, unchanged (LOCAL-API-V1.md, Transport).
 import { rowCodeOf } from './codes.ts';
+import { evidenceView } from './evidence-view.ts';
 
 type Row = Record<string, unknown>;
 
@@ -55,7 +56,7 @@ export function runRow(row: Row): Row {
  */
 export function evidenceRow(row: Row): Row {
   const parsed = parseJsonColumns(row, JSON_COLUMNS.evidence_bundles);
-  return { ...parsed, bundle: parsed.body };
+  return { ...parsed, bundle: parsed.body, view: evidenceView(parsed.body) };
 }
 
 export function cardRow(row: Row): Row {
@@ -68,7 +69,8 @@ export function cardRow(row: Row): Row {
 
 /**
  * SELECT list for runs with the derived columns. `sandbox_level` is not a runs column in Core: it
- * comes from the run's evidence bundle (`body.sandbox.level`) or its run.started event payload, else null.
+ * comes from a bundle's legacy `body.sandbox.level`, else the run.started payload (`sandbox_level`, which
+ * `fw run start` writes; its contract-shaped bundle carries the level in automated_evidence), else null.
  */
 export const RUN_SELECT = `
   SELECT r.*,
