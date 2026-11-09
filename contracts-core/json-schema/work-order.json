@@ -1,0 +1,314 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://contracts.invalid/fw/v1/work-order.json",
+  "title": "Work order",
+  "description": "Versioned, machine-readable task handed to exactly one run. Commander's intent: goal states the outcome, not the method.",
+  "type": "object",
+  "properties": {
+    "id": {
+      "type": "string",
+      "pattern": "^wo_[0-9A-Za-z]{4,40}$"
+    },
+    "version": {
+      "type": "integer",
+      "minimum": 1
+    },
+    "title": {
+      "type": "string",
+      "minLength": 3,
+      "maxLength": 200
+    },
+    "project_id": {
+      "type": "string",
+      "pattern": "^prj_[0-9A-Za-z]{4,40}$"
+    },
+    "stream_id": {
+      "type": "string",
+      "pattern": "^stm_[0-9A-Za-z]{4,40}$"
+    },
+    "ledger_row_id": {
+      "type": "string",
+      "pattern": "^lr_[0-9A-Za-z]{4,40}$"
+    },
+    "base_commit": {
+      "$ref": "common.json#/$defs/git_sha"
+    },
+    "goal": {
+      "type": "string",
+      "description": "One sentence; outcome not method.",
+      "minLength": 10,
+      "maxLength": 400
+    },
+    "context_links": {
+      "type": "array",
+      "items": {
+        "$ref": "common.json#/$defs/ref"
+      },
+      "description": "Ledger row, issue, docs, prior PRs, decision log. Links, never pasted blobs.",
+      "minItems": 1
+    },
+    "scope": {
+      "type": "object",
+      "properties": {
+        "touches": {
+          "type": "array",
+          "items": {
+            "$ref": "common.json#/$defs/glob"
+          },
+          "description": "Allowed paths/resources; drives advisory path locks.",
+          "minItems": 1
+        },
+        "forbidden": {
+          "type": "array",
+          "items": {
+            "$ref": "common.json#/$defs/glob"
+          },
+          "description": "Never allowed. Tier 0 paths are always implicitly forbidden."
+        }
+      },
+      "required": [
+        "touches",
+        "forbidden"
+      ],
+      "additionalProperties": false
+    },
+    "constraints": {
+      "type": "object",
+      "properties": {
+        "style": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          }
+        },
+        "no_new_dependencies": {
+          "type": "boolean"
+        },
+        "max_diff_lines": {
+          "type": "integer",
+          "minimum": 1
+        },
+        "max_files": {
+          "type": "integer",
+          "minimum": 1
+        },
+        "notes": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          }
+        }
+      },
+      "required": [
+        "max_diff_lines"
+      ],
+      "additionalProperties": false
+    },
+    "acceptance": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "string",
+            "pattern": "^AC[0-9]{1,3}$"
+          },
+          "claim": {
+            "type": "string",
+            "minLength": 5
+          },
+          "probe_command": {
+            "type": "string",
+            "description": "Command the kernel runs; agent output is never the oracle",
+            "minLength": 1
+          },
+          "probe_id": {
+            "type": "string",
+            "pattern": "^prb_[0-9A-Za-z]{4,40}$"
+          },
+          "expected": {
+            "type": "string",
+            "minLength": 1
+          }
+        },
+        "required": [
+          "id",
+          "claim",
+          "probe_command",
+          "expected"
+        ],
+        "additionalProperties": false
+      },
+      "minItems": 1
+    },
+    "autonomy_tier": {
+      "$ref": "common.json#/$defs/tier"
+    },
+    "action_class": {
+      "$ref": "common.json#/$defs/action_class"
+    },
+    "environment": {
+      "$ref": "common.json#/$defs/environment"
+    },
+    "budget": {
+      "type": "object",
+      "properties": {
+        "caps": {
+          "$ref": "common.json#/$defs/budget_caps"
+        },
+        "ttl_hours": {
+          "type": "integer",
+          "minimum": 1,
+          "maximum": 168
+        }
+      },
+      "required": [
+        "caps",
+        "ttl_hours"
+      ],
+      "additionalProperties": false
+    },
+    "escalate_if": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "properties": {
+          "condition": {
+            "type": "string",
+            "minLength": 3
+          },
+          "to": {
+            "enum": [
+              "program_lead",
+              "chief_of_staff",
+              "owner",
+              "auditor"
+            ]
+          }
+        },
+        "required": [
+          "condition",
+          "to"
+        ],
+        "additionalProperties": false
+      },
+      "minItems": 1
+    },
+    "output": {
+      "type": "object",
+      "properties": {
+        "required_artifacts": {
+          "type": "array",
+          "items": {
+            "enum": [
+              "pull_request",
+              "commit",
+              "message_id",
+              "file",
+              "report",
+              "deploy",
+              "calendar_hold",
+              "ticket_reply",
+              "email_draft"
+            ]
+          },
+          "minItems": 1
+        },
+        "result_schema": {
+          "type": "string",
+          "default": "run-result.json"
+        }
+      },
+      "required": [
+        "required_artifacts"
+      ],
+      "additionalProperties": false
+    },
+    "roles": {
+      "type": "object",
+      "properties": {
+        "doer": {
+          "type": "string",
+          "pattern": "^agt_[0-9A-Za-z]{4,40}$"
+        },
+        "reviewers": {
+          "type": "array",
+          "items": {
+            "type": "string",
+            "pattern": "^agt_[0-9A-Za-z]{4,40}$"
+          }
+        },
+        "verifier": {
+          "type": "string",
+          "pattern": "^agt_[0-9A-Za-z]{4,40}$"
+        },
+        "approver": {
+          "type": "object",
+          "properties": {
+            "kind": {
+              "enum": [
+                "owner"
+              ]
+            },
+            "id": {
+              "type": "string",
+              "pattern": "^own_"
+            }
+          },
+          "required": [
+            "kind",
+            "id"
+          ],
+          "additionalProperties": false
+        }
+      },
+      "required": [
+        "doer",
+        "verifier",
+        "approver"
+      ],
+      "additionalProperties": false,
+      "description": "Verifier must differ from doer; approver is always an Owner at L3+."
+    },
+    "delegation_packet_id": {
+      "type": "string",
+      "pattern": "^dlg_[0-9A-Za-z]{4,40}$"
+    },
+    "provenance": {
+      "$ref": "common.json#/$defs/provenance"
+    },
+    "issued_at": {
+      "$ref": "common.json#/$defs/timestamp"
+    },
+    "expires_at": {
+      "$ref": "common.json#/$defs/timestamp"
+    },
+    "supersedes": {
+      "type": "string",
+      "pattern": "^wo_[0-9A-Za-z]{4,40}$"
+    },
+    "content_hash": {
+      "$ref": "common.json#/$defs/sha256"
+    }
+  },
+  "required": [
+    "id",
+    "version",
+    "title",
+    "project_id",
+    "stream_id",
+    "ledger_row_id",
+    "base_commit",
+    "goal",
+    "context_links",
+    "scope",
+    "constraints",
+    "acceptance",
+    "autonomy_tier",
+    "budget",
+    "escalate_if",
+    "output",
+    "roles"
+  ],
+  "additionalProperties": false
+}

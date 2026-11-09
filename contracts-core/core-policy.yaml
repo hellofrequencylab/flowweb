@@ -1,0 +1,358 @@
+# ============================================================================
+# FlowWeb CORE default policy  (Tier 0: Owner-write-only; lives in policy/ with CODEOWNERS)
+# Same structure and key names as 03-contracts/policies/default-policy.yaml, trimmed to what Core
+# enforces. Anything the full policy has and this file omits is DEFERRED, not forgotten: the
+# evolution map in CORE-SPEC.md section 9 names the phase and trigger for each omitted block.
+#
+# Conservative by design:
+#   - nothing outward-facing (deploy, email, publish, spend, migrations, IAM) is allowed at all;
+#   - agents work at L1/L2 (draft, or act in a disposable sandbox);
+#   - the only real-world action Core performs is "merge a PR", and it is ALWAYS L3: a hash-bound
+#     approval from the Owner, through the single merge slot;
+#   - the global ceiling is L3. There is no L4 in Core, so nothing auto-merges.
+# `rules` (bottom) is compiled into the policy_rules table; each entry validates against
+# json-schema/policy-rule.json (checked by contracts-core/validate.py).
+# ============================================================================
+policy_version: 1
+schema: https://contracts.invalid/fw/v1/policy-rule.json
+environments: [sandbox, staging, production]
+tiers: [L0, L1, L2, L3, L4, L5]
+
+global:
+  max_global_tier: L3
+  unmatched_action: deny_and_log
+  agents_may_modify: []
+  kill_switch_engaged_means: all runs halted, all leases and grants revoked, all pending approvals revoked, no new runs
+
+# ---- Per-project facts the policy engine needs (set by the Owner at `fw project add`) ----------
+projects:
+  default:
+    auto_deploys_on_merge: false      # true => merge_main is treated as a production deploy: challenge phrase required (pol_0910)
+    wip_limit: 2                      # open PRs per project; also the cap on the merge queue
+
+# ---- Autonomy matrix: action class x environment -> default tier and cap ------------------------
+# Tiers are per action class AND per environment. cap = highest tier reachable by promotion.
+autonomy_matrix:
+  read_research:
+    description: Read and research; no state change
+    irreversible: false
+    sandbox:    { default: L2, cap: L3 }
+    staging:    { default: L2, cap: L3 }
+    production: { default: L1, cap: L3 }
+    challenge_required: false
+    dual_control: false
+  code_write_sandbox:
+    description: Write code or files inside a disposable worktree/sandbox
+    irreversible: false
+    sandbox:    { default: L2, cap: L2 }
+    staging:    { default: L1, cap: L1 }
+    production: { default: L1, cap: L1 }
+    challenge_required: false
+    dual_control: false
+  merge_main:
+    description: Merge a PR into the protected default branch
+    irreversible: false
+    sandbox:    { default: L3, cap: L3 }
+    staging:    { default: L3, cap: L3 }
+    production: { default: L3, cap: L3 }       # promotion to L4 (docs/tests auto-merge) is a Phase 4 decision, not Core
+    challenge_required: false
+    dual_control: false
+  security_remediation:
+    description: Fix a security finding by PR (the merge is a separate merge_main action)
+    irreversible: false
+    sandbox:    { default: L2, cap: L2 }
+    staging:    { default: L1, cap: L1 }
+    production: { default: L1, cap: L1 }
+    challenge_required: false
+    dual_control: false
+  # Everything below is OFF in Core. L0 with cap L0 means "an agent may not even propose it".
+  deploy_production:             { description: Core never deploys,           irreversible: false, sandbox: { default: L0, cap: L0 }, staging: { default: L0, cap: L0 }, production: { default: L0, cap: L0 }, challenge_required: false, dual_control: false }
+  prod_db_migration:             { description: Core never migrates a database, irreversible: true,  sandbox: { default: L0, cap: L0 }, staging: { default: L0, cap: L0 }, production: { default: L0, cap: L0 }, challenge_required: true,  dual_control: false }
+  outbound_email_external:       { description: Core never sends mail,         irreversible: true,  sandbox: { default: L0, cap: L0 }, staging: { default: L0, cap: L0 }, production: { default: L0, cap: L0 }, challenge_required: false, dual_control: false }
+  publish_external:              { description: Core never publishes,          irreversible: true,  sandbox: { default: L0, cap: L0 }, staging: { default: L0, cap: L0 }, production: { default: L0, cap: L0 }, challenge_required: false, dual_control: false }
+  spend_money:                   { description: Core never spends real money,  irreversible: true,  sandbox: { default: L0, cap: L0 }, staging: { default: L0, cap: L0 }, production: { default: L0, cap: L0 }, challenge_required: false, dual_control: false }
+  config_secrets_iam_dns_billing: { description: Core never touches secrets, IAM, DNS or billing, irreversible: true, sandbox: { default: L0, cap: L0 }, staging: { default: L0, cap: L0 }, production: { default: L0, cap: L0 }, challenge_required: true, dual_control: false }
+  policy_or_gate_change:         { description: Owner only (Tier 0),           irreversible: true,  sandbox: { default: L0, cap: L0 }, staging: { default: L0, cap: L0 }, production: { default: L0, cap: L0 }, challenge_required: true,  dual_control: false }
+
+# ---- Agent roles in Core -----------------------------------------------------------------------
+# Auditor and Watchdog are deterministic code (checks that raise events and cards), not agents.
+roles:
+  chief_of_staff: { tier: L1, may: [read_research], writes: [work_order_draft, decision_card, status_report] }
+  worker:         { tier: L2, may: [read_research, code_write_sandbox, security_remediation], writes: [branch_in_own_worktree] }
+  verifier:       { tier: L1, may: [read_research], writes: [independent_check], different_vendor_preferred: true }
+
+# ---- Budgets (Tier 0, Owner-set; hard stops always on) -----------------------------------------
+# Defaults sized for one Owner on metered API keys. Raise them yourself, never an agent.
+budgets:
+  set_by: owner_only
+  hard_stop: true
+  fleet:   { daily_usd: 20.0, weekly_usd: 80.0, monthly_usd: 250.0 }
+  project: { daily_usd: 10.0, weekly_usd: 40.0 }
+  stream:  { daily_usd: 5.0 }
+  agent:   { daily_usd: 8.0 }
+  day_boundary: utc                  # UTC day in Core; an Owner-timezone boundary is a settings key later
+  run_by_work_order_size:
+    XS: { max_usd: 0.5,  max_minutes: 15,  max_turns: 30,  max_tokens: 400000 }
+    S:  { max_usd: 1.5,  max_minutes: 30,  max_turns: 60,  max_tokens: 1000000 }
+    M:  { max_usd: 4.0,  max_minutes: 60,  max_turns: 100, max_tokens: 2500000 }
+    L:  { max_usd: 8.0,  max_minutes: 120, max_turns: 160, max_tokens: 6000000 }
+    XL: { note: not dispatchable in Core; split the row }
+  work_order_ttl_hours: { XS: 8, S: 24, M: 48, L: 72 }
+  soft_threshold_pct: 80
+  refusal_is_logged: true            # every refused dispatch emits dispatch.refused_budget
+  verifier_run_cap_fraction: 0.5     # a verifier run may spend at most half of the doer's cap
+
+# ---- Circuit breakers (deterministic; the Watchdog is code) -----------------------------------
+circuit_breakers:
+  reset: owner_only
+  effect_default: pause the stream, notify the Owner; resets only by the Owner
+  signals:
+    consecutive_failures: { window_runs: 3,  threshold: 3, action: pause_stream }
+    cost_velocity:        { window_minutes: 60, threshold_usd: 8.0, action: pause_runs_and_notify }
+    loop_detected:        { identical_tool_call_repeats: 6, steps_without_new_artifact: 30, action: kill_run }
+    claim_trace_mismatch: { threshold: 1, action: quarantine_agent_and_open_card }
+    chain_verification_failed: { threshold: 1, action: engage_kill_switch }
+
+# ---- Approvals ----------------------------------------------------------------------------------
+approvals:
+  default_ttl_minutes: 240
+  default_on_timeout: deny
+  max_per_hour: 12
+  methods_allowed: [deck_click, cli_signed]      # passkey/totp/hardware_key arrive with remote access (see evolution map)
+  challenge:
+    required_for: [policy_or_gate_change, config_secrets_iam_dns_billing, prod_db_migration]
+    also_required_when: project.auto_deploys_on_merge
+    kind: phrase
+    delivery: terminal_not_agent_channel
+    max_attempts: 3
+    phrase_words: 4
+    bound_to_payload_hash: true
+  bind: [payload_hash, head_sha]
+  red_scan_blocks_request: true
+  no_self_approval: true
+  llm_reviewer_is: advisory_evidence_only
+  session: loopback_only_with_pairing_code        # the web UI refuses non-loopback origins until step-up is built
+
+# ---- Merge slot ----------------------------------------------------------------------------------
+merge_slot:
+  ttl_minutes: 30
+  one_active_per: [project, base_branch]
+  void_on: [head_sha_change, base_branch_moved_past_allowed_drift, expiry, revocation, kill_switch]
+  allowed_base_drift_commits: 0
+  bounded_rebase_attempts: 1
+  require_ci_green_on_merge_queue_branch: true     # or the host's required checks when no merge queue exists
+  watch_window_hours: 24
+
+# ---- Leases (single writer per artifact) ---------------------------------------------------------
+leases:
+  ttl_minutes: 20
+  heartbeat_seconds: 60
+  missed_heartbeats_before_expiry: 3
+  one_writer_per: [worktree, branch, stream]
+  fence_tokens: true
+
+# ---- Escalation: Core has only the Owner and the Chief of Staff --------------------------------
+escalation:
+  attempts_before_card: 2
+  verifier_disagreement_revisions_allowed: 1
+  straight_to_owner: [security_risk, privacy_risk, legal_risk, external_comms_risk]
+  answer_deadlines_minutes: { owner_now: 120, owner_today: 1440, owner_this_week: 10080 }
+  default_on_timeout:
+    approve_variant: deny
+    choose_variant: safe_default_option
+    answer_variant: pause_work_order
+
+# ---- Promotion path (manual in Core) ---------------------------------------------------------------
+# An agent can never request a promotion. `fw track-record` computes the evidence from the event log;
+# the Owner edits this file (a Tier 0 change, one tier at a time, per action class x environment).
+promotion:
+  never_by_agent_request: true
+  step: one_tier_at_a_time
+  per: action_class x environment
+  evidence_command: fw track-record --action merge_main
+  suggested_criteria:               # suggestions shown by the command, not enforced by code in Core
+    L3_to_L4_merge_docs_and_tests_only:
+      min_consecutive_merges_approved_unchanged: 20
+      min_days: 14
+      max_rollbacks: 0
+      requires_owner_edit_of: [autonomy_matrix.merge_main.production.cap, rules.pol_0130]
+  demotion:
+    immediate: true
+    triggers: [circuit_breaker_trip, claim_trace_mismatch, tamper_tripwire, regression_after_merge]
+
+# ---- Diff policy: deterministic check on every agent diff, before the verifier -------------------
+diff_policy:
+  applies_to: every agent-authored diff, and again on the merge-queue branch
+  size_caps: { default_max_changed_lines: 400, default_max_files: 15, docs_only_max_changed_lines: 800 }
+  forbidden_patterns:
+    - { id: deleted_test_cases,  match: removed_lines_matching, regex: '^\s*(it|test|describe)\s*\(|^\s*def test_', action: block }
+    - { id: skipped_tests,       match: added_lines_matching,   regex: '\b(it|test|describe)\.(skip|only)\b|@pytest\.mark\.(skip|xfail)', action: block }
+    - { id: security_suppression, match: added_lines_matching,  regex: '#\s*nosec|//\s*nosec|nosemgrep', action: block }
+    - { id: hook_bypass,         match: added_lines_matching,   regex: '--no-verify|git\s+push\s+-f|HUSKY=0', action: block }
+    - { id: ci_gate_weakened,    match: added_lines_matching,   regex: 'continue-on-error:\s*true|\|\|\s*true', action: block }
+    - { id: secret_material,     match: added_lines_matching,   regex: 'AKIA[0-9A-Z]{16}|-----BEGIN (RSA |EC |OPENSSH )?PRIVATE KEY-----|ghp_[A-Za-z0-9]{36}|sk-[A-Za-z0-9]{20,}', action: block_and_rotate }
+    - { id: budget_or_baseline_raise, match: numeric_increase, paths: ['**/*budget*', '**/*baseline*'], action: block_ledger_row_required }
+  required_on_pass: [no_forbidden_paths_touched, no_deleted_or_skipped_tests, size_under_cap, scope_touches_respected]
+
+# ---- Trust tiers by path (enforced by CODEOWNERS and branch protection, not by instructions) --------
+tamper_tripwires:
+  rule: Tests may be added by agents, never deleted or relaxed without the Owner. A change touching these paths blocks the merge and raises a card.
+  paths: ['tests/**', '**/__tests__/**', '**/*.test.*', '**/*.spec.*', '.github/workflows/**', '**/CODEOWNERS', '**/vitest.config.*', '**/jest.config.*', '**/pytest.ini']
+trust_tier_paths:
+  tier0:
+    rule: Owner only. Agent identities have no write grant; a diff touching these fails the static policy check.
+    paths: ['policy/**', 'probes/**', 'config/**', 'scripts/check-*', '.github/**', '**/CODEOWNERS', 'AGENTS.md', 'CLAUDE.md',
+            'packages/policy/**', 'packages/eventlog/src/chain.*', 'packages/contracts/sql/**']
+  tier1:
+    paths: ['prompts/**', 'docs/playbooks/**']
+    who: agent-proposed, Owner-reviewed
+  tier2:
+    paths: ['docs/notes/**']
+    who: agent-writable
+
+# ---- Sandbox (minimal in Core; containers are a flag) ---------------------------------------------
+sandbox:
+  default_profile: userdir          # separate OS user or $FW_HOME/sandbox/<run_id> with scrubbed env; see CORE-SPEC section 5
+  container_profile: off_by_default # FW_SANDBOX=container turns on rootless podman/docker per run
+  network: allowlist_by_env         # HTTPS_PROXY / NO_PROXY env pointing at the allowlist proxy where the vendor CLI honours it
+  egress_allowlist: [api.anthropic.com, api.openai.com, github.com, registry.npmjs.org]
+  secrets: injected_by_daemon_into_the_vendor_process_only_never_in_prompt_or_repo
+  worktree_is_not_a_security_boundary: true
+
+# ---- Watchdog cadence (deterministic checks inside fwd) --------------------------------------------
+watchdog:
+  chain_verify_minutes: 15
+  reconciler_interval_minutes: 10
+  lease_sweep_seconds: 30
+  approval_expiry_sweep_seconds: 30
+  heartbeat_absence_alarm_minutes: 30
+  kill_switch: { reachable_from: [cli, web_ui_header_button], revokes: [runs, leases, grants, pending_approvals] }
+
+retention:
+  events_days: 3650
+  run_steps_days: 365
+  evidence_bundles_days: 1095
+
+# ---- Compiled rules (evaluated lowest priority number first; deny wins ties; first terminal effect stops) ----
+rules:
+  - id: pol_0010
+    priority: 10
+    effect: deny
+    match:
+      action_class: [policy_or_gate_change]
+      agent_role: [chief_of_staff, program_lead, worker, verifier, auditor, watchdog]
+    reason: Agents never modify permissions, gates, budgets or the policy engine (Tier 0).
+    version: 1
+    enabled: true
+    trust_tier: 0
+  - id: pol_0020
+    priority: 20
+    effect: deny
+    match:
+      path_globs: '@tier0_paths'
+      tool: [fs.write, git.commit, git.push]
+      agent_role: [chief_of_staff, program_lead, worker, verifier, auditor, watchdog]
+    reason: Tier 0 paths are Owner-write-only.
+    version: 1
+    enabled: true
+    trust_tier: 0
+  - id: pol_0040
+    priority: 40
+    effect: deny
+    match:
+      tool: [git.push_force, git.rewrite_history, git.no_verify]
+    reason: No force-push, history rewrite or hook bypass by agents.
+    version: 1
+    enabled: true
+    trust_tier: 0
+  - id: pol_0050
+    priority: 50
+    effect: deny
+    match:
+      conditions:
+        - { field: egress.host_allowlisted, op: eq, value: false }
+    reason: Default-deny egress; only allowlisted hosts.
+    version: 1
+    enabled: true
+    trust_tier: 0
+  - id: pol_0060
+    priority: 60
+    effect: deny
+    match:
+      agent_role: [verifier, auditor]
+      tool: [fs.write, git.commit, git.push]
+      conditions:
+        - { field: target.workspace_owner, op: neq, value: self }
+    reason: Verifiers are read-only on maker output (maker-checker).
+    version: 1
+    enabled: true
+    trust_tier: 0
+  - id: pol_0070
+    priority: 70
+    effect: deny
+    match:
+      agent_role: [worker]
+      tool: [agent.spawn]
+    reason: Workers do not spawn sub-workers; they ask the Chief of Staff.
+    version: 1
+    enabled: true
+    trust_tier: 0
+  - id: pol_0080
+    priority: 80
+    effect: deny
+    match:
+      action_class: [security_remediation]
+      diff_patterns: [security_suppression]
+    reason: Remediation must not suppress alerts; suppressions are an Owner decision.
+    version: 1
+    enabled: true
+    trust_tier: 0
+  - id: pol_0100
+    priority: 100
+    effect: escalate
+    match:
+      conditions:
+        - { field: risk.class, op: in, value: [security, privacy, legal, external_comms] }
+    reason: Security, privacy, legal or external-communication risk goes straight to the Owner.
+    version: 1
+    enabled: true
+    trust_tier: 0
+  - id: pol_0120
+    priority: 120
+    effect: ask
+    match:
+      action_class: [merge_main]
+    tier: L3
+    reason: Every merge is L3 in Core - hash-bound approval with an evidence bundle and the merge slot.
+    version: 1
+    enabled: true
+    trust_tier: 0
+  - id: pol_0900
+    priority: 900
+    effect: deny
+    match:
+      action_class: [deploy_production, prod_db_migration, outbound_email_external, publish_external, spend_money, config_secrets_iam_dns_billing]
+    reason: Outward-facing and irreversible actions are not in Core. Unmatched is denied; these are denied loudly.
+    version: 1
+    enabled: true
+    trust_tier: 0
+  - id: pol_0115
+    priority: 115
+    effect: require_challenge
+    match:
+      action_class: [merge_main]
+      conditions:
+        - { field: project.auto_deploys_on_merge, op: eq, value: true }
+    reason: A merge that auto-deploys is a production deploy; it needs a challenge phrase delivered out of band.
+    version: 1
+    enabled: true
+    trust_tier: 0
+  - id: pol_0920
+    priority: 920
+    effect: cap_tier
+    match: {}
+    cap_tier: L3
+    reason: Core ceiling is L3 for every action class and environment.
+    version: 1
+    enabled: true
+    trust_tier: 0

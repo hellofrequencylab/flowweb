@@ -1,0 +1,85 @@
+# Minimal CI for FlowWeb Core. Pin every action by full commit SHA before the first real run
+# (the tags below are placeholders). CI never holds vendor API keys on agent branches.
+name: ci
+on:
+  pull_request:
+  push:
+    branches: [main]
+
+permissions:
+  contents: read
+
+concurrency:
+  group: ci-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  checks:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v4          # pin by SHA
+      - uses: pnpm/action-setup@v4         # pin by SHA
+      - uses: actions/setup-node@v4        # pin by SHA
+        with:
+          node-version-file: .nvmrc
+          cache: pnpm
+      - run: pnpm install --frozen-lockfile
+      - run: pnpm -r lint
+      - run: pnpm -r typecheck
+      - run: pnpm -r test
+
+  schema-and-contracts:
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - uses: actions/checkout@v4          # pin by SHA
+      - uses: actions/setup-python@v5      # pin by SHA
+        with:
+          python-version: '3.12'
+      - run: python3 -m pip install --require-hashes -r tooling/requirements-ci.txt   # jsonschema, referencing, pyyaml
+      - run: python3 -I tests/schema_core_test.py
+      - run: python3 -I packages/contracts/validate.py
+      - run: cd packages/contracts && sha256sum -c SCHEMA-SNAPSHOT.sha256
+
+  tier0-guard:
+    # An agent identity may not change Tier 0 paths. Human PRs touching them still need a code-owner
+    # review (branch protection), which is the real enforcement.
+    if: github.event_name == 'pull_request'
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - uses: actions/checkout@v4          # pin by SHA
+        with:
+          fetch-depth: 0
+      - run: node scripts/check-tier0.mjs
+        env:
+          PR_AUTHOR: ${{ github.event.pull_request.user.login }}
+          BASE_SHA: ${{ github.event.pull_request.base.sha }}
+          HEAD_SHA: ${{ github.event.pull_request.head.sha }}
+
+  ledger-row:
+    if: github.event_name == 'pull_request'
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - uses: actions/checkout@v4          # pin by SHA
+        with:
+          fetch-depth: 0
+      - run: node scripts/check-pr-ledger.mjs
+        env:
+          PR_BODY: ${{ github.event.pull_request.body }}
+          PR_LABELS: ${{ join(github.event.pull_request.labels.*.name, ',') }}
+
+  secret-scan:
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - uses: actions/checkout@v4          # pin by SHA
+        with:
+          fetch-depth: 0
+      - run: echo "::warning::Secret scanner is NOT installed yet (WS-P0-005). This job is a placeholder."
+        # WS-P0-005 replaces this step (gitleaks) and adds a seeded fake-secret fixture that must fail the job.
+
+  # Added by later rows, not here: probe-immutability (WS-P0-004), diff-policy (WS-P0-035),
+  # e2e with the fake vendor (WS-P0-042), safety chaos suite (FW-C-016), a11y (FW-C-020).

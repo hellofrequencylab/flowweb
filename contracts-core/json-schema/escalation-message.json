@@ -1,0 +1,186 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://contracts.invalid/fw/v1/escalation-message.json",
+  "title": "Escalation message",
+  "description": "One structured message: situation, options, recommendation, deadline and default action if no reply.",
+  "type": "object",
+  "properties": {
+    "id": {
+      "type": "string",
+      "pattern": "^esc_[0-9A-Za-z]{4,40}$"
+    },
+    "from_agent_id": {
+      "type": "string",
+      "pattern": "^agt_[0-9A-Za-z]{4,40}$"
+    },
+    "to_layer": {
+      "enum": [
+        "program_lead",
+        "chief_of_staff",
+        "owner",
+        "auditor"
+      ]
+    },
+    "skip_layers": {
+      "type": "boolean",
+      "description": "Required true for security, privacy, legal and external-communication risk."
+    },
+    "reason": {
+      "enum": [
+        "blocked_timeout",
+        "attempts_exceeded",
+        "over_authority",
+        "conflicting_inputs",
+        "budget_burn",
+        "verifier_disagreement",
+        "security_risk",
+        "privacy_risk",
+        "legal_risk",
+        "external_comms_risk",
+        "stop_the_line"
+      ]
+    },
+    "work_order_id": {
+      "type": "string",
+      "pattern": "^wo_[0-9A-Za-z]{4,40}$"
+    },
+    "run_id": {
+      "type": "string",
+      "pattern": "^run_[0-9A-Za-z]{4,40}$"
+    },
+    "ledger_row_id": {
+      "type": "string",
+      "pattern": "^lr_[0-9A-Za-z]{4,40}$"
+    },
+    "situation": {
+      "type": "string",
+      "minLength": 10,
+      "maxLength": 800
+    },
+    "metrics": {
+      "type": "object",
+      "properties": {
+        "minutes_blocked": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "attempts": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "budget_burn_pct": {
+          "$ref": "common.json#/$defs/pct"
+        },
+        "acceptance_met_pct": {
+          "$ref": "common.json#/$defs/pct"
+        }
+      },
+      "additionalProperties": false
+    },
+    "options": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "string",
+            "pattern": "^[a-z0-9_]{1,40}$"
+          },
+          "description": {
+            "type": "string",
+            "maxLength": 300
+          },
+          "tradeoff": {
+            "type": "string",
+            "maxLength": 300
+          }
+        },
+        "required": [
+          "id",
+          "description",
+          "tradeoff"
+        ],
+        "additionalProperties": false
+      },
+      "minItems": 2,
+      "maxItems": 4
+    },
+    "recommendation": {
+      "type": "object",
+      "properties": {
+        "option_id": {
+          "type": "string"
+        },
+        "reason": {
+          "type": "string",
+          "maxLength": 300
+        }
+      },
+      "required": [
+        "option_id",
+        "reason"
+      ],
+      "additionalProperties": false
+    },
+    "deadline_at": {
+      "$ref": "common.json#/$defs/timestamp"
+    },
+    "default_action": {
+      "type": "string",
+      "description": "What happens if nobody answers by the deadline.",
+      "minLength": 3
+    },
+    "evidence_refs": {
+      "type": "array",
+      "items": {
+        "$ref": "common.json#/$defs/ref"
+      }
+    },
+    "created_at": {
+      "$ref": "common.json#/$defs/timestamp"
+    }
+  },
+  "required": [
+    "id",
+    "from_agent_id",
+    "to_layer",
+    "skip_layers",
+    "reason",
+    "situation",
+    "options",
+    "recommendation",
+    "deadline_at",
+    "default_action",
+    "created_at"
+  ],
+  "additionalProperties": false,
+  "allOf": [
+    {
+      "if": {
+        "properties": {
+          "reason": {
+            "enum": [
+              "security_risk",
+              "privacy_risk",
+              "legal_risk",
+              "external_comms_risk"
+            ]
+          }
+        }
+      },
+      "then": {
+        "properties": {
+          "skip_layers": {
+            "const": true
+          },
+          "to_layer": {
+            "enum": [
+              "owner",
+              "auditor"
+            ]
+          }
+        }
+      }
+    }
+  ]
+}

@@ -1,0 +1,38 @@
+{
+  "id": "grt_000142m",
+  "kind": "merge_slot",
+  "project_id": "prj_atlas001",
+  "work_order_id": "wo_000142v1",
+  "ledger_row_id": "lr_000142",
+  "pr": {
+    "host": "git.example.invalid",
+    "repo": "atlas/web",
+    "number": 481,
+    "url": "https://git.example.invalid/atlas/pull/481"
+  },
+  "base_branch": "main",
+  "base_sha_at_grant": "cf2add623c0ea35fbe415d4665814225a462898d",
+  "approved_head_sha": "3c2ebbdac566372536176d3283a828d2dfdefed3",
+  "approval_id": "apr_000142m",
+  "queue_position": 0,
+  "preconditions": {
+    "ci_green_on_queue_branch": true,
+    "probe_passed_on_branch": true,
+    "diff_policy_passed": true,
+    "conflict_check": {
+      "checked_at": "2026-11-08T15:09:30Z",
+      "against_sha": "cf2add623c0ea35fbe415d4665814225a462898d",
+      "result": "clean"
+    }
+  },
+  "void_on": [
+    "head_sha_change",
+    "base_moved_past_drift",
+    "expiry",
+    "revocation"
+  ],
+  "max_base_drift_commits": 0,
+  "issued_at": "2026-11-08T15:10:00Z",
+  "expires_at": "2026-11-08T15:40:00Z",
+  "single_use": true
+}

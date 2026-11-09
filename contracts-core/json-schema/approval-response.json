@@ -1,0 +1,123 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://contracts.invalid/fw/v1/approval-response.json",
+  "title": "Approval response",
+  "description": "Owner's response. Valid only if payload_hash and head_sha equal the request; a modified payload invalidates it.",
+  "type": "object",
+  "properties": {
+    "approval_id": {
+      "type": "string",
+      "pattern": "^apr_[0-9A-Za-z]{4,40}$"
+    },
+    "decision": {
+      "enum": [
+        "approved",
+        "denied",
+        "changes_requested"
+      ]
+    },
+    "payload_hash": {
+      "$ref": "common.json#/$defs/sha256"
+    },
+    "head_sha": {
+      "$ref": "common.json#/$defs/git_sha"
+    },
+    "approver": {
+      "type": "object",
+      "properties": {
+        "kind": {
+          "const": "owner"
+        },
+        "id": {
+          "type": "string",
+          "pattern": "^own_[0-9A-Za-z]{3,40}$"
+        }
+      },
+      "required": [
+        "kind",
+        "id"
+      ],
+      "additionalProperties": false
+    },
+    "method": {
+      "$ref": "common.json#/$defs/approval_method"
+    },
+    "challenge_answer": {
+      "type": "string",
+      "description": "The phrase or code the Owner typed; compared against the request commitment. Never logged in clear."
+    },
+    "step_up_proof": {
+      "type": "object",
+      "properties": {
+        "method": {
+          "enum": [
+            "passkey",
+            "totp",
+            "hardware_key"
+          ]
+        },
+        "assertion_ref": {
+          "type": "string"
+        },
+        "verified_at": {
+          "$ref": "common.json#/$defs/timestamp"
+        }
+      },
+      "required": [
+        "method",
+        "assertion_ref"
+      ],
+      "additionalProperties": false
+    },
+    "comment": {
+      "type": "string",
+      "maxLength": 1000
+    },
+    "reason_code": {
+      "enum": [
+        "wrong_approach",
+        "not_now",
+        "too_risky",
+        "needs_test",
+        "other"
+      ],
+      "description": "Optional structured reason, the deny chip the Owner tapped. Free text stays in `comment`. Trended by the Retro; never a penalty."
+    },
+    "responded_at": {
+      "$ref": "common.json#/$defs/timestamp"
+    },
+    "signature": {
+      "type": "object",
+      "properties": {
+        "alg": {
+          "enum": [
+            "ed25519",
+            "es256"
+          ]
+        },
+        "key_id": {
+          "type": "string"
+        },
+        "sig": {
+          "type": "string"
+        }
+      },
+      "required": [
+        "alg",
+        "key_id",
+        "sig"
+      ],
+      "additionalProperties": false,
+      "description": "Over canonical(approval_id, decision, payload_hash, head_sha, responded_at)."
+    }
+  },
+  "required": [
+    "approval_id",
+    "decision",
+    "payload_hash",
+    "approver",
+    "method",
+    "responded_at"
+  ],
+  "additionalProperties": false
+}

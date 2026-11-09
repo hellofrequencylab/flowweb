@@ -1,0 +1,39 @@
+{
+  "id": "bud_proj0001",
+  "version": 2,
+  "scope": {
+    "kind": "project",
+    "id": "prj_atlas001"
+  },
+  "period": "day",
+  "caps": {
+    "max_usd": 15.0,
+    "max_minutes": 600
+  },
+  "soft_threshold_pct": 80,
+  "hard_stop": true,
+  "circuit_breaker": {
+    "daily_usd": 15.0,
+    "velocity_usd_per_hour": 10.0
+  },
+  "model_tiering": {
+    "small": [
+      "classification",
+      "routing",
+      "log_triage"
+    ],
+    "mid": [
+      "coding",
+      "verification"
+    ],
+    "top": {
+      "allowed_for": [
+        "plan_review",
+        "hard_debugging"
+      ],
+      "requires_escalation_rule": true
+    }
+  },
+  "set_by": "own_primary",
+  "created_at": "2026-11-01T00:00:00Z"
+}

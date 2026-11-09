@@ -1,0 +1,217 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://contracts.invalid/fw/v1/approval-request.json",
+  "title": "Approval request",
+  "description": "Minted by the Approval Service. Hash-bound to the exact payload and head SHA; default on timeout is deny.",
+  "type": "object",
+  "properties": {
+    "id": {
+      "type": "string",
+      "pattern": "^apr_[0-9A-Za-z]{4,40}$"
+    },
+    "action_class": {
+      "$ref": "common.json#/$defs/action_class"
+    },
+    "environment": {
+      "$ref": "common.json#/$defs/environment"
+    },
+    "tier": {
+      "$ref": "common.json#/$defs/tier"
+    },
+    "subject": {
+      "type": "object",
+      "properties": {
+        "kind": {
+          "type": "string"
+        },
+        "ref": {
+          "$ref": "common.json#/$defs/ref"
+        }
+      },
+      "required": [
+        "kind",
+        "ref"
+      ],
+      "additionalProperties": false
+    },
+    "payload_hash": {
+      "$ref": "common.json#/$defs/sha256"
+    },
+    "head_sha": {
+      "$ref": "common.json#/$defs/git_sha"
+    },
+    "evidence_bundle_id": {
+      "type": "string",
+      "pattern": "^evb_[0-9A-Za-z]{4,40}$"
+    },
+    "decision_card_id": {
+      "type": "string",
+      "pattern": "^dcd_[0-9A-Za-z]{4,40}$"
+    },
+    "requester_agent_id": {
+      "type": "string",
+      "pattern": "^agt_[0-9A-Za-z]{4,40}$"
+    },
+    "work_order_id": {
+      "type": "string",
+      "pattern": "^wo_[0-9A-Za-z]{4,40}$"
+    },
+    "challenge": {
+      "type": "object",
+      "properties": {
+        "required": {
+          "type": "boolean"
+        },
+        "kind": {
+          "enum": [
+            "phrase",
+            "code"
+          ]
+        },
+        "commitment": {
+          "type": "string",
+          "description": "sha256(salt || phrase). The phrase itself is delivered out of band, never in the agent text channel.",
+          "pattern": "^[0-9a-f]{64}$"
+        },
+        "channel": {
+          "enum": [
+            "deck_out_of_band",
+            "push",
+            "sms",
+            "email_owner",
+            "hardware"
+          ]
+        },
+        "max_attempts": {
+          "type": "integer",
+          "minimum": 1,
+          "maximum": 5
+        }
+      },
+      "required": [
+        "required"
+      ],
+      "additionalProperties": false
+    },
+    "step_up": {
+      "type": "object",
+      "properties": {
+        "required": {
+          "type": "boolean"
+        },
+        "methods": {
+          "type": "array",
+          "items": {
+            "enum": [
+              "passkey",
+              "totp",
+              "hardware_key"
+            ]
+          }
+        }
+      },
+      "required": [
+        "required"
+      ],
+      "additionalProperties": false
+    },
+    "requested_at": {
+      "$ref": "common.json#/$defs/timestamp"
+    },
+    "expires_at": {
+      "$ref": "common.json#/$defs/timestamp"
+    },
+    "default_on_timeout": {
+      "const": "deny"
+    },
+    "on_approve": {
+      "type": "object",
+      "properties": {
+        "grant_kind": {
+          "enum": [
+            "merge_slot",
+            "credential",
+            "deploy_window",
+            "migration_lock",
+            "spend",
+            "tool_scope"
+          ]
+        },
+        "ttl_minutes": {
+          "type": "integer",
+          "minimum": 1,
+          "maximum": 240
+        },
+        "single_use": {
+          "type": "boolean"
+        }
+      },
+      "required": [
+        "grant_kind",
+        "ttl_minutes",
+        "single_use"
+      ],
+      "additionalProperties": false
+    }
+  },
+  "required": [
+    "id",
+    "action_class",
+    "environment",
+    "tier",
+    "subject",
+    "payload_hash",
+    "evidence_bundle_id",
+    "requester_agent_id",
+    "challenge",
+    "step_up",
+    "requested_at",
+    "expires_at",
+    "default_on_timeout",
+    "on_approve"
+  ],
+  "additionalProperties": false,
+  "allOf": [
+    {
+      "if": {
+        "properties": {
+          "challenge": {
+            "properties": {
+              "required": {
+                "const": true
+              }
+            },
+            "required": [
+              "required"
+            ]
+          }
+        }
+      },
+      "then": {
+        "properties": {
+          "challenge": {
+            "required": [
+              "kind",
+              "commitment",
+              "channel"
+            ]
+          }
+        }
+      }
+    },
+    {
+      "if": {
+        "properties": {
+          "action_class": {
+            "const": "merge_main"
+          }
+        }
+      },
+      "then": {
+        "required": [
+          "head_sha"
+        ]
+      }
+    }
+  ]
+}

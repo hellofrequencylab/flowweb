@@ -1,0 +1,279 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://contracts.invalid/fw/v1/run-result.json",
+  "title": "Run result (vendor adapter output)",
+  "description": "Schema-validated JSON every vendor adapter must emit. Nonzero exit or missing/invalid result = failure. Claims are data to be checked, never authority.",
+  "type": "object",
+  "properties": {
+    "schema_version": {
+      "const": "1"
+    },
+    "run_id": {
+      "type": "string",
+      "pattern": "^run_[0-9A-Za-z]{4,40}$"
+    },
+    "work_order_id": {
+      "type": "string",
+      "pattern": "^wo_[0-9A-Za-z]{4,40}$"
+    },
+    "adapter": {
+      "type": "object",
+      "properties": {
+        "vendor": {
+          "$ref": "common.json#/$defs/vendor"
+        },
+        "name": {
+          "type": "string"
+        },
+        "version": {
+          "type": "string"
+        },
+        "model": {
+          "type": "string"
+        }
+      },
+      "required": [
+        "vendor",
+        "name",
+        "version",
+        "model"
+      ],
+      "additionalProperties": false
+    },
+    "session_id": {
+      "type": "string",
+      "description": "Stored per work item for resume.",
+      "minLength": 1
+    },
+    "status": {
+      "enum": [
+        "completed",
+        "failed",
+        "timeout",
+        "budget_exceeded",
+        "needs_input",
+        "refused",
+        "stopped"
+      ]
+    },
+    "exit_code": {
+      "type": "integer"
+    },
+    "started_at": {
+      "$ref": "common.json#/$defs/timestamp"
+    },
+    "ended_at": {
+      "$ref": "common.json#/$defs/timestamp"
+    },
+    "cost": {
+      "type": "object",
+      "properties": {
+        "input_tokens": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "output_tokens": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "cached_tokens": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "usd": {
+          "$ref": "common.json#/$defs/usd"
+        }
+      },
+      "required": [
+        "input_tokens",
+        "output_tokens",
+        "usd"
+      ],
+      "additionalProperties": false
+    },
+    "turns": {
+      "type": "integer",
+      "minimum": 0
+    },
+    "tool_call_count": {
+      "type": "integer",
+      "minimum": 0
+    },
+    "artifacts": {
+      "type": "array",
+      "items": {
+        "$ref": "common.json#/$defs/artifact_pointer"
+      },
+      "description": "Pointers only; the kernel verifies each independently."
+    },
+    "claims": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "properties": {
+          "acceptance_id": {
+            "type": "string",
+            "pattern": "^AC[0-9]{1,3}$"
+          },
+          "claim": {
+            "type": "string"
+          },
+          "evidence_ref": {
+            "$ref": "common.json#/$defs/ref"
+          },
+          "tool_call_id": {
+            "type": "string",
+            "pattern": "^tcl_[0-9A-Za-z]{4,40}$"
+          }
+        },
+        "required": [
+          "acceptance_id",
+          "claim"
+        ],
+        "additionalProperties": false
+      },
+      "description": "Agent assertions about acceptance criteria; cross-checked against the platform-written trace."
+    },
+    "diff_stats": {
+      "type": "object",
+      "properties": {
+        "files_changed": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "lines_added": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "lines_removed": {
+          "type": "integer",
+          "minimum": 0
+        }
+      },
+      "required": [
+        "files_changed",
+        "lines_added",
+        "lines_removed"
+      ],
+      "additionalProperties": false
+    },
+    "stop_requests": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "properties": {
+          "condition": {
+            "type": "string"
+          },
+          "andon": {
+            "type": "boolean"
+          },
+          "detail": {
+            "type": "string",
+            "maxLength": 500
+          }
+        },
+        "required": [
+          "condition"
+        ],
+        "additionalProperties": false
+      },
+      "description": "Any worker may raise a stop without penalty."
+    },
+    "escalation": {
+      "$ref": "escalation-message.json"
+    },
+    "summary": {
+      "type": "string",
+      "description": "Data, not authority. Max 2000 chars.",
+      "maxLength": 2000
+    },
+    "files_changed": {
+      "type": "array",
+      "items": {
+        "type": "string"
+      },
+      "description": "Paths touched. Cross-checked by the kernel against the diff and scope.touches."
+    },
+    "tests_added": {
+      "type": "array",
+      "items": {
+        "type": "string"
+      }
+    },
+    "tests_modified": {
+      "type": "array",
+      "items": {
+        "type": "string"
+      },
+      "description": "Should be empty unless the order says otherwise; each entry is justified in the handoff note."
+    },
+    "commands_run": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "properties": {
+          "command": {
+            "type": "string"
+          },
+          "tool_call_id": {
+            "type": "string",
+            "pattern": "^tcl_[0-9A-Za-z]{4,40}$"
+          }
+        },
+        "required": [
+          "command",
+          "tool_call_id"
+        ],
+        "additionalProperties": false
+      }
+    },
+    "followups": {
+      "type": "array",
+      "items": {
+        "type": "string",
+        "maxLength": 300
+      },
+      "description": "Out-of-scope ideas noted, never implemented."
+    },
+    "injection_suspected": {
+      "$ref": "common.json#/$defs/injection_suspected"
+    }
+  },
+  "required": [
+    "schema_version",
+    "run_id",
+    "work_order_id",
+    "adapter",
+    "session_id",
+    "status",
+    "exit_code",
+    "cost",
+    "artifacts"
+  ],
+  "additionalProperties": false,
+  "allOf": [
+    {
+      "if": {
+        "properties": {
+          "status": {
+            "const": "completed"
+          }
+        },
+        "required": [
+          "status"
+        ]
+      },
+      "then": {
+        "properties": {
+          "artifacts": {
+            "minItems": 1
+          },
+          "exit_code": {
+            "const": 0
+          }
+        }
+      }
+    }
+  ]
+}

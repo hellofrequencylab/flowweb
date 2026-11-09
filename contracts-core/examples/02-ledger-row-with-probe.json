@@ -1,0 +1,75 @@
+{
+  "id": "lr_000142",
+  "project_id": "prj_atlas001",
+  "stream_id": "stm_backlog1",
+  "title": "Checkout shows a stale shipping estimate after the address changes",
+  "priority": "P1",
+  "lane": "checkout",
+  "size": "S",
+  "status": "verifying",
+  "owner": {
+    "kind": "agent",
+    "id": "agt_lead0001"
+  },
+  "links": [
+    "https://git.example.invalid/atlas/issues/1187",
+    "docs/decisions/shipping-estimates.md"
+  ],
+  "depends_on": [],
+  "wave": "W7",
+  "probe": {
+    "id": "prb_000142",
+    "version": 1,
+    "kind": "command",
+    "measures": "After a customer changes the shipping address, the checkout page shows the new shipping estimate within 2 seconds.",
+    "runs_against": "merged_artifact",
+    "command": {
+      "argv": [
+        "node",
+        "scripts/probes/shipping-estimate-refresh.mjs",
+        "--target",
+        "preview"
+      ],
+      "cwd": ".",
+      "timeout_s": 180,
+      "env_profile": "probe-readonly"
+    },
+    "expected": {
+      "exit_code": 0,
+      "json_assertions": [
+        {
+          "pointer": "/p95_ms",
+          "op": "lt",
+          "value": 2000
+        },
+        {
+          "pointer": "/stale_estimate_count",
+          "op": "eq",
+          "value": 0
+        }
+      ]
+    },
+    "flake_policy": {
+      "retries": 1,
+      "quarantine_after_failures": 3
+    },
+    "owner_trust_tier": 0,
+    "content_hash": "749a150ea5d8b2bb3a63f0c9b8f313e5ee2e0b8cc96af1eaf221f200b21ad4e5"
+  },
+  "premise": {
+    "retested_at": "2026-11-08T09:12:00Z",
+    "still_valid": true,
+    "method": "Reproduced on current main with probe command; no open or merged PR touches src/checkout/shipping.ts",
+    "evidence_ref": "artifact://prr_000142a"
+  },
+  "last_probe": {
+    "status": "pass",
+    "at": "2026-11-08T14:41:00Z",
+    "result_id": "prr_000142b",
+    "target_kind": "branch"
+  },
+  "evidence_bundle_id": "evb_000142a",
+  "watch_hours": 48,
+  "created_at": "2026-11-07T16:00:00Z",
+  "updated_at": "2026-11-08T14:42:00Z"
+}

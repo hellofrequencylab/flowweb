@@ -1,0 +1,25 @@
+{
+  "seq": 48302,
+  "id": "evt_00048302",
+  "ts": "2026-11-08T09:52:10.410Z",
+  "type": "run.succeeded",
+  "version": 1,
+  "actor": {
+    "kind": "system",
+    "id": "kernel"
+  },
+  "project_id": "prj_atlas001",
+  "work_order_id": "wo_000142v1",
+  "run_id": "run_000142a1",
+  "correlation_id": "cor_lr000142",
+  "idempotency_key": "run_000142a1+'succeeded'",
+  "payload": {
+    "run_id": "run_000142a1",
+    "artifact_count": 1,
+    "cost_usd": 0.92
+  },
+  "payload_hash": "31b36fdb49428395d4224eb4c7aca8436a63f665961f4461a8a4ce0e6a7b9c1d",
+  "prev_hash": "4cb3e111fc732e8e7345bb540c7d1b5adafe53064ab87e14b235b346e18e1ed5",
+  "causation_id": "evt_00048301",
+  "hash": "433e52788bb7920ce611c4ea676a6388bd92d9a4528217ea797abac2671767d1"
+}

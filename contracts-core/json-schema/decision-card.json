@@ -1,0 +1,420 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://contracts.invalid/fw/v1/decision-card.json",
+  "title": "Decision card",
+  "description": "A card in the Owner's decision inbox. Five variants: approve, choose, answer, review, unblock. Each is answerable from the card alone. A `choose` card has 2 to 4 options and ALWAYS names a recommended option with a one-line reason. If the First Mate genuinely has no basis to recommend, it issues an `answer` card (an open question, with `basis_gap`) instead of a choose card; a choose card with no recommendation is invalid.",
+  "type": "object",
+  "properties": {
+    "id": {
+      "type": "string",
+      "pattern": "^dcd_[0-9A-Za-z]{4,40}$"
+    },
+    "variant": {
+      "enum": [
+        "approve",
+        "choose",
+        "answer",
+        "review",
+        "unblock"
+      ]
+    },
+    "project_id": {
+      "type": "string",
+      "pattern": "^prj_[0-9A-Za-z]{4,40}$"
+    },
+    "title": {
+      "type": "string",
+      "minLength": 3,
+      "maxLength": 100
+    },
+    "ask": {
+      "type": "string",
+      "description": "One sentence the Owner can answer. Lead with the answer you want.",
+      "minLength": 5,
+      "maxLength": 240
+    },
+    "urgency": {
+      "$ref": "common.json#/$defs/urgency"
+    },
+    "deadline_at": {
+      "$ref": "common.json#/$defs/timestamp"
+    },
+    "default_on_timeout": {
+      "type": "string",
+      "description": "What happens if nobody answers. For approve this is always 'deny'.",
+      "minLength": 3
+    },
+    "source": {
+      "type": "object",
+      "properties": {
+        "work_order_id": {
+          "type": "string",
+          "pattern": "^wo_[0-9A-Za-z]{4,40}$"
+        },
+        "run_id": {
+          "type": "string",
+          "pattern": "^run_[0-9A-Za-z]{4,40}$"
+        },
+        "ledger_row_id": {
+          "type": "string",
+          "pattern": "^lr_[0-9A-Za-z]{4,40}$"
+        },
+        "agent_id": {
+          "type": "string",
+          "pattern": "^agt_[0-9A-Za-z]{4,40}$"
+        },
+        "escalation_id": {
+          "type": "string",
+          "pattern": "^esc_[0-9A-Za-z]{4,40}$"
+        }
+      },
+      "additionalProperties": false
+    },
+    "evidence_bundle_id": {
+      "type": "string",
+      "pattern": "^evb_[0-9A-Za-z]{4,40}$"
+    },
+    "created_at": {
+      "$ref": "common.json#/$defs/timestamp"
+    }
+  },
+  "required": [
+    "id",
+    "variant",
+    "title",
+    "ask",
+    "urgency",
+    "default_on_timeout",
+    "created_at"
+  ],
+  "unevaluatedProperties": false,
+  "oneOf": [
+    {
+      "properties": {
+        "variant": {
+          "const": "approve"
+        },
+        "approval_id": {
+          "type": "string",
+          "pattern": "^apr_[0-9A-Za-z]{4,40}$"
+        },
+        "headline": {
+          "type": "string",
+          "description": "What will happen if approved, in plain words.",
+          "maxLength": 200
+        },
+        "payload_preview": {
+          "type": "object",
+          "properties": {
+            "format": {
+              "enum": [
+                "diff",
+                "text",
+                "email",
+                "sql",
+                "invite"
+              ]
+            },
+            "excerpt": {
+              "type": "string",
+              "maxLength": 4000
+            },
+            "full_ref": {
+              "$ref": "common.json#/$defs/ref"
+            },
+            "payload_hash": {
+              "$ref": "common.json#/$defs/sha256"
+            }
+          },
+          "required": [
+            "format",
+            "full_ref",
+            "payload_hash"
+          ],
+          "additionalProperties": false
+        },
+        "risk": {
+          "type": "object",
+          "properties": {
+            "blast_radius": {
+              "type": "string",
+              "maxLength": 240
+            },
+            "reversible": {
+              "type": "boolean"
+            },
+            "rollback_tested": {
+              "type": "boolean"
+            },
+            "scan_status": {
+              "enum": [
+                "green",
+                "warn"
+              ]
+            },
+            "rule_of_two_score": {
+              "type": "integer",
+              "minimum": 0,
+              "maximum": 3
+            }
+          },
+          "required": [
+            "blast_radius",
+            "reversible",
+            "scan_status"
+          ],
+          "additionalProperties": false
+        },
+        "challenge_required": {
+          "type": "boolean"
+        },
+        "actions": {
+          "type": "array",
+          "items": {
+            "enum": [
+              "approve",
+              "deny",
+              "request_changes",
+              "snooze"
+            ]
+          },
+          "minItems": 2
+        },
+        "default_on_timeout": {
+          "const": "deny"
+        }
+      },
+      "required": [
+        "variant",
+        "approval_id",
+        "headline",
+        "payload_preview",
+        "risk",
+        "evidence_bundle_id"
+      ]
+    },
+    {
+      "properties": {
+        "variant": {
+          "const": "choose"
+        },
+        "options": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "properties": {
+              "id": {
+                "type": "string",
+                "pattern": "^[a-z0-9_]{1,40}$"
+              },
+              "label": {
+                "type": "string",
+                "maxLength": 80
+              },
+              "consequence": {
+                "type": "string",
+                "maxLength": 240
+              },
+              "cost_usd": {
+                "$ref": "common.json#/$defs/usd"
+              },
+              "reversible": {
+                "type": "boolean",
+                "description": "Can the Owner undo this option later? Shown on the card next to the consequence."
+              }
+            },
+            "required": [
+              "id",
+              "label",
+              "consequence"
+            ],
+            "additionalProperties": false
+          },
+          "minItems": 2,
+          "maxItems": 4,
+          "description": "Two to four options. More than four means the question is not narrow enough: split it or ask an `answer` card."
+        },
+        "recommended_option": {
+          "type": "string",
+          "pattern": "^[a-z0-9_]{1,40}$",
+          "description": "Must equal the `id` of one of `options` (checked by the API and by trigger `trg_cards_choose_rules`; JSON Schema cannot express it). Never pre-selected in the UI: the Owner still presses a key."
+        },
+        "recommendation_reason": {
+          "type": "string",
+          "minLength": 5,
+          "maxLength": 160,
+          "pattern": "^[^\\n\\r]+$",
+          "description": "One line: why this option. Required."
+        }
+      },
+      "required": [
+        "variant",
+        "options",
+        "recommended_option",
+        "recommendation_reason"
+      ]
+    },
+    {
+      "properties": {
+        "variant": {
+          "const": "answer"
+        },
+        "question": {
+          "type": "string",
+          "maxLength": 300
+        },
+        "answer_type": {
+          "enum": [
+            "text",
+            "number",
+            "date",
+            "yes_no",
+            "choice"
+          ]
+        },
+        "constraints": {
+          "type": "object",
+          "properties": {
+            "min": {
+              "type": "number"
+            },
+            "max": {
+              "type": "number"
+            },
+            "max_length": {
+              "type": "integer",
+              "minimum": 1
+            },
+            "choices": {
+              "type": "array",
+              "items": {
+                "type": "string"
+              }
+            }
+          },
+          "additionalProperties": false
+        },
+        "suggested_answer": {
+          "type": "string"
+        },
+        "basis_gap": {
+          "type": "string",
+          "minLength": 5,
+          "maxLength": 160,
+          "pattern": "^[^\\n\\r]+$",
+          "description": "One line: what the First Mate lacks to recommend an answer. Present when this card replaces a choose card because no honest recommendation exists."
+        }
+      },
+      "required": [
+        "variant",
+        "question",
+        "answer_type"
+      ]
+    },
+    {
+      "properties": {
+        "variant": {
+          "const": "review"
+        },
+        "artifact": {
+          "$ref": "common.json#/$defs/artifact_pointer"
+        },
+        "rubric": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          },
+          "minItems": 1
+        },
+        "verdicts": {
+          "type": "array",
+          "items": {
+            "enum": [
+              "accept",
+              "accept_with_edits",
+              "reject"
+            ]
+          },
+          "minItems": 2
+        },
+        "verifier_summary": {
+          "type": "string",
+          "maxLength": 500
+        }
+      },
+      "required": [
+        "variant",
+        "artifact",
+        "rubric",
+        "verdicts"
+      ]
+    },
+    {
+      "properties": {
+        "variant": {
+          "const": "unblock"
+        },
+        "blocker": {
+          "type": "object",
+          "properties": {
+            "kind": {
+              "enum": [
+                "missing_access",
+                "missing_info",
+                "conflicting_inputs",
+                "budget",
+                "dependency",
+                "external",
+                "policy"
+              ]
+            },
+            "description": {
+              "type": "string",
+              "maxLength": 400
+            },
+            "since": {
+              "$ref": "common.json#/$defs/timestamp"
+            }
+          },
+          "required": [
+            "kind",
+            "description",
+            "since"
+          ],
+          "additionalProperties": false
+        },
+        "suggested_actions": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "properties": {
+              "id": {
+                "type": "string"
+              },
+              "label": {
+                "type": "string"
+              },
+              "consequence": {
+                "type": "string"
+              }
+            },
+            "required": [
+              "id",
+              "label"
+            ],
+            "additionalProperties": false
+          },
+          "minItems": 1
+        },
+        "idle_cost_per_day_usd": {
+          "$ref": "common.json#/$defs/usd"
+        }
+      },
+      "required": [
+        "variant",
+        "blocker",
+        "suggested_actions"
+      ]
+    }
+  ]
+}

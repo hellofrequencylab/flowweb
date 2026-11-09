@@ -1,0 +1,2377 @@
+{
+  "meta": {
+    "product": "FlowWeb",
+    "profile": "core",
+    "schema": "ledger-row/1",
+    "generated": "2026-11-09",
+    "row_count": 67,
+    "conventions": {
+      "verify_probe": "Same convention as 04-build-plan/backlog.json: 'pnpm probe <path>' runs probes/<path>.probe.ts, a Tier 0 file written before the implementation row starts and never edited by the agent doing the row. Every probe fails today because its target does not exist (a missing probe file exits 2, a missing behaviour exits 1). The probe pack for a milestone is committed by the Owner or a pair session before the milestone's rows start.",
+      "status": "All rows start as open. Status lives only in the ledger database (imported with fw ledger sync), never in prose.",
+      "size": "S under one agent session (about 150 changed lines), M one to two sessions, L split if it exceeds 600 changed lines or three sessions.",
+      "gate": "owner-approval means the Owner must approve the PR through the code-owner path before merge (Tier 0 touch, credential, policy, budget or promotion).",
+      "origin": "'full-plan row, included' keeps id, title, epic, priority, size, lane, description, acceptance and verify_probe of 04-build-plan/backlog.json; files_hint is rewritten to the Core package layout (full_files_hint keeps the original), depends_on is re-pointed at rows present in Core (full_depends_on keeps the original) and core_adaptation says what is narrower. 'new Core row' names the full-plan rows it replaces or merges in derived_from.",
+      "phase": "Phase in the full plan that the row belongs to (or its earliest derived_from row). core_milestone is the Core milestone: C0, C1 or C2."
+    },
+    "milestones": {
+      "C0": {
+        "name": "Walking skeleton",
+        "exit_demo": "From a clean clone, on a real repo with a real vendor: fw ledger sync; fw run start <row> opens a PR whose comment carries the evidence bundle hash, the probe passed on the branch, the cost record is under the row cap and fw audit verify is green. The Owner merges the PR by hand; fw ledger close <row> runs the probe on the merged artifact and the row becomes done with a post-merge evidence bundle."
+      },
+      "C1": {
+        "name": "Safe loop",
+        "exit_demo": "fwd is running. A row goes to a Claude maker in the sandbox and a Codex verifier (different vendor); a decision card appears (fw inbox); fw approve binds to the head SHA; the merge slot is granted and the daemon merges with expected-head; the reconciler confirms the landing; the watch window closes and the row is done. Then three drills: push after approval (slot and approval void, nothing merges), fw kill mid-run (run halted, leases revoked, even with fwd stopped), and a budget breach (run killed, next dispatch refused)."
+      },
+      "C2": {
+        "name": "Daily driver",
+        "exit_demo": "At 06:00 the digest stream publishes the Dawn Log. In the browser (paired, loopback) the Owner reads it, clears three cards in the Captain's Table (approve a merge with the evidence view open, choose from scan findings, answer a question), sees Table cleared, browses Projects, ledger, Runs and Spend, presses the Kill switch in a drill and resumes. A prompt composed for a vendor that cannot be driven headlessly is pasted back and ingested (relay-assist)."
+      }
+    },
+    "full_plan_rows_included": 37,
+    "new_core_rows": 30
+  },
+  "rows": [
+    {
+      "id": "FW-C-001",
+      "title": "Core monorepo skeleton with eight packages",
+      "phase": 0,
+      "epic": "C0.1 Repo and guardrails",
+      "priority": "P0",
+      "size": "S",
+      "lane": "devex",
+      "depends_on": [],
+      "description": "Create the pnpm workspace with the eight Core packages (contracts, eventlog, ledger, policy, adapters, daemon, cli, web), strict TypeScript, pinned Node and pnpm, Biome, Vitest and the dependency-boundary lint, mirroring REPO-BOOTSTRAP-CORE/PACKAGE-LAYOUT.txt.",
+      "acceptance": [
+        "pnpm install --frozen-lockfile succeeds on a clean clone",
+        "pnpm -r typecheck passes with strict, noUncheckedIndexedAccess and exactOptionalPropertyTypes on",
+        "A deliberate import of @fw/adapters from @fw/ledger fails the boundary lint"
+      ],
+      "verify_probe": "pnpm probe devex/workspace-layout",
+      "files_hint": [
+        "package.json",
+        "pnpm-workspace.yaml",
+        "tsconfig.base.json",
+        "packages/*/package.json",
+        ".nvmrc"
+      ],
+      "agent_suitability": "agent",
+      "gate": "none",
+      "status": "open",
+      "origin": "new Core row",
+      "derived_from": [
+        "WS-P0-001"
+      ],
+      "core_milestone": "C0"
+    },
+    {
+      "id": "WS-P0-002",
+      "title": "Install agent instructions, PR template and CODEOWNERS",
+      "phase": 0,
+      "epic": "E0.1 Repo and guardrails",
+      "priority": "P0",
+      "size": "S",
+      "lane": "devex",
+      "depends_on": [
+        "FW-C-001"
+      ],
+      "description": "Copy AGENTS.md, CLAUDE.md, pull_request_template.md and CODEOWNERS from REPO-BOOTSTRAP into the repo root, replacing FlowWeb placeholders.",
+      "acceptance": [
+        "CLAUDE.md imports AGENTS.md",
+        "CODEOWNERS lists every Tier 0 path from AGENTS.md",
+        "The PR template contains the ledger-row, probe-output and tier-touched fields"
+      ],
+      "verify_probe": "node scripts/check-bootstrap.mjs",
+      "files_hint": [
+        "AGENTS.md",
+        "CLAUDE.md",
+        "CODEOWNERS",
+        ".github/pull_request_template.md"
+      ],
+      "agent_suitability": "pair",
+      "gate": "none",
+      "status": "open",
+      "full_depends_on": [
+        "WS-P0-001"
+      ],
+      "full_files_hint": [
+        "AGENTS.md",
+        "CLAUDE.md",
+        "CODEOWNERS",
+        ".github/pull_request_template.md"
+      ],
+      "origin": "full-plan row, included",
+      "core_milestone": "C0",
+      "core_adaptation": "Use REPO-BOOTSTRAP-CORE/ (trimmed AGENTS.md, CODEOWNERS, PR template)."
+    },
+    {
+      "id": "WS-P0-003",
+      "title": "Enable branch protection and code-owner review on main",
+      "phase": 0,
+      "epic": "E0.1 Repo and guardrails",
+      "priority": "P0",
+      "size": "S",
+      "lane": "security",
+      "depends_on": [
+        "WS-P0-002"
+      ],
+      "description": "Owner configures the git host: main protected, required status checks, required code-owner review, no force push, no agent token with admin rights.",
+      "acceptance": [
+        "Direct push to main is rejected",
+        "A PR touching a Tier 0 path cannot merge without a human code-owner approval",
+        "Agent identity token has no admin or bypass permission"
+      ],
+      "verify_probe": "bash scripts/probe-branch-protection.sh",
+      "files_hint": [
+        "scripts/probe-branch-protection.sh",
+        "docs/runbooks/branch-protection.md"
+      ],
+      "agent_suitability": "human",
+      "gate": "owner-approval",
+      "status": "open",
+      "full_depends_on": [
+        "WS-P0-002"
+      ],
+      "full_files_hint": [
+        "scripts/probe-branch-protection.sh",
+        "docs/runbooks/branch-protection.md"
+      ],
+      "origin": "full-plan row, included",
+      "core_milestone": "C0"
+    },
+    {
+      "id": "WS-P0-004",
+      "title": "CI skeleton: lint, typecheck, unit, probe-immutability",
+      "phase": 0,
+      "epic": "E0.1 Repo and guardrails",
+      "priority": "P0",
+      "size": "S",
+      "lane": "devex",
+      "depends_on": [
+        "FW-C-001"
+      ],
+      "description": "Add ci.yml with install, lint, typecheck, unit tests and a job that fails if probes/ or Tier 0 paths changed in a PR without a human approval label.",
+      "acceptance": [
+        "A PR with a type error fails CI",
+        "A PR that edits a file under probes/ from an agent identity fails CI",
+        "CI runtime on an empty change is under 4 minutes"
+      ],
+      "verify_probe": "pnpm probe devex/ci-skeleton",
+      "files_hint": [
+        ".github/workflows/ci.yml",
+        "scripts/check-tier0.mjs"
+      ],
+      "agent_suitability": "agent",
+      "gate": "none",
+      "status": "open",
+      "full_depends_on": [
+        "WS-P0-001"
+      ],
+      "full_files_hint": [
+        ".github/workflows/ci.yml",
+        "scripts/check-tier0.mjs"
+      ],
+      "origin": "full-plan row, included",
+      "core_milestone": "C0"
+    },
+    {
+      "id": "WS-P0-005",
+      "title": "Secret scanning in pre-commit and CI",
+      "phase": 0,
+      "epic": "E0.1 Repo and guardrails",
+      "priority": "P0",
+      "size": "S",
+      "lane": "security",
+      "depends_on": [
+        "WS-P0-004"
+      ],
+      "description": "Wire a secret scanner into a pre-commit hook and CI; add a seeded fake-secret fixture that must be caught.",
+      "acceptance": [
+        "Committing a string matching an API key pattern is blocked locally",
+        "CI fails on the same string",
+        "An allowlist file exists and is Tier 0"
+      ],
+      "verify_probe": "pnpm probe security/secret-scan-fixture",
+      "files_hint": [
+        ".gitleaks.toml",
+        ".husky/pre-commit",
+        ".github/workflows/ci.yml"
+      ],
+      "agent_suitability": "agent",
+      "gate": "none",
+      "status": "open",
+      "full_depends_on": [
+        "WS-P0-004"
+      ],
+      "full_files_hint": [
+        ".gitleaks.toml",
+        ".husky/pre-commit",
+        ".github/workflows/ci.yml"
+      ],
+      "origin": "full-plan row, included",
+      "core_milestone": "C0"
+    },
+    {
+      "id": "WS-P0-006",
+      "title": "Probes package and pnpm probe runner",
+      "phase": 0,
+      "epic": "E0.1 Repo and guardrails",
+      "priority": "P0",
+      "size": "M",
+      "lane": "devex",
+      "depends_on": [
+        "FW-C-001"
+      ],
+      "description": "Create the Tier 0 probes/ package and a pnpm probe <path> runner that executes a probe in isolation and prints PASS or FAIL with exit code.",
+      "acceptance": [
+        "pnpm probe devex/workspace-layout runs and exits nonzero before its target exists",
+        "A missing probe file exits 2 with a clear message, not 0",
+        "Probe runs are time-limited by default (60 s)"
+      ],
+      "verify_probe": "pnpm probe devex/probe-runner",
+      "files_hint": [
+        "probes/package.json",
+        "probes/runner.ts"
+      ],
+      "agent_suitability": "pair",
+      "gate": "none",
+      "status": "open",
+      "full_depends_on": [
+        "WS-P0-001"
+      ],
+      "full_files_hint": [
+        "probes/package.json",
+        "probes/runner.ts"
+      ],
+      "origin": "full-plan row, included",
+      "core_milestone": "C0"
+    },
+    {
+      "id": "FW-C-002",
+      "title": "Vendor the Core contracts into @fw/contracts",
+      "phase": 0,
+      "epic": "C0.2 Schemas and storage",
+      "priority": "P0",
+      "size": "M",
+      "lane": "kernel",
+      "depends_on": [
+        "FW-C-001"
+      ],
+      "description": "Copy contracts-core/json-schema into packages/contracts, generate TypeScript types and Ajv validators, test the 17 valid and 4 invalid examples, and pin the copy with SCHEMA-SNAPSHOT.sha256 so schema drift is a Tier 0 change.",
+      "acceptance": [
+        "All 17 schema files compile under Ajv 2020-12, the 17 valid examples pass and the 4 invalid examples are rejected",
+        "Generated types are committed and pnpm -r typecheck fails if they drift from the schemas",
+        "A schema edit without a matching SCHEMA-SNAPSHOT.sha256 update fails CI"
+      ],
+      "verify_probe": "pnpm probe kernel/contracts-core",
+      "files_hint": [
+        "packages/contracts/json-schema/",
+        "packages/contracts/src/",
+        "packages/contracts/SCHEMA-SNAPSHOT.sha256"
+      ],
+      "agent_suitability": "agent",
+      "gate": "none",
+      "status": "open",
+      "origin": "new Core row",
+      "derived_from": [
+        "WS-P0-010",
+        "WS-P0-011",
+        "WS-P0-012",
+        "WS-P0-013"
+      ],
+      "core_milestone": "C0"
+    },
+    {
+      "id": "FW-C-003",
+      "title": "Apply schema.core.sql with a forward-only migration runner",
+      "phase": 0,
+      "epic": "C0.2 Schemas and storage",
+      "priority": "P0",
+      "size": "M",
+      "lane": "kernel",
+      "depends_on": [
+        "FW-C-001"
+      ],
+      "description": "Ship schema.core.sql as migration 0001, a forward-only runner on better-sqlite3 (WAL, foreign_keys ON for every connection, busy_timeout), and run the 54 behaviour tests in CI.",
+      "acceptance": [
+        "A fresh database created by the runner passes tests/schema_core_test.py (54 of 54)",
+        "The store port cannot hand out a connection with foreign_keys off (test)",
+        "The runner refuses a migration whose file hash differs from the one recorded when it was applied"
+      ],
+      "verify_probe": "pnpm probe kernel/schema-core",
+      "files_hint": [
+        "packages/contracts/sql/0001_core.sql",
+        "packages/eventlog/src/store.ts",
+        "tests/schema_core_test.py"
+      ],
+      "agent_suitability": "agent",
+      "gate": "none",
+      "status": "open",
+      "origin": "new Core row",
+      "derived_from": [
+        "WS-P0-015"
+      ],
+      "core_milestone": "C0"
+    },
+    {
+      "id": "FW-C-004",
+      "title": "Single-writer event log: append, canonical hash, redaction",
+      "phase": 0,
+      "epic": "C0.2 Schemas and storage",
+      "priority": "P0",
+      "size": "M",
+      "lane": "kernel",
+      "depends_on": [
+        "FW-C-002",
+        "FW-C-003"
+      ],
+      "description": "Implement append(): RFC 8785 canonical JSON, SHA-256 chain, idempotency keys (a duplicate returns the original), actor stamped by the daemon (agents never write events), secret-shaped values redacted before write, and one writer enforced by an in-process queue plus FW_HOME/fwd.lock.",
+      "acceptance": [
+        "Appending the same (type, idempotency_key) twice returns the original event and writes nothing",
+        "A payload containing an API-key-shaped string is redacted before write and the redaction is itself recorded",
+        "Two processes racing to write: the second gets a typed LOCKED error and no event is lost or duplicated"
+      ],
+      "verify_probe": "pnpm probe kernel/event-writer",
+      "files_hint": [
+        "packages/eventlog/src/"
+      ],
+      "agent_suitability": "agent",
+      "gate": "none",
+      "status": "open",
+      "origin": "new Core row",
+      "derived_from": [
+        "WS-P0-022",
+        "WS-P0-024"
+      ],
+      "core_milestone": "C0"
+    },
+    {
+      "id": "FW-C-005",
+      "title": "Ledger sync: row definition files to the ledger database",
+      "phase": 0,
+      "epic": "C0.3 Ledger",
+      "priority": "P0",
+      "size": "M",
+      "lane": "kernel",
+      "depends_on": [
+        "FW-C-003",
+        "FW-C-004"
+      ],
+      "description": "Row definitions live in ledger/rows/<ID>.json (definition only, never status; Tier 0 because they carry the probe). fw ledger sync inserts new rows, refuses any change to an existing probe, and imports CORE-BACKLOG.json so the product builds itself from its own ledger.",
+      "acceptance": [
+        "Syncing a new row file creates a ledger_rows row with status open and a ledger.row_created event",
+        "Editing the probe of an already-synced row file is refused with a tamper event and changes nothing",
+        "Status is never read from or written to the row files"
+      ],
+      "verify_probe": "pnpm probe kernel/ledger-sync",
+      "files_hint": [
+        "packages/ledger/src/sync.ts",
+        "ledger/rows/"
+      ],
+      "agent_suitability": "agent",
+      "gate": "none",
+      "status": "open",
+      "origin": "new Core row",
+      "derived_from": [
+        "WS-P0-015",
+        "WS-P0-017"
+      ],
+      "core_milestone": "C0"
+    },
+    {
+      "id": "FW-C-006",
+      "title": "fw CLI skeleton",
+      "phase": 0,
+      "epic": "C0.3 Ledger",
+      "priority": "P0",
+      "size": "S",
+      "lane": "devex",
+      "depends_on": [
+        "FW-C-001"
+      ],
+      "description": "Command router, global --json and --home, FW_HOME resolution, exit codes (0 ok, 1 failed, 2 usage, 3 refused by policy, 4 locked), direct database read fallback and typed errors that name a one-line fix.",
+      "acceptance": [
+        "Every command accepts --json and prints one JSON document",
+        "Exit code 3 for a policy refusal and 4 for a locked writer are each covered by a test",
+        "fw --help lists no command that is not implemented"
+      ],
+      "verify_probe": "pnpm probe cli/skeleton",
+      "files_hint": [
+        "packages/cli/src/"
+      ],
+      "agent_suitability": "agent",
+      "gate": "none",
+      "status": "open",
+      "origin": "new Core row",
+      "derived_from": [
+        "WS-P0-021"
+      ],
+      "core_milestone": "C0"
+    },
+    {
+      "id": "WS-P0-016",
+      "title": "Ledger state machine and transition guards",
+      "phase": 0,
+      "epic": "E0.3 Ledger",
+      "priority": "P0",
+      "size": "M",
+      "lane": "kernel",
+      "depends_on": [
+        "FW-C-005"
+      ],
+      "description": "Encode legal status transitions and guards (for example done requires merged SHA and passing probe) as a pure function with a transition table.",
+      "acceptance": [
+        "Illegal transition open to done is rejected",
+        "Every transition emits an event",
+        "done to regressed fires automatically on a failing probe re-run"
+      ],
+      "verify_probe": "pnpm probe kernel/ledger-fsm",
+      "files_hint": [
+        "packages/ledger/src/fsm.ts"
+      ],
+      "agent_suitability": "agent",
+      "gate": "none",
+      "status": "open",
+      "full_depends_on": [
+        "WS-P0-015"
+      ],
+      "full_files_hint": [
+        "packages/ledger/src/fsm.ts"
+      ],
+      "origin": "full-plan row, included",
+      "core_milestone": "C0",
+      "core_adaptation": "The state machine is also enforced by SQL triggers; the TS layer adds events and the automatic done-to-regressed."
+    },
+    {
+      "id": "WS-P0-019",
+      "title": "Probe executor with timeout and tamper check",
+      "phase": 0,
+      "epic": "E0.3 Ledger",
+      "priority": "P0",
+      "size": "M",
+      "lane": "kernel",
+      "depends_on": [
+        "WS-P0-006",
+        "FW-C-005"
+      ],
+      "description": "Run a row probe in a clean child process with timeout, captured output and exit code; record the result as an event; refuse probes whose file hash differs from the Tier 0 manifest.",
+      "acceptance": [
+        "A probe exceeding its timeout is killed and recorded as fail",
+        "A modified probe file is refused with tamper_detected",
+        "Result event contains stdout tail, exit code and duration"
+      ],
+      "verify_probe": "pnpm probe kernel/probe-exec",
+      "files_hint": [
+        "packages/ledger/src/probe.ts",
+        "probes/MANIFEST.sha256"
+      ],
+      "agent_suitability": "pair",
+      "gate": "none",
+      "status": "open",
+      "full_depends_on": [
+        "WS-P0-015",
+        "WS-P0-006"
+      ],
+      "full_files_hint": [
+        "packages/ledger/src/probe.ts",
+        "probes/MANIFEST.sha256"
+      ],
+      "origin": "full-plan row, included",
+      "core_milestone": "C0"
+    },
+    {
+      "id": "WS-P0-020",
+      "title": "Premise re-test before work",
+      "phase": 0,
+      "epic": "E0.3 Ledger",
+      "priority": "P0",
+      "size": "M",
+      "lane": "kernel",
+      "depends_on": [
+        "WS-P0-019",
+        "WS-P0-016"
+      ],
+      "description": "Before a row can move to claimed, run its probe against the base commit; if it already passes, mark the row done-by-other and stop.",
+      "acceptance": [
+        "A row whose probe already passes is not claimable",
+        "The event log records premise_retest with result",
+        "A failing probe allows claim"
+      ],
+      "verify_probe": "pnpm probe kernel/premise-retest",
+      "files_hint": [
+        "packages/ledger/src/premise.ts"
+      ],
+      "agent_suitability": "agent",
+      "gate": "none",
+      "status": "open",
+      "full_depends_on": [
+        "WS-P0-019",
+        "WS-P0-016"
+      ],
+      "full_files_hint": [
+        "packages/ledger/src/premise.ts"
+      ],
+      "origin": "full-plan row, included",
+      "core_milestone": "C0",
+      "core_adaptation": "A probe that already passes parks the row as already_satisfied; the SQL trigger refuses ready unless the probe failed."
+    },
+    {
+      "id": "WS-P0-021",
+      "title": "fw ledger CLI: list, show, next, close",
+      "phase": 0,
+      "epic": "E0.3 Ledger",
+      "priority": "P0",
+      "size": "S",
+      "lane": "kernel",
+      "depends_on": [
+        "FW-C-006",
+        "WS-P0-016",
+        "FW-C-005"
+      ],
+      "description": "CLI commands over the fold view: fw ledger list --lane, show <id>, next (next ready row per lane), close <id> --probe (only if probe passes).",
+      "acceptance": [
+        "fw ledger next prints one row whose dependencies are done",
+        "fw ledger close refuses when the probe fails",
+        "All commands support --json"
+      ],
+      "verify_probe": "pnpm probe cli/ledger-commands",
+      "files_hint": [
+        "packages/cli/src/commands/ledger.ts"
+      ],
+      "agent_suitability": "agent",
+      "gate": "none",
+      "status": "open",
+      "full_depends_on": [
+        "WS-P0-017",
+        "WS-P0-016"
+      ],
+      "full_files_hint": [
+        "apps/cli/src/commands/ledger.ts"
+      ],
+      "origin": "full-plan row, included",
+      "core_milestone": "C0",
+      "core_adaptation": "fw ledger close is how the human-merge path in C0 finishes a row (verifying to done with a post-merge evidence bundle)."
+    },
+    {
+      "id": "WS-P0-023",
+      "title": "Hash-chained audit and verify command",
+      "phase": 0,
+      "epic": "E0.4 Event log and audit chain",
+      "priority": "P0",
+      "size": "M",
+      "lane": "security",
+      "depends_on": [
+        "FW-C-004",
+        "FW-C-006"
+      ],
+      "description": "Chain each event to the hash of the previous one and add fw audit verify that walks the chain and reports the first broken link.",
+      "acceptance": [
+        "Flipping one byte in a stored payload makes verify fail naming the sequence number",
+        "Verify of 100k events completes in under 5 s",
+        "Chain head can be exported for external anchoring"
+      ],
+      "verify_probe": "pnpm probe security/audit-chain",
+      "files_hint": [
+        "packages/eventlog/src/chain.ts",
+        "packages/cli/src/commands/audit.ts"
+      ],
+      "agent_suitability": "agent",
+      "gate": "none",
+      "status": "open",
+      "full_depends_on": [
+        "WS-P0-022"
+      ],
+      "full_files_hint": [
+        "packages/eventlog/src/chain.ts",
+        "apps/cli/src/commands/audit.ts"
+      ],
+      "origin": "full-plan row, included",
+      "core_milestone": "C0",
+      "core_adaptation": "One chain only: the events table. There is no separate audit process in Core."
+    },
+    {
+      "id": "WS-P0-025",
+      "title": "Cost record per run",
+      "phase": 0,
+      "epic": "E0.4 Event log and audit chain",
+      "priority": "P0",
+      "size": "S",
+      "lane": "kernel",
+      "depends_on": [
+        "FW-C-004"
+      ],
+      "description": "Record tokens in/out, dollars and wall clock per Run as events and expose a rollup per row, per project and per day.",
+      "acceptance": [
+        "Rollup equals the sum of run events in a fixture",
+        "Missing cost data is recorded as unknown, not zero",
+        "fw spend --by agent (per row: fw run show <run>) prints the rollup"
+      ],
+      "verify_probe": "pnpm probe kernel/cost-record",
+      "files_hint": [
+        "packages/policy/src/budget/src/cost/"
+      ],
+      "agent_suitability": "agent",
+      "gate": "none",
+      "status": "open",
+      "full_depends_on": [
+        "WS-P0-022",
+        "WS-P0-011"
+      ],
+      "full_files_hint": [
+        "packages/budget/src/cost/"
+      ],
+      "origin": "full-plan row, included",
+      "core_milestone": "C0"
+    },
+    {
+      "id": "WS-P0-026",
+      "title": "Vendor adapter contract and types",
+      "phase": 0,
+      "epic": "E0.5 Adapter contract and first vendor",
+      "priority": "P0",
+      "size": "M",
+      "lane": "adapters",
+      "depends_on": [
+        "FW-C-002"
+      ],
+      "description": "Define the VendorAdapter interface: run(workOrder, workspace, credentialHandle, budget, resultSchema) returning Run Result; resume(sessionId); abort(); capabilities().",
+      "acceptance": [
+        "Interface lives in @fw/adapter-sdk with no vendor imports",
+        "A no-op reference adapter compiles against it",
+        "Capabilities declare supports_resume, supports_schema, supports_budget_cap"
+      ],
+      "verify_probe": "pnpm probe adapters/contract-types",
+      "files_hint": [
+        "packages/adapters/src/sdk/src/contract.ts"
+      ],
+      "agent_suitability": "agent",
+      "gate": "none",
+      "status": "open",
+      "full_depends_on": [
+        "WS-P0-010",
+        "WS-P0-011"
+      ],
+      "full_files_hint": [
+        "packages/adapter-sdk/src/contract.ts"
+      ],
+      "origin": "full-plan row, included",
+      "core_milestone": "C0"
+    },
+    {
+      "id": "FW-C-007",
+      "title": "Fake vendor adapter with scripted faults",
+      "phase": 0,
+      "epic": "C0.5 Adapters",
+      "priority": "P0",
+      "size": "M",
+      "lane": "adapters",
+      "depends_on": [
+        "WS-P0-026"
+      ],
+      "description": "A deterministic adapter used by every test: success, schema-invalid output, nonzero exit, runaway process, cost overrun, fabricated artifact claim and injection-laden output, plus a recorder that turns a real CLI transcript into a replayable fixture.",
+      "acceptance": [
+        "Each of the seven scripted behaviours is selectable by a tag in the work order title",
+        "It runs with no network and no keys",
+        "The fabricated-claim script makes the artifact guard refuse the run (used by WS-P0-039)"
+      ],
+      "verify_probe": "pnpm probe adapters/fake-vendor",
+      "files_hint": [
+        "packages/adapters/src/fake/"
+      ],
+      "agent_suitability": "agent",
+      "gate": "none",
+      "status": "open",
+      "origin": "new Core row",
+      "derived_from": [
+        "WS-P0-027"
+      ],
+      "core_milestone": "C0"
+    },
+    {
+      "id": "WS-P0-027",
+      "title": "Adapter conformance suite v0",
+      "phase": 0,
+      "epic": "E0.5 Adapter contract and first vendor",
+      "priority": "P0",
+      "size": "L",
+      "lane": "adapters",
+      "depends_on": [
+        "WS-P0-026",
+        "FW-C-007"
+      ],
+      "description": "Build a reusable conformance suite any adapter must pass: schema-valid output, nonzero exit equals failure, missing structured output equals failure, budget cap honored, wall-clock cap honored, session id stored.",
+      "acceptance": [
+        "Reference fake adapter passes all 8 cases",
+        "A deliberately broken fake fails the matching case each time",
+        "Suite runs against fixtures without network or keys"
+      ],
+      "verify_probe": "pnpm probe adapters/conformance-suite",
+      "files_hint": [
+        "packages/adapters/src/sdk/src/conformance/"
+      ],
+      "agent_suitability": "pair",
+      "gate": "none",
+      "status": "open",
+      "full_depends_on": [
+        "WS-P0-026"
+      ],
+      "full_files_hint": [
+        "packages/adapter-sdk/src/conformance/"
+      ],
+      "origin": "full-plan row, included",
+      "core_milestone": "C0"
+    },
+    {
+      "id": "WS-P0-028",
+      "title": "Supervisor: caps on budget, turns and wall clock",
+      "phase": 0,
+      "epic": "E0.5 Adapter contract and first vendor",
+      "priority": "P0",
+      "size": "M",
+      "lane": "runtime",
+      "depends_on": [
+        "WS-P0-026",
+        "WS-P0-025"
+      ],
+      "description": "Wrap any adapter run in a supervisor that enforces dollar, turn and wall-clock caps and kills the process tree on breach.",
+      "acceptance": [
+        "A fake runaway process is killed within 2 s of the wall-clock cap",
+        "Breach is recorded as cap_breach with which cap",
+        "No orphan child processes remain (checked via process listing)"
+      ],
+      "verify_probe": "pnpm probe runtime/supervisor-caps",
+      "files_hint": [
+        "packages/daemon/src/runtime/src/supervisor.ts"
+      ],
+      "agent_suitability": "agent",
+      "gate": "none",
+      "status": "open",
+      "full_depends_on": [
+        "WS-P0-026",
+        "WS-P0-025"
+      ],
+      "full_files_hint": [
+        "packages/runtime/src/supervisor.ts"
+      ],
+      "origin": "full-plan row, included",
+      "core_milestone": "C0"
+    },
+    {
+      "id": "WS-P0-029",
+      "title": "Credential handle v0 (OS keychain)",
+      "phase": 0,
+      "epic": "E0.5 Adapter contract and first vendor",
+      "priority": "P0",
+      "size": "M",
+      "lane": "security",
+      "depends_on": [
+        "FW-C-001"
+      ],
+      "description": "Provide a credential handle abstraction backed by the OS keychain; secrets injected into the child process env only and never written to disk or the event log.",
+      "acceptance": [
+        "Handle resolves a secret from the keychain stub in tests",
+        "Secret is absent from process args and from any file under the run directory (scan)",
+        "Missing secret fails with a typed error and an actionable message"
+      ],
+      "verify_probe": "pnpm probe security/credential-handle",
+      "files_hint": [
+        "packages/daemon/src/creds/"
+      ],
+      "agent_suitability": "pair",
+      "gate": "owner-approval",
+      "status": "open",
+      "full_depends_on": [
+        "WS-P0-001"
+      ],
+      "full_files_hint": [
+        "apps/fwd-broker/src/creds/"
+      ],
+      "origin": "full-plan row, included",
+      "core_milestone": "C0",
+      "core_adaptation": "No broker process in Core: the daemon resolves handles (OS keychain, or a 0600 file under FW_HOME on headless Linux) and injects them into the vendor process only."
+    },
+    {
+      "id": "WS-P0-030",
+      "title": "Claude headless adapter",
+      "phase": 0,
+      "epic": "E0.5 Adapter contract and first vendor",
+      "priority": "P0",
+      "size": "L",
+      "lane": "adapters",
+      "depends_on": [
+        "WS-P0-027",
+        "WS-P0-028",
+        "WS-P0-029"
+      ],
+      "description": "Implement the adapter over claude -p with JSON output, schema-constrained result, budget cap flag, session resume, API-key credential only.",
+      "acceptance": [
+        "Passes the conformance suite against a recorded-CLI fixture",
+        "Refuses to start if credential kind is not api_key",
+        "Stores session_id on the row and resumes it in a second run test"
+      ],
+      "verify_probe": "pnpm probe adapters/claude-conformance",
+      "files_hint": [
+        "packages/adapters/src/claude/src/"
+      ],
+      "agent_suitability": "agent",
+      "gate": "none",
+      "status": "open",
+      "full_depends_on": [
+        "WS-P0-027",
+        "WS-P0-028",
+        "WS-P0-029"
+      ],
+      "full_files_hint": [
+        "packages/adapter-claude/src/"
+      ],
+      "origin": "full-plan row, included",
+      "core_milestone": "C0"
+    },
+    {
+      "id": "WS-P0-032",
+      "title": "Git worktree manager",
+      "phase": 0,
+      "epic": "E0.6 Runner: worktree and container",
+      "priority": "P0",
+      "size": "M",
+      "lane": "runtime",
+      "depends_on": [
+        "FW-C-001"
+      ],
+      "description": "Create, lock, list and remove one worktree per Work Order from a base commit; enforce one active worktree per order id.",
+      "acceptance": [
+        "Second worktree for the same order id is refused",
+        "Removal leaves no stale git metadata",
+        "Worktree path is outside the main checkout"
+      ],
+      "verify_probe": "pnpm probe runtime/worktree-manager",
+      "files_hint": [
+        "packages/daemon/src/runtime/src/worktree.ts"
+      ],
+      "agent_suitability": "agent",
+      "gate": "none",
+      "status": "open",
+      "full_depends_on": [
+        "WS-P0-001"
+      ],
+      "full_files_hint": [
+        "packages/runtime/src/worktree.ts"
+      ],
+      "origin": "full-plan row, included",
+      "core_milestone": "C0"
+    },
+    {
+      "id": "FW-C-008",
+      "title": "Minimal sandbox: per-run directory, scrubbed environment, honest self-test",
+      "phase": 0,
+      "epic": "C0.5 Adapters",
+      "priority": "P0",
+      "size": "M",
+      "lane": "runtime",
+      "depends_on": [
+        "WS-P0-032",
+        "WS-P0-028"
+      ],
+      "description": "Run every vendor process in FW_HOME/runs/<run_id> with an allowlisted environment, a HOME override, the worktree as working directory, process-group kill, an optional separate OS user (FW_SANDBOX_USER) and HTTPS_PROXY/NO_PROXY set to an allowlist proxy where the vendor CLI honours it. A self-test reports each control as enforced, best_effort or absent. The run directory holds stdout, stderr, result JSON and diff, with hashes in events, and fw gc removes it.",
+      "acceptance": [
+        "The child environment contains only allowlisted variables (test prints it)",
+        "The self-test reports each control as enforced, best_effort or absent and fw doctor shows it",
+        "A run directory is removable by fw gc without touching the worktree branch"
+      ],
+      "verify_probe": "pnpm probe runtime/sandbox-userdir",
+      "files_hint": [
+        "packages/daemon/src/runtime/sandbox.ts",
+        "packages/daemon/src/runtime/run-dir.ts"
+      ],
+      "agent_suitability": "pair",
+      "gate": "none",
+      "status": "open",
+      "origin": "new Core row",
+      "derived_from": [
+        "WS-P0-033",
+        "WS-P0-034"
+      ],
+      "core_milestone": "C0"
+    },
+    {
+      "id": "WS-P0-035",
+      "title": "Diff-policy engine v0",
+      "phase": 0,
+      "epic": "E0.7 Diff-policy and evidence",
+      "priority": "P0",
+      "size": "M",
+      "lane": "policy",
+      "depends_on": [
+        "FW-C-002"
+      ],
+      "description": "Pure function over a diff and a Work Order: reject forbidden paths, deleted or skipped tests, config relaxations (coverage, lint, timeouts), size over cap, new dependencies when disallowed.",
+      "acceptance": [
+        "Fixture diffs for each of 6 violation types fail with the named rule",
+        "A clean fixture passes",
+        "Rules are data in a Tier 0 file, not code constants"
+      ],
+      "verify_probe": "pnpm probe policy/diff-policy",
+      "files_hint": [
+        "packages/policy/src/diff-policy.ts",
+        "policy/rules/diff-policy.json"
+      ],
+      "agent_suitability": "agent",
+      "gate": "none",
+      "status": "open",
+      "full_depends_on": [
+        "WS-P0-010"
+      ],
+      "full_files_hint": [
+        "packages/policy/src/diff-policy.ts",
+        "policy/rules/diff-policy.json"
+      ],
+      "origin": "full-plan row, included",
+      "core_milestone": "C0"
+    },
+    {
+      "id": "WS-P0-036",
+      "title": "Git host edge adapter: branch, PR, status",
+      "phase": 0,
+      "epic": "E0.7 Diff-policy and evidence",
+      "priority": "P0",
+      "size": "M",
+      "lane": "adapters",
+      "depends_on": [
+        "WS-P0-026"
+      ],
+      "description": "Implement branch push, PR create, PR read and check-status read over the git host CLI or API with a fine-scoped token.",
+      "acceptance": [
+        "PR creation against a sandbox repo returns URL and head SHA",
+        "Token scope check refuses a token with admin rights",
+        "Rate-limit and 5xx responses are retried with backoff and logged"
+      ],
+      "verify_probe": "pnpm probe adapters/git-edge",
+      "files_hint": [
+        "packages/daemon/src/edge-git/src/"
+      ],
+      "agent_suitability": "agent",
+      "gate": "none",
+      "status": "open",
+      "full_depends_on": [
+        "WS-P0-026"
+      ],
+      "full_files_hint": [
+        "packages/edge-git/src/"
+      ],
+      "origin": "full-plan row, included",
+      "core_milestone": "C0",
+      "core_adaptation": "Uses the gh CLI with a fine-scoped token; the same port is implemented by a local bare-repo host for tests."
+    },
+    {
+      "id": "WS-P0-038",
+      "title": "Evidence Bundle builder",
+      "phase": 0,
+      "epic": "E0.7 Diff-policy and evidence",
+      "priority": "P0",
+      "size": "M",
+      "lane": "kernel",
+      "depends_on": [
+        "FW-C-002",
+        "FW-C-008",
+        "WS-P0-035"
+      ],
+      "description": "Assemble the bundle from the diff, probe output, test report, diff-policy result and cost, write the manifest and store its hash in the event log.",
+      "acceptance": [
+        "Bundle includes the literal diff rendered as text",
+        "Changing any member file changes the bundle hash",
+        "Bundle is attached to the PR as a comment with the hash"
+      ],
+      "verify_probe": "pnpm probe kernel/evidence-builder",
+      "files_hint": [
+        "packages/policy/src/approvals/src/evidence/"
+      ],
+      "agent_suitability": "agent",
+      "gate": "none",
+      "status": "open",
+      "full_depends_on": [
+        "WS-P0-013",
+        "WS-P0-034",
+        "WS-P0-035"
+      ],
+      "full_files_hint": [
+        "packages/approvals/src/evidence/"
+      ],
+      "origin": "full-plan row, included",
+      "core_milestone": "C0"
+    },
+    {
+      "id": "WS-P0-039",
+      "title": "Done only when the ledger sees an artifact",
+      "phase": 0,
+      "epic": "E0.7 Diff-policy and evidence",
+      "priority": "P0",
+      "size": "S",
+      "lane": "kernel",
+      "depends_on": [
+        "WS-P0-036",
+        "WS-P0-016"
+      ],
+      "description": "A Run may only complete a row when an artifact pointer (PR URL plus head SHA) is verified to exist on the git host; \"Completed\" text alone never advances status.",
+      "acceptance": [
+        "Run with claimed success and no PR leaves the row in verifying with a flagged event",
+        "PR pointer is re-fetched and head SHA compared",
+        "Test covers an agent that fabricates a PR URL"
+      ],
+      "verify_probe": "pnpm probe kernel/artifact-required",
+      "files_hint": [
+        "packages/ledger/src/artifact-guard.ts"
+      ],
+      "agent_suitability": "agent",
+      "gate": "none",
+      "status": "open",
+      "full_depends_on": [
+        "WS-P0-036",
+        "WS-P0-016"
+      ],
+      "full_files_hint": [
+        "packages/ledger/src/artifact-guard.ts"
+      ],
+      "origin": "full-plan row, included",
+      "core_milestone": "C0",
+      "core_adaptation": "Mirrors the SQL rule that a run succeeds only with a kernel-verified run_artifacts row."
+    },
+    {
+      "id": "WS-P0-040",
+      "title": "Work Order compiler from a ledger row",
+      "phase": 0,
+      "epic": "E0.8 CLI and walking skeleton",
+      "priority": "P0",
+      "size": "M",
+      "lane": "kernel",
+      "depends_on": [
+        "FW-C-005",
+        "FW-C-002"
+      ],
+      "description": "Compile a ledger row plus repo state into a valid Work Order: derive scope.touches from files_hint, acceptance from probe, budget from size.",
+      "acceptance": [
+        "Output validates against the Work Order schema",
+        "Row without files_hint compiles with a restrictive default scope",
+        "Compile is deterministic for the same inputs"
+      ],
+      "verify_probe": "pnpm probe kernel/work-order-compile",
+      "files_hint": [
+        "packages/ledger/src/workorder/compile.ts"
+      ],
+      "agent_suitability": "agent",
+      "gate": "none",
+      "status": "open",
+      "full_depends_on": [
+        "WS-P0-017",
+        "WS-P0-010"
+      ],
+      "full_files_hint": [
+        "packages/ledger/src/workorder/compile.ts"
+      ],
+      "origin": "full-plan row, included",
+      "core_milestone": "C0"
+    },
+    {
+      "id": "WS-P0-041",
+      "title": "fw run start <row>: the single-command pipeline",
+      "phase": 0,
+      "epic": "E0.8 CLI and walking skeleton",
+      "priority": "P0",
+      "size": "L",
+      "lane": "kernel",
+      "depends_on": [
+        "WS-P0-040",
+        "WS-P0-020",
+        "WS-P0-030",
+        "FW-C-008",
+        "WS-P0-038",
+        "WS-P0-039",
+        "WS-P0-036",
+        "WS-P0-021"
+      ],
+      "description": "Orchestrate premise re-test, worktree, container run, probe, diff-policy, evidence bundle and PR creation as one command; a human merges.",
+      "acceptance": [
+        "Fake-vendor run of a fixture row ends with a PR, bundle and cost record",
+        "Failure at any stage leaves a typed failed event and no dangling worktree",
+        "fw run start is idempotent: re-running a done row refuses"
+      ],
+      "verify_probe": "pnpm probe e2e/walking-skeleton-fake",
+      "files_hint": [
+        "packages/cli/src/commands/run.ts",
+        "packages/daemon/src/pipeline.ts"
+      ],
+      "agent_suitability": "pair",
+      "gate": "none",
+      "status": "open",
+      "full_depends_on": [
+        "WS-P0-040",
+        "WS-P0-020",
+        "WS-P0-030",
+        "WS-P0-033",
+        "WS-P0-038",
+        "WS-P0-039",
+        "WS-P0-036"
+      ],
+      "full_files_hint": [
+        "apps/cli/src/commands/run.ts",
+        "apps/fwd/src/pipeline.ts"
+      ],
+      "origin": "full-plan row, included",
+      "core_milestone": "C0",
+      "core_adaptation": "In-process library call from the CLI in C0 (no daemon yet); the same pipeline module becomes the daemon job in C1. The human merges."
+    },
+    {
+      "id": "WS-P0-042",
+      "title": "End-to-end test with fake vendor",
+      "phase": 0,
+      "epic": "E0.8 CLI and walking skeleton",
+      "priority": "P0",
+      "size": "M",
+      "lane": "devex",
+      "depends_on": [
+        "WS-P0-041",
+        "FW-C-007"
+      ],
+      "description": "Hermetic e2e test using the fake adapter and a local bare git remote, running in CI on every PR.",
+      "acceptance": [
+        "Runs with no network and no keys",
+        "Asserts PR, bundle, audit chain and cost rollup",
+        "Completes under 90 s in CI"
+      ],
+      "verify_probe": "pnpm probe e2e/walking-skeleton-ci",
+      "files_hint": [
+        "e2e/walking-skeleton.test.ts"
+      ],
+      "agent_suitability": "agent",
+      "gate": "none",
+      "status": "open",
+      "full_depends_on": [
+        "WS-P0-041"
+      ],
+      "full_files_hint": [
+        "e2e/walking-skeleton.test.ts"
+      ],
+      "origin": "full-plan row, included",
+      "core_milestone": "C0"
+    },
+    {
+      "id": "WS-P0-043",
+      "title": "Walking skeleton on a real repo and real vendor",
+      "phase": 0,
+      "epic": "E0.8 CLI and walking skeleton",
+      "priority": "P0",
+      "size": "M",
+      "lane": "devex",
+      "depends_on": [
+        "WS-P0-041",
+        "WS-P0-003"
+      ],
+      "description": "Human-supervised run of one real low-risk ledger row from this repo through fw run start to a merged PR; capture the transcript for the demo.",
+      "acceptance": [
+        "A real PR exists with evidence bundle comment and hash",
+        "Audit chain verifies for the run",
+        "Cost record is under the row budget"
+      ],
+      "verify_probe": "bash scripts/probe-first-real-pr.sh",
+      "files_hint": [
+        "scripts/probe-first-real-pr.sh",
+        "docs/demos/phase0.md"
+      ],
+      "agent_suitability": "human",
+      "gate": "owner-approval",
+      "status": "open",
+      "full_depends_on": [
+        "WS-P0-041",
+        "WS-P0-031",
+        "WS-P0-003"
+      ],
+      "full_files_hint": [
+        "scripts/probe-first-real-pr.sh",
+        "docs/demos/phase0.md"
+      ],
+      "origin": "full-plan row, included",
+      "core_milestone": "C0",
+      "core_adaptation": "Also carries the old WS-P0-031 smoke check: the first real vendor call runs under a hard 0.50 USD cap before the real row."
+    },
+    {
+      "id": "WS-P0-044",
+      "title": "Phase 0 demo script and exit review",
+      "phase": 0,
+      "epic": "E0.8 CLI and walking skeleton",
+      "priority": "P1",
+      "size": "S",
+      "lane": "docs",
+      "depends_on": [
+        "WS-P0-043",
+        "WS-P0-042",
+        "WS-P0-023"
+      ],
+      "description": "Write the executable demo script and run the Phase 0 exit checklist; Owner signs the review.",
+      "acceptance": [
+        "demo.sh runs end to end from a clean clone on the demo machine",
+        "Exit checklist in BUILD-PLAN Phase 0 is fully ticked in docs/phase-reviews/0.md",
+        "Kill criteria evaluated and recorded"
+      ],
+      "verify_probe": "bash scripts/probe-phase0-exit.sh",
+      "files_hint": [
+        "docs/phase-reviews/0.md",
+        "scripts/demo-p0.sh"
+      ],
+      "agent_suitability": "human",
+      "gate": "owner-approval",
+      "status": "open",
+      "full_depends_on": [
+        "WS-P0-043"
+      ],
+      "full_files_hint": [
+        "docs/phase-reviews/0.md",
+        "scripts/demo-p0.sh"
+      ],
+      "origin": "full-plan row, included",
+      "core_milestone": "C0",
+      "core_adaptation": "Records docs/milestone-reviews/C0.md; the demo is the C0 exit criterion in CORE-BACKLOG-VIEW.md."
+    },
+    {
+      "id": "WS-P1-001",
+      "title": "Control-plane daemon skeleton",
+      "phase": 1,
+      "epic": "E1.1 Daemon, streams, scheduler, reconciler",
+      "priority": "P0",
+      "size": "M",
+      "lane": "kernel",
+      "depends_on": [
+        "WS-P0-041"
+      ],
+      "description": "Create the long-running Node daemon with config loading, structured logging, graceful shutdown, and a local-only health endpoint; the CLI talks to it over a unix socket.",
+      "acceptance": [
+        "Daemon starts, reports healthy, and stops cleanly on SIGTERM with in-flight runs recorded as interrupted",
+        "Health endpoint binds to loopback only (verified by port scan test)",
+        "CLI fw status works against the daemon and falls back to direct DB read when it is down"
+      ],
+      "verify_probe": "pnpm probe kernel/daemon-lifecycle",
+      "files_hint": [
+        "packages/daemon/src/"
+      ],
+      "agent_suitability": "agent",
+      "gate": "none",
+      "status": "open",
+      "full_depends_on": [
+        "WS-P0-041"
+      ],
+      "full_files_hint": [
+        "apps/fwd/src/",
+        "apps/fwd/src/"
+      ],
+      "origin": "full-plan row, included",
+      "core_milestone": "C1",
+      "core_adaptation": "Single daemon fwd: owns the writer lock, hosts the pipeline, scheduler, reconciler, API and checks. The CLI becomes a client of it."
+    },
+    {
+      "id": "FW-C-009",
+      "title": "Policy engine v0 over core-policy.yaml",
+      "phase": 2,
+      "epic": "C1.2 Gates",
+      "priority": "P0",
+      "size": "L",
+      "lane": "policy",
+      "depends_on": [
+        "FW-C-002",
+        "WS-P1-001"
+      ],
+      "description": "Deterministic deny-overrides evaluator: decide(action, role, environment, context) returns allow, deny, ask, escalate, require_challenge or cap_tier with the matching rule id. Unmatched is deny and logged; an evaluator error is deny. fw policy check is a dry run; fw policy apply compiles rules into policy_rules and budgets into budgets and needs the Owner identity.",
+      "acceptance": [
+        "The 12 shipped rules each have a fixture that matches and one that does not",
+        "An evaluator exception returns deny and emits a refusal event with the reason",
+        "fw policy check --action merge_main --env production prints ask, L3 and pol_0120 and exits 0"
+      ],
+      "verify_probe": "pnpm probe policy/engine",
+      "files_hint": [
+        "packages/policy/src/engine/",
+        "policy/core-policy.yaml"
+      ],
+      "agent_suitability": "pair",
+      "gate": "owner-approval",
+      "status": "open",
+      "origin": "new Core row",
+      "derived_from": [
+        "WS-P2-001",
+        "WS-P2-002",
+        "WS-P2-042"
+      ],
+      "core_milestone": "C1"
+    },
+    {
+      "id": "WS-P1-008",
+      "title": "Lease manager with expiry",
+      "phase": 1,
+      "epic": "E1.2 Leases, heartbeats, locks",
+      "priority": "P0",
+      "size": "M",
+      "lane": "runtime",
+      "depends_on": [
+        "FW-C-003",
+        "WS-P1-001"
+      ],
+      "description": "Time-limited leases on worktree, branch and stream with owner id, expiry and fencing token.",
+      "acceptance": [
+        "Second claimant is refused while a lease is valid",
+        "Expired lease can be taken and the old fencing token is rejected",
+        "Lease operations are atomic under concurrent processes"
+      ],
+      "verify_probe": "pnpm probe runtime/lease-manager",
+      "files_hint": [
+        "packages/ledger/src/leases/src/"
+      ],
+      "agent_suitability": "agent",
+      "gate": "none",
+      "status": "open",
+      "full_depends_on": [
+        "WS-P0-015"
+      ],
+      "full_files_hint": [
+        "packages/leases/src/"
+      ],
+      "origin": "full-plan row, included",
+      "core_milestone": "C1",
+      "core_adaptation": "Heartbeat and expiry sweep live here; there is no separate heartbeat row in Core."
+    },
+    {
+      "id": "WS-P1-015",
+      "title": "Codex exec adapter",
+      "phase": 1,
+      "epic": "E1.4 Second vendor and routing",
+      "priority": "P0",
+      "size": "L",
+      "lane": "adapters",
+      "depends_on": [
+        "WS-P0-027",
+        "WS-P0-028",
+        "WS-P0-029"
+      ],
+      "description": "Implement the adapter over codex exec with JSONL events, output schema and resume, using API-key credentials.",
+      "acceptance": [
+        "Passes the conformance suite against recorded fixtures",
+        "Event stream maps to the common Run Result without vendor fields leaking into the kernel",
+        "Resume works in a two-step test"
+      ],
+      "verify_probe": "pnpm probe adapters/codex-conformance",
+      "files_hint": [
+        "packages/adapters/src/codex/src/"
+      ],
+      "agent_suitability": "agent",
+      "gate": "none",
+      "status": "open",
+      "full_depends_on": [
+        "WS-P0-027",
+        "WS-P0-028",
+        "WS-P0-029"
+      ],
+      "full_files_hint": [
+        "packages/adapter-codex/src/"
+      ],
+      "origin": "full-plan row, included",
+      "core_milestone": "C1"
+    },
+    {
+      "id": "WS-P1-016",
+      "title": "Adapter registry and capability routing",
+      "phase": 1,
+      "epic": "E1.4 Second vendor and routing",
+      "priority": "P0",
+      "size": "M",
+      "lane": "adapters",
+      "depends_on": [
+        "WS-P1-015",
+        "WS-P0-030"
+      ],
+      "description": "Select an adapter per Work Order by required capability, cost tier and privacy tier; fall back with a logged reason.",
+      "acceptance": [
+        "Order needing schema output is routed only to adapters declaring it",
+        "Fallback emits route_fallback with reason",
+        "Routing table is data in Tier 1"
+      ],
+      "verify_probe": "pnpm probe adapters/routing",
+      "files_hint": [
+        "packages/adapters/src/sdk/src/registry.ts",
+        "config/routing.json"
+      ],
+      "agent_suitability": "agent",
+      "gate": "none",
+      "status": "open",
+      "full_depends_on": [
+        "WS-P1-015",
+        "WS-P0-030"
+      ],
+      "full_files_hint": [
+        "packages/adapter-sdk/src/registry.ts",
+        "config/routing.json"
+      ],
+      "origin": "full-plan row, included",
+      "core_milestone": "C1",
+      "core_adaptation": "Two real adapters; the routing table is config/routing.json."
+    },
+    {
+      "id": "WS-P1-012",
+      "title": "Budget governor: per-run caps and refusal",
+      "phase": 1,
+      "epic": "E1.3 Budget governor",
+      "priority": "P0",
+      "size": "M",
+      "lane": "policy",
+      "depends_on": [
+        "WS-P0-025",
+        "WS-P0-028",
+        "FW-C-009"
+      ],
+      "description": "Check every run start against per-run budget and refuse over-budget starts with a logged refusal event; Tier 0 owns the numbers.",
+      "acceptance": [
+        "Run with a budget above the stream envelope is refused and logged",
+        "Refusal event names the cap and the requested amount",
+        "Budget config changes require a Tier 0 PR"
+      ],
+      "verify_probe": "pnpm probe policy/budget-governor",
+      "files_hint": [
+        "packages/policy/src/budget/src/budget.ts",
+        "policy/budgets.json"
+      ],
+      "agent_suitability": "agent",
+      "gate": "owner-approval",
+      "status": "open",
+      "full_depends_on": [
+        "WS-P0-025",
+        "WS-P0-028"
+      ],
+      "full_files_hint": [
+        "packages/budget/src/budget.ts",
+        "policy/budgets.json"
+      ],
+      "origin": "full-plan row, included",
+      "core_milestone": "C1",
+      "core_adaptation": "The SQL triggers are the backstop (admission refusal and kill on spend); this row adds the refusal and threshold events and the numbers from core-policy.yaml."
+    },
+    {
+      "id": "WS-P1-003",
+      "title": "Stream object model and schema",
+      "phase": 1,
+      "epic": "E1.1 Daemon, streams, scheduler, reconciler",
+      "priority": "P0",
+      "size": "M",
+      "lane": "kernel",
+      "depends_on": [
+        "WS-P1-001",
+        "FW-C-002"
+      ],
+      "description": "Define Stream: id, project, trigger (cron, webhook, manual), lane, autonomy tier, budget envelope, template id; store in the ledger DB.",
+      "acceptance": [
+        "Stream without a budget is rejected",
+        "Autonomy tier above L2 requires a recorded owner approval id",
+        "Streams are listed by fw stream list"
+      ],
+      "verify_probe": "pnpm probe kernel/stream-model",
+      "files_hint": [
+        "packages/daemon/src/streams/src/streams/",
+        "packages/contracts/src/stream.ts"
+      ],
+      "agent_suitability": "agent",
+      "gate": "none",
+      "status": "open",
+      "full_depends_on": [
+        "WS-P1-001",
+        "WS-P0-012"
+      ],
+      "full_files_hint": [
+        "packages/streams/src/streams/",
+        "packages/contracts/src/stream.ts"
+      ],
+      "origin": "full-plan row, included",
+      "core_milestone": "C1"
+    },
+    {
+      "id": "WS-P1-004",
+      "title": "Scheduler: cron and manual triggers",
+      "phase": 1,
+      "epic": "E1.1 Daemon, streams, scheduler, reconciler",
+      "priority": "P0",
+      "size": "M",
+      "lane": "kernel",
+      "depends_on": [
+        "WS-P1-003"
+      ],
+      "description": "Fire streams on cron and manual triggers with jittered next-fire computation, missed-fire detection and a persisted job ledger of every fire.",
+      "acceptance": [
+        "A cron stream fires within 1 s of schedule in a fake-clock test",
+        "Missed fires after daemon downtime are recorded as missed, not silently dropped",
+        "Every fire has a job-ledger row with outcome"
+      ],
+      "verify_probe": "pnpm probe kernel/scheduler",
+      "files_hint": [
+        "packages/daemon/src/scheduler/src/"
+      ],
+      "agent_suitability": "agent",
+      "gate": "none",
+      "status": "open",
+      "full_depends_on": [
+        "WS-P1-003"
+      ],
+      "full_files_hint": [
+        "packages/scheduler/src/"
+      ],
+      "origin": "full-plan row, included",
+      "core_milestone": "C1"
+    },
+    {
+      "id": "WS-P1-006",
+      "title": "Reconciler: compare the world to the ledger",
+      "phase": 1,
+      "epic": "E1.1 Daemon, streams, scheduler, reconciler",
+      "priority": "P0",
+      "size": "L",
+      "lane": "kernel",
+      "depends_on": [
+        "WS-P1-004",
+        "WS-P0-036",
+        "WS-P0-016",
+        "WS-P1-008"
+      ],
+      "description": "Periodically compare open PRs, merged PRs and branches on the git host with ledger rows; repair status drift and open a row for anything unexplained.",
+      "acceptance": [
+        "A PR merged outside the tool moves its row to merged and queues the probe",
+        "An open PR with no row creates an orphan_pr row",
+        "Reconcile pass is idempotent (second run produces zero changes)"
+      ],
+      "verify_probe": "pnpm probe kernel/reconciler",
+      "files_hint": [
+        "packages/daemon/src/scheduler/src/reconciler/"
+      ],
+      "agent_suitability": "agent",
+      "gate": "none",
+      "status": "open",
+      "full_depends_on": [
+        "WS-P1-004",
+        "WS-P0-036",
+        "WS-P0-016"
+      ],
+      "full_files_hint": [
+        "packages/scheduler/src/reconciler/"
+      ],
+      "origin": "full-plan row, included",
+      "core_milestone": "C1"
+    },
+    {
+      "id": "WS-P1-024",
+      "title": "Decision item model",
+      "phase": 1,
+      "epic": "E1.6 Decision inbox v0 and notifications",
+      "priority": "P0",
+      "size": "M",
+      "lane": "kernel",
+      "depends_on": [
+        "WS-P1-003"
+      ],
+      "description": "Define Decision item types (approve_deny, choose, answer, review, unblock) with payload preview, deadline, default action, and status.",
+      "acceptance": [
+        "Item without a default action is rejected",
+        "Expired item applies its default (deny) and logs it",
+        "Types are a closed union"
+      ],
+      "verify_probe": "pnpm probe kernel/decision-model",
+      "files_hint": [
+        "packages/contracts/src/decision.ts",
+        "packages/policy/src/approvals/src/inbox/"
+      ],
+      "agent_suitability": "agent",
+      "gate": "none",
+      "status": "open",
+      "full_depends_on": [
+        "WS-P1-003"
+      ],
+      "full_files_hint": [
+        "packages/contracts/src/decision.ts",
+        "packages/approvals/src/inbox/"
+      ],
+      "origin": "full-plan row, included",
+      "core_milestone": "C1",
+      "core_adaptation": "Backed by decision_cards; Core renders approve, choose and answer and shows other variants generically."
+    },
+    {
+      "id": "FW-C-014",
+      "title": "Verifier role: read-only, clean context, different vendor",
+      "phase": 1,
+      "epic": "C1.1 Second vendor and review",
+      "priority": "P0",
+      "size": "L",
+      "lane": "runtime",
+      "depends_on": [
+        "WS-P1-016",
+        "WS-P0-032",
+        "FW-C-008"
+      ],
+      "description": "A read-only run by a different agent, preferring a different vendor from the maker, with no maker transcript and no write mount, using an adversarial brief kept in prompts/ (Tier 1). It returns evidence-bundle.independent_check (concur, concerns or reject) with a reproduction command for each high finding. Single-vendor fallback sets same_vendor_review and is shown to the Owner. Advisory at L3: ground-truth gates outrank it.",
+      "acceptance": [
+        "The verifier cannot write to the worktree (a write attempt fails in a test)",
+        "A maker on claude gets a codex verifier when both are configured; a single-vendor config sets same_vendor_review",
+        "A fixture with a planted bug is caught by the fake verifier path with a reproduction command"
+      ],
+      "verify_probe": "pnpm probe runtime/verifier-role",
+      "files_hint": [
+        "packages/daemon/src/runtime/verifier.ts",
+        "prompts/review-adversarial.md",
+        "packages/adapters/src/sdk/review-pick.ts"
+      ],
+      "agent_suitability": "pair",
+      "gate": "none",
+      "status": "open",
+      "origin": "new Core row",
+      "derived_from": [
+        "WS-P1-020",
+        "WS-P1-021",
+        "WS-P1-022"
+      ],
+      "core_milestone": "C1"
+    },
+    {
+      "id": "FW-C-010",
+      "title": "Approval service: hash-bound, Owner only, default deny",
+      "phase": 2,
+      "epic": "C1.2 Gates",
+      "priority": "P0",
+      "size": "L",
+      "lane": "policy",
+      "depends_on": [
+        "FW-C-009",
+        "WS-P1-024",
+        "WS-P0-038"
+      ],
+      "description": "Request, decision card, Owner response bound to payload_hash and head_sha, default deny at expiry, red-scan bundles unrequestable. fw approve and fw deny sign with a device key held in the OS keychain (cli_signed); the web UI posts deck_click from a paired session; a challenge phrase is delivered in the terminal for projects that auto-deploy on merge; a cap of approvals per hour.",
+      "acceptance": [
+        "A response whose payload_hash differs from the request is rejected and recorded as approval.rejected_hash_mismatch",
+        "An approval past expires_at cannot be used and the default (deny) is applied and recorded",
+        "Neither an agent identity nor an unpaired session can answer (tested with both)"
+      ],
+      "verify_probe": "pnpm probe policy/approval-service",
+      "files_hint": [
+        "packages/policy/src/approvals/"
+      ],
+      "agent_suitability": "pair",
+      "gate": "owner-approval",
+      "status": "open",
+      "origin": "new Core row",
+      "derived_from": [
+        "WS-P2-008",
+        "WS-P2-009"
+      ],
+      "core_milestone": "C1"
+    },
+    {
+      "id": "FW-C-011",
+      "title": "Merge slot and merge executor",
+      "phase": 2,
+      "epic": "C1.2 Gates",
+      "priority": "P0",
+      "size": "L",
+      "lane": "policy",
+      "depends_on": [
+        "FW-C-010",
+        "WS-P0-036",
+        "WS-P1-008",
+        "FW-C-014"
+      ],
+      "description": "One slot per project and base branch. After verifier concurrence and green checks the Owner approves; the slot activates; head SHA and mergeability are revalidated immediately before the effect; the merge goes through the host with an expected-head compare-and-set (or the merge queue); the grant is consumed, merged_sha recorded and the probe runs on the merged artifact. Void on head change, base drift, expiry or kill switch; one bounded rebase attempt.",
+      "acceptance": [
+        "Pushing a commit after approval voids the slot and the approval, and nothing is merged (chaos test)",
+        "Two PRs queue; the second gets the slot only after the first lands and the base tip is rechecked",
+        "The merge call carries the approved head SHA as expected-head and a stale head is refused by the host"
+      ],
+      "verify_probe": "pnpm probe policy/merge-slot",
+      "files_hint": [
+        "packages/policy/src/merge-slot/",
+        "packages/daemon/src/edge-git/merge.ts"
+      ],
+      "agent_suitability": "pair",
+      "gate": "owner-approval",
+      "status": "open",
+      "origin": "new Core row",
+      "derived_from": [
+        "WS-P2-012",
+        "WS-P2-013"
+      ],
+      "core_milestone": "C1"
+    },
+    {
+      "id": "FW-C-012",
+      "title": "Kill switch that works with the daemon down",
+      "phase": 2,
+      "epic": "C1.2 Gates",
+      "priority": "P0",
+      "size": "M",
+      "lane": "security",
+      "depends_on": [
+        "FW-C-010",
+        "WS-P0-029",
+        "WS-P1-001"
+      ],
+      "description": "fw kill and the status-strip button engage settings.kill_switch; the SQL trigger cascades to runs, leases, grants and approvals in one transaction and the supervisor kills process groups. Engaging works with the daemon down (direct database write plus pidfile kill). Only the Owner releases it with fw resume, after the halted items are listed.",
+      "acceptance": [
+        "Engaging halts a running fake-vendor run within 2 s and leaves no active lease",
+        "With fwd stopped, fw kill still engages and the next daemon start refuses to dispatch",
+        "Release by a non-Owner identity is rejected by the database (test)"
+      ],
+      "verify_probe": "pnpm probe security/kill-switch",
+      "files_hint": [
+        "packages/daemon/src/killswitch.ts",
+        "packages/cli/src/commands/kill.ts"
+      ],
+      "agent_suitability": "pair",
+      "gate": "owner-approval",
+      "status": "open",
+      "origin": "new Core row",
+      "derived_from": [
+        "WS-P2-027"
+      ],
+      "core_milestone": "C1"
+    },
+    {
+      "id": "FW-C-013",
+      "title": "Auditor and Watchdog as deterministic checks",
+      "phase": 1,
+      "epic": "C1.3 Checks",
+      "priority": "P0",
+      "size": "L",
+      "lane": "policy",
+      "depends_on": [
+        "WS-P1-001",
+        "WS-P0-023",
+        "WS-P1-012"
+      ],
+      "description": "Code, not agents, on a timer inside fwd: chain verification every 15 minutes (a failure engages the kill switch), claim-versus-trace check, tamper tripwires on agent diffs, lease and approval expiry sweeps, heartbeat-absence alarm, cost-velocity and consecutive-failure breakers (pause the stream and raise a card), and a registry in which every fail-safe names the event it emits and the test that proves it.",
+      "acceptance": [
+        "A planted claim that tests passed, with no test tool call, raises run.claim_mismatch and quarantines the agent",
+        "A byte flipped in an old event is detected within one cycle and engages the kill switch",
+        "CI fails when a registered fail-safe has no emitting test"
+      ],
+      "verify_probe": "pnpm probe policy/auditor-watchdog",
+      "files_hint": [
+        "packages/policy/src/checks/",
+        "packages/daemon/src/watchdog.ts"
+      ],
+      "agent_suitability": "pair",
+      "gate": "none",
+      "status": "open",
+      "origin": "new Core row",
+      "derived_from": [
+        "WS-P2-023",
+        "WS-P2-024",
+        "WS-P2-028",
+        "WS-P1-013",
+        "WS-P1-036"
+      ],
+      "core_milestone": "C1"
+    },
+    {
+      "id": "WS-P1-035",
+      "title": "Dev-from-backlog stream template",
+      "phase": 1,
+      "epic": "E1.1 Daemon, streams, scheduler, reconciler",
+      "priority": "P0",
+      "size": "M",
+      "lane": "workstreams",
+      "depends_on": [
+        "WS-P1-003",
+        "WS-P0-040",
+        "FW-C-014",
+        "FW-C-011"
+      ],
+      "description": "Ship the first stream template (FR-TPL-001, first entry of FR-STR-004): pick the next ready ledger row, compile a Work Order, run it at the configured tier, open a PR. The template library framework arrives in WS-P3-001.",
+      "acceptance": [
+        "fw stream add -f with this template creates a stream that picks the next ready row",
+        "A run produces a PR and an evidence bundle on a fixture repo",
+        "The template contains no vendor names"
+      ],
+      "verify_probe": "pnpm probe workstreams/dev-template",
+      "files_hint": [
+        "packages/daemon/src/streams/src/templates/dev-from-backlog.ts"
+      ],
+      "agent_suitability": "agent",
+      "gate": "none",
+      "status": "open",
+      "full_depends_on": [
+        "WS-P1-003",
+        "WS-P0-040"
+      ],
+      "full_files_hint": [
+        "packages/streams/src/templates/dev-from-backlog.ts"
+      ],
+      "origin": "full-plan row, included",
+      "core_milestone": "C1",
+      "core_adaptation": "This is the dev-from-backlog workstream of Core; WIP limit 2 per project."
+    },
+    {
+      "id": "FW-C-015",
+      "title": "Container sandbox behind FW_SANDBOX=container",
+      "phase": 0,
+      "epic": "C1.3 Checks",
+      "priority": "P1",
+      "size": "L",
+      "lane": "runtime",
+      "depends_on": [
+        "FW-C-008",
+        "WS-P0-028"
+      ],
+      "description": "Optional profile: each vendor process in a rootless podman or docker container (non-root, cap-drop ALL, read-only root, worktree read-write only, no sockets or home, egress only to the allowlist proxy) with an escape and egress self-test. The default stays the userdir sandbox.",
+      "acceptance": [
+        "A curl from inside the container to a non-allowlisted host fails and is logged",
+        "Host home and the container socket are not visible inside",
+        "The fake-vendor end-to-end test passes with FW_SANDBOX=userdir and with FW_SANDBOX=container"
+      ],
+      "verify_probe": "pnpm probe runtime/container-sandbox",
+      "files_hint": [
+        "packages/daemon/src/runtime/container.ts"
+      ],
+      "agent_suitability": "pair",
+      "gate": "none",
+      "status": "open",
+      "origin": "new Core row",
+      "derived_from": [
+        "WS-P0-033"
+      ],
+      "core_milestone": "C1"
+    },
+    {
+      "id": "FW-C-016",
+      "title": "Safety chaos suite",
+      "phase": 2,
+      "epic": "C1.3 Checks",
+      "priority": "P0",
+      "size": "L",
+      "lane": "devex",
+      "depends_on": [
+        "FW-C-011",
+        "FW-C-012",
+        "FW-C-013",
+        "WS-P1-035",
+        "FW-C-007"
+      ],
+      "description": "End-to-end proofs on a local bare git host and the fake vendor: head moves after approval, approval replay, expired approval, double merge, kill during merge, budget breach mid-run, event tamper, fabricated PR claim, injection in repo text, and a worker editing a Tier 0 path. Each asserts the safe outcome and the event that records it.",
+      "acceptance": [
+        "All 10 scenarios pass in CI with no network",
+        "Each refusal scenario asserts nothing landed on the base branch",
+        "Removing any one guard makes at least one scenario fail (mutation check)"
+      ],
+      "verify_probe": "pnpm probe e2e/safety-chaos",
+      "files_hint": [
+        "e2e/chaos/"
+      ],
+      "agent_suitability": "pair",
+      "gate": "none",
+      "status": "open",
+      "origin": "new Core row",
+      "derived_from": [
+        "WS-P2-032"
+      ],
+      "core_milestone": "C1"
+    },
+    {
+      "id": "FW-C-017",
+      "title": "C1 exit: the safe loop on one real project for a week",
+      "phase": 1,
+      "epic": "C1.4 Exit",
+      "priority": "P0",
+      "size": "M",
+      "lane": "docs",
+      "depends_on": [
+        "FW-C-016",
+        "WS-P1-006",
+        "WS-P1-035"
+      ],
+      "description": "Run the loop on one real project: five rows through maker, verifier, approval and merge slot, one deliberate head-moves-after-approval drill and one kill drill. Record the result in docs/milestone-reviews/C1.md.",
+      "acceptance": [
+        "Five rows reach done through the slot with approvals bound to the head SHA",
+        "The drills produce the expected voided slot and the halted run",
+        "fw audit verify passes and spend stayed under the fleet daily cap on every day"
+      ],
+      "verify_probe": "bash scripts/probe-c1-exit.sh",
+      "files_hint": [
+        "docs/milestone-reviews/C1.md",
+        "scripts/probe-c1-exit.sh"
+      ],
+      "agent_suitability": "human",
+      "gate": "owner-approval",
+      "status": "open",
+      "origin": "new Core row",
+      "derived_from": [
+        "WS-P1-033"
+      ],
+      "core_milestone": "C1"
+    },
+    {
+      "id": "FW-C-018",
+      "title": "Typed local API and live event stream",
+      "phase": 4,
+      "epic": "C2.1 API and shell",
+      "priority": "P0",
+      "size": "L",
+      "lane": "kernel",
+      "depends_on": [
+        "WS-P1-001",
+        "FW-C-002",
+        "FW-C-010",
+        "FW-C-012"
+      ],
+      "description": "Fastify routes for every Core read (rows, runs, cards, spend, events) and write (answer a card, approve, kill, resume); OpenAPI and a TypeScript client generated from the contracts; an SSE stream resumable by seq; loopback bind with an Origin check; no business logic in routes.",
+      "acceptance": [
+        "Every route is exercised by a contract test through the generated client",
+        "The SSE stream resumes from Last-Event-ID without gaps or duplicates",
+        "A request from a non-loopback origin, or without the session token, gets 401 or 403"
+      ],
+      "verify_probe": "pnpm probe kernel/local-api",
+      "files_hint": [
+        "packages/daemon/src/api/",
+        "packages/contracts/openapi.json"
+      ],
+      "agent_suitability": "agent",
+      "gate": "none",
+      "status": "open",
+      "origin": "new Core row",
+      "derived_from": [
+        "WS-P4-005"
+      ],
+      "core_milestone": "C2"
+    },
+    {
+      "id": "FW-C-019",
+      "title": "Web shell: pairing, status strip, kill button, PWA manifest",
+      "phase": 4,
+      "epic": "C2.1 API and shell",
+      "priority": "P0",
+      "size": "M",
+      "lane": "ui",
+      "depends_on": [
+        "FW-C-018"
+      ],
+      "description": "A Vite and React static bundle served by fwd. A pairing code printed in the terminal creates an httpOnly session; responsive at 360, 768 and 1280; light and dark from tokens with no hard-coded colours; an installable manifest (no offline writes); a persistent status strip with last-updated time and a Kill switch button.",
+      "acceptance": [
+        "An unpaired browser sees only the pairing screen",
+        "The installability check passes on loopback",
+        "The kill button engages the switch through the API and the strip shows halted only after the daemon confirms"
+      ],
+      "verify_probe": "pnpm probe ui/web-shell",
+      "files_hint": [
+        "packages/web/src/shell/",
+        "packages/web/public/manifest.webmanifest"
+      ],
+      "agent_suitability": "agent",
+      "gate": "none",
+      "status": "open",
+      "origin": "new Core row",
+      "derived_from": [
+        "WS-P4-001",
+        "WS-P4-002",
+        "WS-P4-006",
+        "WS-P4-026"
+      ],
+      "core_milestone": "C2"
+    },
+    {
+      "id": "FW-C-020",
+      "title": "Honest UI and accessibility gate",
+      "phase": 4,
+      "epic": "C2.1 API and shell",
+      "priority": "P0",
+      "size": "M",
+      "lane": "ui",
+      "depends_on": [
+        "FW-C-019"
+      ],
+      "description": "Components render only provable state: every status carries data_as_of; anything unverified reads not verified, never a green tick; nothing animates without an event. Keyboard-first (j and k, a, d, e, ?), visible focus, reduced motion respected, AA contrast from tokens, axe in CI on every screen.",
+      "acceptance": [
+        "A fixture whose probe never ran renders not verified on the row",
+        "axe reports zero serious or critical issues on all Core screens at 390 and 1280 wide",
+        "Every Core action is reachable by keyboard alone (Playwright test)"
+      ],
+      "verify_probe": "pnpm probe ui/honest-a11y",
+      "files_hint": [
+        "packages/web/src/ui-kit/"
+      ],
+      "agent_suitability": "pair",
+      "gate": "none",
+      "status": "open",
+      "origin": "new Core row",
+      "derived_from": [
+        "WS-P4-003",
+        "WS-P4-032"
+      ],
+      "core_milestone": "C2"
+    },
+    {
+      "id": "FW-C-021",
+      "title": "Captain's Table: the decision-card inbox",
+      "phase": 4,
+      "epic": "C2.2 Daily screens",
+      "priority": "P0",
+      "size": "L",
+      "lane": "ui",
+      "depends_on": [
+        "FW-C-020",
+        "FW-C-010",
+        "WS-P1-024"
+      ],
+      "description": "List-first inbox of decision cards: approve or deny, choose, answer (review and unblock render generically). One card at a time with headline, facts row (blast radius, cost, deadline, default action), at most three actions, a why-this-reached-you line, snooze, and stale handling when the head SHA moved.",
+      "acceptance": [
+        "Approving posts a response bound to payload_hash and head SHA; a moved head shows the stale state and nothing merges",
+        "An expired card shows its default action and who applied it",
+        "The empty state appears only when the daemon reports zero open cards, never on a load failure"
+      ],
+      "verify_probe": "pnpm probe ui/captains-table",
+      "files_hint": [
+        "packages/web/src/table/"
+      ],
+      "agent_suitability": "agent",
+      "gate": "none",
+      "status": "open",
+      "origin": "new Core row",
+      "derived_from": [
+        "WS-P4-009",
+        "WS-P4-011"
+      ],
+      "core_milestone": "C2"
+    },
+    {
+      "id": "FW-C-022",
+      "title": "Evidence view",
+      "phase": 4,
+      "epic": "C2.2 Daily screens",
+      "priority": "P0",
+      "size": "M",
+      "lane": "ui",
+      "depends_on": [
+        "FW-C-021",
+        "WS-P0-038"
+      ],
+      "description": "Render the evidence bundle as a checklist (tests, typecheck, lint, probe, diff policy, secret scan, independent check with the same_vendor_review flag, blast radius, rollback) next to the literal diff, probe output tail, cost and hashes. A red scan makes approve unreachable.",
+      "acceptance": [
+        "Each automated_evidence item shows pass, fail, warn or skipped with ran_at and links its artifact",
+        "A red-scan bundle disables approve and says why",
+        "The diff view shows the exact hunks that hash to intent_payload.payload_hash"
+      ],
+      "verify_probe": "pnpm probe ui/evidence-view",
+      "files_hint": [
+        "packages/web/src/evidence/"
+      ],
+      "agent_suitability": "agent",
+      "gate": "none",
+      "status": "open",
+      "origin": "new Core row",
+      "derived_from": [
+        "WS-P4-010"
+      ],
+      "core_milestone": "C2"
+    },
+    {
+      "id": "FW-C-023",
+      "title": "Digest stream and query registry",
+      "phase": 3,
+      "epic": "C2.3 Streams",
+      "priority": "P0",
+      "size": "M",
+      "lane": "workstreams",
+      "depends_on": [
+        "WS-P1-004",
+        "WS-P0-025",
+        "FW-C-002"
+      ],
+      "description": "A registry of parameterised read-only queries (id, SQL over views, result hash). The daily digest stream renders a status-report from query ids only; an optional Chief of Staff narrative is accepted only if every sentence cites a query id and each number recomputes, otherwise the template renders. Each digest is a ledger row whose probe checks the report exists, every line cites and the recompute matches.",
+      "acceptance": [
+        "A digest with an uncited line fails its probe and is not published",
+        "Recomputing each cited query reproduces every number",
+        "When nothing changed overnight the report says so plainly"
+      ],
+      "verify_probe": "pnpm probe workstreams/digest",
+      "files_hint": [
+        "packages/daemon/src/streams/digest/",
+        "packages/ledger/src/queries/"
+      ],
+      "agent_suitability": "agent",
+      "gate": "none",
+      "status": "open",
+      "origin": "new Core row",
+      "derived_from": [
+        "WS-P3-023",
+        "WS-P3-024"
+      ],
+      "core_milestone": "C2"
+    },
+    {
+      "id": "FW-C-024",
+      "title": "Dawn Log screen",
+      "phase": 4,
+      "epic": "C2.2 Daily screens",
+      "priority": "P0",
+      "size": "M",
+      "lane": "ui",
+      "depends_on": [
+        "FW-C-023",
+        "FW-C-020"
+      ],
+      "description": "The home screen: one-sentence status, what landed overnight, what needs you (count and oldest age), spend today against the cap and anything halted, all with data_as_of and a link from each claim to its query id or evidence. A plain list; no map.",
+      "acceptance": [
+        "Every line links to its source query or event",
+        "Halted and degraded states are visible without scrolling at 390 px wide",
+        "With the daemon down the screen says it cannot reach it and shows no stale number as current"
+      ],
+      "verify_probe": "pnpm probe ui/dawn-log",
+      "files_hint": [
+        "packages/web/src/dawn/"
+      ],
+      "agent_suitability": "agent",
+      "gate": "none",
+      "status": "open",
+      "origin": "new Core row",
+      "derived_from": [
+        "WS-P4-013",
+        "WS-P4-014"
+      ],
+      "core_milestone": "C2"
+    },
+    {
+      "id": "FW-C-025",
+      "title": "Projects, ledger, runs and spend screens",
+      "phase": 4,
+      "epic": "C2.2 Daily screens",
+      "priority": "P1",
+      "size": "L",
+      "lane": "ui",
+      "depends_on": [
+        "FW-C-020",
+        "WS-P0-025"
+      ],
+      "description": "Projects with WIP and open rows; ledger table filterable by status and priority with premise state, probe status and evidence link; row detail (probe, work order, runs, events); runs list and detail (steps, artifacts, cost, verifier result); spend by day, project and stream against budgets with breaker status. Read-only: budgets are edited in policy/.",
+      "acceptance": [
+        "A row page shows what the probe measures, the last probe status and the premise re-test time",
+        "The spend page totals equal fw spend for the same period",
+        "Run detail shows kernel-verified and merely claimed artifacts distinctly"
+      ],
+      "verify_probe": "pnpm probe ui/ledger-runs-spend",
+      "files_hint": [
+        "packages/web/src/projects/",
+        "packages/web/src/ledger/",
+        "packages/web/src/runs/",
+        "packages/web/src/spend/"
+      ],
+      "agent_suitability": "agent",
+      "gate": "none",
+      "status": "open",
+      "origin": "new Core row",
+      "derived_from": [
+        "WS-P4-016",
+        "WS-P4-019",
+        "WS-P4-020"
+      ],
+      "core_milestone": "C2"
+    },
+    {
+      "id": "FW-C-026",
+      "title": "Two rewards and calm mode",
+      "phase": 4,
+      "epic": "C2.2 Daily screens",
+      "priority": "P2",
+      "size": "M",
+      "lane": "ui",
+      "depends_on": [
+        "FW-C-021",
+        "FW-C-011"
+      ],
+      "description": "Table cleared and Cargo landed, fired only from kernel-verified events (zero open cards; approval consumed plus a passing probe on the merged artifact) with a why-this-fired line and evidence link. One master switch, a per-reward toggle, calm mode (a single tick) and a reduced-motion fallback. A lint forbids XP for spend or activity, streaks and daily-login rewards.",
+      "acceptance": [
+        "Cargo landed fires once per merged row and never on a probe failure or a voided slot",
+        "Calm mode renders no animation and no sound",
+        "The red-line lint fails a PR that adds a streak counter or a spend-based reward"
+      ],
+      "verify_probe": "pnpm probe ui/rewards-calm",
+      "files_hint": [
+        "packages/web/src/rewards/",
+        "scripts/check-redlines.mjs"
+      ],
+      "agent_suitability": "agent",
+      "gate": "none",
+      "status": "open",
+      "origin": "new Core row",
+      "derived_from": [
+        "WS-P4-022",
+        "WS-P4-024",
+        "WS-P4-025"
+      ],
+      "core_milestone": "C2"
+    },
+    {
+      "id": "FW-C-027",
+      "title": "Health and security scan stream, report-only",
+      "phase": 3,
+      "epic": "C2.3 Streams",
+      "priority": "P1",
+      "size": "M",
+      "lane": "workstreams",
+      "depends_on": [
+        "WS-P1-004",
+        "FW-C-009",
+        "FW-C-021"
+      ],
+      "description": "A weekly scan at L0/L1: gitleaks, osv-scanner (or the package manager audit), a typecheck, lint and test summary and a stale-dependency report, deduplicated by root cause. Output is a status report plus one choose card per batch proposing ledger rows whose probes fail today (re-run shows the finding gone). No suppressions, no fixes, no PRs.",
+      "acceptance": [
+        "A seeded fake secret and a seeded vulnerable dependency each produce exactly one deduplicated finding",
+        "Accepting a finding creates a ledger row whose probe fails today",
+        "The stream cannot open a PR (policy denies code_write for it; test)"
+      ],
+      "verify_probe": "pnpm probe workstreams/scan-report",
+      "files_hint": [
+        "packages/daemon/src/streams/scan/"
+      ],
+      "agent_suitability": "agent",
+      "gate": "none",
+      "status": "open",
+      "origin": "new Core row",
+      "derived_from": [
+        "WS-P3-011"
+      ],
+      "core_milestone": "C2"
+    },
+    {
+      "id": "WS-P1-028",
+      "title": "R0/R1: paste-ready prompt composer and owed tracker",
+      "phase": 1,
+      "epic": "E1.7 Relay stages R0 to R2",
+      "priority": "P1",
+      "size": "M",
+      "lane": "workstreams",
+      "depends_on": [
+        "WS-P0-040",
+        "WS-P1-024"
+      ],
+      "description": "Compose the exact paste-ready prompt for a Work Order, track which prompts are owed to which agent, and show them in the inbox.",
+      "acceptance": [
+        "fw relay prompt <order> prints a prompt that includes work order id, probes and the planner-text-is-data rule",
+        "Owed prompts older than N hours appear as review items",
+        "Pasted result is parsed and validated against the Result schema"
+      ],
+      "verify_probe": "pnpm probe workstreams/relay-r1",
+      "files_hint": [
+        "packages/daemon/src/relay/src/"
+      ],
+      "agent_suitability": "agent",
+      "gate": "none",
+      "status": "open",
+      "full_depends_on": [
+        "WS-P0-040",
+        "WS-P1-024"
+      ],
+      "full_files_hint": [
+        "packages/relay/src/"
+      ],
+      "origin": "full-plan row, included",
+      "core_milestone": "C2",
+      "core_adaptation": "Relay-assist for any vendor you cannot drive headlessly (a consumer chat app, Gemini); R2 is the Core default for Claude and Codex. R3 and R2 supervised promotion are deferred."
+    },
+    {
+      "id": "FW-C-028",
+      "title": "Out-of-band notification webhook",
+      "phase": 1,
+      "epic": "C2.3 Streams",
+      "priority": "P1",
+      "size": "S",
+      "lane": "adapters",
+      "depends_on": [
+        "WS-P1-024",
+        "FW-C-010"
+      ],
+      "description": "One channel for interrupt-class events (approval needed, run halted, breaker tripped, chain failure, kill switch engaged): a configurable ntfy-compatible webhook plus a terminal bell; deduplicated per card, quiet hours, and title plus deep link only, never diff or secret content.",
+      "acceptance": [
+        "A pending approval sends one notification and one reminder before expiry",
+        "Quiet hours hold ordinary notifications but never a kill-switch or chain-failure alert",
+        "A payload scan finds no diff, secret or message body"
+      ],
+      "verify_probe": "pnpm probe adapters/notify-webhook",
+      "files_hint": [
+        "packages/daemon/src/notify.ts"
+      ],
+      "agent_suitability": "agent",
+      "gate": "none",
+      "status": "open",
+      "origin": "new Core row",
+      "derived_from": [
+        "WS-P1-027"
+      ],
+      "core_milestone": "C2"
+    },
+    {
+      "id": "FW-C-029",
+      "title": "Operability: doctor, service units, backup and restore",
+      "phase": 0,
+      "epic": "C2.4 Operability",
+      "priority": "P1",
+      "size": "M",
+      "lane": "devex",
+      "depends_on": [
+        "FW-C-012",
+        "WS-P1-001",
+        "FW-C-008"
+      ],
+      "description": "fw doctor (first-run checklist: keys present, gh token not admin, branch protection on, sandbox self-test, clock, disk, last backup), systemd and launchd unit templates with crash restart, and fw backup and fw restore using the SQLite online backup plus the blob directory, with a restore drill that must pass fw audit verify.",
+      "acceptance": [
+        "fw doctor never prints a secret value and exits nonzero on any failed check",
+        "SIGKILL of the daemon restarts it and in-flight runs are marked interrupted",
+        "A backup restored into a clean home verifies the chain and lists the same rows"
+      ],
+      "verify_probe": "pnpm probe devex/operability",
+      "files_hint": [
+        "packages/cli/src/commands/doctor.ts",
+        "ops/"
+      ],
+      "agent_suitability": "pair",
+      "gate": "none",
+      "status": "open",
+      "origin": "new Core row",
+      "derived_from": [
+        "WS-P0-045",
+        "WS-P1-002"
+      ],
+      "core_milestone": "C2"
+    },
+    {
+      "id": "FW-C-030",
+      "title": "C2 exit: two-week daily-driver trial",
+      "phase": 4,
+      "epic": "C2.5 Exit",
+      "priority": "P0",
+      "size": "M",
+      "lane": "docs",
+      "depends_on": [
+        "FW-C-024",
+        "FW-C-021",
+        "FW-C-022",
+        "FW-C-025",
+        "FW-C-026",
+        "FW-C-027",
+        "WS-P1-028",
+        "FW-C-028",
+        "FW-C-029",
+        "FW-C-023"
+      ],
+      "description": "Use Core on the Owner real projects for two weeks. Log decision time, cards per day, approval rate, dollars and halts, and record in docs/milestone-reviews/C2.md which evolution trigger fires next.",
+      "acceptance": [
+        "The Owner clears the Table inside a 15-minute window on at least 10 of 14 days",
+        "No day exceeded the fleet cap and the honest-UI incident count is zero",
+        "Every evolution-map trigger is evaluated against the measured numbers and written down"
+      ],
+      "verify_probe": "bash scripts/probe-c2-exit.sh",
+      "files_hint": [
+        "docs/milestone-reviews/C2.md",
+        "scripts/probe-c2-exit.sh"
+      ],
+      "agent_suitability": "human",
+      "gate": "owner-approval",
+      "status": "open",
+      "origin": "new Core row",
+      "derived_from": [
+        "WS-P4-033"
+      ],
+      "core_milestone": "C2"
+    }
+  ]
+}

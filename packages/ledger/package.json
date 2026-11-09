@@ -1,0 +1,14 @@
+{
+  "name": "@fw/ledger",
+  "version": "0.0.0",
+  "private": true,
+  "type": "module",
+  "exports": {
+    ".": "./src/index.ts"
+  },
+  "dependencies": {
+    "@fw/contracts": "workspace:*",
+    "@fw/eventlog": "workspace:*",
+    "yaml": "2.9.1"
+  }
+}

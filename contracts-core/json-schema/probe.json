@@ -1,0 +1,277 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://contracts.invalid/fw/v1/probe.json",
+  "title": "Probe",
+  "description": "A deterministic, kernel-executed check that measures a consequence. Never deleted or weakened without an Owner-approved revision.",
+  "type": "object",
+  "properties": {
+    "id": {
+      "type": "string",
+      "pattern": "^prb_[0-9A-Za-z]{4,40}$"
+    },
+    "version": {
+      "type": "integer",
+      "minimum": 1
+    },
+    "kind": {
+      "enum": [
+        "command",
+        "http",
+        "sql_readonly",
+        "metric_threshold",
+        "file_assert",
+        "manual_attestation"
+      ]
+    },
+    "measures": {
+      "type": "string",
+      "description": "One sentence stating the CONSEQUENCE measured (user-visible or system outcome), not the activity performed.",
+      "minLength": 10,
+      "maxLength": 300
+    },
+    "runs_against": {
+      "enum": [
+        "branch",
+        "merged_artifact",
+        "deployed_artifact",
+        "external_state"
+      ],
+      "description": "Probes close rows only when they pass on the merged or deployed artifact, not only on the branch."
+    },
+    "command": {
+      "type": "object",
+      "properties": {
+        "argv": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          },
+          "minItems": 1
+        },
+        "cwd": {
+          "type": "string"
+        },
+        "timeout_s": {
+          "type": "integer",
+          "minimum": 1,
+          "maximum": 3600
+        },
+        "env_profile": {
+          "type": "string",
+          "description": "Named, secret-free environment profile resolved by the kernel"
+        }
+      },
+      "required": [
+        "argv",
+        "timeout_s"
+      ],
+      "additionalProperties": false
+    },
+    "http": {
+      "type": "object",
+      "properties": {
+        "method": {
+          "enum": [
+            "GET",
+            "HEAD",
+            "POST"
+          ]
+        },
+        "url": {
+          "$ref": "common.json#/$defs/url"
+        },
+        "headers_profile": {
+          "type": "string"
+        },
+        "timeout_s": {
+          "type": "integer",
+          "minimum": 1,
+          "maximum": 300
+        }
+      },
+      "required": [
+        "method",
+        "url",
+        "timeout_s"
+      ],
+      "additionalProperties": false
+    },
+    "query": {
+      "type": "object",
+      "properties": {
+        "datasource": {
+          "type": "string"
+        },
+        "sql": {
+          "type": "string"
+        },
+        "timeout_s": {
+          "type": "integer",
+          "minimum": 1,
+          "maximum": 300
+        }
+      },
+      "required": [
+        "datasource",
+        "sql",
+        "timeout_s"
+      ],
+      "additionalProperties": false,
+      "description": "Read-only SQL; the runner connects with a read-only role."
+    },
+    "metric": {
+      "type": "object",
+      "properties": {
+        "source": {
+          "type": "string"
+        },
+        "name": {
+          "type": "string"
+        },
+        "window_minutes": {
+          "type": "integer",
+          "minimum": 1
+        }
+      },
+      "required": [
+        "source",
+        "name"
+      ],
+      "additionalProperties": false
+    },
+    "file": {
+      "type": "object",
+      "properties": {
+        "path": {
+          "type": "string"
+        },
+        "assertion": {
+          "enum": [
+            "exists",
+            "not_exists",
+            "contains",
+            "not_contains",
+            "hash_equals"
+          ]
+        },
+        "value": {
+          "type": "string"
+        }
+      },
+      "required": [
+        "path",
+        "assertion"
+      ],
+      "additionalProperties": false
+    },
+    "expected": {
+      "$ref": "common.json#/$defs/probe_expected"
+    },
+    "flake_policy": {
+      "type": "object",
+      "properties": {
+        "retries": {
+          "type": "integer",
+          "minimum": 0,
+          "maximum": 3
+        },
+        "quarantine_after_failures": {
+          "type": "integer",
+          "minimum": 2
+        }
+      },
+      "additionalProperties": false,
+      "description": "Flaky probes are quarantined into a backlog row; never relaxed in place."
+    },
+    "owner_trust_tier": {
+      "const": 0,
+      "description": "Probes are Tier 0: human-owned. Agents may propose a probe in a ledger row draft; only an Owner approves it."
+    },
+    "content_hash": {
+      "$ref": "common.json#/$defs/sha256"
+    }
+  },
+  "required": [
+    "id",
+    "version",
+    "kind",
+    "measures",
+    "runs_against",
+    "expected",
+    "owner_trust_tier",
+    "content_hash"
+  ],
+  "additionalProperties": false,
+  "allOf": [
+    {
+      "if": {
+        "properties": {
+          "kind": {
+            "const": "command"
+          }
+        }
+      },
+      "then": {
+        "required": [
+          "command"
+        ]
+      }
+    },
+    {
+      "if": {
+        "properties": {
+          "kind": {
+            "const": "http"
+          }
+        }
+      },
+      "then": {
+        "required": [
+          "http"
+        ]
+      }
+    },
+    {
+      "if": {
+        "properties": {
+          "kind": {
+            "const": "sql_readonly"
+          }
+        }
+      },
+      "then": {
+        "required": [
+          "query"
+        ]
+      }
+    },
+    {
+      "if": {
+        "properties": {
+          "kind": {
+            "const": "metric_threshold"
+          }
+        }
+      },
+      "then": {
+        "required": [
+          "metric"
+        ]
+      }
+    },
+    {
+      "if": {
+        "properties": {
+          "kind": {
+            "const": "file_assert"
+          }
+        }
+      },
+      "then": {
+        "required": [
+          "file"
+        ]
+      }
+    }
+  ]
+}

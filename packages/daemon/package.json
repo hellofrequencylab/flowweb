@@ -1,0 +1,19 @@
+{
+  "name": "@fw/daemon",
+  "version": "0.0.0",
+  "private": true,
+  "type": "module",
+  "exports": {
+    ".": "./src/index.ts"
+  },
+  "dependencies": {
+    "@fw/contracts": "workspace:*",
+    "@fw/eventlog": "workspace:*",
+    "@fw/ledger": "workspace:*",
+    "@fw/policy": "workspace:*",
+    "@fw/adapters": "workspace:*"
+  },
+  "bin": {
+    "fwd": "./src/bin.ts"
+  }
+}

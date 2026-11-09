@@ -1,0 +1,288 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://contracts.invalid/fw/v1/status-report.json",
+  "title": "Status report",
+  "description": "Structured status posted by a lead or run; input to the Chief of Staff's one-screen daily brief. Every number carries its source.",
+  "type": "object",
+  "properties": {
+    "id": {
+      "type": "string",
+      "pattern": "^rpt_[0-9A-Za-z]{4,40}$"
+    },
+    "reporter_agent_id": {
+      "type": "string",
+      "pattern": "^agt_[0-9A-Za-z]{4,40}$"
+    },
+    "project_id": {
+      "type": "string",
+      "pattern": "^prj_[0-9A-Za-z]{4,40}$"
+    },
+    "kind": {
+      "enum": [
+        "daily",
+        "weekly",
+        "on_change",
+        "run"
+      ]
+    },
+    "period": {
+      "type": "object",
+      "properties": {
+        "from": {
+          "$ref": "common.json#/$defs/timestamp"
+        },
+        "to": {
+          "$ref": "common.json#/$defs/timestamp"
+        }
+      },
+      "required": [
+        "from",
+        "to"
+      ],
+      "additionalProperties": false
+    },
+    "headline": {
+      "type": "string",
+      "description": "Lead with the answer.",
+      "maxLength": 200
+    },
+    "done": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "properties": {
+          "ledger_row_id": {
+            "type": "string",
+            "pattern": "^lr_[0-9A-Za-z]{4,40}$"
+          },
+          "text": {
+            "type": "string",
+            "maxLength": 240
+          },
+          "link": {
+            "$ref": "common.json#/$defs/ref"
+          }
+        },
+        "required": [
+          "text"
+        ],
+        "additionalProperties": false
+      }
+    },
+    "next": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "properties": {
+          "ledger_row_id": {
+            "type": "string",
+            "pattern": "^lr_[0-9A-Za-z]{4,40}$"
+          },
+          "text": {
+            "type": "string",
+            "maxLength": 240
+          },
+          "link": {
+            "$ref": "common.json#/$defs/ref"
+          }
+        },
+        "required": [
+          "text"
+        ],
+        "additionalProperties": false
+      }
+    },
+    "blocked": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "properties": {
+          "ledger_row_id": {
+            "type": "string",
+            "pattern": "^lr_[0-9A-Za-z]{4,40}$"
+          },
+          "text": {
+            "type": "string",
+            "maxLength": 240
+          },
+          "needs": {
+            "enum": [
+              "owner",
+              "chief_of_staff",
+              "external",
+              "dependency"
+            ]
+          },
+          "since": {
+            "$ref": "common.json#/$defs/timestamp"
+          }
+        },
+        "required": [
+          "text",
+          "needs"
+        ],
+        "additionalProperties": false
+      }
+    },
+    "risks": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "properties": {
+          "ledger_row_id": {
+            "type": "string",
+            "pattern": "^lr_[0-9A-Za-z]{4,40}$"
+          },
+          "text": {
+            "type": "string",
+            "maxLength": 240
+          },
+          "link": {
+            "$ref": "common.json#/$defs/ref"
+          }
+        },
+        "required": [
+          "text"
+        ],
+        "additionalProperties": false
+      }
+    },
+    "decisions_needed": {
+      "type": "array",
+      "items": {
+        "type": "string",
+        "pattern": "^dcd_[0-9A-Za-z]{4,40}$"
+      }
+    },
+    "spend": {
+      "type": "object",
+      "properties": {
+        "usd": {
+          "$ref": "common.json#/$defs/usd"
+        },
+        "tokens": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "budget_id": {
+          "type": "string",
+          "pattern": "^bud_[0-9A-Za-z]{4,40}$"
+        },
+        "pct_of_budget": {
+          "$ref": "common.json#/$defs/pct"
+        },
+        "query_id": {
+          "type": "string"
+        },
+        "plan_usd": {
+          "$ref": "common.json#/$defs/usd"
+        },
+        "forecast_usd": {
+          "$ref": "common.json#/$defs/usd"
+        },
+        "cost_per_outcome_usd": {
+          "$ref": "common.json#/$defs/usd"
+        }
+      },
+      "required": [
+        "usd",
+        "pct_of_budget"
+      ],
+      "additionalProperties": false
+    },
+    "wip": {
+      "type": "object",
+      "properties": {
+        "active": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "limit": {
+          "type": "integer",
+          "minimum": 1
+        },
+        "oldest_age_hours": {
+          "type": "number",
+          "minimum": 0
+        }
+      },
+      "required": [
+        "active",
+        "limit"
+      ],
+      "additionalProperties": false
+    },
+    "metrics": {
+      "type": "object",
+      "properties": {
+        "cycle_time_hours_p50": {
+          "type": "number"
+        },
+        "first_pass_acceptance": {
+          "type": "number",
+          "minimum": 0,
+          "maximum": 1
+        },
+        "rework_rate": {
+          "type": "number",
+          "minimum": 0,
+          "maximum": 1
+        },
+        "escape_rate": {
+          "type": "number",
+          "minimum": 0,
+          "maximum": 1
+        }
+      },
+      "additionalProperties": false
+    },
+    "data_as_of": {
+      "$ref": "common.json#/$defs/timestamp"
+    },
+    "confidence": {
+      "type": "object",
+      "properties": {
+        "level": {
+          "enum": [
+            "high",
+            "medium",
+            "low"
+          ]
+        },
+        "reason": {
+          "type": "string",
+          "maxLength": 300
+        }
+      },
+      "required": [
+        "level",
+        "reason"
+      ],
+      "additionalProperties": false,
+      "description": "Never 'on track' without the probe or milestone that shows it."
+    },
+    "not_verified": {
+      "type": "array",
+      "items": {
+        "type": "string",
+        "maxLength": 300
+      }
+    }
+  },
+  "required": [
+    "id",
+    "reporter_agent_id",
+    "project_id",
+    "kind",
+    "period",
+    "headline",
+    "done",
+    "next",
+    "blocked",
+    "risks",
+    "spend",
+    "wip",
+    "data_as_of"
+  ],
+  "additionalProperties": false
+}

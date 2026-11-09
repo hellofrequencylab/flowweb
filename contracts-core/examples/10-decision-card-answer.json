@@ -1,0 +1,18 @@
+{
+  "id": "dcd_000161a",
+  "variant": "answer",
+  "project_id": "prj_atlas001",
+  "title": "Support refund window",
+  "ask": "What is the refund window in days for the help-desk drafts to cite?",
+  "urgency": "whenever",
+  "default_on_timeout": "pause_work_order",
+  "created_at": "2026-11-08T11:00:00Z",
+  "question": "The docs say 30 days and the terms page says 14. Which is current?",
+  "answer_type": "number",
+  "constraints": {
+    "min": 0,
+    "max": 365
+  },
+  "suggested_answer": "30",
+  "basis_gap": "The docs say 30 days and the terms page says 14; I cannot tell which is current."
+}

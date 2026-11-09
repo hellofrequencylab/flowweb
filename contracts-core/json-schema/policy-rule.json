@@ -1,0 +1,170 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://contracts.invalid/fw/v1/policy-rule.json",
+  "title": "Policy rule",
+  "description": "A deterministic allow/deny/ask rule evaluated before every tool call. Tier 0: human-written only.",
+  "type": "object",
+  "properties": {
+    "id": {
+      "type": "string",
+      "pattern": "^pol_[0-9A-Za-z]{4,40}$"
+    },
+    "version": {
+      "type": "integer",
+      "minimum": 1
+    },
+    "priority": {
+      "type": "integer",
+      "minimum": 0,
+      "maximum": 10000
+    },
+    "effect": {
+      "enum": [
+        "allow",
+        "deny",
+        "ask",
+        "escalate",
+        "require_challenge",
+        "cap_tier"
+      ]
+    },
+    "match": {
+      "type": "object",
+      "properties": {
+        "action_class": {
+          "type": "array",
+          "items": {
+            "$ref": "common.json#/$defs/action_class"
+          }
+        },
+        "environment": {
+          "type": "array",
+          "items": {
+            "$ref": "common.json#/$defs/environment"
+          }
+        },
+        "agent_role": {
+          "type": "array",
+          "items": {
+            "$ref": "common.json#/$defs/agent_role"
+          }
+        },
+        "tool": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          }
+        },
+        "diff_patterns": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          },
+          "description": "ids from diff_policy.forbidden_patterns"
+        },
+        "path_globs": {
+          "oneOf": [
+            {
+              "type": "array",
+              "items": {
+                "$ref": "common.json#/$defs/glob"
+              }
+            },
+            {
+              "type": "string",
+              "pattern": "^@[a-z0-9_]+$"
+            }
+          ],
+          "description": "Globs, or @name referencing a named path set in the policy file."
+        },
+        "conditions": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "properties": {
+              "field": {
+                "type": "string"
+              },
+              "op": {
+                "enum": [
+                  "eq",
+                  "neq",
+                  "gt",
+                  "gte",
+                  "lt",
+                  "lte",
+                  "in",
+                  "not_in",
+                  "matches"
+                ]
+              },
+              "value": {}
+            },
+            "required": [
+              "field",
+              "op"
+            ],
+            "additionalProperties": false
+          }
+        }
+      },
+      "additionalProperties": false,
+      "description": "All present keys must match (AND). Empty object matches everything."
+    },
+    "tier": {
+      "$ref": "common.json#/$defs/tier"
+    },
+    "cap_tier": {
+      "$ref": "common.json#/$defs/tier"
+    },
+    "reason": {
+      "type": "string",
+      "minLength": 5,
+      "maxLength": 300
+    },
+    "enabled": {
+      "type": "boolean"
+    },
+    "trust_tier": {
+      "const": 0
+    },
+    "effective_from": {
+      "$ref": "common.json#/$defs/timestamp"
+    },
+    "created_by": {
+      "type": "string",
+      "pattern": "^own_"
+    },
+    "second_owner_ack": {
+      "type": "string",
+      "pattern": "^own_"
+    }
+  },
+  "required": [
+    "id",
+    "version",
+    "priority",
+    "effect",
+    "match",
+    "reason",
+    "enabled",
+    "trust_tier"
+  ],
+  "additionalProperties": false,
+  "allOf": [
+    {
+      "if": {
+        "properties": {
+          "effect": {
+            "const": "cap_tier"
+          }
+        }
+      },
+      "then": {
+        "required": [
+          "cap_tier"
+        ]
+      }
+    }
+  ]
+}

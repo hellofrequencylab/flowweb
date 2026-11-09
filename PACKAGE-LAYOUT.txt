@@ -1,0 +1,40 @@
+FlowWeb Core package layout (pnpm monorepo, eight packages). [T0] = Tier 0, Owner only (CODEOWNERS).
+Names follow 02-architecture/ARCHITECTURE.md section 26 (@fw/*, `fw`, `fwd`, FW_HOME). Vendor names appear only in packages/adapters.
+Mapping to the full-plan layout is in CORE-SPEC.md section 13; Core merges what the full plan splits, along seams that can be split again.
+
+.
+|-- AGENTS.md [T0]  CLAUDE.md [T0]  CODEOWNERS [T0]  README.md
+|-- package.json / pnpm-workspace.yaml / tsconfig.base.json / biome.json / .nvmrc
+|-- .github/ [T0]            pull_request_template.md, workflows/ci.yml
+|-- policy/ [T0]             core-policy.yaml (the autonomy matrix, budgets, rules), budgets.json
+|-- probes/ [T0]             one probe per ledger row; MANIFEST.sha256; runner.ts
+|-- config/ [T0]             routing.json (which adapter for which role), egress-allowlist.json
+|-- ledger/rows/ [T0]        one <ID>.json per row: definition and probe only, never status
+|-- prompts/                 role prompts (Tier 1: agent-proposed, Owner-reviewed): chief.md, worker.md, review-adversarial.md
+|-- scripts/                 check-*.mjs [T0], probe-*.sh [T0]
+|-- e2e/                     walking-skeleton, chaos/ (safety suite)
+|-- ops/                     systemd and launchd unit templates, backup script
+|-- docs/                    README.md (router), decisions/, milestone-reviews/C0.md C1.md C2.md, runbooks/
+|-- tests/                   schema_core_test.py (SQL behaviour tests, stdlib only)
+|-- tooling/                 requirements-ci.txt (hashed), lint configs
+`-- packages/
+    |-- contracts/           @fw/contracts   JSON Schemas [T0], SCHEMA-SNAPSHOT.sha256 [T0], sql/0001_core.sql [T0], generated types, OpenAPI, validate.py
+    |-- eventlog/            @fw/eventlog    store (better-sqlite3 port, migrations), single-writer append, chain.ts [T0], redaction, verify
+    |-- ledger/              @fw/ledger      rows, state machine, sync, probe executor, premise re-test, work-order compiler, leases, queries
+    |-- policy/ [T0]         @fw/policy      engine, diff-policy, budget governor, approval service, merge slot, auditor and watchdog checks
+    |-- adapters/            @fw/adapters    src/sdk (contract, registry, conformance), src/claude, src/codex, src/fake, review-pick
+    |-- daemon/              @fw/daemon      bin `fwd`: composition root, API (Fastify, SSE), scheduler, reconciler, supervisor, runtime
+    |                                        (worktrees, sandbox, container flag), edge-git (gh), creds, streams (dev, digest, scan), relay, notify, killswitch
+    |-- cli/                 @fw/cli         bin `fw`: ledger, run, inbox, approve, kill, audit, spend, doctor, backup
+    `-- web/                 @fw/web         Vite + React static bundle served by fwd: shell, table, evidence, dawn, projects, ledger, runs, spend, rewards
+
+Dependency rule (lint-enforced):
+  contracts depends on nothing.
+  eventlog depends on contracts.
+  ledger depends on contracts and eventlog.
+  policy depends on contracts, eventlog and ledger.
+  adapters depends on contracts only (vendor names live here and nowhere else).
+  daemon depends on all of the above (it is the composition root).
+  cli talks to the daemon over the generated client and may read the database directly only for read-only commands and for `fw kill`.
+  web depends on the generated client and its own ui-kit only; it never imports a kernel package.
+  Only daemon/src/creds touches secret material.

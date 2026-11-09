@@ -1,0 +1,28 @@
+{
+  "description": "Maps each Core example to the JSON Schema it must validate against. One example per Core contract (plus the probe sub-schema). Examples are verbatim copies of the canonical 03-contracts/examples files.",
+  "examples": {
+    "01-probe.json": "../json-schema/probe.json",
+    "02-ledger-row-with-probe.json": "../json-schema/ledger-row.json",
+    "03-work-order.json": "../json-schema/work-order.json",
+    "04-evidence-bundle.json": "../json-schema/evidence-bundle.json",
+    "05-approval-request-merge.json": "../json-schema/approval-request.json",
+    "07-approval-response-with-challenge.json": "../json-schema/approval-response.json",
+    "08-decision-card-approve-merge.json": "../json-schema/decision-card.json",
+    "09-decision-card-choose.json": "../json-schema/decision-card.json",
+    "10-decision-card-answer.json": "../json-schema/decision-card.json",
+    "13-merge-slot-grant.json": "../json-schema/merge-slot-grant.json",
+    "18-run-result.json": "../json-schema/run-result.json",
+    "19-vendor-adapter-input.json": "../json-schema/vendor-adapter-input.json",
+    "20-event-envelope.json": "../json-schema/event-envelope.json",
+    "23-status-report.json": "../json-schema/status-report.json",
+    "24-stream-definition.json": "../json-schema/stream-definition.json",
+    "27-policy-rule.json": "../json-schema/policy-rule.json",
+    "28-budget.json": "../json-schema/budget.json"
+  },
+  "invalid": {
+    "bad-01-work-order-no-budget.json": "../json-schema/work-order.json",
+    "bad-02-approval-response-short-hash.json": "../json-schema/approval-response.json",
+    "bad-03-event-unknown-type.json": "../json-schema/event-envelope.json",
+    "bad-04-policy-rule-agent-trust-tier.json": "../json-schema/policy-rule.json"
+  }
+}

@@ -1,0 +1,14 @@
+{
+  "name": "@fw/eventlog",
+  "version": "0.0.0",
+  "private": true,
+  "type": "module",
+  "exports": {
+    ".": "./src/index.ts"
+  },
+  "dependencies": {
+    "@fw/contracts": "workspace:*",
+    "better-sqlite3": "13.0.3",
+    "canonicalize": "3.0.0"
+  }
+}

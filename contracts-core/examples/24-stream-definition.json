@@ -1,0 +1,91 @@
+{
+  "id": "stm_backlog1",
+  "key": "backlog-dev",
+  "name": "Backlog to pull request",
+  "project_id": "prj_atlas001",
+  "version": 3,
+  "template": "backlog_dev",
+  "enabled": true,
+  "trigger": {
+    "type": "cron",
+    "cron": "*/15 * * * *",
+    "timezone": "UTC",
+    "catch_up": "run_once"
+  },
+  "inputs": [
+    {
+      "name": "ready_rows",
+      "kind": "ledger_rows",
+      "ref": "ledger://prj_atlas001?status=ready",
+      "untrusted": false
+    },
+    {
+      "name": "issue_threads",
+      "kind": "repo",
+      "ref": "https://git.example.invalid/atlas/issues",
+      "untrusted": true
+    }
+  ],
+  "tools": [
+    {
+      "server": "git",
+      "tool": "commit",
+      "definition_hash": "48398b6cf34fb2689387a19523b7ba8054777f768da2d586b74c496fdfc747d6"
+    },
+    {
+      "server": "test",
+      "tool": "run"
+    }
+  ],
+  "action_classes": [
+    "code_write_sandbox",
+    "merge_main"
+  ],
+  "output": {
+    "artifacts": [
+      "pull_request"
+    ],
+    "result_schema": "run-result.json"
+  },
+  "verifier": {
+    "agent_profile": "qa-verifier",
+    "vendor_policy": "different_vendor_preferred",
+    "read_only": true
+  },
+  "human_gate": {
+    "min_tier": "L3",
+    "approver": "owner",
+    "gate_on": [
+      "merge_main"
+    ]
+  },
+  "default_tier": "L2",
+  "tier_caps": {
+    "sandbox": "L5",
+    "staging": "L3",
+    "production": "L3"
+  },
+  "budget": {
+    "caps": {
+      "max_usd": 8.0
+    },
+    "period": "day"
+  },
+  "wip_limit": 3,
+  "dedupe": {
+    "against": [
+      "open_prs",
+      "recent_merges",
+      "open_work_orders"
+    ],
+    "window_hours": 168
+  },
+  "metrics": [
+    "first_pass_acceptance",
+    "defect_escape_rate",
+    "cycle_time_hours_p50",
+    "tokens_per_accepted_unit"
+  ],
+  "injection_isolation": "Issue text is untrusted input; workers hold branch-scoped push only and no production credentials, so Rule-of-Two score stays at 2.",
+  "created_at": "2026-10-01T00:00:00Z"
+}

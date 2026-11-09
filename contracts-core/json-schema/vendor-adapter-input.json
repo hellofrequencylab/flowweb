@@ -1,0 +1,231 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://contracts.invalid/fw/v1/vendor-adapter-input.json",
+  "title": "Vendor adapter input",
+  "description": "Identical input for every model vendor. Contains handles, never secrets.",
+  "type": "object",
+  "properties": {
+    "schema_version": {
+      "const": "1"
+    },
+    "run_id": {
+      "type": "string",
+      "pattern": "^run_[0-9A-Za-z]{4,40}$"
+    },
+    "attempt": {
+      "type": "integer",
+      "minimum": 1
+    },
+    "work_order": {
+      "$ref": "work-order.json"
+    },
+    "workspace": {
+      "type": "object",
+      "properties": {
+        "path": {
+          "type": "string",
+          "minLength": 1
+        },
+        "branch": {
+          "type": "string"
+        },
+        "base_commit": {
+          "$ref": "common.json#/$defs/git_sha"
+        },
+        "read_only": {
+          "type": "boolean"
+        }
+      },
+      "required": [
+        "path",
+        "base_commit",
+        "read_only"
+      ],
+      "additionalProperties": false
+    },
+    "credentials_handle": {
+      "type": "object",
+      "properties": {
+        "handle_id": {
+          "type": "string",
+          "pattern": "^crd_[0-9A-Za-z]{4,40}$"
+        },
+        "scopes": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          }
+        },
+        "expires_at": {
+          "$ref": "common.json#/$defs/timestamp"
+        }
+      },
+      "required": [
+        "handle_id",
+        "scopes",
+        "expires_at"
+      ],
+      "additionalProperties": false,
+      "description": "Opaque handle; the broker injects secrets at the network edge."
+    },
+    "budget": {
+      "$ref": "common.json#/$defs/budget_caps"
+    },
+    "caps": {
+      "type": "object",
+      "properties": {
+        "max_turns": {
+          "type": "integer",
+          "minimum": 1
+        },
+        "max_wall_clock_s": {
+          "type": "integer",
+          "minimum": 1
+        }
+      },
+      "required": [
+        "max_turns",
+        "max_wall_clock_s"
+      ],
+      "additionalProperties": false
+    },
+    "result_schema_ref": {
+      "type": "string",
+      "default": "run-result.json"
+    },
+    "resume_session_id": {
+      "type": "string"
+    },
+    "sandbox": {
+      "type": "object",
+      "properties": {
+        "isolation": {
+          "enum": [
+            "container",
+            "microvm",
+            "worktree_only"
+          ]
+        },
+        "network_policy": {
+          "enum": [
+            "deny_all",
+            "allowlist"
+          ]
+        },
+        "egress_allowlist": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          }
+        },
+        "proxy": {
+          "type": "string"
+        }
+      },
+      "required": [
+        "isolation",
+        "network_policy"
+      ],
+      "additionalProperties": false
+    },
+    "tool_allowlist": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "properties": {
+          "server": {
+            "type": "string"
+          },
+          "tool": {
+            "type": "string"
+          },
+          "definition_hash": {
+            "$ref": "common.json#/$defs/sha256"
+          },
+          "returns_untrusted": {
+            "type": "boolean"
+          },
+          "reads_sensitive": {
+            "type": "boolean"
+          },
+          "changes_state": {
+            "type": "boolean"
+          }
+        },
+        "required": [
+          "server",
+          "tool",
+          "definition_hash"
+        ],
+        "additionalProperties": false
+      }
+    },
+    "skills": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "properties": {
+          "skill_id": {
+            "type": "string",
+            "pattern": "^skl_[0-9A-Za-z]{4,40}$"
+          },
+          "version": {
+            "type": "string"
+          },
+          "content_hash": {
+            "$ref": "common.json#/$defs/sha256"
+          }
+        },
+        "required": [
+          "skill_id",
+          "version",
+          "content_hash"
+        ],
+        "additionalProperties": false
+      },
+      "description": "Only active, unexpired skills."
+    },
+    "context_provenance": {
+      "$ref": "common.json#/$defs/provenance"
+    },
+    "instruction_files": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "properties": {
+          "path": {
+            "type": "string"
+          },
+          "sha256": {
+            "$ref": "common.json#/$defs/sha256"
+          }
+        },
+        "required": [
+          "path",
+          "sha256"
+        ],
+        "additionalProperties": false
+      },
+      "description": "Stable cached prefix, hash-pinned."
+    },
+    "planner_text_is_data": {
+      "const": true,
+      "description": "The agent must treat planner text as data to check against the repo, not authority."
+    }
+  },
+  "required": [
+    "schema_version",
+    "run_id",
+    "attempt",
+    "work_order",
+    "workspace",
+    "credentials_handle",
+    "budget",
+    "caps",
+    "sandbox",
+    "tool_allowlist",
+    "context_provenance",
+    "planner_text_is_data"
+  ],
+  "additionalProperties": false
+}

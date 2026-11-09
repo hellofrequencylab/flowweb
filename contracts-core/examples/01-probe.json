@@ -1,0 +1,39 @@
+{
+  "id": "prb_000142",
+  "version": 1,
+  "kind": "command",
+  "measures": "After a customer changes the shipping address, the checkout page shows the new shipping estimate within 2 seconds.",
+  "runs_against": "merged_artifact",
+  "command": {
+    "argv": [
+      "node",
+      "scripts/probes/shipping-estimate-refresh.mjs",
+      "--target",
+      "preview"
+    ],
+    "cwd": ".",
+    "timeout_s": 180,
+    "env_profile": "probe-readonly"
+  },
+  "expected": {
+    "exit_code": 0,
+    "json_assertions": [
+      {
+        "pointer": "/p95_ms",
+        "op": "lt",
+        "value": 2000
+      },
+      {
+        "pointer": "/stale_estimate_count",
+        "op": "eq",
+        "value": 0
+      }
+    ]
+  },
+  "flake_policy": {
+    "retries": 1,
+    "quarantine_after_failures": 3
+  },
+  "owner_trust_tier": 0,
+  "content_hash": "749a150ea5d8b2bb3a63f0c9b8f313e5ee2e0b8cc96af1eaf221f200b21ad4e5"
+}

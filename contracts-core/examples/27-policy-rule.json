@@ -1,0 +1,21 @@
+{
+  "id": "pol_0120",
+  "version": 1,
+  "priority": 120,
+  "effect": "ask",
+  "match": {
+    "action_class": [
+      "merge_main",
+      "deploy_production"
+    ],
+    "environment": [
+      "production"
+    ]
+  },
+  "tier": "L3",
+  "reason": "Default L3: hash-bound approval with evidence bundle.",
+  "enabled": true,
+  "trust_tier": 0,
+  "effective_from": "2026-11-01T00:00:00Z",
+  "created_by": "own_primary"
+}

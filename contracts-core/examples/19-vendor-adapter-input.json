@@ -1,0 +1,198 @@
+{
+  "schema_version": "1",
+  "run_id": "run_000142a1",
+  "attempt": 1,
+  "work_order": {
+    "id": "wo_000142v1",
+    "version": 1,
+    "title": "Refresh shipping estimate when the address changes",
+    "project_id": "prj_atlas001",
+    "stream_id": "stm_backlog1",
+    "ledger_row_id": "lr_000142",
+    "base_commit": "0fd9b5e3b7bb57999302070797a5d3a074b731f0",
+    "goal": "A customer who edits the shipping address at checkout sees an up-to-date estimate within two seconds.",
+    "context_links": [
+      "lr_000142",
+      "https://git.example.invalid/atlas/issues/1187",
+      "docs/decisions/shipping-estimates.md",
+      "https://git.example.invalid/atlas/pull/412"
+    ],
+    "scope": {
+      "touches": [
+        "src/checkout/**",
+        "tests/checkout/**"
+      ],
+      "forbidden": [
+        "src/billing/**",
+        "migrations/**",
+        ".github/**"
+      ]
+    },
+    "constraints": {
+      "style": [
+        "match existing checkout module conventions"
+      ],
+      "no_new_dependencies": true,
+      "max_diff_lines": 200,
+      "max_files": 6,
+      "notes": [
+        "Do not change public API response shapes"
+      ]
+    },
+    "acceptance": [
+      {
+        "id": "AC1",
+        "claim": "Address change triggers a new estimate request",
+        "probe_command": "pnpm test tests/checkout/shipping-refresh.test.ts",
+        "expected": "exit 0, 4 tests passed"
+      },
+      {
+        "id": "AC2",
+        "claim": "p95 refresh under 2s with zero stale estimates",
+        "probe_command": "node scripts/probes/shipping-estimate-refresh.mjs --target branch",
+        "expected": "exit 0; /p95_ms < 2000; /stale_estimate_count == 0"
+      }
+    ],
+    "autonomy_tier": "L2",
+    "action_class": "code_write_sandbox",
+    "environment": "sandbox",
+    "budget": {
+      "caps": {
+        "max_usd": 1.5,
+        "max_tokens": 1000000,
+        "max_minutes": 30,
+        "max_turns": 60
+      },
+      "ttl_hours": 24
+    },
+    "escalate_if": [
+      {
+        "condition": "Fix requires touching a forbidden path or a public API shape",
+        "to": "program_lead"
+      },
+      {
+        "condition": "Blocked or ambiguous for more than 20 minutes or 3 attempts",
+        "to": "program_lead"
+      },
+      {
+        "condition": "Any security, privacy or external-communication risk is noticed",
+        "to": "auditor"
+      }
+    ],
+    "output": {
+      "required_artifacts": [
+        "pull_request"
+      ],
+      "result_schema": "run-result.json"
+    },
+    "roles": {
+      "doer": "agt_work0001",
+      "reviewers": [
+        "agt_work0002"
+      ],
+      "verifier": "agt_verif001",
+      "approver": {
+        "kind": "owner",
+        "id": "own_primary"
+      }
+    },
+    "delegation_packet_id": "dlg_000142",
+    "provenance": {
+      "untrusted_inputs": [
+        {
+          "source": "issue_comment",
+          "ref": "https://git.example.invalid/atlas/issues/1187#c3",
+          "ingested_at": "2026-11-08T09:00:00Z"
+        }
+      ],
+      "rule_of_two": {
+        "untrusted_input": true,
+        "sensitive_access": false,
+        "state_change_or_external_comms": true,
+        "score": 2,
+        "inputs_hash": "7e9be676a5ca922657e734595e5c131921cbfd00770edbebd2d8ad91f1c35c7c"
+      }
+    },
+    "issued_at": "2026-11-08T09:20:00Z",
+    "expires_at": "2026-11-09T09:20:00Z",
+    "content_hash": "3721ad4554323f632f1751528a3027fd7f49d7bc085d817f2bdc6f4e2cf4e126"
+  },
+  "workspace": {
+    "path": "/var/fw/worktrees/lr_000142",
+    "branch": "fw/lr_000142-shipping-estimate",
+    "base_commit": "0fd9b5e3b7bb57999302070797a5d3a074b731f0",
+    "read_only": false
+  },
+  "credentials_handle": {
+    "handle_id": "crd_000142a",
+    "scopes": [
+      "git.push:branch:fw/lr_000142-*",
+      "ci.read"
+    ],
+    "expires_at": "2026-11-08T10:25:00Z"
+  },
+  "budget": {
+    "max_usd": 1.5,
+    "max_tokens": 1000000,
+    "max_minutes": 30,
+    "max_turns": 60
+  },
+  "caps": {
+    "max_turns": 60,
+    "max_wall_clock_s": 1800
+  },
+  "result_schema_ref": "run-result.json",
+  "sandbox": {
+    "isolation": "container",
+    "network_policy": "allowlist",
+    "egress_allowlist": [
+      "git.example.invalid",
+      "registry.example.invalid"
+    ],
+    "proxy": "http://egress-proxy.local:3128"
+  },
+  "tool_allowlist": [
+    {
+      "server": "git",
+      "tool": "commit",
+      "definition_hash": "48398b6cf34fb2689387a19523b7ba8054777f768da2d586b74c496fdfc747d6",
+      "changes_state": true
+    },
+    {
+      "server": "issues",
+      "tool": "read_comment",
+      "definition_hash": "cf9afb175e8e7fcfbdd35bb640919b5e0ed967e20c566099aa0029bc89e850e9",
+      "returns_untrusted": true
+    }
+  ],
+  "skills": [
+    {
+      "skill_id": "skl_000012",
+      "version": "1.0.0",
+      "content_hash": "751076131cefd8ee2b6676e1a48ed77cedb3344e5756934a5cd028df5abe4443"
+    }
+  ],
+  "context_provenance": {
+    "untrusted_inputs": [
+      {
+        "source": "issue_comment",
+        "ref": "https://git.example.invalid/atlas/issues/1187#c3",
+        "ingested_at": "2026-11-08T09:00:00Z"
+      }
+    ],
+    "rule_of_two": {
+      "untrusted_input": true,
+      "sensitive_access": false,
+      "state_change_or_external_comms": true,
+      "score": 2,
+      "inputs_hash": "7e9be676a5ca922657e734595e5c131921cbfd00770edbebd2d8ad91f1c35c7c"
+    }
+  },
+  "instruction_files": [
+    {
+      "path": "instructions/worker-base.md",
+      "sha256": "c5e4fa52fd2b69133b6b6d1ebb427441601c18af491f548c7c34da3e9bfdacd9"
+    }
+  ],
+  "planner_text_is_data": true
+}

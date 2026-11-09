@@ -1,0 +1,40 @@
+{
+  "id": "dcd_000142m",
+  "variant": "approve",
+  "project_id": "prj_atlas001",
+  "title": "Merge PR 481: fresh shipping estimate",
+  "ask": "Merge this checkout fix to main at the exact commit shown?",
+  "urgency": "today",
+  "deadline_at": "2026-11-08T18:52:00Z",
+  "default_on_timeout": "deny",
+  "source": {
+    "work_order_id": "wo_000142v1",
+    "run_id": "run_000142a1",
+    "ledger_row_id": "lr_000142",
+    "agent_id": "agt_lead0001"
+  },
+  "evidence_bundle_id": "evb_000142a",
+  "created_at": "2026-11-08T14:52:00Z",
+  "approval_id": "apr_000142m",
+  "headline": "Customers see an updated shipping estimate within 2 seconds of changing their address.",
+  "payload_preview": {
+    "format": "diff",
+    "excerpt": "--- a/src/checkout/shipping.ts\n+++ b/src/checkout/shipping.ts\n@@ ... refresh estimate on address change ...\n",
+    "full_ref": "artifact://rendered-diff-481-3",
+    "payload_hash": "021548f263676d3760c29ade4dea3979be35fd59c20fdacb071c4b1734e6f9e7"
+  },
+  "risk": {
+    "blast_radius": "Checkout estimate widget only; 58 changed lines in 3 files.",
+    "reversible": true,
+    "rollback_tested": true,
+    "scan_status": "green",
+    "rule_of_two_score": 2
+  },
+  "challenge_required": false,
+  "actions": [
+    "approve",
+    "deny",
+    "request_changes",
+    "snooze"
+  ]
+}

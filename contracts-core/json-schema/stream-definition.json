@@ -1,0 +1,328 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://contracts.invalid/fw/v1/stream-definition.json",
+  "title": "Stream definition",
+  "description": "A stream template instance: trigger, inputs, tools, output, verifier, human gate, metrics.",
+  "type": "object",
+  "properties": {
+    "id": {
+      "type": "string",
+      "pattern": "^stm_[0-9A-Za-z]{4,40}$"
+    },
+    "key": {
+      "type": "string",
+      "pattern": "^[a-z][a-z0-9_-]{2,40}$"
+    },
+    "name": {
+      "type": "string"
+    },
+    "project_id": {
+      "type": "string",
+      "pattern": "^prj_[0-9A-Za-z]{4,40}$"
+    },
+    "version": {
+      "type": "integer",
+      "minimum": 1
+    },
+    "template": {
+      "enum": [
+        "backlog_dev",
+        "code_health",
+        "security",
+        "help_desk",
+        "scheduling",
+        "email",
+        "digest",
+        "docs_changelog",
+        "incident",
+        "custom"
+      ]
+    },
+    "enabled": {
+      "type": "boolean"
+    },
+    "trigger": {
+      "type": "object",
+      "properties": {
+        "type": {
+          "enum": [
+            "cron",
+            "webhook",
+            "manual",
+            "reconciler",
+            "event"
+          ]
+        },
+        "cron": {
+          "type": "string"
+        },
+        "timezone": {
+          "type": "string"
+        },
+        "webhook_source": {
+          "type": "string"
+        },
+        "event_type": {
+          "type": "string"
+        },
+        "catch_up": {
+          "enum": [
+            "skip",
+            "run_once"
+          ]
+        }
+      },
+      "required": [
+        "type"
+      ],
+      "additionalProperties": false,
+      "allOf": [
+        {
+          "if": {
+            "properties": {
+              "type": {
+                "const": "cron"
+              }
+            }
+          },
+          "then": {
+            "required": [
+              "cron",
+              "timezone"
+            ]
+          }
+        }
+      ]
+    },
+    "inputs": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "properties": {
+          "name": {
+            "type": "string"
+          },
+          "kind": {
+            "enum": [
+              "ledger_rows",
+              "repo",
+              "inbox",
+              "calendar",
+              "helpdesk",
+              "scanner",
+              "query",
+              "webhook_payload"
+            ]
+          },
+          "ref": {
+            "$ref": "common.json#/$defs/ref"
+          },
+          "untrusted": {
+            "type": "boolean"
+          }
+        },
+        "required": [
+          "name",
+          "kind",
+          "untrusted"
+        ],
+        "additionalProperties": false
+      }
+    },
+    "tools": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "properties": {
+          "server": {
+            "type": "string"
+          },
+          "tool": {
+            "type": "string"
+          },
+          "definition_hash": {
+            "$ref": "common.json#/$defs/sha256"
+          }
+        },
+        "required": [
+          "server",
+          "tool"
+        ],
+        "additionalProperties": false
+      },
+      "description": "Allowlist only; hash-pinned."
+    },
+    "action_classes": {
+      "type": "array",
+      "items": {
+        "$ref": "common.json#/$defs/action_class"
+      },
+      "minItems": 1
+    },
+    "output": {
+      "type": "object",
+      "properties": {
+        "artifacts": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          },
+          "minItems": 1
+        },
+        "result_schema": {
+          "type": "string",
+          "default": "run-result.json"
+        }
+      },
+      "required": [
+        "artifacts"
+      ],
+      "additionalProperties": false
+    },
+    "verifier": {
+      "type": "object",
+      "properties": {
+        "agent_profile": {
+          "type": "string"
+        },
+        "vendor_policy": {
+          "enum": [
+            "different_vendor_preferred",
+            "different_vendor_required",
+            "any"
+          ]
+        },
+        "read_only": {
+          "const": true
+        }
+      },
+      "required": [
+        "agent_profile",
+        "vendor_policy",
+        "read_only"
+      ],
+      "additionalProperties": false
+    },
+    "human_gate": {
+      "type": "object",
+      "properties": {
+        "min_tier": {
+          "$ref": "common.json#/$defs/tier"
+        },
+        "approver": {
+          "const": "owner"
+        },
+        "gate_on": {
+          "type": "array",
+          "items": {
+            "$ref": "common.json#/$defs/action_class"
+          }
+        }
+      },
+      "required": [
+        "min_tier",
+        "approver"
+      ],
+      "additionalProperties": false
+    },
+    "default_tier": {
+      "$ref": "common.json#/$defs/tier"
+    },
+    "tier_caps": {
+      "type": "object",
+      "properties": {
+        "sandbox": {
+          "$ref": "common.json#/$defs/tier"
+        },
+        "staging": {
+          "$ref": "common.json#/$defs/tier"
+        },
+        "production": {
+          "$ref": "common.json#/$defs/tier"
+        }
+      },
+      "additionalProperties": false
+    },
+    "budget": {
+      "type": "object",
+      "properties": {
+        "caps": {
+          "$ref": "common.json#/$defs/budget_caps"
+        },
+        "period": {
+          "enum": [
+            "day",
+            "week",
+            "month"
+          ]
+        }
+      },
+      "required": [
+        "caps",
+        "period"
+      ],
+      "additionalProperties": false
+    },
+    "wip_limit": {
+      "type": "integer",
+      "minimum": 1,
+      "maximum": 20
+    },
+    "dedupe": {
+      "type": "object",
+      "properties": {
+        "against": {
+          "type": "array",
+          "items": {
+            "enum": [
+              "open_prs",
+              "recent_merges",
+              "open_work_orders",
+              "recent_runs"
+            ]
+          }
+        },
+        "window_hours": {
+          "type": "integer",
+          "minimum": 1
+        }
+      },
+      "additionalProperties": false
+    },
+    "metrics": {
+      "type": "array",
+      "items": {
+        "type": "string"
+      },
+      "minItems": 1
+    },
+    "injection_isolation": {
+      "type": "string",
+      "description": "How untrusted inputs are separated from sensitive access and outward channels (Rule of Two)."
+    },
+    "created_at": {
+      "$ref": "common.json#/$defs/timestamp"
+    }
+  },
+  "required": [
+    "id",
+    "key",
+    "name",
+    "project_id",
+    "version",
+    "template",
+    "enabled",
+    "trigger",
+    "inputs",
+    "tools",
+    "action_classes",
+    "output",
+    "verifier",
+    "human_gate",
+    "default_tier",
+    "budget",
+    "wip_limit",
+    "metrics"
+  ],
+  "additionalProperties": false
+}

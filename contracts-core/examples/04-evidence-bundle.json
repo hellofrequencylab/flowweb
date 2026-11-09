@@ -1,0 +1,121 @@
+{
+  "id": "evb_000142a",
+  "subject": {
+    "kind": "pull_request",
+    "ref": "https://git.example.invalid/atlas/pull/481",
+    "sha": "3c2ebbdac566372536176d3283a828d2dfdefed3"
+  },
+  "intent_payload": {
+    "rendered_ref": "artifact://rendered-diff-481-3",
+    "payload_hash": "021548f263676d3760c29ade4dea3979be35fd59c20fdacb071c4b1734e6f9e7",
+    "format": "diff"
+  },
+  "provenance": {
+    "untrusted_inputs": [
+      {
+        "source": "issue_comment",
+        "ref": "https://git.example.invalid/atlas/issues/1187#c3",
+        "ingested_at": "2026-11-08T09:00:00Z"
+      }
+    ],
+    "rule_of_two": {
+      "untrusted_input": true,
+      "sensitive_access": false,
+      "state_change_or_external_comms": true,
+      "score": 2,
+      "inputs_hash": "7e9be676a5ca922657e734595e5c131921cbfd00770edbebd2d8ad91f1c35c7c"
+    }
+  },
+  "automated_evidence": [
+    {
+      "name": "unit tests",
+      "kind": "tests",
+      "status": "pass",
+      "artifact_ref": "artifact://ci/tests-481-3",
+      "ran_at": "2026-11-08T14:30:00Z",
+      "summary": "212 passed, 0 skipped"
+    },
+    {
+      "name": "typecheck",
+      "kind": "typecheck",
+      "status": "pass",
+      "ran_at": "2026-11-08T14:30:00Z"
+    },
+    {
+      "name": "lint",
+      "kind": "lint",
+      "status": "pass",
+      "ran_at": "2026-11-08T14:30:00Z"
+    },
+    {
+      "name": "SAST",
+      "kind": "sast",
+      "status": "pass",
+      "artifact_ref": "artifact://ci/sast-481-3",
+      "ran_at": "2026-11-08T14:32:00Z"
+    },
+    {
+      "name": "secret scan",
+      "kind": "secret_scan",
+      "status": "pass",
+      "ran_at": "2026-11-08T14:32:00Z"
+    },
+    {
+      "name": "row probe on branch",
+      "kind": "probe",
+      "status": "pass",
+      "artifact_ref": "artifact://prr_000142b",
+      "ran_at": "2026-11-08T14:41:00Z",
+      "summary": "p95 = 1380 ms, stale = 0"
+    },
+    {
+      "name": "diff policy",
+      "kind": "diff_policy",
+      "status": "pass",
+      "ran_at": "2026-11-08T14:33:00Z",
+      "summary": "58 lines, 3 files, no tripwire paths"
+    },
+    {
+      "name": "merge-queue branch CI",
+      "kind": "ci_queue_branch",
+      "status": "pass",
+      "artifact_ref": "artifact://ci/queue-481",
+      "ran_at": "2026-11-08T14:50:00Z"
+    }
+  ],
+  "visual_evidence": [
+    {
+      "ref": "artifact://render/checkout-before-390x844.png",
+      "viewport": "390x844",
+      "label": "before",
+      "captured_by": "ci_sandbox"
+    },
+    {
+      "ref": "artifact://render/checkout-after-390x844.png",
+      "viewport": "390x844",
+      "label": "after",
+      "captured_by": "ci_sandbox"
+    }
+  ],
+  "blast_radius": {
+    "summary": "Checkout shipping estimate widget only; no data model or payment code touched.",
+    "affected": [
+      "checkout page"
+    ],
+    "reversible": true,
+    "rollback_plan": "Revert commit; estimate falls back to prior behavior.",
+    "rollback_tested": true
+  },
+  "independent_check": {
+    "reviewer_agent_id": "agt_work0002",
+    "vendor": "google",
+    "verdict": "concur",
+    "findings_ref": "artifact://review/481-advisory",
+    "advisory": true
+  },
+  "cost_estimate_usd": 0.0,
+  "scan_red": false,
+  "captured_by": "ci_sandbox",
+  "created_at": "2026-11-08T14:51:00Z",
+  "bundle_hash": "a2490b5f83dafe675d364e92464cf1388b06441f393fa21cff4b018432b372ae"
+}

@@ -1,0 +1,269 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://contracts.invalid/fw/v1/evidence-bundle.json",
+  "title": "Evidence bundle",
+  "description": "What an approver needs to judge a gated action in under a minute without trusting the agent's own summary. Captured by the CI sandbox or kernel, never the agent.",
+  "type": "object",
+  "properties": {
+    "id": {
+      "type": "string",
+      "pattern": "^evb_[0-9A-Za-z]{4,40}$"
+    },
+    "subject": {
+      "type": "object",
+      "properties": {
+        "kind": {
+          "enum": [
+            "pull_request",
+            "email",
+            "sql_migration",
+            "calendar_invite",
+            "deploy",
+            "message",
+            "spend",
+            "config",
+            "skill",
+            "instruction_change"
+          ]
+        },
+        "ref": {
+          "$ref": "common.json#/$defs/ref"
+        },
+        "sha": {
+          "type": "string",
+          "pattern": "^[0-9a-f]{40,64}$"
+        }
+      },
+      "required": [
+        "kind",
+        "ref"
+      ],
+      "additionalProperties": false
+    },
+    "intent_payload": {
+      "type": "object",
+      "properties": {
+        "rendered_ref": {
+          "$ref": "common.json#/$defs/ref"
+        },
+        "payload_hash": {
+          "$ref": "common.json#/$defs/sha256"
+        },
+        "format": {
+          "enum": [
+            "diff",
+            "email_html",
+            "sql",
+            "invite",
+            "text",
+            "json"
+          ]
+        }
+      },
+      "required": [
+        "rendered_ref",
+        "payload_hash",
+        "format"
+      ],
+      "additionalProperties": false,
+      "description": "The literal payload, rendered not described."
+    },
+    "provenance": {
+      "$ref": "common.json#/$defs/provenance"
+    },
+    "automated_evidence": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "properties": {
+          "name": {
+            "type": "string"
+          },
+          "kind": {
+            "enum": [
+              "tests",
+              "typecheck",
+              "lint",
+              "sast",
+              "sca",
+              "secret_scan",
+              "migration_dry_run",
+              "cost_estimate",
+              "probe",
+              "diff_policy",
+              "ci_queue_branch",
+              "other"
+            ]
+          },
+          "status": {
+            "enum": [
+              "pass",
+              "fail",
+              "warn",
+              "skipped"
+            ]
+          },
+          "artifact_ref": {
+            "$ref": "common.json#/$defs/ref"
+          },
+          "ran_at": {
+            "$ref": "common.json#/$defs/timestamp"
+          },
+          "summary": {
+            "type": "string",
+            "maxLength": 300
+          }
+        },
+        "required": [
+          "name",
+          "kind",
+          "status",
+          "ran_at"
+        ],
+        "additionalProperties": false
+      },
+      "minItems": 1
+    },
+    "visual_evidence": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "properties": {
+          "ref": {
+            "$ref": "common.json#/$defs/ref"
+          },
+          "viewport": {
+            "type": "string",
+            "pattern": "^[0-9]{3,4}x[0-9]{3,4}$"
+          },
+          "label": {
+            "enum": [
+              "before",
+              "after",
+              "diff"
+            ]
+          },
+          "captured_by": {
+            "const": "ci_sandbox"
+          }
+        },
+        "required": [
+          "ref",
+          "viewport",
+          "label",
+          "captured_by"
+        ],
+        "additionalProperties": false
+      },
+      "description": "Renders are evidence, not authorization."
+    },
+    "blast_radius": {
+      "type": "object",
+      "properties": {
+        "summary": {
+          "type": "string",
+          "maxLength": 400
+        },
+        "affected": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          }
+        },
+        "reversible": {
+          "type": "boolean"
+        },
+        "rollback_plan": {
+          "type": "string"
+        },
+        "rollback_tested": {
+          "type": "boolean"
+        }
+      },
+      "required": [
+        "summary",
+        "reversible",
+        "rollback_plan",
+        "rollback_tested"
+      ],
+      "additionalProperties": false
+    },
+    "independent_check": {
+      "type": "object",
+      "properties": {
+        "reviewer_agent_id": {
+          "type": "string",
+          "pattern": "^agt_[0-9A-Za-z]{4,40}$"
+        },
+        "vendor": {
+          "$ref": "common.json#/$defs/vendor"
+        },
+        "verdict": {
+          "enum": [
+            "concur",
+            "concerns",
+            "reject"
+          ]
+        },
+        "findings_ref": {
+          "$ref": "common.json#/$defs/ref"
+        },
+        "advisory": {
+          "const": true
+        },
+        "same_vendor_review": {
+          "type": "boolean",
+          "description": "True when only one vendor is configured: a different prompt and fresh context were used. Weaker evidence, shown to the Owner."
+        }
+      },
+      "required": [
+        "reviewer_agent_id",
+        "vendor",
+        "verdict",
+        "advisory"
+      ],
+      "additionalProperties": false,
+      "description": "Differently-prompted, ideally different-vendor reviewer. Advisory only at L3+."
+    },
+    "cost_estimate_usd": {
+      "$ref": "common.json#/$defs/usd"
+    },
+    "scan_red": {
+      "type": "boolean",
+      "description": "True if any scan failed. A red scan blocks the request from reaching the approver; green never implies approval."
+    },
+    "captured_by": {
+      "enum": [
+        "ci_sandbox",
+        "kernel"
+      ]
+    },
+    "bundle_hash": {
+      "$ref": "common.json#/$defs/sha256"
+    },
+    "created_at": {
+      "$ref": "common.json#/$defs/timestamp"
+    },
+    "not_verified": {
+      "type": "array",
+      "items": {
+        "type": "string",
+        "maxLength": 300
+      },
+      "description": "Honesty line: checks that did not run or could not be confirmed. An empty list is explicit."
+    }
+  },
+  "required": [
+    "id",
+    "subject",
+    "intent_payload",
+    "provenance",
+    "automated_evidence",
+    "blast_radius",
+    "scan_red",
+    "captured_by",
+    "bundle_hash",
+    "created_at"
+  ],
+  "additionalProperties": false
+}

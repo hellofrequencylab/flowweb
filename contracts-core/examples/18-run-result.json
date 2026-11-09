@@ -1,0 +1,52 @@
+{
+  "schema_version": "1",
+  "run_id": "run_000142a1",
+  "work_order_id": "wo_000142v1",
+  "adapter": {
+    "vendor": "anthropic",
+    "name": "claude-headless",
+    "version": "1.4.0",
+    "model": "mid-tier-coding"
+  },
+  "session_id": "sess_7f3a91c2",
+  "status": "completed",
+  "exit_code": 0,
+  "started_at": "2026-11-08T09:25:00Z",
+  "ended_at": "2026-11-08T09:51:00Z",
+  "cost": {
+    "input_tokens": 612000,
+    "output_tokens": 41000,
+    "cached_tokens": 480000,
+    "usd": 0.92
+  },
+  "turns": 34,
+  "tool_call_count": 88,
+  "artifacts": [
+    {
+      "kind": "pull_request",
+      "ref": "https://git.example.invalid/atlas/pull/481",
+      "sha": "3c2ebbdac566372536176d3283a828d2dfdefed3",
+      "title": "Refresh shipping estimate on address change"
+    }
+  ],
+  "claims": [
+    {
+      "acceptance_id": "AC1",
+      "claim": "4 new tests pass",
+      "evidence_ref": "trace://run_000142a1#step-71",
+      "tool_call_id": "tcl_000142071"
+    },
+    {
+      "acceptance_id": "AC2",
+      "claim": "p95 1380 ms, stale 0",
+      "evidence_ref": "trace://run_000142a1#step-80"
+    }
+  ],
+  "diff_stats": {
+    "files_changed": 3,
+    "lines_added": 49,
+    "lines_removed": 9
+  },
+  "stop_requests": [],
+  "summary": "Added an address-change listener that refetches the estimate and cancels in-flight requests. No forbidden paths touched."
+}

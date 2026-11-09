@@ -1,0 +1,134 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://contracts.invalid/fw/v1/budget.json",
+  "title": "Budget",
+  "description": "Hard caps for a scope. Tier 0: set by an Owner. Refused runs are logged, never silent.",
+  "type": "object",
+  "properties": {
+    "id": {
+      "type": "string",
+      "pattern": "^bud_[0-9A-Za-z]{4,40}$"
+    },
+    "version": {
+      "type": "integer",
+      "minimum": 1
+    },
+    "scope": {
+      "type": "object",
+      "properties": {
+        "kind": {
+          "enum": [
+            "fleet",
+            "project",
+            "stream",
+            "agent",
+            "work_order",
+            "run"
+          ]
+        },
+        "id": {
+          "type": "string"
+        }
+      },
+      "required": [
+        "kind",
+        "id"
+      ],
+      "additionalProperties": false
+    },
+    "period": {
+      "enum": [
+        "run",
+        "day",
+        "week",
+        "month",
+        "ttl"
+      ]
+    },
+    "caps": {
+      "$ref": "common.json#/$defs/budget_caps"
+    },
+    "soft_threshold_pct": {
+      "$ref": "common.json#/$defs/pct"
+    },
+    "hard_stop": {
+      "const": true
+    },
+    "circuit_breaker": {
+      "type": "object",
+      "properties": {
+        "daily_usd": {
+          "$ref": "common.json#/$defs/usd"
+        },
+        "velocity_usd_per_hour": {
+          "$ref": "common.json#/$defs/usd"
+        }
+      },
+      "additionalProperties": false
+    },
+    "model_tiering": {
+      "type": "object",
+      "properties": {
+        "small": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          }
+        },
+        "mid": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          }
+        },
+        "top": {
+          "type": "object",
+          "properties": {
+            "allowed_for": {
+              "type": "array",
+              "items": {
+                "type": "string"
+              }
+            },
+            "requires_escalation_rule": {
+              "type": "boolean"
+            }
+          },
+          "additionalProperties": false
+        }
+      },
+      "additionalProperties": false
+    },
+    "real_money": {
+      "type": "object",
+      "properties": {
+        "virtual_card_daily_usd": {
+          "$ref": "common.json#/$defs/usd"
+        },
+        "hard_cap_at_payment_layer": {
+          "const": true
+        }
+      },
+      "additionalProperties": false
+    },
+    "set_by": {
+      "type": "string",
+      "pattern": "^own_"
+    },
+    "created_at": {
+      "$ref": "common.json#/$defs/timestamp"
+    }
+  },
+  "required": [
+    "id",
+    "version",
+    "scope",
+    "period",
+    "caps",
+    "soft_threshold_pct",
+    "hard_stop",
+    "set_by",
+    "created_at"
+  ],
+  "additionalProperties": false
+}

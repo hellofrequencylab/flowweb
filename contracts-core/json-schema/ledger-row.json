@@ -1,0 +1,191 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://contracts.invalid/fw/v1/ledger-row.json",
+  "title": "Ledger row",
+  "description": "One row of the Ledger: the single record of what is open, in progress and done. Status lives only here.",
+  "type": "object",
+  "properties": {
+    "id": {
+      "type": "string",
+      "pattern": "^lr_[0-9A-Za-z]{4,40}$"
+    },
+    "project_id": {
+      "type": "string",
+      "pattern": "^prj_[0-9A-Za-z]{4,40}$"
+    },
+    "stream_id": {
+      "type": "string",
+      "pattern": "^stm_[0-9A-Za-z]{4,40}$"
+    },
+    "title": {
+      "type": "string",
+      "minLength": 3,
+      "maxLength": 200
+    },
+    "priority": {
+      "$ref": "common.json#/$defs/priority"
+    },
+    "lane": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 60
+    },
+    "size": {
+      "$ref": "common.json#/$defs/size"
+    },
+    "status": {
+      "enum": [
+        "open",
+        "ready",
+        "claimed",
+        "running",
+        "verifying",
+        "awaiting_approval",
+        "merging",
+        "watching",
+        "done",
+        "blocked",
+        "parked",
+        "regressed"
+      ]
+    },
+    "owner": {
+      "$ref": "common.json#/$defs/owner_ref"
+    },
+    "links": {
+      "type": "array",
+      "items": {
+        "$ref": "common.json#/$defs/ref"
+      },
+      "description": "Issue, docs, prior PRs; links, never pasted blobs."
+    },
+    "depends_on": {
+      "type": "array",
+      "items": {
+        "type": "string",
+        "pattern": "^lr_[0-9A-Za-z]{4,40}$"
+      }
+    },
+    "wave": {
+      "type": "string"
+    },
+    "probe": {
+      "$ref": "probe.json"
+    },
+    "premise": {
+      "type": "object",
+      "properties": {
+        "retested_at": {
+          "$ref": "common.json#/$defs/timestamp"
+        },
+        "still_valid": {
+          "type": "boolean"
+        },
+        "method": {
+          "type": "string"
+        },
+        "evidence_ref": {
+          "$ref": "common.json#/$defs/ref"
+        }
+      },
+      "required": [
+        "still_valid",
+        "retested_at"
+      ],
+      "additionalProperties": false,
+      "description": "Re-test the premise before working a row; an already-fixed issue is the largest cause of unmerged agent PRs."
+    },
+    "merged_sha": {
+      "$ref": "common.json#/$defs/git_sha"
+    },
+    "last_probe": {
+      "type": "object",
+      "properties": {
+        "status": {
+          "enum": [
+            "never",
+            "pass",
+            "fail",
+            "error"
+          ]
+        },
+        "at": {
+          "$ref": "common.json#/$defs/timestamp"
+        },
+        "result_id": {
+          "type": "string",
+          "pattern": "^prr_[0-9A-Za-z]{4,40}$"
+        },
+        "target_kind": {
+          "enum": [
+            "branch",
+            "merged",
+            "deployed",
+            "external"
+          ]
+        }
+      },
+      "required": [
+        "status"
+      ],
+      "additionalProperties": false
+    },
+    "evidence_bundle_id": {
+      "type": "string",
+      "pattern": "^evb_[0-9A-Za-z]{4,40}$"
+    },
+    "watch_hours": {
+      "type": "integer",
+      "minimum": 0,
+      "maximum": 168
+    },
+    "created_at": {
+      "$ref": "common.json#/$defs/timestamp"
+    },
+    "updated_at": {
+      "$ref": "common.json#/$defs/timestamp"
+    }
+  },
+  "required": [
+    "id",
+    "project_id",
+    "title",
+    "priority",
+    "lane",
+    "size",
+    "status",
+    "owner",
+    "probe",
+    "created_at"
+  ],
+  "additionalProperties": false,
+  "allOf": [
+    {
+      "if": {
+        "properties": {
+          "status": {
+            "const": "done"
+          }
+        },
+        "required": [
+          "status"
+        ]
+      },
+      "then": {
+        "required": [
+          "evidence_bundle_id",
+          "last_probe"
+        ],
+        "properties": {
+          "last_probe": {
+            "properties": {
+              "status": {
+                "const": "pass"
+              }
+            }
+          }
+        }
+      }
+    }
+  ]
+}

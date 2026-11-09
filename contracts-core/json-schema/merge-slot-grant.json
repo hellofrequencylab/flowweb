@@ -1,0 +1,157 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://contracts.invalid/fw/v1/merge-slot-grant.json",
+  "title": "Merge slot grant",
+  "description": "A single lock token naming one PR at one approved head SHA with an expiry. If the head SHA changes the slot is void.",
+  "type": "object",
+  "properties": {
+    "id": {
+      "type": "string",
+      "pattern": "^grt_[0-9A-Za-z]{4,40}$"
+    },
+    "kind": {
+      "const": "merge_slot"
+    },
+    "project_id": {
+      "type": "string",
+      "pattern": "^prj_[0-9A-Za-z]{4,40}$"
+    },
+    "work_order_id": {
+      "type": "string",
+      "pattern": "^wo_[0-9A-Za-z]{4,40}$"
+    },
+    "ledger_row_id": {
+      "type": "string",
+      "pattern": "^lr_[0-9A-Za-z]{4,40}$"
+    },
+    "pr": {
+      "type": "object",
+      "properties": {
+        "host": {
+          "type": "string"
+        },
+        "repo": {
+          "type": "string"
+        },
+        "number": {
+          "type": "integer",
+          "minimum": 1
+        },
+        "url": {
+          "$ref": "common.json#/$defs/url"
+        }
+      },
+      "required": [
+        "host",
+        "repo",
+        "number",
+        "url"
+      ],
+      "additionalProperties": false
+    },
+    "base_branch": {
+      "type": "string",
+      "minLength": 1
+    },
+    "base_sha_at_grant": {
+      "$ref": "common.json#/$defs/git_sha"
+    },
+    "approved_head_sha": {
+      "$ref": "common.json#/$defs/git_sha"
+    },
+    "approval_id": {
+      "type": "string",
+      "pattern": "^apr_[0-9A-Za-z]{4,40}$"
+    },
+    "queue_position": {
+      "type": "integer",
+      "description": "0 = holds the slot.",
+      "minimum": 0
+    },
+    "preconditions": {
+      "type": "object",
+      "properties": {
+        "ci_green_on_queue_branch": {
+          "type": "boolean"
+        },
+        "probe_passed_on_branch": {
+          "type": "boolean"
+        },
+        "diff_policy_passed": {
+          "type": "boolean"
+        },
+        "conflict_check": {
+          "type": "object",
+          "properties": {
+            "checked_at": {
+              "$ref": "common.json#/$defs/timestamp"
+            },
+            "against_sha": {
+              "$ref": "common.json#/$defs/git_sha"
+            },
+            "result": {
+              "enum": [
+                "clean",
+                "conflicts"
+              ]
+            }
+          },
+          "required": [
+            "checked_at",
+            "against_sha",
+            "result"
+          ],
+          "additionalProperties": false
+        }
+      },
+      "required": [
+        "ci_green_on_queue_branch",
+        "diff_policy_passed",
+        "conflict_check"
+      ],
+      "additionalProperties": false
+    },
+    "void_on": {
+      "type": "array",
+      "items": {
+        "enum": [
+          "head_sha_change",
+          "base_moved_past_drift",
+          "expiry",
+          "revocation"
+        ]
+      },
+      "minItems": 1
+    },
+    "max_base_drift_commits": {
+      "type": "integer",
+      "minimum": 0
+    },
+    "issued_at": {
+      "$ref": "common.json#/$defs/timestamp"
+    },
+    "expires_at": {
+      "$ref": "common.json#/$defs/timestamp"
+    },
+    "single_use": {
+      "const": true
+    }
+  },
+  "required": [
+    "id",
+    "kind",
+    "project_id",
+    "pr",
+    "base_branch",
+    "base_sha_at_grant",
+    "approved_head_sha",
+    "approval_id",
+    "queue_position",
+    "preconditions",
+    "void_on",
+    "issued_at",
+    "expires_at",
+    "single_use"
+  ],
+  "additionalProperties": false
+}

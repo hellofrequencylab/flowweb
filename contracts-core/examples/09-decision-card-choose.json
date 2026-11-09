@@ -1,0 +1,27 @@
+{
+  "id": "dcd_000160c",
+  "variant": "choose",
+  "project_id": "prj_atlas001",
+  "title": "How to handle the flaky payment-form test",
+  "ask": "Quarantine the flaky test now, or hold the release until it is fixed?",
+  "urgency": "this_week",
+  "default_on_timeout": "quarantine_and_open_backlog_row",
+  "created_at": "2026-11-08T10:00:00Z",
+  "options": [
+    {
+      "id": "quarantine",
+      "label": "Quarantine and file a fix row",
+      "consequence": "Release proceeds today; a P2 ledger row tracks the fix. Test is skipped until fixed.",
+      "reversible": true
+    },
+    {
+      "id": "hold",
+      "label": "Hold the release",
+      "consequence": "No release until the test is fixed; about one day of delay.",
+      "cost_usd": 2.5,
+      "reversible": true
+    }
+  ],
+  "recommended_option": "quarantine",
+  "recommendation_reason": "Failure rate is 4% and unrelated to this release; quarantine is human-gated and tracked."
+}

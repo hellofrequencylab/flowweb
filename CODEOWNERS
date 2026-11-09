@@ -1,0 +1,33 @@
+# CODEOWNERS: Tier 0 protected paths. Humans only.
+# Replace @hellofrequencylab with the Owner's GitHub handle. Branch protection must require code-owner review
+# and dismiss stale approvals. Agent identities have no admin or bypass permission.
+
+# Default: the Owner reviews everything that has no narrower owner.
+*                                          @hellofrequencylab
+
+# Instructions and ownership itself
+/CODEOWNERS                                @hellofrequencylab
+/AGENTS.md                                 @hellofrequencylab
+/CLAUDE.md                                 @hellofrequencylab
+
+# Probes, row definitions and the checks that guard them
+/probes/                                   @hellofrequencylab
+/ledger/rows/                              @hellofrequencylab
+/scripts/check-*.mjs                       @hellofrequencylab
+/scripts/probe-*.sh                        @hellofrequencylab
+
+# CI, automation and repo settings
+/.github/                                  @hellofrequencylab
+/.gitleaks.toml                            @hellofrequencylab
+/.husky/                                   @hellofrequencylab
+
+# Policy, budgets, routing
+/policy/                                   @hellofrequencylab
+/config/                                   @hellofrequencylab
+
+# The gates and the audit chain
+/packages/policy/                          @hellofrequencylab
+/packages/eventlog/src/chain.ts            @hellofrequencylab
+/packages/contracts/sql/                   @hellofrequencylab
+/packages/contracts/json-schema/           @hellofrequencylab
+/packages/contracts/SCHEMA-SNAPSHOT.sha256 @hellofrequencylab

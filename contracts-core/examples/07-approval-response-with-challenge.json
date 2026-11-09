@@ -1,0 +1,23 @@
+{
+  "approval_id": "apr_000150c",
+  "decision": "approved",
+  "payload_hash": "0658413ddb8ef218e7ea8bf46214891b2761f4c6040c310b1092a2685a4ed86a",
+  "approver": {
+    "kind": "owner",
+    "id": "own_primary"
+  },
+  "method": "deck_challenge_phrase",
+  "challenge_answer": "amber falcon ledger seven",
+  "step_up_proof": {
+    "method": "passkey",
+    "assertion_ref": "webauthn://assertion/9f31c2",
+    "verified_at": "2026-11-09T08:14:30Z"
+  },
+  "comment": "Column is nullable and additive; ok to apply in the window.",
+  "responded_at": "2026-11-09T08:14:41Z",
+  "signature": {
+    "alg": "ed25519",
+    "key_id": "own_primary#passkey-1",
+    "sig": "9c0b247ab890e813e3090b55f9bdfcbcc615056c8346542d89f84106f2852b8a"
+  }
+}
