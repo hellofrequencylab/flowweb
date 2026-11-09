@@ -1,0 +1,32 @@
+{
+  "id": "FW-C-005",
+  "title": "Ledger sync: row definition files to the ledger database",
+  "core_milestone": "C0",
+  "phase": 0,
+  "epic": "C0.3 Ledger",
+  "priority": "P0",
+  "size": "M",
+  "lane": "kernel",
+  "agent_suitability": "agent",
+  "gate": "none",
+  "depends_on": [
+    "FW-C-003",
+    "FW-C-004"
+  ],
+  "description": "Row definitions live in ledger/rows/<ID>.json (definition only, never status; Tier 0 because they carry the probe). fw ledger sync inserts new rows, refuses any change to an existing probe, and imports CORE-BACKLOG.json so the product builds itself from its own ledger.",
+  "acceptance": [
+    "Syncing a new row file creates a ledger_rows row with status open and a ledger.row_created event",
+    "Editing the probe of an already-synced row file is refused with a tamper event and changes nothing",
+    "Status is never read from or written to the row files"
+  ],
+  "verify_probe": "pnpm probe kernel/ledger-sync",
+  "files_hint": [
+    "packages/ledger/src/sync.ts",
+    "ledger/rows/"
+  ],
+  "origin": "new Core row",
+  "derived_from": [
+    "WS-P0-015",
+    "WS-P0-017"
+  ]
+}

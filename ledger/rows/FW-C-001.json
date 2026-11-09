@@ -1,0 +1,31 @@
+{
+  "id": "FW-C-001",
+  "title": "Core monorepo skeleton with eight packages",
+  "core_milestone": "C0",
+  "phase": 0,
+  "epic": "C0.1 Repo and guardrails",
+  "priority": "P0",
+  "size": "S",
+  "lane": "devex",
+  "agent_suitability": "agent",
+  "gate": "none",
+  "depends_on": [],
+  "description": "Create the pnpm workspace with the eight Core packages (contracts, eventlog, ledger, policy, adapters, daemon, cli, web), strict TypeScript, pinned Node and pnpm, Biome, Vitest and the dependency-boundary lint, mirroring REPO-BOOTSTRAP-CORE/PACKAGE-LAYOUT.txt.",
+  "acceptance": [
+    "pnpm install --frozen-lockfile succeeds on a clean clone",
+    "pnpm -r typecheck passes with strict, noUncheckedIndexedAccess and exactOptionalPropertyTypes on",
+    "A deliberate import of @fw/adapters from @fw/ledger fails the boundary lint"
+  ],
+  "verify_probe": "pnpm probe devex/workspace-layout",
+  "files_hint": [
+    "package.json",
+    "pnpm-workspace.yaml",
+    "tsconfig.base.json",
+    "packages/*/package.json",
+    ".nvmrc"
+  ],
+  "origin": "new Core row",
+  "derived_from": [
+    "WS-P0-001"
+  ]
+}

@@ -1,0 +1,32 @@
+{
+  "id": "FW-C-008",
+  "title": "Minimal sandbox: per-run directory, scrubbed environment, honest self-test",
+  "core_milestone": "C0",
+  "phase": 0,
+  "epic": "C0.5 Adapters",
+  "priority": "P0",
+  "size": "M",
+  "lane": "runtime",
+  "agent_suitability": "pair",
+  "gate": "none",
+  "depends_on": [
+    "WS-P0-032",
+    "WS-P0-028"
+  ],
+  "description": "Run every vendor process in FW_HOME/runs/<run_id> with an allowlisted environment, a HOME override, the worktree as working directory, process-group kill, an optional separate OS user (FW_SANDBOX_USER) and HTTPS_PROXY/NO_PROXY set to an allowlist proxy where the vendor CLI honours it. A self-test reports each control as enforced, best_effort or absent. The run directory holds stdout, stderr, result JSON and diff, with hashes in events, and fw gc removes it.",
+  "acceptance": [
+    "The child environment contains only allowlisted variables (test prints it)",
+    "The self-test reports each control as enforced, best_effort or absent and fw doctor shows it",
+    "A run directory is removable by fw gc without touching the worktree branch"
+  ],
+  "verify_probe": "pnpm probe runtime/sandbox-userdir",
+  "files_hint": [
+    "packages/daemon/src/runtime/sandbox.ts",
+    "packages/daemon/src/runtime/run-dir.ts"
+  ],
+  "origin": "new Core row",
+  "derived_from": [
+    "WS-P0-033",
+    "WS-P0-034"
+  ]
+}

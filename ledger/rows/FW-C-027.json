@@ -1,0 +1,31 @@
+{
+  "id": "FW-C-027",
+  "title": "Health and security scan stream, report-only",
+  "core_milestone": "C2",
+  "phase": 3,
+  "epic": "C2.3 Streams",
+  "priority": "P1",
+  "size": "M",
+  "lane": "workstreams",
+  "agent_suitability": "agent",
+  "gate": "none",
+  "depends_on": [
+    "WS-P1-004",
+    "FW-C-009",
+    "FW-C-021"
+  ],
+  "description": "A weekly scan at L0/L1: gitleaks, osv-scanner (or the package manager audit), a typecheck, lint and test summary and a stale-dependency report, deduplicated by root cause. Output is a status report plus one choose card per batch proposing ledger rows whose probes fail today (re-run shows the finding gone). No suppressions, no fixes, no PRs.",
+  "acceptance": [
+    "A seeded fake secret and a seeded vulnerable dependency each produce exactly one deduplicated finding",
+    "Accepting a finding creates a ledger row whose probe fails today",
+    "The stream cannot open a PR (policy denies code_write for it; test)"
+  ],
+  "verify_probe": "pnpm probe workstreams/scan-report",
+  "files_hint": [
+    "packages/daemon/src/streams/scan/"
+  ],
+  "origin": "new Core row",
+  "derived_from": [
+    "WS-P3-011"
+  ]
+}

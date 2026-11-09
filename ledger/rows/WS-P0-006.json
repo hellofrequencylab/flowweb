@@ -1,0 +1,34 @@
+{
+  "id": "WS-P0-006",
+  "title": "Probes package and pnpm probe runner",
+  "core_milestone": "C0",
+  "phase": 0,
+  "epic": "E0.1 Repo and guardrails",
+  "priority": "P0",
+  "size": "M",
+  "lane": "devex",
+  "agent_suitability": "pair",
+  "gate": "none",
+  "depends_on": [
+    "FW-C-001"
+  ],
+  "description": "Create the Tier 0 probes/ package and a pnpm probe <path> runner that executes a probe in isolation and prints PASS or FAIL with exit code.",
+  "acceptance": [
+    "pnpm probe devex/workspace-layout runs and exits nonzero before its target exists",
+    "A missing probe file exits 2 with a clear message, not 0",
+    "Probe runs are time-limited by default (60 s)"
+  ],
+  "verify_probe": "pnpm probe devex/probe-runner",
+  "files_hint": [
+    "probes/package.json",
+    "probes/runner.ts"
+  ],
+  "origin": "full-plan row, included",
+  "full_depends_on": [
+    "WS-P0-001"
+  ],
+  "full_files_hint": [
+    "probes/package.json",
+    "probes/runner.ts"
+  ]
+}

@@ -1,0 +1,32 @@
+{
+  "id": "FW-C-010",
+  "title": "Approval service: hash-bound, Owner only, default deny",
+  "core_milestone": "C1",
+  "phase": 2,
+  "epic": "C1.2 Gates",
+  "priority": "P0",
+  "size": "L",
+  "lane": "policy",
+  "agent_suitability": "pair",
+  "gate": "owner-approval",
+  "depends_on": [
+    "FW-C-009",
+    "WS-P1-024",
+    "WS-P0-038"
+  ],
+  "description": "Request, decision card, Owner response bound to payload_hash and head_sha, default deny at expiry, red-scan bundles unrequestable. fw approve and fw deny sign with a device key held in the OS keychain (cli_signed); the web UI posts deck_click from a paired session; a challenge phrase is delivered in the terminal for projects that auto-deploy on merge; a cap of approvals per hour.",
+  "acceptance": [
+    "A response whose payload_hash differs from the request is rejected and recorded as approval.rejected_hash_mismatch",
+    "An approval past expires_at cannot be used and the default (deny) is applied and recorded",
+    "Neither an agent identity nor an unpaired session can answer (tested with both)"
+  ],
+  "verify_probe": "pnpm probe policy/approval-service",
+  "files_hint": [
+    "packages/policy/src/approvals/"
+  ],
+  "origin": "new Core row",
+  "derived_from": [
+    "WS-P2-008",
+    "WS-P2-009"
+  ]
+}

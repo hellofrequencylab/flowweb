@@ -1,0 +1,30 @@
+{
+  "id": "FW-C-022",
+  "title": "Evidence view",
+  "core_milestone": "C2",
+  "phase": 4,
+  "epic": "C2.2 Daily screens",
+  "priority": "P0",
+  "size": "M",
+  "lane": "ui",
+  "agent_suitability": "agent",
+  "gate": "none",
+  "depends_on": [
+    "FW-C-021",
+    "WS-P0-038"
+  ],
+  "description": "Render the evidence bundle as a checklist (tests, typecheck, lint, probe, diff policy, secret scan, independent check with the same_vendor_review flag, blast radius, rollback) next to the literal diff, probe output tail, cost and hashes. A red scan makes approve unreachable.",
+  "acceptance": [
+    "Each automated_evidence item shows pass, fail, warn or skipped with ran_at and links its artifact",
+    "A red-scan bundle disables approve and says why",
+    "The diff view shows the exact hunks that hash to intent_payload.payload_hash"
+  ],
+  "verify_probe": "pnpm probe ui/evidence-view",
+  "files_hint": [
+    "packages/web/src/evidence/"
+  ],
+  "origin": "new Core row",
+  "derived_from": [
+    "WS-P4-010"
+  ]
+}

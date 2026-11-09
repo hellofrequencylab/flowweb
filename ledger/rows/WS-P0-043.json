@@ -1,0 +1,38 @@
+{
+  "id": "WS-P0-043",
+  "title": "Walking skeleton on a real repo and real vendor",
+  "core_milestone": "C0",
+  "phase": 0,
+  "epic": "E0.8 CLI and walking skeleton",
+  "priority": "P0",
+  "size": "M",
+  "lane": "devex",
+  "agent_suitability": "human",
+  "gate": "owner-approval",
+  "depends_on": [
+    "WS-P0-041",
+    "WS-P0-003"
+  ],
+  "description": "Human-supervised run of one real low-risk ledger row from this repo through fw run start to a merged PR; capture the transcript for the demo.",
+  "acceptance": [
+    "A real PR exists with evidence bundle comment and hash",
+    "Audit chain verifies for the run",
+    "Cost record is under the row budget"
+  ],
+  "verify_probe": "bash scripts/probe-first-real-pr.sh",
+  "files_hint": [
+    "scripts/probe-first-real-pr.sh",
+    "docs/demos/phase0.md"
+  ],
+  "origin": "full-plan row, included",
+  "core_adaptation": "Also carries the old WS-P0-031 smoke check: the first real vendor call runs under a hard 0.50 USD cap before the real row.",
+  "full_depends_on": [
+    "WS-P0-041",
+    "WS-P0-031",
+    "WS-P0-003"
+  ],
+  "full_files_hint": [
+    "scripts/probe-first-real-pr.sh",
+    "docs/demos/phase0.md"
+  ]
+}

@@ -1,0 +1,33 @@
+{
+  "id": "WS-P0-026",
+  "title": "Vendor adapter contract and types",
+  "core_milestone": "C0",
+  "phase": 0,
+  "epic": "E0.5 Adapter contract and first vendor",
+  "priority": "P0",
+  "size": "M",
+  "lane": "adapters",
+  "agent_suitability": "agent",
+  "gate": "none",
+  "depends_on": [
+    "FW-C-002"
+  ],
+  "description": "Define the VendorAdapter interface: run(workOrder, workspace, credentialHandle, budget, resultSchema) returning Run Result; resume(sessionId); abort(); capabilities().",
+  "acceptance": [
+    "Interface lives in @fw/adapter-sdk with no vendor imports",
+    "A no-op reference adapter compiles against it",
+    "Capabilities declare supports_resume, supports_schema, supports_budget_cap"
+  ],
+  "verify_probe": "pnpm probe adapters/contract-types",
+  "files_hint": [
+    "packages/adapters/src/sdk/src/contract.ts"
+  ],
+  "origin": "full-plan row, included",
+  "full_depends_on": [
+    "WS-P0-010",
+    "WS-P0-011"
+  ],
+  "full_files_hint": [
+    "packages/adapter-sdk/src/contract.ts"
+  ]
+}

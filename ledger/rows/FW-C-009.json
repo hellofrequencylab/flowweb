@@ -1,0 +1,33 @@
+{
+  "id": "FW-C-009",
+  "title": "Policy engine v0 over core-policy.yaml",
+  "core_milestone": "C1",
+  "phase": 2,
+  "epic": "C1.2 Gates",
+  "priority": "P0",
+  "size": "L",
+  "lane": "policy",
+  "agent_suitability": "pair",
+  "gate": "owner-approval",
+  "depends_on": [
+    "FW-C-002",
+    "WS-P1-001"
+  ],
+  "description": "Deterministic deny-overrides evaluator: decide(action, role, environment, context) returns allow, deny, ask, escalate, require_challenge or cap_tier with the matching rule id. Unmatched is deny and logged; an evaluator error is deny. fw policy check is a dry run; fw policy apply compiles rules into policy_rules and budgets into budgets and needs the Owner identity.",
+  "acceptance": [
+    "The 12 shipped rules each have a fixture that matches and one that does not",
+    "An evaluator exception returns deny and emits a refusal event with the reason",
+    "fw policy check --action merge_main --env production prints ask, L3 and pol_0120 and exits 0"
+  ],
+  "verify_probe": "pnpm probe policy/engine",
+  "files_hint": [
+    "packages/policy/src/engine/",
+    "policy/core-policy.yaml"
+  ],
+  "origin": "new Core row",
+  "derived_from": [
+    "WS-P2-001",
+    "WS-P2-002",
+    "WS-P2-042"
+  ]
+}

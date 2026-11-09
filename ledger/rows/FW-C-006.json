@@ -1,0 +1,29 @@
+{
+  "id": "FW-C-006",
+  "title": "fw CLI skeleton",
+  "core_milestone": "C0",
+  "phase": 0,
+  "epic": "C0.3 Ledger",
+  "priority": "P0",
+  "size": "S",
+  "lane": "devex",
+  "agent_suitability": "agent",
+  "gate": "none",
+  "depends_on": [
+    "FW-C-001"
+  ],
+  "description": "Command router, global --json and --home, FW_HOME resolution, exit codes (0 ok, 1 failed, 2 usage, 3 refused by policy, 4 locked), direct database read fallback and typed errors that name a one-line fix.",
+  "acceptance": [
+    "Every command accepts --json and prints one JSON document",
+    "Exit code 3 for a policy refusal and 4 for a locked writer are each covered by a test",
+    "fw --help lists no command that is not implemented"
+  ],
+  "verify_probe": "pnpm probe cli/skeleton",
+  "files_hint": [
+    "packages/cli/src/"
+  ],
+  "origin": "new Core row",
+  "derived_from": [
+    "WS-P0-021"
+  ]
+}
