@@ -1359,6 +1359,19 @@ table.data tbody tr:first-child td {
 table.data tbody tr:hover {
   background: var(--surface-hover);
 }
+/* A heading row that starts a group of rows inside one table (Projects grouped by brand). */
+table.data th.group-head {
+  font: var(--weight-semibold) var(--text-base) / 1.3 var(--font-sans);
+  color: var(--text-primary);
+  background: var(--surface-soft);
+  border-top: 1px solid var(--border-subtle);
+}
+table.data tbody tr:has(> th.group-head):hover {
+  background: transparent;
+}
+table.data tbody tr:has(> th.group-head) + tr td {
+  border-top: 0;
+}
 table.data td.num,
 table.data th.num {
   text-align: right;

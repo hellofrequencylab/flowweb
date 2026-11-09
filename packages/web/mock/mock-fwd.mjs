@@ -1108,7 +1108,7 @@ const server = createServer(async (req, res) => {
           text: POLICY_TEXT,
         }),
       );
-    if (route === '/projects') return send(res, 200, envelope([projectView()]));
+    if (route === '/projects') return send(res, 200, envelope([projectView(), ...EXTRA_PROJECTS]));
     if (at(/^\/projects\/([^/]+)$/))
       return m[1] === 'prj_flowweb'
         ? send(res, 200, envelope(projectView()))
@@ -1395,6 +1395,42 @@ function resolveCard(c, answer) {
   state.cards = state.cards.filter((x) => x !== c);
 }
 
+// Labelled projects with no rows yet, so the Projects screen has brands and categories to group.
+const EXTRA_PROJECTS = [
+  {
+    id: 'prj_localmkt',
+    slug: 'local-marketing',
+    name: 'Local marketing engine',
+    kind: 'other',
+    repo_url: null,
+    default_branch: 'main',
+    status: 'active',
+    wip_limit: 2,
+    brand: 'Frequency',
+    category: 'marketing',
+    rows_open: 0,
+    rows_in_progress: 0,
+    rows_waiting_on_owner: 0,
+    last_run_at: null,
+  },
+  {
+    id: 'prj_sandbox',
+    slug: 'sandbox',
+    name: 'Sandbox',
+    kind: 'repo',
+    repo_url: null,
+    default_branch: 'main',
+    status: 'paused',
+    wip_limit: 1,
+    brand: null,
+    category: null,
+    rows_open: 0,
+    rows_in_progress: 0,
+    rows_waiting_on_owner: 0,
+    last_run_at: null,
+  },
+];
+
 function projectView() {
   return {
     id: 'prj_flowweb',
@@ -1405,6 +1441,8 @@ function projectView() {
     default_branch: 'main',
     status: 'active',
     wip_limit: 3,
+    brand: 'Frequency',
+    category: 'product',
     rows_open: state.rows.filter((r) => ['open', 'ready'].includes(r.status)).length,
     rows_in_progress: state.rows.filter((r) =>
       ['claimed', 'running', 'verifying', 'merging'].includes(r.status),

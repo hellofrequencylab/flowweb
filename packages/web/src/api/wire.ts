@@ -61,6 +61,9 @@ export interface WProject {
   default_branch: string;
   status: 'active' | 'paused' | 'archived';
   wip_limit: number;
+  /** From settings 'project_labels' (`fw project label`); absent from an older fwd. */
+  brand?: string | null;
+  category?: string | null;
   /** Served from c0/08: open+ready, claimed..merging, awaiting_approval+blocked. */
   rows_open?: number;
   rows_in_progress?: number;

@@ -582,6 +582,8 @@ export const api = {
         name: p.name,
         repo: p.repo_url,
         status: p.status,
+        brand: p.brand ?? null,
+        category: p.category ?? null,
         rows_open: p.rows_open,
         rows_in_progress: p.rows_in_progress,
         rows_waiting_on_owner: p.rows_waiting_on_owner,
