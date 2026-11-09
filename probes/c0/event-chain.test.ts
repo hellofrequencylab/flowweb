@@ -15,7 +15,7 @@ import { readFileSync, writeFileSync } from 'node:fs';
 import { join } from 'node:path';
 import { DatabaseSync } from 'node:sqlite';
 import { describe, expect, test } from 'vitest';
-import { dbPath, fakeSecret, freshHome, recomputeChain, requireExport, root, TSX } from './_lib.mjs';
+import { canonical, envelopeOfRow, fakeSecret, freshHome, recomputeChain, requireExport, root, sha256, storePath, TSX } from './_lib.mjs';
 
 type Ev = { seq: number; id: string; idempotency_key: string; payload: Record<string, unknown> };
 type Writer = { appendEvent: (e: Record<string, unknown>) => Ev };
@@ -43,9 +43,22 @@ function allEvents(path: string) {
 }
 
 describe('c0/event-chain', () => {
+  test('the independent recompute reproduces the reference hash of contracts-core example 20', () => {
+    const ex = JSON.parse(readFileSync(join(root, 'contracts-core/examples/20-event-envelope.json'), 'utf8'));
+    const row = {
+      ...ex,
+      actor_kind: ex.actor.kind,
+      actor_id: ex.actor.id,
+      stream_id: ex.stream_id ?? null,
+      causation_id: ex.causation_id ?? null,
+    };
+    expect(sha256(canonical(ex.payload)), 'example payload_hash').toBe(ex.payload_hash);
+    expect(sha256(`${ex.prev_hash}\n${canonical(envelopeOfRow(row))}`), 'example hash').toBe(ex.hash);
+  });
+
   test('1,000 events verify (store and independent recompute); a flipped payload byte is found by seq', async () => {
     const openStore = (await requireExport('eventlog', 'openStore', 'FW-C-004')) as OpenStore;
-    const path = dbPath(freshHome('chain'));
+    const path = storePath(freshHome('chain'));
     const store = await openStore({ path });
     const appended: Ev[] = [];
     for (let i = 1; i <= 1000; i++) appended.push(store.writer!.appendEvent(ev(i)));
@@ -73,7 +86,7 @@ describe('c0/event-chain', () => {
 
   test('update and delete of an event are refused by the database', async () => {
     const openStore = (await requireExport('eventlog', 'openStore', 'FW-C-004')) as OpenStore;
-    const path = dbPath(freshHome('chain-del'));
+    const path = storePath(freshHome('chain-del'));
     const store = await openStore({ path });
     for (let i = 1; i <= 10; i++) store.writer!.appendEvent(ev(i));
     store.close();
@@ -85,7 +98,7 @@ describe('c0/event-chain', () => {
 
   test('same (type, idempotency_key) twice returns the original and writes nothing', async () => {
     const openStore = (await requireExport('eventlog', 'openStore', 'FW-C-004')) as OpenStore;
-    const path = dbPath(freshHome('chain-idem'));
+    const path = storePath(freshHome('chain-idem'));
     const store = await openStore({ path });
     const a = store.writer!.appendEvent(ev(1));
     const before = allEvents(path).length;
@@ -98,7 +111,7 @@ describe('c0/event-chain', () => {
 
   test('an API-key-shaped string is redacted before write and the redaction is recorded', async () => {
     const openStore = (await requireExport('eventlog', 'openStore', 'FW-C-004')) as OpenStore;
-    const path = dbPath(freshHome('chain-redact'));
+    const path = storePath(freshHome('chain-redact'));
     const store = await openStore({ path });
     const secret = fakeSecret('anthropic');
     store.writer!.appendEvent(ev(1, { payload: { note: `vendor said ${secret}` } }));
@@ -121,8 +134,8 @@ describe('c0/event-chain', () => {
   test('a second writer process fails fast with a typed lock error; no event lost or duplicated', async () => {
     const openStore = (await requireExport('eventlog', 'openStore', 'FW-C-004')) as OpenStore;
     const home = freshHome('chain-lock');
-    const path = dbPath(home);
-    const script = join(home, 'holder.ts');
+    const path = storePath(home);
+    const script = join(home, 'holder.mts');
     writeFileSync(
       script,
       `import { openStore } from ${JSON.stringify(join(root, 'packages/eventlog/src/index.ts'))};

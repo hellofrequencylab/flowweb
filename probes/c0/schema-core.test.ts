@@ -13,7 +13,7 @@ import { readFileSync } from 'node:fs';
 import { join } from 'node:path';
 import { DatabaseSync } from 'node:sqlite';
 import { describe, expect, test } from 'vitest';
-import { dbPath, freshHome, requireExport, root, sha256 } from './_lib.mjs';
+import { freshHome, requireExport, root, sha256, storePath } from './_lib.mjs';
 
 type Store = {
   writer: { get: (sql: string) => Record<string, unknown> | undefined } | undefined;
@@ -36,7 +36,7 @@ describe('c0/schema-core', () => {
   test('fresh store applies schema.core.sql exactly, records its hash, WAL and foreign keys on', async () => {
     const openStore = (await requireExport('eventlog', 'openStore', 'FW-C-003')) as OpenStore;
     const home = freshHome('schema');
-    const path = dbPath(home);
+    const path = storePath(home);
     const store = await openStore({ path });
     const w = store.writer;
     expect(w, 'a read-write store has a writer').toBeTruthy();
@@ -62,7 +62,7 @@ describe('c0/schema-core', () => {
   test('a changed migration hash is refused on open', async () => {
     const openStore = (await requireExport('eventlog', 'openStore', 'FW-C-003')) as OpenStore;
     const home = freshHome('schema-tamper');
-    const path = dbPath(home);
+    const path = storePath(home);
     (await openStore({ path })).close();
     const db = new DatabaseSync(path);
     const hash = sha256(schemaSql);
