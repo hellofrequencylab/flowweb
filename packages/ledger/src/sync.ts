@@ -5,10 +5,16 @@
 // the database holds, an unknown dependency, a cycle), the sync writes nothing at all, not even the
 // bootstrap rows, and reports every refusal. Otherwise one transaction creates what is missing, each
 // new row as `open` with a ledger.row_created event. A second run with the same files writes nothing.
+//
+// One exception to "writes nothing": a probe that differs from the stored one is a tamper attempt,
+// so before refusing, sync records it as an audit.finding_raised event (check probe_tamper, the same
+// shape a tampered probe run raises), naming the row and both hashes. Each finding is appended in its
+// own transaction, apart from the row writes (which never start on a refusal), so it persists while
+// ledger_rows and every other table stay exactly as they were.
 import { readdirSync, readFileSync } from 'node:fs';
 import { join } from 'node:path';
 import { validate } from '@fw/contracts';
-import { canonicalJson, nowIso, type Writer } from '@fw/eventlog';
+import { canonicalJson, newId, nowIso, type Writer } from '@fw/eventlog';
 import { type Actor, ensureBootstrap, findBootstrap, ownerActor, type ProjectConfig } from './bootstrap.ts';
 import {
   contractProbe,
@@ -33,6 +39,8 @@ export interface SyncRefusal {
   stored_hash?: string;
   file_hash?: string;
   cycle?: string[];
+  /** For probe_changed: the audit.finding_raised finding recorded for the tamper attempt. */
+  finding_id?: string;
 }
 
 export interface SyncReport {
@@ -63,6 +71,7 @@ interface Loaded {
 
 interface StoredRow {
   id: string;
+  project_id: string;
   probe_hash: string;
   depends_on: string;
   title: string;
@@ -150,6 +159,39 @@ function driftOf(def: RowDefinition, stored: StoredRow): string[] {
   return fields;
 }
 
+/**
+ * Records a changed probe found by sync as an audit finding (check probe_tamper), the same payload
+ * shape checkedProbe raises for a tampered probe run, with the row file's probe hash as computed_hash
+ * and the row code named too. appendEvent runs in its own transaction: sync opens none on a
+ * refusal, so the finding persists and no row data changes. Returns the finding id.
+ */
+function raiseSyncTamper(w: Writer, s: StoredRow, r: SyncRefusal, actor?: Actor): string {
+  const a = actor ?? ownerActor(w);
+  const findingId = newId('fnd');
+  w.appendEvent({
+    type: 'audit.finding_raised',
+    actor_kind: a.kind,
+    actor_id: a.id,
+    project_id: s.project_id,
+    idempotency_key: findingId,
+    payload: {
+      finding_id: findingId,
+      check: 'probe_tamper',
+      severity: 'high',
+      source: 'auditor',
+      affected: { project_id: s.project_id },
+      breaker_requested: false,
+      evidence_refs: [s.id],
+      ledger_row_id: s.id,
+      code: r.code,
+      stored_hash: r.stored_hash,
+      computed_hash: r.file_hash,
+      detected_by: 'ledger_sync',
+    },
+  });
+  return findingId;
+}
+
 /** Syncs every <CODE>.json in rowsDir into the ledger. See the file header for the rules. */
 export function syncRows(w: Writer, opts: SyncOptions): SyncReport {
   const now = opts.now ?? (() => new Date());
@@ -157,7 +199,7 @@ export function syncRows(w: Writer, opts: SyncOptions): SyncReport {
 
   const stored = new Map<string, StoredRow>();
   for (const r of w.all<StoredRow>(
-    'SELECT id, probe_hash, depends_on, title, priority, lane, size, wave FROM ledger_rows',
+    'SELECT id, project_id, probe_hash, depends_on, title, priority, lane, size, wave FROM ledger_rows',
   ))
     stored.set(codeFromRowId(r.id), r);
 
@@ -209,6 +251,8 @@ export function syncRows(w: Writer, opts: SyncOptions): SyncReport {
 
   const { unknown: _u, ...graphReport } = graph;
   if (refused.length) {
+    for (const r of refused)
+      if (r.reason === 'probe_changed') r.finding_id = raiseSyncTamper(w, stored.get(r.code)!, r, opts.actor);
     return {
       applied: false,
       created: [],
