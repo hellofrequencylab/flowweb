@@ -45,7 +45,7 @@ Things the build hit where the handoff docs disagree with each other or leave a 
 
 25. The C0 probe pack in `probes/c0/` was drafted before the code and assumes some names the code does not use (for example `createWorktreeManager` vs the `WorktreeManager` class). It will be reconciled to the real interfaces once `fw run start` lands, still as a draft for your line-by-line review. You commit the final version.
 26. `c0/orphan-recovery` belongs to WS-P1-001 (C1), not C0. KICKOFF's single `c0/diff-policy` probe is split into a pure-function probe and a run-level one.
-27. FW-C-001's own probe wants `exactOptionalPropertyTypes: true` in tsconfig; it is off today.
+27. FW-C-001's probe wanted `exactOptionalPropertyTypes: true` in tsconfig. It is now on, and the code passes with it.
 
 ## Run pipeline (`fw run start`)
 

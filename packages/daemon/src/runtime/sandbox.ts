@@ -169,8 +169,8 @@ export function prepareSandbox(input: PrepareSandboxInput): Sandbox {
   mkdirSync(tmpDir, { recursive: true, mode: 0o700 });
   const env = buildSandboxEnv({
     parentEnv,
-    allowlist: input.envAllowlist,
-    credentials: input.credentials,
+    ...(input.envAllowlist !== undefined ? { allowlist: input.envAllowlist } : {}),
+    ...(input.credentials !== undefined ? { credentials: input.credentials } : {}),
     home: homeDir,
     tmp: tmpDir,
     runId: input.run_id,

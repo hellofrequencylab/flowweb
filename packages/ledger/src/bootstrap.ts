@@ -57,7 +57,10 @@ export function ownerActor(r: Reader): Actor {
 }
 
 /** Looks up what bootstrap would create, without writing. Undefined parts are missing. */
-export function findBootstrap(r: Reader, slug: string): Partial<Bootstrap> {
+export function findBootstrap(
+  r: Reader,
+  slug: string,
+): { [K in keyof Bootstrap]?: Bootstrap[K] | undefined } {
   const project = r.get<{ id: string }>('SELECT id FROM projects WHERE slug = ?', [slug]);
   const stream = project
     ? r.get<{ id: string }>('SELECT id FROM streams WHERE project_id = ? AND key = ?', [
