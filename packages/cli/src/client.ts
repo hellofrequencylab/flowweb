@@ -121,6 +121,75 @@ export type VerifyResult =
   | { ok: true; count: number; head: string }
   | { ok: false; seq: number; reason: string; count: number };
 
+export interface RunStartOptions {
+  /** fake | claude (default $FW_VENDOR, else claude). */
+  adapter?: string;
+  /** Fake adapter only. */
+  scenario?: string;
+  base?: string;
+  /** gh | local | local:<bare repo path>. */
+  host?: string;
+  /** Tightens the work order's wall-clock cap, never loosens it. */
+  maxWallClockS?: number;
+  repoDir?: string;
+}
+
+export interface RunStartReport {
+  code: string;
+  ok: boolean;
+  run_id: string | null;
+  /** The run's final status, or `refused` when no run was started. */
+  status: string;
+  failure_class: string | null;
+  reason: string | null;
+  row_status: string;
+  work_order_id: string | null;
+  branch: string | null;
+  worktree: string | null;
+  pr: { number: number; url: string; head_sha: string; comment_url: string | null } | null;
+  evidence_bundle_id: string | null;
+  bundle_hash: string | null;
+  sandbox_level: string | null;
+  cost_usd: number | null;
+  cost_estimated: boolean | null;
+}
+
+export interface RunSummary {
+  id: string;
+  row: string;
+  status: string;
+  failure_class: string | null;
+  adapter: string;
+  attempt: number;
+  branch: string | null;
+  queued_at: string;
+  ended_at: string | null;
+  /** null when no spend was recorded (cost unknown). */
+  cost_usd: number | null;
+}
+
+export interface RunDetail extends RunSummary {
+  work_order_id: string;
+  agent_id: string;
+  workspace_path: string | null;
+  started_at: string | null;
+  turns: number;
+  tokens_in: number;
+  tokens_out: number;
+  exit_code: number | null;
+  cost: { usd: number | null; entries: number; known: boolean };
+  artifacts: { kind: string; ref: string; sha: string | null; verified_by_kernel: boolean }[];
+  evidence: {
+    id: string;
+    bundle_hash: string;
+    subject_sha: string | null;
+    scan_red: boolean;
+    created_at: string;
+  }[];
+  steps: number;
+  events: { seq: number; ts: string; type: string; payload: Record<string, unknown> }[];
+}
+
 export interface CoreClient {
   ledgerSync(opts?: { rowsDir?: string }): Promise<SyncReport>;
   ledgerList(opts?: { status?: string; lane?: string }): Promise<RowView[]>;
@@ -130,6 +199,10 @@ export interface CoreClient {
   ledgerClose(code: string, opts: { mergedSha: string; repoDir?: string }): Promise<CloseReport>;
   woIssue(code: string, opts?: { doer?: string; verifier?: string; repoDir?: string }): Promise<IssueReport>;
   auditVerify(): Promise<VerifyResult>;
+  /** Run commands: optional, because only a provider with the runtime (the daemon) serves them. */
+  runStart?(code: string, opts?: RunStartOptions): Promise<RunStartReport>;
+  runList?(opts?: { status?: string; limit?: number }): Promise<RunSummary[]>;
+  runShow?(runId: string): Promise<RunDetail>;
   close(): void;
 }
 
