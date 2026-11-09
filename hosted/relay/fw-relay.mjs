@@ -10,10 +10,10 @@
 //
 // Usage:
 //   FW_RELAY_SITE=https://your-site.vercel.app FW_RELAY_TOKEN=fwr_... node hosted/relay/fw-relay.mjs
-//   add --once to push one snapshot and exit.
+//   add --once to push one snapshot and exit, or --dump <file> to write it to a file instead.
 // Env: FW_HOME (default ~/.flowweb), FW_PORT (7317), FW_RELAY_INTERVAL_S (60),
 //      FW_RELAY_TOKEN or the file $FW_HOME/relay.token, FW_RELAY_LABEL (shown on the site).
-import { readFileSync } from 'node:fs';
+import { readFileSync, writeFileSync } from 'node:fs';
 import { homedir, hostname } from 'node:os';
 import { join } from 'node:path';
 import { mirrorKey } from '../server/mirror.mjs';
@@ -23,7 +23,8 @@ const FW_HOME = process.env.FW_HOME ?? join(homedir(), '.flowweb');
 const FWD = `http://127.0.0.1:${process.env.FW_PORT ?? 7317}/v1`;
 const SITE = (process.env.FW_RELAY_SITE ?? '').replace(/\/$/, '');
 const INTERVAL_S = Math.max(15, Number(process.env.FW_RELAY_INTERVAL_S ?? 60));
-const ONCE = process.argv.includes('--once');
+const DUMP = process.argv.includes('--dump') ? process.argv[process.argv.indexOf('--dump') + 1] : null;
+const ONCE = process.argv.includes('--once') || Boolean(DUMP);
 const DAYS = 8;
 const GROUPS = ['project', 'vendor', 'agent'];
 
@@ -39,7 +40,7 @@ function readSecret(envName, file) {
 const RELAY_TOKEN = readSecret('FW_RELAY_TOKEN', join(FW_HOME, 'relay.token'));
 const CLI_TOKEN = readSecret('FW_CLI_TOKEN', join(FW_HOME, 'pairing', 'cli.token'));
 
-if (!SITE || !RELAY_TOKEN) {
+if (!DUMP && (!SITE || !RELAY_TOKEN)) {
   console.error(
     'fw-relay: set FW_RELAY_SITE to your hosted URL and FW_RELAY_TOKEN (or $FW_HOME/relay.token) ' +
       'to a token from Settings > Machines on the site.',
@@ -151,6 +152,14 @@ async function snapshot() {
 let target = null;
 async function hostedConfig() {
   if (target) return target;
+  // Optional: point straight at Supabase when the site itself is behind a login wall.
+  if (process.env.FW_RELAY_SUPABASE_URL && process.env.FW_RELAY_SUPABASE_ANON_KEY) {
+    target = {
+      supabase_url: process.env.FW_RELAY_SUPABASE_URL,
+      anon_key: process.env.FW_RELAY_SUPABASE_ANON_KEY,
+    };
+    return target;
+  }
   const res = await fetch(`${SITE}/v1/hosted/config`);
   if (!res.ok) throw new Error(`site config: HTTP ${res.status}`);
   target = (await res.json()).data;
@@ -185,6 +194,12 @@ async function once() {
     entries: Object.keys(entries).length,
     took_ms: Date.now() - started,
   };
+  if (DUMP) {
+    // Write the snapshot to a file instead of pushing it (to inspect what would be sent).
+    writeFileSync(DUMP, JSON.stringify({ entries, report }), { mode: 0o600 });
+    console.log(`fw-relay: wrote ${report.entries} entries to ${DUMP}`);
+    return;
+  }
   const r = await push(entries, report);
   console.log(`fw-relay: pushed ${r.stored} entries at ${r.synced_at} (head_seq ${report.head_seq})`);
 }
