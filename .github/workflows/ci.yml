@@ -3,6 +3,8 @@
 name: ci
 on:
   pull_request:
+    # labeled/unlabeled so adding or removing the row label (or `bootstrap`) re-runs ledger-row.
+    types: [opened, synchronize, reopened, labeled, unlabeled]
   push:
     branches: [main]
 
