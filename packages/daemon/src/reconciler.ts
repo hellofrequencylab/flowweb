@@ -4,7 +4,14 @@
 // everyone else are marked expired. Every change emits an event in the same transaction, and only
 // legal_transitions are used (starting/running/validating -> failed are all legal for 'run').
 // Paused runs are left alone: they wait on a person, not on a process.
+// A crashed `fw run start` can leave its vendor process group behind: the reconciler kills it (the
+// group id is on run.started; on Linux a live member's cwd must be inside the run's workspace, so a
+// reused id is never signalled; the leader may have exited while its children live on) and settles the work order and row the way a failed run would.
+import { readdirSync, readFileSync, readlinkSync } from 'node:fs';
+import { groupAlive } from '@fw/adapters';
 import type { Writer } from '@fw/eventlog';
+import { settleRowAfterFailure } from './pipeline/records.ts';
+import { isInside } from './runtime/paths.ts';
 
 export const ORPHAN_STATES = ['starting', 'running', 'validating'] as const;
 const ACTOR = { actor_kind: 'system', actor_id: 'fwd.reconciler' } as const;
@@ -13,7 +20,65 @@ export interface ReconcileReport {
   runs_failed: string[];
   leases_released: string[];
   leases_expired: string[];
+  /** Vendor process groups of orphaned runs that were still alive and were killed. */
+  groups_killed: number[];
   duration_ms: number;
+}
+
+export type GroupOutcome = 'none' | 'gone' | 'killed' | 'unverified';
+
+/** Kills a crashed run's vendor process group, only when it provably belongs to that run. */
+export function killOrphanGroup(pgid: number | null, workspace: string | null): GroupOutcome {
+  if (pgid === null || !Number.isInteger(pgid) || pgid <= 1) return 'none';
+  if (!groupAlive(pgid)) return 'gone';
+  if (process.platform === 'linux') {
+    const cwds = groupMembers(pgid).flatMap((pid) => {
+      try {
+        return [readlinkSync(`/proc/${pid}/cwd`)];
+      } catch {
+        return [];
+      }
+    });
+    if (!workspace || !cwds.some((cwd) => isInside(workspace, cwd))) return 'unverified';
+  }
+  try {
+    process.kill(-pgid, 'SIGKILL');
+  } catch {
+    return groupAlive(pgid) ? 'unverified' : 'gone';
+  }
+  return 'killed';
+}
+
+/** Live pids in a process group (Linux /proc): the leader first, when it is still alive. */
+export function groupMembers(pgid: number): number[] {
+  const members: number[] = [];
+  let pids: string[] = [];
+  try {
+    pids = readdirSync('/proc').filter((n) => /^\d+$/.test(n));
+  } catch {
+    return members;
+  }
+  for (const n of pids) {
+    try {
+      // Field 5 of /proc/<pid>/stat is the process group; field 2 (comm) may hold spaces, so split after ')'.
+      const stat = readFileSync(`/proc/${n}/stat`, 'utf8');
+      const pgrp = Number(stat.slice(stat.lastIndexOf(')') + 2).split(' ')[2]);
+      if (pgrp === pgid) members.push(Number(n));
+    } catch {
+      // The process exited while we looked.
+    }
+  }
+  return members.sort((a, b) => (a === pgid ? -1 : b === pgid ? 1 : a - b));
+}
+
+function vendorPgid(w: Writer, runId: string): number | null {
+  const ev = w.get<{ payload: string }>(
+    "SELECT payload FROM events WHERE run_id = ? AND type = 'run.started' ORDER BY seq DESC LIMIT 1",
+    [runId],
+  );
+  if (!ev) return null;
+  const v = (JSON.parse(ev.payload) as { vendor_pgid?: unknown }).vendor_pgid;
+  return typeof v === 'number' ? v : null;
 }
 
 interface OrphanRun {
@@ -23,6 +88,7 @@ interface OrphanRun {
   stream_id: string;
   work_order_id: string;
   lease_id: string | null;
+  workspace_path: string | null;
 }
 
 interface LeaseRow {
@@ -39,14 +105,18 @@ export function reconcileOnStart(w: Writer, opts: { now?: () => Date; bootId: st
       runs_failed: [],
       leases_released: [],
       leases_expired: [],
+      groups_killed: [],
       duration_ms: 0,
     };
     const orphans = tx.all<OrphanRun>(
-      `SELECT id, status, project_id, stream_id, work_order_id, lease_id FROM runs
+      `SELECT id, status, project_id, stream_id, work_order_id, lease_id, workspace_path FROM runs
         WHERE status IN (${ORPHAN_STATES.map(() => '?').join(',')}) ORDER BY id`,
       [...ORPHAN_STATES],
     );
     for (const run of orphans) {
+      const pgid = vendorPgid(tx, run.id);
+      const group = killOrphanGroup(pgid, run.workspace_path);
+      if (group === 'killed' && pgid !== null) report.groups_killed.push(pgid);
       const at = now();
       const r = tx.run(
         `UPDATE runs SET status = 'failed', failure_class = 'killed', ended_at = ?
@@ -68,6 +138,7 @@ export function reconcileOnStart(w: Writer, opts: { now?: () => Date; bootId: st
           failure_class: 'killed',
           detail: `orphaned: fwd stopped while the run was ${run.status}; failed on restart, not retried`,
           previous_status: run.status,
+          vendor_group: { pgid, outcome: group },
         },
       });
       const leases = tx.all<LeaseRow>(
@@ -88,6 +159,12 @@ export function reconcileOnStart(w: Writer, opts: { now?: () => Date; bootId: st
           idempotency_key: `${lease.id}:released`,
           payload: { lease_id: lease.id, reason: 'run_orphaned', run_id: run.id },
         });
+      }
+      // The work order goes back to issued and the row to ready or blocked, unless another run is live.
+      try {
+        settleRowAfterFailure(tx, run, 'failed: killed (orphaned)');
+      } catch {
+        // A row the reconciler cannot move stays where it is; the run itself is settled above.
       }
     }
     const at = now();
@@ -123,6 +200,7 @@ export function reconcileOnStart(w: Writer, opts: { now?: () => Date; bootId: st
         runs_failed: report.runs_failed,
         leases_released: report.leases_released,
         leases_expired: report.leases_expired,
+        groups_killed: report.groups_killed,
       },
     });
     return report;

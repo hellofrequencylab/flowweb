@@ -24,7 +24,7 @@ async function verifyingRow(name: string) {
   const home = fwHome(join(dir, name));
   mkdirSync(join(home, 'db'), { recursive: true });
   const repo = gitRepo(dir, `${name}-repo`);
-  const store = openStore({ path: dbPath(home) });
+  const store = openStore({ path: dbPath(home), lockPath: join(home, 'fwd.lock') });
   syncRows(store.writer!, {
     rowsDir: writeRows(join(dir, `${name}-rows`), [row('FW-C-960')]),
     project: PROJECT,
