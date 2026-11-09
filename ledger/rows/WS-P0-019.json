@@ -1,0 +1,36 @@
+{
+  "id": "WS-P0-019",
+  "title": "Probe executor with timeout and tamper check",
+  "core_milestone": "C0",
+  "phase": 0,
+  "epic": "E0.3 Ledger",
+  "priority": "P0",
+  "size": "M",
+  "lane": "kernel",
+  "agent_suitability": "pair",
+  "gate": "none",
+  "depends_on": [
+    "WS-P0-006",
+    "FW-C-005"
+  ],
+  "description": "Run a row probe in a clean child process with timeout, captured output and exit code; record the result as an event; refuse probes whose file hash differs from the Tier 0 manifest.",
+  "acceptance": [
+    "A probe exceeding its timeout is killed and recorded as fail",
+    "A modified probe file is refused with tamper_detected",
+    "Result event contains stdout tail, exit code and duration"
+  ],
+  "verify_probe": "pnpm probe kernel/probe-exec",
+  "files_hint": [
+    "packages/ledger/src/probe.ts",
+    "probes/MANIFEST.sha256"
+  ],
+  "origin": "full-plan row, included",
+  "full_depends_on": [
+    "WS-P0-015",
+    "WS-P0-006"
+  ],
+  "full_files_hint": [
+    "packages/ledger/src/probe.ts",
+    "probes/MANIFEST.sha256"
+  ]
+}

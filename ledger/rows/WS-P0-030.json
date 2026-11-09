@@ -1,0 +1,36 @@
+{
+  "id": "WS-P0-030",
+  "title": "Claude headless adapter",
+  "core_milestone": "C0",
+  "phase": 0,
+  "epic": "E0.5 Adapter contract and first vendor",
+  "priority": "P0",
+  "size": "L",
+  "lane": "adapters",
+  "agent_suitability": "agent",
+  "gate": "none",
+  "depends_on": [
+    "WS-P0-027",
+    "WS-P0-028",
+    "WS-P0-029"
+  ],
+  "description": "Implement the adapter over claude -p with JSON output, schema-constrained result, budget cap flag, session resume, API-key credential only.",
+  "acceptance": [
+    "Passes the conformance suite against a recorded-CLI fixture",
+    "Refuses to start if credential kind is not api_key",
+    "Stores session_id on the row and resumes it in a second run test"
+  ],
+  "verify_probe": "pnpm probe adapters/claude-conformance",
+  "files_hint": [
+    "packages/adapters/src/claude/src/"
+  ],
+  "origin": "full-plan row, included",
+  "full_depends_on": [
+    "WS-P0-027",
+    "WS-P0-028",
+    "WS-P0-029"
+  ],
+  "full_files_hint": [
+    "packages/adapter-claude/src/"
+  ]
+}

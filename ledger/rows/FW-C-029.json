@@ -1,0 +1,33 @@
+{
+  "id": "FW-C-029",
+  "title": "Operability: doctor, service units, backup and restore",
+  "core_milestone": "C2",
+  "phase": 0,
+  "epic": "C2.4 Operability",
+  "priority": "P1",
+  "size": "M",
+  "lane": "devex",
+  "agent_suitability": "pair",
+  "gate": "none",
+  "depends_on": [
+    "FW-C-012",
+    "WS-P1-001",
+    "FW-C-008"
+  ],
+  "description": "fw doctor (first-run checklist: keys present, gh token not admin, branch protection on, sandbox self-test, clock, disk, last backup), systemd and launchd unit templates with crash restart, and fw backup and fw restore using the SQLite online backup plus the blob directory, with a restore drill that must pass fw audit verify.",
+  "acceptance": [
+    "fw doctor never prints a secret value and exits nonzero on any failed check",
+    "SIGKILL of the daemon restarts it and in-flight runs are marked interrupted",
+    "A backup restored into a clean home verifies the chain and lists the same rows"
+  ],
+  "verify_probe": "pnpm probe devex/operability",
+  "files_hint": [
+    "packages/cli/src/commands/doctor.ts",
+    "ops/"
+  ],
+  "origin": "new Core row",
+  "derived_from": [
+    "WS-P0-045",
+    "WS-P1-002"
+  ]
+}

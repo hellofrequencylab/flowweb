@@ -1,0 +1,25 @@
+# CI-only Python dependencies for the schema-and-contracts job (contracts-core/validate.py).
+# Installed with `pip install --require-hashes`, so every package, including transitive ones,
+# is pinned to an exact version and a wheel hash.
+# Target: CPython 3.12, manylinux x86_64 (GitHub ubuntu-latest). Hashes are the sha256 of the
+# wheel files on PyPI, cross-checked against the PyPI JSON API on 2026-11-09.
+# To refresh: pip download --only-binary=:all: --python-version 3.12 --implementation cp \
+#   --abi cp312 --platform manylinux_2_17_x86_64 jsonschema referencing pyyaml typing-extensions
+# then sha256sum the wheels. Bumping a pin is an Owner decision.
+
+jsonschema==4.26.0 \
+    --hash=sha256:d489f15263b8d200f8387e64b4c3a75f06629559fb73deb8fdfb525f2dab50ce
+referencing==0.37.0 \
+    --hash=sha256:381329a9f99628c9069361716891d34ad94af76e461dcb0335825aecc7692231
+pyyaml==6.0.3 \
+    --hash=sha256:ba1cc08a7ccde2d2ec775841541641e4548226580ab850948cbfda66a1befcdc
+
+# Transitive dependencies of jsonschema and referencing
+attrs==26.1.0 \
+    --hash=sha256:c647aa4a12dfbad9333ca4e71fe62ddc36f4e63b2d260a37a8b83d2f043ac309
+jsonschema-specifications==2025.9.1 \
+    --hash=sha256:98802fee3a11ee76ecaca44429fda8a41bff98b00a0f2838151b113f210cc6fe
+rpds-py==2026.9.1 \
+    --hash=sha256:addeda51556dac7c1a2f14cda62db8b621cd12afba3091d03a96c72932387eab
+typing-extensions==4.16.0 ; python_version < "3.13" \
+    --hash=sha256:481caa481374e813c1b176ada14e97f1f67a4539ce9cfeb3f350d78d6370c2e8

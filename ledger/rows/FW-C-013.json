@@ -1,0 +1,36 @@
+{
+  "id": "FW-C-013",
+  "title": "Auditor and Watchdog as deterministic checks",
+  "core_milestone": "C1",
+  "phase": 1,
+  "epic": "C1.3 Checks",
+  "priority": "P0",
+  "size": "L",
+  "lane": "policy",
+  "agent_suitability": "pair",
+  "gate": "none",
+  "depends_on": [
+    "WS-P1-001",
+    "WS-P0-023",
+    "WS-P1-012"
+  ],
+  "description": "Code, not agents, on a timer inside fwd: chain verification every 15 minutes (a failure engages the kill switch), claim-versus-trace check, tamper tripwires on agent diffs, lease and approval expiry sweeps, heartbeat-absence alarm, cost-velocity and consecutive-failure breakers (pause the stream and raise a card), and a registry in which every fail-safe names the event it emits and the test that proves it.",
+  "acceptance": [
+    "A planted claim that tests passed, with no test tool call, raises run.claim_mismatch and quarantines the agent",
+    "A byte flipped in an old event is detected within one cycle and engages the kill switch",
+    "CI fails when a registered fail-safe has no emitting test"
+  ],
+  "verify_probe": "pnpm probe policy/auditor-watchdog",
+  "files_hint": [
+    "packages/policy/src/checks/",
+    "packages/daemon/src/watchdog.ts"
+  ],
+  "origin": "new Core row",
+  "derived_from": [
+    "WS-P2-023",
+    "WS-P2-024",
+    "WS-P2-028",
+    "WS-P1-013",
+    "WS-P1-036"
+  ]
+}

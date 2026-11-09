@@ -1,0 +1,31 @@
+{
+  "id": "FW-C-004",
+  "title": "Single-writer event log: append, canonical hash, redaction",
+  "core_milestone": "C0",
+  "phase": 0,
+  "epic": "C0.2 Schemas and storage",
+  "priority": "P0",
+  "size": "M",
+  "lane": "kernel",
+  "agent_suitability": "agent",
+  "gate": "none",
+  "depends_on": [
+    "FW-C-002",
+    "FW-C-003"
+  ],
+  "description": "Implement append(): RFC 8785 canonical JSON, SHA-256 chain, idempotency keys (a duplicate returns the original), actor stamped by the daemon (agents never write events), secret-shaped values redacted before write, and one writer enforced by an in-process queue plus FW_HOME/fwd.lock.",
+  "acceptance": [
+    "Appending the same (type, idempotency_key) twice returns the original event and writes nothing",
+    "A payload containing an API-key-shaped string is redacted before write and the redaction is itself recorded",
+    "Two processes racing to write: the second gets a typed LOCKED error and no event is lost or duplicated"
+  ],
+  "verify_probe": "pnpm probe kernel/event-writer",
+  "files_hint": [
+    "packages/eventlog/src/"
+  ],
+  "origin": "new Core row",
+  "derived_from": [
+    "WS-P0-022",
+    "WS-P0-024"
+  ]
+}

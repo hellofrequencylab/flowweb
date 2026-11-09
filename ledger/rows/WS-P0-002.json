@@ -1,0 +1,39 @@
+{
+  "id": "WS-P0-002",
+  "title": "Install agent instructions, PR template and CODEOWNERS",
+  "core_milestone": "C0",
+  "phase": 0,
+  "epic": "E0.1 Repo and guardrails",
+  "priority": "P0",
+  "size": "S",
+  "lane": "devex",
+  "agent_suitability": "pair",
+  "gate": "none",
+  "depends_on": [
+    "FW-C-001"
+  ],
+  "description": "Copy AGENTS.md, CLAUDE.md, pull_request_template.md and CODEOWNERS from REPO-BOOTSTRAP into the repo root, replacing FlowWeb placeholders.",
+  "acceptance": [
+    "CLAUDE.md imports AGENTS.md",
+    "CODEOWNERS lists every Tier 0 path from AGENTS.md",
+    "The PR template contains the ledger-row, probe-output and tier-touched fields"
+  ],
+  "verify_probe": "node scripts/check-bootstrap.mjs",
+  "files_hint": [
+    "AGENTS.md",
+    "CLAUDE.md",
+    "CODEOWNERS",
+    ".github/pull_request_template.md"
+  ],
+  "origin": "full-plan row, included",
+  "core_adaptation": "Use REPO-BOOTSTRAP-CORE/ (trimmed AGENTS.md, CODEOWNERS, PR template).",
+  "full_depends_on": [
+    "WS-P0-001"
+  ],
+  "full_files_hint": [
+    "AGENTS.md",
+    "CLAUDE.md",
+    "CODEOWNERS",
+    ".github/pull_request_template.md"
+  ]
+}

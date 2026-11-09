@@ -1,0 +1,34 @@
+{
+  "id": "WS-P0-003",
+  "title": "Enable branch protection and code-owner review on main",
+  "core_milestone": "C0",
+  "phase": 0,
+  "epic": "E0.1 Repo and guardrails",
+  "priority": "P0",
+  "size": "S",
+  "lane": "security",
+  "agent_suitability": "human",
+  "gate": "owner-approval",
+  "depends_on": [
+    "WS-P0-002"
+  ],
+  "description": "Owner configures the git host: main protected, required status checks, required code-owner review, no force push, no agent token with admin rights.",
+  "acceptance": [
+    "Direct push to main is rejected",
+    "A PR touching a Tier 0 path cannot merge without a human code-owner approval",
+    "Agent identity token has no admin or bypass permission"
+  ],
+  "verify_probe": "bash scripts/probe-branch-protection.sh",
+  "files_hint": [
+    "scripts/probe-branch-protection.sh",
+    "docs/runbooks/branch-protection.md"
+  ],
+  "origin": "full-plan row, included",
+  "full_depends_on": [
+    "WS-P0-002"
+  ],
+  "full_files_hint": [
+    "scripts/probe-branch-protection.sh",
+    "docs/runbooks/branch-protection.md"
+  ]
+}
