@@ -36,6 +36,7 @@ import {
   MessageCircleWarning,
   OctagonX,
   Pencil,
+  Radar,
   RefreshCw,
   RotateCcw,
   ScanSearch,
@@ -111,6 +112,7 @@ const ICONS = {
   keyboard: Keyboard,
   machine: Laptop,
   'log-out': LogOut,
+  flows: Radar,
 } satisfies Record<string, LucideIcon>;
 
 export type IconName = keyof typeof ICONS;

@@ -495,6 +495,66 @@ export interface Spend extends Envelope {
   };
 }
 
+/* ---------- Flows ---------- */
+
+export interface FlowSaturation {
+  score: number;
+  coverage: number;
+  cadence: number;
+  response: number;
+}
+
+export interface FlowArea {
+  id: string;
+  name: string;
+  km_from_seed: number;
+  population: number;
+  saturation: FlowSaturation;
+  signals: { targets_known: number; targets_reached: number; touches_28d: number; new_members_28d: number };
+  awaiting_owner: number;
+}
+
+export type FlowDecision =
+  | { kind: 'paused_budget'; summary: string }
+  | { kind: 'propose_expansion'; ring: number; area_ids: string[]; summary: string }
+  | { kind: 'keep_working'; summary: string }
+  | { kind: 'all_saturated'; summary: string };
+
+export interface Flow extends Envelope {
+  key: string;
+  name: string;
+  enabled: boolean;
+  tier: string;
+  gate_on: string[];
+  offer: { name: string; url: string; pitch: string; call_to_action: string; placeholder?: boolean };
+  engine: { label: string; fallback: string; runs_on: string };
+  channels: { key: string; label: string; action_class: string; placeholder?: boolean }[];
+  placeholders: ('offer' | 'starting_area' | 'channels')[];
+  thresholds: {
+    threshold: number;
+    hold_cycles: number;
+    max_active_areas: number;
+    ring_width_km: number;
+    touches_per_target_28d: number;
+    new_members_per_10k_28d: number;
+  };
+  open_ring: number;
+  cycles_at_threshold: number;
+  rings: { ring: number; open: boolean; average: number; areas: FlowArea[] }[];
+  decision: FlowDecision;
+  plan: { area_id: string; reason: string }[];
+  steps: { key: string; label: string; outward: boolean }[];
+  budget: {
+    period: string;
+    max_usd: number | null;
+    max_turns: number | null;
+    spent_usd: number;
+    used_turns: number;
+    since: string;
+  };
+  awaiting_owner_total: number;
+}
+
 /* ---------- Settings / policy ---------- */
 
 export interface PolicyFile extends Envelope {
