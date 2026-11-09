@@ -13,7 +13,7 @@ import { TablePage } from '../table/TablePage';
 import { GlobalBanner } from './GlobalBanner';
 import { KillDialog } from './KillSwitch';
 import { chord, chordPending, useKeys } from './keys';
-import { MorePage, Nav } from './Nav';
+import { BottomNav, MorePage } from './Nav';
 import { usePrefs } from './prefs';
 import { match, useRouter } from './router';
 import { ShortcutSheet } from './ShortcutSheet';
@@ -81,10 +81,10 @@ export function Layout({ pairedAt, onSignedOut }: { pairedAt: string; onSignedOu
       );
     if (p === '/more') return <MorePage />;
     return (
-      <>
+      <header className="page-head">
         <h1 tabIndex={-1}>Not found</h1>
-        <p>There is no page at {p}.</p>
-      </>
+        <p className="lede">There is no page at {p}.</p>
+      </header>
     );
   }
 
@@ -97,10 +97,10 @@ export function Layout({ pairedAt, onSignedOut }: { pairedAt: string; onSignedOu
       <div className="banner-area">
         <GlobalBanner />
       </div>
-      <Nav />
       <main id="main" className="main">
         {page}
       </main>
+      <BottomNav />
       {sheet && <ShortcutSheet onClose={() => setSheet(false)} />}
       {killOpen && <KillDialog onClose={() => setKillOpen(false)} />}
     </div>

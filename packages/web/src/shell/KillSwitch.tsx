@@ -1,4 +1,4 @@
-import { type ReactNode, useEffect, useRef, useState } from 'react';
+import { type KeyboardEvent, type PointerEvent, type ReactNode, useEffect, useRef, useState } from 'react';
 import { api, UnreachableError } from '../api/client';
 import { useLive } from '../api/live';
 import { focusOnMount } from '../ui-kit/focus';
@@ -36,22 +36,21 @@ export function Dialog({
   );
 }
 
+type Phase = 'ready' | 'holding' | 'cancelled' | 'armed' | 'sending' | 'failed' | 'unreachable';
+
 /**
- * The kill switch. Ready → Holding (1.5 s press, or hold Enter/Space) → Stopping
- * (until fwd confirms) → Stopped. "Arm then confirm" replaces holding when the
- * Owner prefers it. Never says Stopped before fwd does.
+ * The kill switch state machine, shared by the top-bar pill and the big card.
+ * Ready → Holding (1.5 s press, or hold Enter/Space) → Stopping (until fwd
+ * confirms) → Stopped. Never says Stopped before fwd does.
  */
-export function KillControl({ big = false }: { big?: boolean }) {
-  const { status, connection, refreshStatus } = useLive();
-  const { prefs } = usePrefs();
-  const still = useStill();
+function useKillHold() {
+  const { refreshStatus } = useLive();
   const [progress, setProgress] = useState(0); // 0..1 while holding
-  const [phase, setPhase] = useState<
-    'ready' | 'holding' | 'cancelled' | 'armed' | 'sending' | 'failed' | 'unreachable'
-  >('ready');
+  const [phase, setPhase] = useState<Phase>('ready');
   const [failMsg, setFailMsg] = useState('');
   const startRef = useRef<number | null>(null);
   const raf = useRef<number | null>(null);
+  const { status } = useLive();
   const k = status?.kill_switch.state;
 
   const fire = async () => {
@@ -85,13 +84,16 @@ export function KillControl({ big = false }: { big?: boolean }) {
     };
     raf.current = requestAnimationFrame(step);
   };
+  /** Returns true when a hold was let go early. */
   const end = () => {
     if (raf.current) cancelAnimationFrame(raf.current);
     if (startRef.current !== null) {
       startRef.current = null;
       setProgress(0);
       setPhase('cancelled');
+      return true;
     }
+    return false;
   };
   // On unmount only stop the animation; there is no hold left to cancel.
   useEffect(
@@ -101,109 +103,219 @@ export function KillControl({ big = false }: { big?: boolean }) {
     [],
   );
 
+  const holdHandlers = {
+    onPointerDown: (e: PointerEvent<HTMLButtonElement>) => {
+      e.currentTarget.setPointerCapture(e.pointerId);
+      begin();
+    },
+    onPointerUp: end,
+    onPointerCancel: end,
+    onKeyDown: (e: KeyboardEvent) => {
+      if ((e.key === 'Enter' || e.key === ' ') && !e.repeat) {
+        e.preventDefault();
+        begin();
+      }
+    },
+    onKeyUp: (e: KeyboardEvent) => {
+      if (e.key === 'Enter' || e.key === ' ') end();
+    },
+  };
+
+  return { phase, setPhase, progress, failMsg, fire, end, holdHandlers };
+}
+
+function HoldRing({ size, progress }: { size: number; progress: number }) {
+  const still = useStill();
+  const r = size / 2 - 2.5;
+  const circ = 2 * Math.PI * r;
+  return (
+    <svg className="hold-ring" width={size} height={size} aria-hidden="true">
+      <circle className="track" cx={size / 2} cy={size / 2} r={r} fill="none" strokeWidth="2.5" />
+      <circle
+        className="fill"
+        cx={size / 2}
+        cy={size / 2}
+        r={r}
+        fill="none"
+        strokeWidth="2.5"
+        strokeLinecap="round"
+        strokeDasharray={circ}
+        strokeDashoffset={still ? (progress > 0 ? 0 : circ) : circ * (1 - progress)}
+      />
+    </svg>
+  );
+}
+
+/**
+ * The compact Stop in the top bar. In hold mode it is a real kill switch (hold
+ * 1.5 s); a short press, arm mode, or any state other than ready opens the
+ * full kill switch dialog instead.
+ */
+export function KillPill({ onOpen }: { onOpen: () => void }) {
+  const { status, connection } = useLive();
+  const { prefs } = usePrefs();
+  const { phase, progress, end, holdHandlers } = useKillHold();
+  const k = status?.kill_switch.state;
+  const common = {
+    type: 'button' as const,
+    'aria-haspopup': 'dialog' as const,
+    'aria-keyshortcuts': 'Control+Shift+.',
+  };
+
+  if (connection === 'down') {
+    return (
+      <button {...common} className="kill-pill kill-pill-unreachable" onClick={onOpen}>
+        <Icon name="terminal" /> <span className="nav-full">Stop:</span> fw kill
+      </button>
+    );
+  }
+  if (k === 'stopped' || k === 'stopping') {
+    return (
+      <button {...common} className={`kill-pill kill-pill-${k}`} onClick={onOpen}>
+        <Icon name="stopped" /> {k === 'stopped' ? 'Stopped' : 'Stopping…'}
+      </button>
+    );
+  }
+  if (prefs.killMode === 'arm') {
+    return (
+      <button {...common} className="kill-pill" onClick={onOpen}>
+        <Icon name="stopped" /> Stop
+      </button>
+    );
+  }
+  const holding = phase === 'holding';
+  return (
+    <button
+      {...common}
+      className={`kill-pill${holding || phase === 'sending' ? ' kill-pill-holding' : ''}`}
+      disabled={phase === 'sending'}
+      {...holdHandlers}
+      onPointerUp={() => {
+        if (end()) onOpen();
+      }}
+      onKeyUp={(e) => {
+        if ((e.key === 'Enter' || e.key === ' ') && end()) onOpen();
+      }}
+      aria-label={holding ? 'Holding to stop everything' : 'Stop everything: press and hold'}
+    >
+      <HoldRing size={18} progress={progress} />
+      <span aria-hidden="true">{phase === 'sending' ? 'Stopping…' : holding ? 'Holding…' : 'Stop'}</span>
+    </button>
+  );
+}
+
+/** The big kill switch card: dialog and Settings. */
+export function KillControl() {
+  const { status, connection } = useLive();
+  const { prefs } = usePrefs();
+  const { phase, setPhase, progress, failMsg, fire, holdHandlers } = useKillHold();
+  const k = status?.kill_switch.state;
+
   if (connection === 'down' || phase === 'unreachable') {
     return (
-      <div className="stack" role="alert">
-        <p>
-          <strong>I could not reach fwd.</strong> Stop from a terminal:
-        </p>
+      <section className="kill-card kill-card-unreachable" role="alert" aria-label="Kill switch">
+        <div className="kill-head">
+          <span className="icon-tile">
+            <Icon name="wifi-off" size={20} />
+          </span>
+          <span>
+            <strong className="kill-title">I could not reach fwd</strong>
+            <span className="kill-body">Stop everything from a terminal on your machine:</span>
+          </span>
+        </div>
         <p className="row">
-          <code>fw kill</code> <Copy text="fw kill" label="the command fw kill" />
+          <code className="command">fw kill</code> <Copy text="fw kill" label="the command fw kill" />
         </p>
-      </div>
+      </section>
     );
   }
 
   if (k === 'stopping') {
     const s = status!.kill_switch;
     return (
-      <p role="status">
-        <strong>Stopping…</strong> {s.runs_halted ?? 0} of {s.runs_to_halt ?? '?'} runs halted.
-      </p>
+      <section className="kill-card kill-card-stopped" role="status" aria-label="Kill switch">
+        <div className="kill-head">
+          <span className="icon-tile">
+            <Icon name="stopped" size={20} />
+          </span>
+          <span>
+            <strong className="kill-title">Stopping…</strong>
+            <span className="kill-body">
+              {s.runs_halted ?? 0} of {s.runs_to_halt ?? '?'} runs halted. Not stopped until fwd confirms.
+            </span>
+          </span>
+        </div>
+      </section>
     );
   }
-  if (k === 'stopped') {
-    return <StoppedSummary />;
-  }
+  if (k === 'stopped') return <StoppedSummary />;
 
-  const ringSize = big ? 28 : 20;
-  const r = ringSize / 2 - 3;
-  const circ = 2 * Math.PI * r;
+  const hint =
+    phase === 'holding'
+      ? `Holding… ${((HOLD_MS * (1 - progress)) / 1000).toFixed(1)} s`
+      : phase === 'cancelled'
+        ? 'Not stopped. Hold for the full 1.5 seconds.'
+        : phase === 'failed'
+          ? `fwd refused: ${failMsg}`
+          : prefs.killMode === 'arm'
+            ? 'Press, then confirm.'
+            : 'Press and hold for 1.5 seconds, or hold Enter.';
+
   const label = phase === 'sending' ? 'Sending stop to fwd' : 'Stop everything';
 
   const button =
     prefs.killMode === 'arm' ? (
       phase === 'armed' ? (
         <span className="row">
-          <button type="button" className="btn btn-stop" onClick={fire} ref={focusOnMount}>
-            Confirm: stop everything
+          <button type="button" className="kill-big" onClick={fire} ref={focusOnMount}>
+            <Icon name="stopped" size={20} /> Confirm: stop everything
           </button>
-          <button type="button" className="btn" onClick={() => setPhase('ready')}>
+          <button type="button" className="btn btn-big" onClick={() => setPhase('ready')}>
             Cancel
           </button>
         </span>
       ) : (
         <button
           type="button"
-          className="btn btn-stop"
+          className="kill-big"
           onClick={() => setPhase('armed')}
           disabled={phase === 'sending'}
+          aria-describedby="kill-hint"
         >
-          <Icon name="stopped" /> {label}
+          <Icon name="stopped" size={20} /> {label}
         </button>
       )
     ) : (
       <button
         type="button"
-        className="btn btn-stop"
+        className="kill-big"
         disabled={phase === 'sending'}
-        onPointerDown={(e) => {
-          e.currentTarget.setPointerCapture(e.pointerId);
-          begin();
-        }}
-        onPointerUp={end}
-        onPointerCancel={end}
-        onKeyDown={(e) => {
-          if ((e.key === 'Enter' || e.key === ' ') && !e.repeat) {
-            e.preventDefault();
-            begin();
-          }
-        }}
-        onKeyUp={(e) => {
-          if (e.key === 'Enter' || e.key === ' ') end();
-        }}
+        {...holdHandlers}
         aria-describedby="kill-hint"
       >
-        <svg className="hold-ring" width={ringSize} height={ringSize} aria-hidden="true">
-          <circle className="track" cx={ringSize / 2} cy={ringSize / 2} r={r} fill="none" strokeWidth="3" />
-          <circle
-            className="fill"
-            cx={ringSize / 2}
-            cy={ringSize / 2}
-            r={r}
-            fill="none"
-            strokeWidth="3"
-            strokeDasharray={circ}
-            strokeDashoffset={still ? (progress > 0 ? 0 : circ) : circ * (1 - progress)}
-          />
-        </svg>
+        <HoldRing size={26} progress={progress} />
         {label}
       </button>
     );
 
   return (
-    <div className="stack">
-      {button}
-      <p id="kill-hint" className="small" aria-live="polite">
-        {phase === 'holding' && `Holding… ${((HOLD_MS * (1 - progress)) / 1000).toFixed(1)} s`}
-        {phase === 'cancelled' && 'Not stopped. Hold for the full 1.5 seconds.'}
-        {phase === 'failed' && `fwd refused: ${failMsg}`}
-        {(phase === 'ready' || phase === 'sending' || phase === 'armed') &&
-          (prefs.killMode === 'arm'
-            ? 'Revokes agent access and halts every run. Work in progress stays saved.'
-            : 'Press and hold for 1.5 seconds, or hold Enter. Revokes agent access and halts every run. Work in progress stays saved.')}
+    <section className="kill-card" aria-label="Kill switch">
+      <div className="kill-head">
+        <span className="icon-tile">
+          <Icon name="stopped" size={20} />
+        </span>
+        <span>
+          <strong className="kill-title">Stop everything</strong>
+          <span className="kill-body">
+            Revokes agent access and halts every run. Work in progress stays saved.
+          </span>
+        </span>
+      </div>
+      <div>{button}</div>
+      <p id="kill-hint" className="kill-hint" aria-live="polite">
+        {hint}
       </p>
-    </div>
+    </section>
   );
 }
 
@@ -212,16 +324,25 @@ function StoppedSummary() {
   const [release, setRelease] = useState(false);
   const k = status!.kill_switch;
   return (
-    <div className="stack" role="status">
-      <p>
-        <strong>Everything is stopped.</strong> {k.runs_halted ?? 0} runs halted
-        {k.keys_revoked ? ', agent keys revoked' : ''}.
-      </p>
-      <button type="button" className="btn" onClick={() => setRelease(true)}>
-        Release…
-      </button>
+    <section className="kill-card kill-card-stopped" role="status" aria-label="Kill switch">
+      <div className="kill-head">
+        <span className="icon-tile">
+          <Icon name="stopped" size={20} />
+        </span>
+        <span>
+          <strong className="kill-title">Everything is stopped</strong>
+          <span className="kill-body">
+            {k.runs_halted ?? 0} runs halted{k.keys_revoked ? ', agent keys revoked' : ''}.
+          </span>
+        </span>
+      </div>
+      <div>
+        <button type="button" className="btn" onClick={() => setRelease(true)}>
+          <Icon name="retry" /> Release…
+        </button>
+      </div>
       {release && <ReleaseDialog onClose={() => setRelease(false)} />}
-    </div>
+    </section>
   );
 }
 
@@ -229,8 +350,8 @@ export function KillDialog({ onClose }: { onClose: () => void }) {
   return (
     <Dialog label="Kill switch" onClose={onClose}>
       <h2>Kill switch</h2>
-      <KillControl big />
-      <p>
+      <KillControl />
+      <p className="dialog-actions">
         <button type="button" className="btn btn-quiet" onClick={onClose}>
           Close
         </button>
@@ -248,7 +369,7 @@ export function ReleaseDialog({ onClose }: { onClose: () => void }) {
       <h2>Restart work?</h2>
       <p>Runs stay paused until you start them. This is recorded.</p>
       {err && <p className="callout callout-warn">{err}</p>}
-      <div className="row">
+      <div className="row dialog-actions">
         <button
           type="button"
           className="btn btn-primary"

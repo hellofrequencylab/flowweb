@@ -73,7 +73,7 @@ export function CardView({
 
   return (
     <>
-      <article className="panel" aria-labelledby="card-heading">
+      <article className="request" aria-labelledby="card-heading">
         {res.honesty === 'loading' && <Loading what="the card" />}
         {!card && res.honesty !== 'loading' && (
           <LoadError what="this card" error={res.error} onRetry={res.reload} />
@@ -207,10 +207,15 @@ function CardBody({
   );
 
   return (
-    <div className="stack">
+    <div className="request-body">
       {/* 1. Type and autonomy */}
       <p className="row small">
-        <span className="chip">{VARIANT_LABEL[card.variant]}</span>
+        <span className="request-reason">
+          <span className="icon-tile">
+            <Icon name="waiting" size={17} />
+          </span>
+          {VARIANT_LABEL[card.variant]}
+        </span>
         {card.autonomy_tier ? (
           <span className="muted">
             {card.autonomy_tier} {TIER_NAME[card.autonomy_tier] ?? ''}
@@ -240,7 +245,7 @@ function CardBody({
       </p>
 
       {/* 3. Headline */}
-      <h2 id="card-heading" tabIndex={-1}>
+      <h2 id="card-heading" className="request-title" tabIndex={-1}>
         {card.variant === 'approve' ? card.headline : card.title}
       </h2>
       {card.variant !== 'approve' && <p>{card.ask}</p>}

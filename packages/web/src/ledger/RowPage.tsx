@@ -5,6 +5,7 @@ import { RunsTable } from '../runs/RunsPage';
 import { Link } from '../shell/router';
 import { AsOf, Copy, ResourceView } from '../ui-kit/honest';
 import { Icon } from '../ui-kit/Icon';
+import { PageHead } from '../ui-kit/page';
 import { PROBE_STATUS, probeSpec, ROW_STATUS, StatusLabel } from '../ui-kit/status';
 import { age, shortHash, useNow, when } from '../ui-kit/time';
 
@@ -18,16 +19,20 @@ export function RowPage({ id }: { id: string }) {
         const r = d.row;
         return (
           <div className="stack">
-            <p className="small">
-              <Link to="/ledger">Ledger</Link> / <span className="mono">{r.row_id}</span>
-            </p>
-            <div className="row" style={{ alignItems: 'baseline' }}>
-              <h1 tabIndex={-1}>
-                {r.row_id} {r.title}
-              </h1>
-              <span className="spacer" />
-              <AsOf res={res} />
-            </div>
+            <nav className="crumbs" aria-label="Breadcrumb">
+              <Link to="/ledger">
+                <Icon name="arrow-left" /> Ledger
+              </Link>
+            </nav>
+            <PageHead
+              overline={<span className="mono">{r.row_id}</span>}
+              title={r.title}
+              lede={
+                <span className="page-meta">
+                  <AsOf res={res} />
+                </span>
+              }
+            />
             <p className="row">
               <StatusLabel spec={ROW_STATUS[r.status]} />
               {r.blocked_reason && <span>{r.blocked_reason}</span>}

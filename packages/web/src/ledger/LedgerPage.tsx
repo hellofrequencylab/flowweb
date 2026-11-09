@@ -4,6 +4,7 @@ import type { RowStatus, RowSummary } from '../api/types';
 import { ProjectsSummary } from '../projects/ProjectsPage';
 import { Link, useRouter } from '../shell/router';
 import { AsOf, ResourceView } from '../ui-kit/honest';
+import { PageHead, SectionHead } from '../ui-kit/page';
 import { probeSpec, ROW_STATUS, StatusLabel } from '../ui-kit/status';
 import { age, useNow } from '../ui-kit/time';
 
@@ -49,13 +50,21 @@ export function LedgerPage() {
 
   return (
     <>
-      <div className="row" style={{ alignItems: 'baseline' }}>
-        <h1 tabIndex={-1}>Projects and ledger</h1>
-        <span className="spacer" />
-        <AsOf res={res} />
-      </div>
+      <PageHead
+        title={<>Projects and ledger</>}
+        lede={
+          <>
+            Every row, its status and its last probe. Waiting on you first.
+            <span className="page-meta">
+              <AsOf res={res} />
+            </span>
+          </>
+        }
+      />
       <ProjectsSummary />
-      <h2 style={{ marginTop: 'var(--fw-space-5)' }}>Ledger</h2>
+      <div className="section">
+        <SectionHead title="Ledger" overline="One row per change, each with a probe" />
+      </div>
       <ResourceView res={res} what="ledger">
         {(d) => {
           const lanes = [...new Set(d.rows.map((r) => r.lane))].sort();

@@ -1,5 +1,6 @@
 import { type FormEvent, useState } from 'react';
 import { focusOnMount } from '../ui-kit/focus';
+import { Logo } from '../ui-kit/Logo';
 import { sendLink } from './auth';
 
 /** Hosted mode's first screen, in place of pairing. */
@@ -21,10 +22,8 @@ export function SignIn({ notice }: { notice?: string | null }) {
   };
 
   return (
-    <main
-      className="main stack"
-      style={{ maxWidth: '28rem', margin: '0 auto', paddingTop: 'var(--fw-space-6)' }}
-    >
+    <main className="gate stack">
+      <Logo size={40} />
       <h1>Sign in to FlowWeb</h1>
       <p>
         We'll email you a one-time link. Only the owner of this FlowWeb can see anything after signing in.
@@ -36,9 +35,8 @@ export function SignIn({ notice }: { notice?: string | null }) {
         </p>
       ) : (
         <form onSubmit={submit} className="stack">
-          <label className="stack" style={{ display: 'block' }}>
-            <span>Email</span>
-            <br />
+          <label className="field">
+            <span className="field-label">Email</span>
             <input
               type="email"
               autoComplete="email"
@@ -47,14 +45,14 @@ export function SignIn({ notice }: { notice?: string | null }) {
               value={email}
               onChange={(e) => setEmail(e.target.value)}
               aria-describedby="signin-msg"
-              style={{ width: '100%', fontSize: 'var(--fw-text-lg)' }}
+              className="field-big"
             />
           </label>
           <div id="signin-msg" role="status">
             {state === 'failed' && <p className="callout callout-warn">{message}</p>}
           </div>
           <button
-            className="btn btn-primary"
+            className="btn btn-primary btn-big"
             type="submit"
             disabled={state === 'sending' || email.trim().length === 0}
           >

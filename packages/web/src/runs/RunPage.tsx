@@ -5,6 +5,7 @@ import type { EventList as Events } from '../api/types';
 import { Link } from '../shell/router';
 import { AsOf, LoadError, Loading, ResourceView } from '../ui-kit/honest';
 import { Icon } from '../ui-kit/Icon';
+import { PageHead } from '../ui-kit/page';
 import { runStatusSpec, SANDBOX, StatusLabel, VERDICT } from '../ui-kit/status';
 import { clock, duration, usd, useNow, when } from '../ui-kit/time';
 
@@ -22,14 +23,20 @@ export function RunPage({ id }: { id: string }) {
         const spec = runStatusSpec(r.status, r.heartbeat_at ?? undefined, now);
         return (
           <div className="stack">
-            <p className="small">
-              <Link to="/runs">Runs</Link> / <span className="mono">{r.run_id}</span>
-            </p>
-            <div className="row" style={{ alignItems: 'baseline' }}>
-              <h1 tabIndex={-1}>Run {r.run_id}</h1>
-              <span className="spacer" />
-              <AsOf res={res} />
-            </div>
+            <nav className="crumbs" aria-label="Breadcrumb">
+              <Link to="/runs">
+                <Icon name="arrow-left" /> Runs
+              </Link>
+            </nav>
+            <PageHead
+              overline="Run"
+              title={<span className="mono-title">{r.run_id}</span>}
+              lede={
+                <span className="page-meta">
+                  <AsOf res={res} />
+                </span>
+              }
+            />
             <p className="row">
               <StatusLabel spec={spec} />
               {r.row_id && (

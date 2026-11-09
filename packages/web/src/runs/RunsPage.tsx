@@ -3,6 +3,7 @@ import { useResource } from '../api/resource';
 import type { RunStatus, RunSummary } from '../api/types';
 import { Link, useRouter } from '../shell/router';
 import { AsOf, ResourceView } from '../ui-kit/honest';
+import { PageHead } from '../ui-kit/page';
 import { runStatusSpec, SANDBOX, StatusLabel } from '../ui-kit/status';
 import { duration, usd, useNow, when } from '../ui-kit/time';
 
@@ -80,11 +81,17 @@ export function RunsPage() {
   };
   return (
     <>
-      <div className="row" style={{ alignItems: 'baseline' }}>
-        <h1 tabIndex={-1}>Runs</h1>
-        <span className="spacer" />
-        <AsOf res={res} />
-      </div>
+      <PageHead
+        title={<>Runs</>}
+        lede={
+          <>
+            Every agent run, live and finished.
+            <span className="page-meta">
+              <AsOf res={res} />
+            </span>
+          </>
+        }
+      />
       <ResourceView res={res} what="runs">
         {(d) => {
           const vendors = [...new Set(d.runs.map((r) => r.vendor))].sort();
