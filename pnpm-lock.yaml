@@ -32,6 +32,10 @@ importers:
       '@fw/contracts':
         specifier: workspace:*
         version: link:../contracts
+    devDependencies:
+      ajv:
+        specifier: 8.20.0
+        version: 8.20.0
 
   packages/cli:
     dependencies:

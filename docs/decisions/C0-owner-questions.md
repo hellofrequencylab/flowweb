@@ -23,3 +23,10 @@ Things the build hit where the handoff docs disagree with each other or leave a 
 11. **Sandbox is honest about being weak.** On Linux as one user: env scrub, home isolation, write confinement and process-group kill are `best_effort`; egress is `absent` without a proxy. Nothing is `enforced` until the container flag (FW-C-015, C1).
 12. **Diff policy rules as data** (`policy/rules/diff-policy.json`) is Tier 0, so only the path rules (Tier 0, allowed files) are in code. Deleted tests, config relaxation, size cap and new dependency rules are still to do.
 13. **One active worktree per row**, not per work order.
+
+## Adapters
+
+14. **Estimated cost has no home.** `run-result.cost` allows no extra fields and `spend_entries` has no `estimated` column. Default: the flag lives in the adapter's run metadata only.
+15. **Fake scenario selection.** `vendor-adapter-input` allows no extra fields, so the fake reads a `[fake:<name>]` tag in the work order title (as FW-C-007 says).
+16. **Claude CLI 2.1.319 has no `--max-turns`.** The adapter enforces the turn cap itself. Required flags checked at preflight: `--print`, `--output-format stream-json`, `--verbose`, `--bare`, `--session-id`, `--permission-mode acceptEdits`, `--max-budget-usd`, `--json-schema`. Only `ANTHROPIC_API_KEY` is accepted (subscription tokens are refused, per the API-key-lane rule).
+17. **Refused runs.** The run-result schema has no refused status; a refused run returns `exit_code: -1`.
