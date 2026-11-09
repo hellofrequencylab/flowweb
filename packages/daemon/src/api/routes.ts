@@ -7,6 +7,7 @@ import { existsSync, readFileSync } from 'node:fs';
 import { isAbsolute, join, resolve } from 'node:path';
 import { type Reader, sha256Hex } from '@fw/eventlog';
 import type { PairingStore, Principal } from '../auth.ts';
+import { FLOW_KEY, flowView, loadFlow } from '../flows/local-saturation.ts';
 import { type RunHost, RunHostStoppingError } from '../run-host.ts';
 import { isInside, RUN_ID_RE } from '../runtime/paths.ts';
 import { spendRollup } from '../spend.ts';
@@ -272,6 +273,16 @@ export function buildRouter(deps: ApiDeps): Router {
           text: bytes.toString('utf8'),
         },
       };
+    }),
+  );
+
+  // ---- flows (read-only) ----------------------------------------------------------------
+  r.get('/v1/flows/{key}', ({ params }) =>
+    env(() => {
+      if (params.key !== FLOW_KEY) throw notFound('flow', params.key);
+      const f = loadFlow(deps.repoRoot, deps.fwHome);
+      if (!f) throw notFound('flow', params.key);
+      return { data: flowView(f.cfg, f.state, f.budget, f.stream) };
     }),
   );
 

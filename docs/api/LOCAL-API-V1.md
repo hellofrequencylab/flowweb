@@ -45,6 +45,7 @@ Errors: `{ "error": { "code": "not_found" | "validation_failed" | "kill_switch_e
 | `GET /decision-cards?status=open` | `decision_cards` rows, urgency then deadline | Inbox (C1/C2). |
 | `GET /decision-cards/{id}` | card plus `approval {payload_hash, head_sha, expires_at}`, `pr {url, number, current_head_sha, head_observed_at}`, `merge_slot {held, expires_at}`, `policy {rule_id, rule_version, reason, tier}`, `files [{path, added, removed}]` | `merge_slot` and `policy` are null until C1. |
 | `GET /approvals/{id}` | `approvals` row (payload_hash, head_sha, expires_at, status) | |
+| `GET /flows/{key}` | `local-saturation` only: `{ key, name, enabled, tier, gate_on[], offer, engine, channels[], placeholders[], thresholds, open_ring, rings: [{ring, open, average, areas: [{id, name, km_from_seed, population, saturation {score, coverage, cadence, response}, signals, awaiting_owner}]}], decision {kind, summary}, plan [{area_id, reason}], steps[], budget {period, max_usd, max_turns, spent_usd, used_turns, since}, awaiting_owner_total }` | Flows page. Read from `flows/<key>/` in the repo (config may be overridden in `$FW_HOME/flows/<key>/config.json`) and `$FW_HOME/flows/<key>/state.json`. Read-only: the flow drafts, the Owner posts. |
 
 ## Write routes (the only ones the web may call)
 
