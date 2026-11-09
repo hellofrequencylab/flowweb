@@ -1,6 +1,6 @@
 # fwd local API v1 (the contract @fw/web codes against)
 
-Status: draft for C0/C2. Owner: the Core thread. The web UI codes against this file; the daemon implements it.
+Status: implemented in C0 for the read routes and `POST /pair` (see packages/daemon/README.md); other writes return 501 until their rows land. Owner: the Core thread. The web UI codes against this file; the daemon implements it.
 Subset of the full plan's `app-plan/03-contracts/API.md` section 5, same paths and names.
 
 ## Transport
@@ -21,7 +21,7 @@ Every GET returns:
 - `as_of`: when the daemon read the database. `head_seq`: the event log head at read time. The UI shows the age of `as_of` and shows "unknown" when the daemon is unreachable; it never fabricates state.
 - Lists are paged: `?limit=` (default 50, max 200) and `?cursor=`.
 
-Errors: `{ "error": { "code": "not_found" | "validation_failed" | "kill_switch_engaged" | "stale_hash" | "unauthorized" | "internal", "message": "...", "details": {} } }` with matching HTTP status.
+Errors: `{ "error": { "code": "not_found" | "validation_failed" | "kill_switch_engaged" | "stale_hash" | "unauthorized" (401) | "forbidden" (403: bad Host or cross-origin write) | "method_not_allowed" (405) | "not_implemented" (501: route lands in a later row) | "internal", "message": "...", "details": {} } }` with matching HTTP status.
 
 ## Read routes (C0 ships the first block; C2 the rest)
 
@@ -36,8 +36,8 @@ Errors: `{ "error": { "code": "not_found" | "validation_failed" | "kill_switch_e
 | `GET /ledger/rows/{id}` | row plus `evidence: evidence_bundles[]`, `runs: runs[]` (summary) | |
 | `GET /runs?status=&row_id=`, `GET /runs/{id}` | `runs` rows (with `cost_usd`, `sandbox_level`) | |
 | `GET /runs/{id}/steps` | `run_steps` rows, seq order | Platform-written trace. |
-| `GET /evidence-bundles/{id}` | `evidence_bundles` row, `bundle` parsed: `probe {exit_code, output_tail (last 4 KB, redacted), duration_ms}`, `diff {hash, files: [{path, added, removed}]}`, `policy` verdicts, `sandbox {level, controls}`, `adapter {name, version, help_sha256}` | The Captain's Table evidence view. |
-| `GET /evidence-bundles/{id}/diff` | `text/x-diff`: the exact bytes whose sha256 is `bundle.diff.hash` | Covered by the approval's `payload_hash`. |
+| `GET /evidence-bundles/{id}` | `evidence_bundles` row; `body` parsed (exactly `evidence-bundle.json`), plus a derived `view`: `probe {exit_code, output_tail (last 4 KB, redacted), duration_ms}`, `diff {hash, files: [{path, added, removed}]}`, `policy [{rule, verdict, detail}]`, `sandbox {level, controls}`, `adapter {name, version, help_sha256}` | The Captain's Table evidence view. `view` is computed from `body.automated_evidence`, `body.intent_payload` and `body.provenance`; any part the bundle does not prove is null. |
+| `GET /evidence-bundles/{id}/diff` | `text/x-diff`: the exact bytes whose sha256 is `body.intent_payload.payload_hash` (= `view.diff.hash`) | Covered by the approval's `payload_hash`. |
 | `GET /events?after_seq=&type=&run_id=` | `events` rows | Payloads are already redacted. |
 | `GET /events/stream` | SSE; `event: fw` lines carrying the event row; `id:` = seq; honors `Last-Event-ID` | Live updates. Heartbeat comment every 15 s. |
 | `GET /spend?group_by=project|agent|vendor&from=&to=` | aggregates from `spend_entries` | |
@@ -68,3 +68,10 @@ Spend screen: refused-by-cap dispatches are `dispatch.refused_budget`; a cap hit
 ## Run status labels (UI mapping, agreed)
 
 `validating` = Checking; `killed` = Halted by you; `succeeded` with a `run_artifacts` row where `verified_by_kernel = 1` = Artifact verified; other `succeeded` = Finished, not checked; `failed` with `failure_class` in (`no_artifact`, `claim_mismatch`) = Claimed done, not verified.
+
+## Notes from the C0 implementation
+
+- `running_runs` counts `starting`, `running` and `validating`.
+- A run's `sandbox_level` is not a column; it comes from the run's `run.started` event payload.
+- No CORS headers are sent. A dev web server on another port must proxy `/v1` and rewrite `Host` to `127.0.0.1:<port>`.
+- Ledger rows: `probe_spec`, `probe_expected`, `links` and `depends_on` are returned parsed (there is no single `probe` column).
