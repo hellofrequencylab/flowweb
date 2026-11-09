@@ -123,7 +123,7 @@ export function LedgerPage() {
                         <th>Row</th>
                         <th>Title</th>
                         <th>Status</th>
-                        <th>Pri</th>
+                        <th className="hide-narrow">Pri</th>
                         <th className="hide-narrow">Lane</th>
                         <th className="hide-narrow">Depends on</th>
                         <th className="hide-narrow">Last probe</th>
@@ -141,7 +141,7 @@ export function LedgerPage() {
                             <StatusLabel spec={ROW_STATUS[r.status]} />
                             {r.blocked_reason && <div className="xs muted">{r.blocked_reason}</div>}
                           </td>
-                          <td>{r.priority}</td>
+                          <td className="hide-narrow">{r.priority}</td>
                           <td className="hide-narrow">{r.lane}</td>
                           <td className="hide-narrow mono xs">{r.depends_on.join(', ') || 'none'}</td>
                           <td className="hide-narrow">
