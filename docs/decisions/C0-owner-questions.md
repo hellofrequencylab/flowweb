@@ -30,3 +30,19 @@ Things the build hit where the handoff docs disagree with each other or leave a 
 15. **Fake scenario selection.** `vendor-adapter-input` allows no extra fields, so the fake reads a `[fake:<name>]` tag in the work order title (as FW-C-007 says).
 16. **Claude CLI 2.1.319 has no `--max-turns`.** The adapter enforces the turn cap itself. Required flags checked at preflight: `--print`, `--output-format stream-json`, `--verbose`, `--bare`, `--session-id`, `--permission-mode acceptEdits`, `--max-budget-usd`, `--json-schema`. Only `ANTHROPIC_API_KEY` is accepted (subscription tokens are refused, per the API-key-lane rule).
 17. **Refused runs.** The run-result schema has no refused status; a refused run returns `exit_code: -1`.
+
+## Ledger
+
+18. **Probe result in the evidence bundle.** `evidence-bundle.json` forbids extra fields, so the probe output is bound by hash through `automated_evidence` / `intent_payload` and the API derives a flat `view`. If you want the probe result inline in `body`, that is a schema change, and it should happen before real closes (bundles are immutable).
+19. **Tamper on sync.** A changed probe in a row file makes `fw ledger sync` refuse and write nothing (no tamper event type exists in the schema). Running a probe whose stored hash no longer matches raises `audit.finding_raised`.
+20. **`probes/MANIFEST.sha256`** (WS-P0-019) does not exist yet; you create it when you commit the probe pack. Until then the tamper check covers only the stored probe hash.
+21. **`fw ledger retest <code>`** was added: without it nothing moves a row from open to ready.
+22. **Exit code 3 for policy refusal** (FW-C-006) is not used yet; refusals exit 1, a held writer lock exits 4.
+23. **Row owners.** `agent` rows are owned by the chief-of-staff agent; `pair` and `human` rows by you (`own_local`).
+24. **The ledger-row contract cannot validate a row definition file** (it requires `status` and an `lr_` id). Sync maps the file to the contract before validating.
+
+## Probes (Tier 0, yours)
+
+25. The C0 probe pack in `probes/c0/` was drafted before the code and assumes some names the code does not use (for example `createWorktreeManager` vs the `WorktreeManager` class). It will be reconciled to the real interfaces once `fw run start` lands, still as a draft for your line-by-line review. You commit the final version.
+26. `c0/orphan-recovery` belongs to WS-P1-001 (C1), not C0. KICKOFF's single `c0/diff-policy` probe is split into a pure-function probe and a run-level one.
+27. FW-C-001's own probe wants `exactOptionalPropertyTypes: true` in tsconfig; it is off today.
