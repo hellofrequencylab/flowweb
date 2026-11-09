@@ -3,7 +3,7 @@ import { useResource } from '../api/resource';
 import type { RowStatus, RowSummary } from '../api/types';
 import { ProjectsSummary } from '../projects/ProjectsPage';
 import { Link, useRouter } from '../shell/router';
-import { AsOf, ResourceView } from '../ui-kit/honest';
+import { AsOf, Empty, ResourceView } from '../ui-kit/honest';
 import { PageHead, SectionHead } from '../ui-kit/page';
 import { probeSpec, ROW_STATUS, StatusLabel } from '../ui-kit/status';
 import { age, useNow } from '../ui-kit/time';
@@ -114,7 +114,7 @@ export function LedgerPage() {
                 {rows.length} of {d.rows.length} rows. Waiting on you first.
               </p>
               {rows.length === 0 ? (
-                <p className="muted">No rows match these filters.</p>
+                <Empty title="No rows match">Nothing in the ledger matches these filters.</Empty>
               ) : (
                 <div className="table-wrap">
                   <table className="data">

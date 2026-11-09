@@ -8,14 +8,17 @@ export function EvidencePage({ id }: { id: string }) {
   return (
     <>
       <PageHead
-        title={<>Evidence {id}</>}
+        overline="Evidence bundle"
+        title={<span className="mono-title">{id}</span>}
         lede={
-          <span className="page-meta">
-            <AsOf res={ev} />
-          </span>
+          <>
+            {ev.data ? <>For {ev.data.subject.ref}</> : null}
+            <span className="page-meta">
+              <AsOf res={ev} />
+            </span>
+          </>
         }
       />
-      {ev.data && <p className="muted">{ev.data.subject.ref}</p>}
       <EvidenceView ev={ev} diff={diff} />
     </>
   );

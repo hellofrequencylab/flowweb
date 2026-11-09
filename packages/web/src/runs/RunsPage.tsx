@@ -2,7 +2,7 @@ import { api } from '../api/client';
 import { useResource } from '../api/resource';
 import type { RunStatus, RunSummary } from '../api/types';
 import { Link, useRouter } from '../shell/router';
-import { AsOf, ResourceView } from '../ui-kit/honest';
+import { AsOf, Empty, ResourceView } from '../ui-kit/honest';
 import { PageHead } from '../ui-kit/page';
 import { runStatusSpec, SANDBOX, StatusLabel } from '../ui-kit/status';
 import { duration, usd, useNow, when } from '../ui-kit/time';
@@ -124,7 +124,7 @@ export function RunsPage() {
                 </label>
               </fieldset>
               {runs.length === 0 ? (
-                <p className="muted">No runs match. Checked {d.runs.length} runs.</p>
+                <Empty title="No runs match">Checked {d.runs.length} runs against these filters.</Empty>
               ) : (
                 <RunsTable runs={runs} />
               )}

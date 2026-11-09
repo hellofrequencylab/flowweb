@@ -1,7 +1,7 @@
 import { api } from '../api/client';
 import { useResource } from '../api/resource';
 import { Link } from '../shell/router';
-import { AsOf, ResourceView } from '../ui-kit/honest';
+import { AsOf, Empty, ResourceView } from '../ui-kit/honest';
 import { PageHead } from '../ui-kit/page';
 import { age, useNow } from '../ui-kit/time';
 
@@ -14,7 +14,9 @@ export function ProjectsSummary() {
     <ResourceView res={res} what="projects">
       {(d) =>
         d.projects.length === 0 ? (
-          <p className="muted">No projects. Add one with fw.</p>
+          <Empty title="No projects yet">
+            Add one with <code>fw</code>.
+          </Empty>
         ) : (
           <div className="table-wrap">
             <table className="data">
