@@ -28,22 +28,25 @@ import {
 
 const dir = tempDir();
 
+/** Every row in CORE-BACKLOG.json; the count grows when the Owner adds a row. */
+const ROWS = backlogRows().length;
+
 describe('importing CORE-BACKLOG.json', () => {
   const rowsDir = fixtureRows(join(dir, 'all-rows'));
   const store = fileStore(dir, 'all.sqlite');
   const report = syncInto(store, rowsDir);
 
-  test('all 67 rows import as open and the dependency graph is acyclic', () => {
+  test('all backlog rows import as open and the dependency graph is acyclic', () => {
     expect(report.refused).toEqual([]);
     expect(report.applied).toBe(true);
-    expect(report.created).toHaveLength(67);
+    expect(report.created).toHaveLength(ROWS);
     expect(report.graph.acyclic).toBe(true);
     expect(report.graph.cycles).toEqual([]);
-    expect(report.graph.rows).toBe(67);
+    expect(report.graph.rows).toBe(ROWS);
     const statuses = store
       .reader()
       .all<{ status: string; n: number }>('SELECT status, COUNT(*) AS n FROM ledger_rows GROUP BY status');
-    expect(statuses).toEqual([{ status: 'open', n: 67 }]);
+    expect(statuses).toEqual([{ status: 'open', n: ROWS }]);
   });
 
   test('every stored row is a valid ledger-row contract object with its code derivable from the id', () => {
@@ -60,7 +63,7 @@ describe('importing CORE-BACKLOG.json', () => {
     const r = store.reader();
     const count = (type: string) =>
       r.get<{ n: number }>('SELECT COUNT(*) AS n FROM events WHERE type = ?', [type])?.n;
-    expect(count('ledger.row_created')).toBe(67);
+    expect(count('ledger.row_created')).toBe(ROWS);
     expect(count('project.created')).toBe(1);
     expect(count('stream.created')).toBe(1);
     expect(count('agent.registered')).toBe(3);
@@ -75,7 +78,7 @@ describe('importing CORE-BACKLOG.json', () => {
     const before = dumpTables(store);
     const again = syncInto(store, rowsDir);
     expect(again.created).toEqual([]);
-    expect(again.unchanged).toHaveLength(67);
+    expect(again.unchanged).toHaveLength(ROWS);
     expect(again.refused).toEqual([]);
     expect(dumpTables(store)).toBe(before);
   });
