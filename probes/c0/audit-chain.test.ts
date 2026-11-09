@@ -1,13 +1,16 @@
 // Probe c0/audit-chain (WS-P0-023; backlog verify_probe security/audit-chain).
-// Surface: `fw audit verify --json`, `fw audit head --json`, and openStore to append events.
+// Surface: `fw audit verify --json` ({ ok, count, head } on a clean chain, { ok: false, seq, reason }
+// on a break) and openStore to append events.
 // Acceptance:
 //   - flipping one byte in a stored payload makes verify fail naming the sequence number
 //   - verify of 100k events completes in under 5 s (wall clock of the fw command)
-//   - the chain head can be exported for external anchoring (fw audit head prints seq and hash,
-//     equal to the last event)
+//   - the chain head can be exported for external anchoring: `fw audit verify --json` prints the
+//     head hash and the event count, equal to the hash and seq of the last event (the chain is
+//     gapless, so count is the head seq). The draft assumed a separate `fw audit head`; the code
+//     exports the head from verify instead, which meets the line.
 import { DatabaseSync } from 'node:sqlite';
 import { describe, expect, test } from 'vitest';
-import { dbPath, freshHome, fw, fwJson, recomputeChain, requireExport } from './_lib.mjs';
+import { freshHome, fw, fwJson, recomputeChain, requireExport, storePath } from './_lib.mjs';
 
 type Writer = {
   appendEvent: (e: Record<string, unknown>) => { seq: number };
@@ -22,7 +25,7 @@ describe('c0/audit-chain', () => {
   test('fw audit verify: clean, fast on 100k events, head exportable, tamper named by seq', async () => {
     const openStore = (await requireExport('eventlog', 'openStore', 'WS-P0-023')) as OpenStore;
     const home = freshHome('audit');
-    const path = dbPath(home);
+    const path = storePath(home);
     const store = await openStore({ path });
     const w = store.writer!;
     let target = 0;
@@ -52,11 +55,9 @@ describe('c0/audit-chain', () => {
       ok: true,
     });
     db.close();
-    const head = fwJson(['audit', 'head'], { home });
-    expect(head.status).toBe(0);
-    const headText = JSON.stringify(head.json);
-    expect(headText, 'head names the last hash').toContain(last.hash);
-    expect(headText, 'head names the last seq').toMatch(new RegExp(`\\b${last.seq}\\b`));
+    expect(ok.json.ok, 'verify reports ok').toBe(true);
+    expect(ok.json.head, 'the exported head is the hash of the last event').toBe(last.hash);
+    expect(ok.json.count, 'the exported count is the seq of the last event').toBe(last.seq);
 
     const attacker = new DatabaseSync(path);
     for (const t of attacker.prepare("SELECT name FROM sqlite_master WHERE type='trigger' AND tbl_name='events'").all()) {

@@ -196,6 +196,33 @@ describe('single writer', () => {
     expect(existsSync(`${path}.lock`)).toBe(false);
   });
 
+  test.runIf(process.platform === 'linux')(
+    'a lock held by a zombie (killed, never reaped) is taken over',
+    async () => {
+      const path = seededDb(dir, 'zombie.sqlite', 1);
+      // `sleep 0` exits at once; the shell then execs into a sleep that never reaps it, leaving a zombie.
+      const parent = spawn('sh', ['-c', 'sleep 0 & echo $!; exec sleep 30'], {
+        stdio: ['ignore', 'pipe', 'ignore'],
+      });
+      try {
+        const pid = await new Promise<string>((ok) =>
+          parent.stdout!.once('data', (b) => ok(String(b).trim())),
+        );
+        for (let i = 0; i < 100; i++) {
+          const st = readFileSync(`/proc/${pid}/stat`, 'utf8');
+          if (st.slice(st.lastIndexOf(')') + 2)[0] === 'Z') break;
+          await new Promise((ok) => setTimeout(ok, 20));
+        }
+        writeFileSync(`${path}.lock`, `${pid} deadbeef\n`);
+        withStore(path, (s) => {
+          expect(s.writer!.appendEvent(ev(2)).seq).toBe(2);
+        });
+      } finally {
+        parent.kill('SIGKILL');
+      }
+    },
+  );
+
   test('a lock file held by a live process is respected even if this process never saw it', () => {
     const path = seededDb(dir, 'foreign-lock.sqlite', 1);
     writeFileSync(`${path}.lock`, `${process.ppid} cafe\n`);
