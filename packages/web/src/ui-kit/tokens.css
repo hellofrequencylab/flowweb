@@ -1,0 +1,138 @@
+/*
+ * FlowWeb token layer. THE ONLY FILE WITH RAW VALUES.
+ *
+ * Placeholder values: neutral and plain on purpose. Daniel's design system
+ * replaces this file (same token names, or map them here). Nothing else in
+ * src/ may contain a colour literal; `npm run check:tokens` enforces that.
+ *
+ * Semantic rule from the handoff: --fw-attention means "a decision is waiting
+ * on you" and is used for nothing else.
+ */
+
+:root {
+  /* type */
+  --fw-font-sans: system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
+  --fw-font-mono: ui-monospace, "SF Mono", Menlo, Consolas, monospace;
+  --fw-text-xs: 0.75rem;
+  --fw-text-sm: 0.875rem;
+  --fw-text-md: 1rem;
+  --fw-text-lg: 1.25rem;
+  --fw-text-xl: 1.5rem;
+  --fw-weight-normal: 400;
+  --fw-weight-strong: 600;
+  --fw-leading: 1.45;
+
+  /* space and shape */
+  --fw-space-1: 4px;
+  --fw-space-2: 8px;
+  --fw-space-3: 12px;
+  --fw-space-4: 16px;
+  --fw-space-5: 24px;
+  --fw-space-6: 32px;
+  --fw-radius: 6px;
+  --fw-border-width: 1px;
+  --fw-focus-width: 3px;
+  --fw-target: 44px;
+  --fw-target-primary: 48px;
+  --fw-rail-width: 200px;
+  --fw-content-max: 1200px;
+  --fw-row-pad: var(--fw-space-3);
+
+  /* motion (calm mode and reduced motion set these to 0) */
+  --fw-motion-fast: 120ms;
+  --fw-motion-hold: 1500ms;
+
+  /* colour: light */
+  --fw-bg: #ffffff;
+  --fw-surface: #f6f6f6;
+  --fw-surface-2: #ececec;
+  --fw-text: #1a1a1a;
+  --fw-text-muted: #5c5c5c;
+  --fw-border: #c9c9c9;
+  --fw-focus: #1a1a1a;
+  --fw-link: #1a1a1a;
+
+  --fw-attention: #1f4fbf;
+  --fw-attention-text: #ffffff;
+  --fw-attention-soft: #e6ecfa;
+
+  --fw-ok: #1d6b34;
+  --fw-fail: #a3261c;
+  --fw-warn: #8a5a00;
+  --fw-unknown: #5c5c5c;
+  --fw-ok-soft: #e7f3ea;
+  --fw-fail-soft: #fbeae8;
+  --fw-warn-soft: #fbf1df;
+
+  --fw-stop-bg: #1a1a1a;
+  --fw-stop-text: #ffffff;
+
+  --fw-diff-add: #e7f3ea;
+  --fw-diff-del: #fbeae8;
+}
+
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme="light"]) {
+    --fw-bg: #121212;
+    --fw-surface: #1c1c1c;
+    --fw-surface-2: #262626;
+    --fw-text: #ececec;
+    --fw-text-muted: #a8a8a8;
+    --fw-border: #444444;
+    --fw-focus: #ececec;
+    --fw-link: #ececec;
+    --fw-attention: #8fb0ff;
+    --fw-attention-text: #0d1a3a;
+    --fw-attention-soft: #1d2740;
+    --fw-ok: #7fcf96;
+    --fw-fail: #ff9a8f;
+    --fw-warn: #e8bd6a;
+    --fw-unknown: #a8a8a8;
+    --fw-ok-soft: #17291d;
+    --fw-fail-soft: #331a18;
+    --fw-warn-soft: #30260f;
+    --fw-stop-bg: #ececec;
+    --fw-stop-text: #121212;
+    --fw-diff-add: #17291d;
+    --fw-diff-del: #331a18;
+  }
+}
+
+:root[data-theme="dark"] {
+  --fw-bg: #121212;
+  --fw-surface: #1c1c1c;
+  --fw-surface-2: #262626;
+  --fw-text: #ececec;
+  --fw-text-muted: #a8a8a8;
+  --fw-border: #444444;
+  --fw-focus: #ececec;
+  --fw-link: #ececec;
+  --fw-attention: #8fb0ff;
+  --fw-attention-text: #0d1a3a;
+  --fw-attention-soft: #1d2740;
+  --fw-ok: #7fcf96;
+  --fw-fail: #ff9a8f;
+  --fw-warn: #e8bd6a;
+  --fw-unknown: #a8a8a8;
+  --fw-ok-soft: #17291d;
+  --fw-fail-soft: #331a18;
+  --fw-warn-soft: #30260f;
+  --fw-stop-bg: #ececec;
+  --fw-stop-text: #121212;
+  --fw-diff-add: #17291d;
+  --fw-diff-del: #331a18;
+}
+
+:root[data-density="compact"] {
+  --fw-row-pad: var(--fw-space-2);
+}
+
+:root[data-calm="on"] {
+  --fw-motion-fast: 0ms;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  :root:not([data-motion="full"]) {
+    --fw-motion-fast: 0ms;
+  }
+}
