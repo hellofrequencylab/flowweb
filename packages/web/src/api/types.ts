@@ -323,6 +323,10 @@ export interface Project {
   name: string;
   repo: string | null;
   status: 'active' | 'paused' | 'archived';
+  /** Business or brand the project belongs to, e.g. "Frequency"; null when unlabelled. */
+  brand: string | null;
+  /** marketing | product | ops | sales | support | finance | other; null when unlabelled. */
+  category: string | null;
   rows_open?: number;
   rows_in_progress?: number;
   rows_waiting_on_owner?: number;
