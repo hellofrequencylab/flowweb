@@ -1,6 +1,7 @@
 # CODEOWNERS: Tier 0 protected paths. Humans only.
-# Replace @hellofrequencylab with the Owner's GitHub handle. Branch protection must require code-owner review
-# and dismiss stale approvals. Agent identities have no admin or bypass permission.
+# Every Tier 0 path in AGENTS.md rule 3 has its own rule here (scripts/check-bootstrap.mjs checks it).
+# Branch protection must require code-owner review and dismiss stale approvals. Agent identities
+# have no admin or bypass permission.
 
 # Default: the Owner reviews everything that has no narrower owner.
 *                                          @hellofrequencylab
@@ -10,20 +11,30 @@
 /AGENTS.md                                 @hellofrequencylab
 /CLAUDE.md                                 @hellofrequencylab
 
-# Probes, row definitions and the checks that guard them
+# Probes, row definitions, the backlog and the checks that guard them
 /probes/                                   @hellofrequencylab
 /ledger/rows/                              @hellofrequencylab
-/scripts/check-*.mjs                       @hellofrequencylab
+/ledger/backlog/                           @hellofrequencylab
+/scripts/check-*                           @hellofrequencylab
 /scripts/probe-*.sh                        @hellofrequencylab
+/scripts/probe.mjs                         @hellofrequencylab
+/scripts/seed-rows.mjs                     @hellofrequencylab
+/scripts/test/                             @hellofrequencylab
 
 # CI, automation and repo settings
 /.github/                                  @hellofrequencylab
 /.gitleaks.toml                            @hellofrequencylab
 /.husky/                                   @hellofrequencylab
+/tooling/requirements-ci.txt               @hellofrequencylab
 
 # Policy, budgets, routing
 /policy/                                   @hellofrequencylab
 /config/                                   @hellofrequencylab
+
+# Contracts and schema (repo-root sources of truth)
+/contracts-core/                           @hellofrequencylab
+/schema.core.sql                           @hellofrequencylab
+/tests/schema_core_test.py                 @hellofrequencylab
 
 # The gates and the audit chain
 /packages/policy/                          @hellofrequencylab
