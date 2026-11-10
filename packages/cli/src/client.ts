@@ -240,6 +240,22 @@ export interface DoctorReport {
   };
 }
 
+/** `fw backup`: where the tar file went, and the hash of the database copy inside it. */
+export interface BackupReport {
+  path: string;
+  db_hash: string;
+  bytes: number;
+  event_seq: number;
+}
+
+/** `fw restore`: the home restored into, with how many events its re-verified chain holds. */
+export interface RestoreReport {
+  home: string;
+  db_hash: string;
+  events: number;
+  dirs: string[];
+}
+
 export interface GcEntry {
   run_id: string;
   path: string;
@@ -510,6 +526,8 @@ export interface CoreClient {
   spendRollup?(opts: { by: SpendGroup }): Promise<SpendGroupRow[]>;
   /** Maintenance commands: optional for the same reason (the sandbox lives in the daemon). */
   doctor?(): Promise<DoctorReport>;
+  backup?(out: string): Promise<BackupReport>;
+  restore?(file: string): Promise<RestoreReport>;
   gc?(): Promise<GcReport>;
   /** The Supervisor: optional, served by the daemon package. Controls need fwd up (CLI token). */
   supervisorStatus?(): Promise<SupervisorReport>;

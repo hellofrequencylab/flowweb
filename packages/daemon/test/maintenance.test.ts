@@ -1,6 +1,7 @@
 // FW-C-008: fw doctor (runDoctor) and fw gc (gcRunDirs), and both through the in-process core client.
 import { existsSync, mkdirSync, readdirSync, writeFileSync } from 'node:fs';
 import { join } from 'node:path';
+import { openStore } from '@fw/eventlog';
 import { afterEach, beforeEach, describe, expect, test } from 'vitest';
 import { createCoreClient } from '../src/local-client.ts';
 import { runDoctor } from '../src/runtime/doctor.ts';
@@ -123,6 +124,44 @@ describe('core client', () => {
       expect(existsSync(join(fwHome, 'db'))).toBe(false);
     } finally {
       client.close();
+    }
+  }, 30_000);
+  test('FW-C-029: backup then restore into a fresh home keeps a verified chain and no credentials', async () => {
+    mkdirSync(join(fwHome, 'db'), { recursive: true });
+    mkdirSync(join(fwHome, 'config'), { recursive: true });
+    mkdirSync(join(fwHome, 'creds'), { recursive: true });
+    writeFileSync(join(fwHome, 'config', 'note.txt'), 'kept');
+    writeFileSync(join(fwHome, 'creds', 'crd_fake0001'), 'never-in-a-backup');
+    const s = openStore({ path: join(fwHome, 'db', 'fw.sqlite'), lockPath: join(fwHome, 'fwd.lock') });
+    s.writer!.appendEvent({ type: 'system.started', actor_kind: 'system', actor_id: 'test', payload: {} });
+    s.close();
+    const out = join(tmp.path, 'b', 'fw-backup.tar');
+    const client = createCoreClient({ home: fwHome, repoDir: tmp.path });
+    const b = await client.backup(out);
+    client.close();
+    expect(b.path).toBe(out);
+    expect(b.db_hash).toMatch(/^[0-9a-f]{64}$/);
+
+    const fresh = join(tmp.path, 'fresh');
+    const c2 = createCoreClient({ home: fresh, repoDir: tmp.path });
+    try {
+      const r = await c2.restore(out);
+      expect(r.db_hash).toBe(b.db_hash);
+      expect(r.events).toBe(1);
+      expect(readdirSync(join(fresh, 'config'))).toEqual(['note.txt']);
+      expect(existsSync(join(fresh, 'creds'))).toBe(false);
+      expect((await c2.auditVerify()).ok).toBe(true);
+      await expect(c2.restore(out)).rejects.toMatchObject({ code: 'RESTORE_REFUSED' });
+    } finally {
+      c2.close();
+    }
+    // The source home records the backup, so fw doctor can say when the last one was.
+    const c3 = createCoreClient({ home: fwHome, repoDir: tmp.path });
+    try {
+      const d = await c3.doctor();
+      expect(d.checks.find((c) => c.name === 'last_backup')?.status).toBe('pass');
+    } finally {
+      c3.close();
     }
   }, 30_000);
 });

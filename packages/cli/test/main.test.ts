@@ -124,6 +124,8 @@ function fakeClient(overrides: Partial<CoreClient> = {}): CoreClient {
     }),
     spendRollup: async ({ by }) => (by === 'agent' ? spendByAgent : []),
     doctor: async () => doctorReport,
+    backup: async (out) => ({ path: out, db_hash: 'd'.repeat(64), bytes: 1024, event_seq: 9 }),
+    restore: async () => ({ home: '/h', db_hash: 'd'.repeat(64), events: 9, dirs: ['config'] }),
     status: async () => statusUp,
     streamAdd: async () => ({ stream: {} as never, approval_id: null, event_seq: 1 }),
     streamList: async () => [],

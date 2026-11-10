@@ -43,6 +43,7 @@ import {
   relayPrompt,
   relayResult,
 } from './relay/src/index.ts';
+import { type BackupResult, createBackup, type RestoreResult, restoreBackup } from './runtime/backup.ts';
 import { type DoctorReport, runDoctor } from './runtime/doctor.ts';
 import { type GcReport, gcRunDirs } from './runtime/gc.ts';
 import { type SetupReport, setupReport } from './setup/index.ts';
@@ -94,6 +95,10 @@ export interface DaemonCoreClient extends LocalCoreClient {
   relayResult(runId: string, text: string): Promise<RelayResult>;
   doctor(): Promise<DoctorReport>;
   gc(): Promise<GcReport>;
+  /** FW-C-029: a consistent copy of the database and the home's config, as one tar file. */
+  backup(out: string): Promise<BackupResult>;
+  /** FW-C-029: restores a backup into this home, which must have no database yet. */
+  restore(file: string): Promise<RestoreResult>;
   /** FW-C-039: GET /v1/setup from fwd, or the same report read here when fwd is down. */
   setup(): Promise<SetupReport>;
 }
@@ -316,6 +321,16 @@ export function createCoreClient(opts: LocalClientOptions): DaemonCoreClient {
         lastBackupAt = row?.ts ?? null;
       }
       return runDoctor(home, { repoDir, lastBackupAt });
+    },
+    async backup(out) {
+      // The writer lock keeps fwd and every other writer out while the copy is taken.
+      return createBackup(home, open(true).writer!, out);
+    },
+    async restore(file) {
+      store?.close();
+      store = undefined;
+      ledger.close();
+      return restoreBackup(home, path, file);
     },
     async gc() {
       // No database means no run was ever started in this home, so no directory has a live run.
