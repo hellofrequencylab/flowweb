@@ -2199,3 +2199,26 @@ dialog .kill-card {
     display: none;
   }
 }
+
+/* ---------- flows ---------- */
+
+/* Six nav pills need short labels a little earlier than five did. */
+@media (max-width: 1320px) {
+  .nav-full {
+    display: none;
+  }
+  .nav-short {
+    display: inline;
+  }
+}
+
+.flow-sat {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--space-3);
+  min-width: 7rem;
+}
+.flow-sat .meter {
+  flex: 1;
+  height: 8px;
+}

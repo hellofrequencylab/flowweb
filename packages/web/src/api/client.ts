@@ -741,6 +741,11 @@ export const api = {
     };
   },
 
+  async flow(key: string): Promise<V.Flow> {
+    const e = await get<Omit<V.Flow, 'data_as_of'>>(`/flows/${encodeURIComponent(key)}`);
+    return { data_as_of: e.as_of, ...e.data };
+  },
+
   async policy(): Promise<V.PolicyFile> {
     const e = await get<W.WPolicy>('/policy');
     return { data_as_of: e.as_of, ...e.data };

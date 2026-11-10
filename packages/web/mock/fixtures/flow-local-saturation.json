@@ -1,0 +1,339 @@
+{
+  "key": "local-saturation",
+  "name": "Local saturation marketing",
+  "enabled": false,
+  "tier": "L1",
+  "gate_on": ["publish_external", "outbound_email_external"],
+  "offer": {
+    "name": "Frequency",
+    "url": "https://frequencylocal.com",
+    "pitch": "Free, local, in-person community: find or start a Circle near you around what you love.",
+    "call_to_action": "Join a Circle near you",
+    "placeholder": true
+  },
+  "engine": {
+    "label": "ChatGPT sign-in through the Codex CLI on the Owner's Mac",
+    "fallback": "OpenAI API key, billed per token",
+    "runs_on": "local fwd only; the hosted mirror stores no subscription sign-in"
+  },
+  "channels": [
+    {
+      "key": "google_business_profile",
+      "label": "Google Business Profile posts",
+      "action_class": "publish_external",
+      "placeholder": true
+    },
+    {
+      "key": "instagram",
+      "label": "Instagram posts",
+      "action_class": "publish_external",
+      "placeholder": true
+    },
+    {
+      "key": "facebook_groups",
+      "label": "Local Facebook groups",
+      "action_class": "publish_external",
+      "placeholder": true
+    },
+    {
+      "key": "nextdoor",
+      "label": "Nextdoor",
+      "action_class": "publish_external",
+      "placeholder": true
+    },
+    {
+      "key": "event_listings",
+      "label": "Local event listings",
+      "action_class": "publish_external",
+      "placeholder": true
+    },
+    {
+      "key": "partner_email",
+      "label": "Email to local venues and businesses",
+      "action_class": "outbound_email_external",
+      "placeholder": true
+    }
+  ],
+  "placeholders": ["offer", "starting_area", "channels"],
+  "thresholds": {
+    "threshold": 0.7,
+    "hold_cycles": 2,
+    "weights": {
+      "coverage": 0.4,
+      "cadence": 0.3,
+      "response": 0.3
+    },
+    "touches_per_target_28d": 2,
+    "new_members_per_10k_28d": 5,
+    "max_active_areas": 5,
+    "ring_width_km": 8
+  },
+  "open_ring": 0,
+  "cycles_at_threshold": 0,
+  "rings": [
+    {
+      "ring": 0,
+      "open": true,
+      "average": 0.534,
+      "areas": [
+        {
+          "id": "vista",
+          "name": "Vista, CA",
+          "km_from_seed": 0,
+          "population": 101000,
+          "saturation": {
+            "score": 0.534,
+            "coverage": 0.548,
+            "cadence": 0.674,
+            "response": 0.376
+          },
+          "signals": {
+            "targets_known": 42,
+            "targets_reached": 23,
+            "touches_28d": 31,
+            "new_members_28d": 19
+          },
+          "awaiting_owner": 6
+        }
+      ]
+    },
+    {
+      "ring": 1,
+      "open": false,
+      "average": 0,
+      "areas": [
+        {
+          "id": "san-marcos",
+          "name": "San Marcos, CA",
+          "km_from_seed": 9.5,
+          "population": 94000,
+          "saturation": {
+            "score": 0,
+            "coverage": 0,
+            "cadence": 0,
+            "response": 0
+          },
+          "signals": {
+            "targets_known": 0,
+            "targets_reached": 0,
+            "touches_28d": 0,
+            "new_members_28d": 0
+          },
+          "awaiting_owner": 0
+        },
+        {
+          "id": "bonsall",
+          "name": "Bonsall, CA",
+          "km_from_seed": 10,
+          "population": 4000,
+          "saturation": {
+            "score": 0,
+            "coverage": 0,
+            "cadence": 0,
+            "response": 0
+          },
+          "signals": {
+            "targets_known": 0,
+            "targets_reached": 0,
+            "touches_28d": 0,
+            "new_members_28d": 0
+          },
+          "awaiting_owner": 0
+        },
+        {
+          "id": "carlsbad",
+          "name": "Carlsbad, CA",
+          "km_from_seed": 11.1,
+          "population": 115000,
+          "saturation": {
+            "score": 0,
+            "coverage": 0,
+            "cadence": 0,
+            "response": 0
+          },
+          "signals": {
+            "targets_known": 0,
+            "targets_reached": 0,
+            "touches_28d": 0,
+            "new_members_28d": 0
+          },
+          "awaiting_owner": 0
+        },
+        {
+          "id": "oceanside",
+          "name": "Oceanside, CA",
+          "km_from_seed": 12.8,
+          "population": 172000,
+          "saturation": {
+            "score": 0,
+            "coverage": 0,
+            "cadence": 0,
+            "response": 0
+          },
+          "signals": {
+            "targets_known": 0,
+            "targets_reached": 0,
+            "touches_28d": 0,
+            "new_members_28d": 0
+          },
+          "awaiting_owner": 0
+        }
+      ]
+    },
+    {
+      "ring": 2,
+      "open": false,
+      "average": 0,
+      "areas": [
+        {
+          "id": "escondido",
+          "name": "Escondido, CA",
+          "km_from_seed": 17.1,
+          "population": 151000,
+          "saturation": {
+            "score": 0,
+            "coverage": 0,
+            "cadence": 0,
+            "response": 0
+          },
+          "signals": {
+            "targets_known": 0,
+            "targets_reached": 0,
+            "touches_28d": 0,
+            "new_members_28d": 0
+          },
+          "awaiting_owner": 0
+        },
+        {
+          "id": "encinitas",
+          "name": "Encinitas, CA",
+          "km_from_seed": 18.7,
+          "population": 62000,
+          "saturation": {
+            "score": 0,
+            "coverage": 0,
+            "cadence": 0,
+            "response": 0
+          },
+          "signals": {
+            "targets_known": 0,
+            "targets_reached": 0,
+            "touches_28d": 0,
+            "new_members_28d": 0
+          },
+          "awaiting_owner": 0
+        },
+        {
+          "id": "fallbrook",
+          "name": "Fallbrook, CA",
+          "km_from_seed": 19.6,
+          "population": 32000,
+          "saturation": {
+            "score": 0,
+            "coverage": 0,
+            "cadence": 0,
+            "response": 0
+          },
+          "signals": {
+            "targets_known": 0,
+            "targets_reached": 0,
+            "touches_28d": 0,
+            "new_members_28d": 0
+          },
+          "awaiting_owner": 0
+        },
+        {
+          "id": "solana-beach",
+          "name": "Solana Beach, CA",
+          "km_from_seed": 23.4,
+          "population": 13000,
+          "saturation": {
+            "score": 0,
+            "coverage": 0,
+            "cadence": 0,
+            "response": 0
+          },
+          "signals": {
+            "targets_known": 0,
+            "targets_reached": 0,
+            "touches_28d": 0,
+            "new_members_28d": 0
+          },
+          "awaiting_owner": 0
+        }
+      ]
+    },
+    {
+      "ring": 3,
+      "open": false,
+      "average": 0,
+      "areas": [
+        {
+          "id": "poway",
+          "name": "Poway, CA",
+          "km_from_seed": 32.7,
+          "population": 48000,
+          "saturation": {
+            "score": 0,
+            "coverage": 0,
+            "cadence": 0,
+            "response": 0
+          },
+          "signals": {
+            "targets_known": 0,
+            "targets_reached": 0,
+            "touches_28d": 0,
+            "new_members_28d": 0
+          },
+          "awaiting_owner": 0
+        }
+      ]
+    }
+  ],
+  "decision": {
+    "kind": "keep_working",
+    "summary": "Working ring 0: 53% saturated, opens the next ring at 70% held for 2 cycles."
+  },
+  "plan": [
+    {
+      "area_id": "vista",
+      "reason": "53% saturated"
+    }
+  ],
+  "steps": [
+    {
+      "key": "research",
+      "label": "Find places, groups and people worth reaching",
+      "outward": false
+    },
+    {
+      "key": "draft",
+      "label": "Draft posts and messages for each channel",
+      "outward": false
+    },
+    {
+      "key": "review",
+      "label": "Second model checks voice, facts and links",
+      "outward": false
+    },
+    {
+      "key": "owner_approval",
+      "label": "You approve, edit or reject each item",
+      "outward": false
+    },
+    {
+      "key": "handoff",
+      "label": "You post or send it, then mark it done",
+      "outward": true
+    }
+  ],
+  "budget": {
+    "period": "week",
+    "max_usd": 5,
+    "max_turns": 200,
+    "spent_usd": 0,
+    "used_turns": 37,
+    "since": "2026-11-03T15:00:00Z"
+  },
+  "awaiting_owner_total": 6
+}

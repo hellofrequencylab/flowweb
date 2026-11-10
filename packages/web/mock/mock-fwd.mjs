@@ -28,6 +28,7 @@ const NO_AUTH = args.includes('--no-auth') || process.env.FW_DEV_NO_AUTH === '1'
 const PAIR_CODE = '424242';
 
 const backlog = JSON.parse(readFileSync(join(here, 'fixtures/backlog.json'), 'utf8'));
+const flowFixture = JSON.parse(readFileSync(join(here, 'fixtures/flow-local-saturation.json'), 'utf8'));
 
 /* ---------------- helpers ---------------- */
 
@@ -1097,6 +1098,7 @@ const server = createServer(async (req, res) => {
       return send(res, 200, envelope({ paired_at: state.pairedAt, device_label: 'This browser' }));
     if (route === '/status') return send(res, 200, envelope(statusView()));
     if (route === '/status-reports') return send(res, 200, envelope(state.digest ? [state.digest] : []));
+    if (route === '/flows/local-saturation') return send(res, 200, envelope(flowFixture));
     if (route === '/policy')
       return send(
         res,

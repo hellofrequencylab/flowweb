@@ -2,6 +2,7 @@ import { type ReactNode, useEffect, useState } from 'react';
 import { useLive } from '../api/live';
 import { DawnLog } from '../dawn/DawnLog';
 import { EvidencePage } from '../evidence/EvidencePage';
+import { FlowPage } from '../flows/FlowPage';
 import { LedgerPage } from '../ledger/LedgerPage';
 import { RowPage } from '../ledger/RowPage';
 import { ProjectsPage } from '../projects/ProjectsPage';
@@ -75,6 +76,7 @@ export function Layout({ pairedAt, onSignedOut }: { pairedAt: string; onSignedOu
     const run = match('/runs/:id', p);
     if (run) return <RunPage id={run.id} />;
     if (p === '/spend') return <SpendPage />;
+    if (p === '/flows') return <FlowPage flowKey="local-saturation" />;
     if (p === '/settings')
       return (
         <SettingsPage pairedAt={pairedAt} onSignedOut={onSignedOut} onOpenKill={() => setKillOpen(true)} />
