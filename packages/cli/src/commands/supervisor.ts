@@ -3,6 +3,7 @@
 // fw supervisor pause|resume, fw supervisor enable|disable <flow>: the Owner's controls. They go
 // through fwd with the CLI token, and each change writes a system.config_changed event.
 // fw supervisor dial <flow> <draft|copilot|autopilot> [--confirm <hash>]: the Owner's dial (FW-C-035).
+// fw supervisor run <flow>: fire a flow by hand through the scheduler (FW-C-038).
 // Autopilot first answers with the hash of the flow's channels and caps; run it again with --confirm.
 import type { SupervisorAction, SupervisorReport } from '../client.ts';
 import { EXIT, table } from '../output.ts';
@@ -83,6 +84,29 @@ const dial: Command = {
   },
 };
 
+const run: Command = {
+  path: ['supervisor', 'run'],
+  usage: 'fw supervisor run <flow>',
+  summary: 'Run a flow now; the Supervisor still decides whether it may (Owner)',
+  args: ['flow'],
+  options: [],
+  async run(ctx) {
+    if (typeof ctx.client.supervisorRun !== 'function')
+      throw new UnsupportedError(
+        'the core client in use does not serve the Supervisor; the daemon package provides it',
+      );
+    const r = await ctx.client.supervisorRun(ctx.args[0] ?? '');
+    if (ctx.json) ctx.io.out(JSON.stringify(r, null, 2));
+    else
+      ctx.io.out(
+        r.outcome === 'fired'
+          ? `${r.fire_id}: fired; the cycle runs in fwd`
+          : `${r.fire_id}: ${r.outcome}: ${r.reason ?? ''}`,
+      );
+    return EXIT.OK;
+  },
+};
+
 export const supervisorCommands: Command[] = [
   status,
   control('pause', false, 'Pause the Supervisor: hold every flow until resumed (Owner)'),
@@ -90,4 +114,5 @@ export const supervisorCommands: Command[] = [
   control('enable', true, 'Turn a flow on (Owner)'),
   control('disable', true, 'Turn a flow off (Owner)'),
   dial,
+  run,
 ];

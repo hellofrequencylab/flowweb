@@ -148,6 +148,7 @@ export {
   toContract,
   toView,
 } from './rows.ts';
+export { addStream, type StreamAddReport } from './streams/streams.ts';
 export {
   type RefusalReason,
   rowContract,
