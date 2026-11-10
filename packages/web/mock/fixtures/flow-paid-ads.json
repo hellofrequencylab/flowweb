@@ -1,0 +1,45 @@
+{
+  "key": "paid-ads",
+  "name": "Paid ads: Find your people locally",
+  "enabled": false,
+  "campaign": {
+    "name": "Find your people locally",
+    "platform": "Google Ads",
+    "goal": "subscriptions",
+    "landing_url": "https://frequencylocal.com/start"
+  },
+  "source": {
+    "kind": "csv_import",
+    "how": "In Google Ads open Campaigns, set the date range, click Download and choose .csv with Day as a segment. Drop the file in $FW_HOME/flows/paid-ads/imports/."
+  },
+  "target_cost_per_subscription_usd": 30,
+  "target_is_placeholder": true,
+  "learning_days": 14,
+  "first_day": "2026-11-04",
+  "last_day": "2026-11-09",
+  "totals": {
+    "days": 6,
+    "spend_usd": 74.4,
+    "impressions": 5120,
+    "clicks": 131,
+    "subscriptions": 2,
+    "ctr": 0.02559,
+    "cost_per_click_usd": 0.57,
+    "cost_per_subscription_usd": 37.2
+  },
+  "last_7_days": {
+    "days": 6,
+    "spend_usd": 74.4,
+    "impressions": 5120,
+    "clicks": 131,
+    "subscriptions": 2,
+    "ctr": 0.02559,
+    "cost_per_click_usd": 0.57,
+    "cost_per_subscription_usd": 37.2
+  },
+  "next_move": {
+    "kind": "learning",
+    "why": "6 of 14 days of data. Google is still learning; hold changes until then.",
+    "days_left": 8
+  }
+}

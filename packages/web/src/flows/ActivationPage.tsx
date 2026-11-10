@@ -16,10 +16,11 @@ import { PageHead } from '../ui-kit/page';
 import { StatusLabel, type StatusSpec } from '../ui-kit/status';
 import { usd } from '../ui-kit/time';
 import { DraftEditor } from './DraftEditor';
-import { groupDrafts } from './drafts';
+import { groupDrafts, outcomeOf } from './drafts';
 import { FlowAdmin } from './FlowAdmin';
 import { MeasureDials, PipelineBar, RegionPath } from './FlowVisuals';
 import { LeadHunts } from './LeadHunts';
+import { PaidAdsPanel } from './PaidAdsPanel';
 import { SupervisorPanel } from './SupervisorPanel';
 
 const pct = (x: number) => `${Math.round(x * 100)}%`;
@@ -351,6 +352,7 @@ export function ActivationPage() {
           </div>
         )}
       </ResourceView>
+      <PaidAdsPanel />
     </>
   );
 }
@@ -401,6 +403,14 @@ const DRAFT_STATUS: Record<string, string> = {
   rejected: 'Rejected',
 };
 
+const OUTCOME_LABEL = { sent: 'Sent, no answer yet', replied: 'They replied', declined: 'They said no' };
+
+function draftHint(x: FlowDraft): string {
+  const o = outcomeOf(x);
+  if (o) return `${OUTCOME_LABEL[o]} · sent ${(x.sent_at ?? '').slice(0, 10)}`;
+  return `${DRAFT_STATUS[x.status] ?? x.status}${x.created_at ? ` · ${x.created_at.slice(0, 10)}` : ''}`;
+}
+
 /** The messages the flow's cycles drafted. FlowWeb never sends them; you copy and send. */
 function DraftsPanel() {
   const res = useResource(
@@ -442,6 +452,14 @@ function DraftsPanel() {
                     hint="The flow could not fill names or places in these"
                   >
                     <DraftList drafts={groups.templates} onChanged={res.reload} />
+                  </Fold>
+                )}
+                {groups.sent.length > 0 && (
+                  <Fold
+                    label={`Sent (${groups.sent.length})`}
+                    hint={`${groups.sent.filter((x) => x.replied_at).length} replied`}
+                  >
+                    <DraftList drafts={groups.sent} onChanged={res.reload} />
                   </Fold>
                 )}
                 {groups.done.length > 0 && (
@@ -501,11 +519,7 @@ function DraftList({
     <ul className="stack drafts-list" aria-label="Drafts">
       {drafts.map((x, i) => (
         <li key={x.id}>
-          <Fold
-            label={x.subject ?? 'Untitled draft'}
-            hint={`${DRAFT_STATUS[x.status] ?? x.status}${x.created_at ? ` · ${x.created_at.slice(0, 10)}` : ''}`}
-            open={openFirst && i === 0}
-          >
+          <Fold label={x.subject ?? 'Untitled draft'} hint={draftHint(x)} open={openFirst && i === 0}>
             <DraftEditor flow="neighborhood-activation" draft={x} onChanged={onChanged} />
           </Fold>
         </li>

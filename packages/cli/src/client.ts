@@ -487,6 +487,10 @@ export interface SupervisorDraft {
   held?: string;
   created_at: string | null;
   edited_at?: string;
+  tag?: string;
+  sent_at?: string;
+  replied_at?: string;
+  declined_at?: string;
 }
 
 /** What `fw supervisor run` prints. */
@@ -548,6 +552,8 @@ export interface CoreClient {
     id: string,
     edit: { subject?: string; body?: string },
   ): Promise<SupervisorDraft>;
+  /** FW-C-054: the Owner says a draft was sent, got a reply, or got a no (an opt-out). */
+  supervisorMarkDraft?(flow: string, id: string, outcome: string): Promise<SupervisorDraft>;
   /** FW-C-051: a rewrite of a draft from the flow's engine, for the Owner to review; nothing is saved. */
   supervisorRewriteDraft?(
     flow: string,

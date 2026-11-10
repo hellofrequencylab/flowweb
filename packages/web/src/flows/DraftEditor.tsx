@@ -88,6 +88,13 @@ export function DraftEditor({
       () => onChanged(),
     );
 
+  const mark = (outcome: 'sent' | 'replied' | 'declined', label: string) =>
+    act(
+      label,
+      (q) => api.draftChange(flow, draft.id, 'mark', { outcome }, q),
+      () => onChanged(),
+    );
+
   const copy = async () => {
     try {
       await navigator.clipboard.writeText(`${draft.subject ? `${draft.subject}\n\n` : ''}${draft.body}`);
@@ -149,6 +156,48 @@ export function DraftEditor({
           </Button>
         )}
       </div>
+
+      {draft.status !== 'rejected' && (
+        <div className="draft-ai">
+          <span className="field-label">After you send it</span>
+          <div className="draft-actions">
+            {!draft.sent_at && (
+              <Button
+                className="btn-small"
+                onClick={() => mark('sent', 'Marking it sent.')}
+                disabledReason={busy}
+              >
+                I sent it
+              </Button>
+            )}
+            {!draft.replied_at && !draft.declined_at && (
+              <Button
+                className="btn-small"
+                onClick={() => mark('replied', 'Marking that they replied.')}
+                disabledReason={busy}
+              >
+                They replied
+              </Button>
+            )}
+            {!draft.declined_at && (
+              <Button
+                className="btn-small"
+                variant="quiet"
+                onClick={() => {
+                  if (window.confirm('Mark that they said no? They go on this flow’s do-not-contact list.'))
+                    mark('declined', 'Marking that they said no.');
+                }}
+                disabledReason={busy}
+              >
+                They said no
+              </Button>
+            )}
+          </div>
+          <p className="muted draft-ai-hint">
+            This only records what happened, so the flow learns. Nothing is sent.
+          </p>
+        </div>
+      )}
 
       {!locked && (
         <div className="draft-ai">

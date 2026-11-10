@@ -645,6 +645,11 @@ export interface FlowDraft {
   approved_at?: string;
   rejected_at?: string;
   edited_at?: string;
+  /** FW-C-054: what the Owner says happened after they sent it by hand. */
+  tag?: string;
+  sent_at?: string;
+  replied_at?: string;
+  declined_at?: string;
 }
 
 export interface FlowDrafts extends Envelope {
@@ -739,4 +744,40 @@ export interface Setup extends Envelope {
   fwd: 'up' | 'down';
   steps: SetupStep[];
   checked_at: string;
+}
+
+/* ---------------- paid ads flow (FW-C-048) ---------------- */
+
+export interface AdsFigures {
+  days: number;
+  spend_usd: number;
+  impressions: number;
+  clicks: number;
+  subscriptions: number;
+  ctr: number | null;
+  cost_per_click_usd: number | null;
+  cost_per_subscription_usd: number | null;
+}
+
+export type AdsNextMove =
+  | { kind: 'waiting_for_data'; why: string }
+  | { kind: 'learning'; why: string; days_left: number }
+  | { kind: 'check_tracking'; why: string }
+  | { kind: 'over_target'; why: string }
+  | { kind: 'on_target'; why: string };
+
+export interface AdsFlow extends Envelope {
+  key: string;
+  name: string;
+  enabled: boolean;
+  campaign: { name: string; platform: string; goal: string; landing_url?: string };
+  source: { kind: string; how: string };
+  target_cost_per_subscription_usd: number;
+  target_is_placeholder: boolean;
+  learning_days: number;
+  first_day: string | null;
+  last_day: string | null;
+  totals: AdsFigures;
+  last_7_days: AdsFigures;
+  next_move: AdsNextMove;
 }

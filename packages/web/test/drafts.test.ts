@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import type { FlowDraft } from '../src/api/types';
-import { groupDrafts, hasBlankSlot } from '../src/flows/drafts';
+import { groupDrafts, hasBlankSlot, outcomeOf } from '../src/flows/drafts';
 
 const d = (id: string, over: Partial<FlowDraft> = {}): FlowDraft => ({
   id,
@@ -26,6 +26,21 @@ describe('drafts sorting', () => {
     expect(g.ready.map((x) => x.id)).toEqual(['r2', 'r1']);
     expect(g.templates.map((x) => x.id).sort()).toEqual(['t1', 't2']);
     expect(g.done.map((x) => x.id)).toEqual(['x1']);
+  });
+
+  it('moves drafts you sent into their own group, newest send first, and names the outcome', () => {
+    const g = groupDrafts([
+      d('s1', { sent_at: '2026-11-10T01:00:00Z' }),
+      d('s2', { sent_at: '2026-11-10T02:00:00Z', replied_at: '2026-11-10T03:00:00Z' }),
+      d('x', { status: 'rejected', sent_at: '2026-11-10T02:00:00Z' }),
+      d('r'),
+    ]);
+    expect(g.sent.map((x) => x.id)).toEqual(['s2', 's1']);
+    expect(g.ready.map((x) => x.id)).toEqual(['r']);
+    expect(g.done.map((x) => x.id)).toEqual(['x']);
+    expect(outcomeOf(g.sent[0] as FlowDraft)).toBe('replied');
+    expect(outcomeOf(d('n', { sent_at: 'a', declined_at: 'b' }))).toBe('declined');
+    expect(outcomeOf(d('o'))).toBeNull();
   });
 
   it('only treats {{name}} slots as blanks', () => {
