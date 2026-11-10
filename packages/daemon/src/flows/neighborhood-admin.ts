@@ -16,12 +16,14 @@ import {
 
 /** A refusal the route turns into an HTTP error. Nothing has been written when one is thrown. */
 export class AdminError extends Error {
-  // biome-ignore format: one line reads better than five here
-  constructor(readonly status: 400 | 404 | 409, message: string, readonly details: Row = {}) {
+  readonly status: 400 | 404 | 409;
+  readonly details: Row;
+  constructor(status: 400 | 404 | 409, message: string, details: Row = {}) {
     super(message);
+    this.status = status;
+    this.details = details;
   }
 }
-
 export type Skipped = { row: number; reason: string };
 type Row = Record<string, unknown>;
 /** What an accepted admin action changes. No state and no config means nothing is written or logged. */
