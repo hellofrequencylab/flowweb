@@ -1,0 +1,36 @@
+{
+  "id": "FW-C-095",
+  "title": "Anyone who may change settings edits the email sender's mailboxes, postal address, sending hours and caps from Settings, instead of writing senders/email.json on the machine",
+  "core_milestone": "C1",
+  "phase": 1,
+  "epic": "C1.5 First flow",
+  "priority": "P1",
+  "size": "M",
+  "lane": "workstreams",
+  "agent_suitability": "agent",
+  "gate": "none",
+  "depends_on": [
+    "FW-C-094"
+  ],
+  "description": "FW-C-094 shows whether the email sender is set up, but its settings file ($FW_HOME/senders/email.json) is still written by hand on the machine. fwd takes POST /v1/connections/email from the CLI token or a paired browser session with { mailboxes: [{ key, address, name }] (1 to 3, key a-z0-9_ starting with a letter, unique), postal (required, at most 300 characters), daily_cap (1 to 40), per_pass (1 to 5), hours: { start (0 to 23), end (1 to 24, after start), days (0 to 6, at least one) } }, checks it the way senders/email.mjs does, and writes the file atomically with mode 0600: those fields are replaced, every other key (routes, claim, smtp_url) is kept, a route to a mailbox that no longer exists is dropped, and frequency is routed to the first mailbox when no route names it. A body that carries a password, secret or token field is refused: passwords stay in the keychain. GET /v1/connections returns email.values (mailboxes, postal, daily_cap, per_pass, hours, or null with no file). The site queues it as kind connection.email (flow all; hosted/server/requests.mjs; migration 0008 allows the kind and every kind 0007 allowed) and the relay calls the same route. In Settings, Connections, Email sending gets Edit: address and name per mailbox, postal address, daily cap, per pass, start and end hour and days, and Save; no password field; read only for people who may not change it. Tokens only. No em dashes.",
+  "acceptance": [
+    "POST /v1/connections/email from a browser session writes the sender's settings and keeps routes, claim and smtp_url",
+    "A route to a removed mailbox is dropped and frequency is routed to the first mailbox",
+    "Out-of-range caps, hours, days, a bad address, an empty postal address and a password field are refused with 400",
+    "GET /v1/connections returns email.values",
+    "The site queues connection.email with a checked payload, the relay calls the same route, and migration 0008 allows the kind",
+    "Settings edits and saves the sender's settings, has no password field, and is read only for people who may not change it"
+  ],
+  "verify_probe": "pnpm probe settings/sender-settings",
+  "files_hint": [
+    "packages/daemon/src/api/connections.ts",
+    "packages/daemon/src/api/routes.ts",
+    "hosted/server/requests.mjs",
+    "hosted/supabase/migrations/0008_flowweb_sender_settings.sql",
+    "packages/web/src/settings/",
+    "packages/web/src/api/client.ts",
+    "packages/web/src/api/types.ts",
+    "packages/web/src/ui-kit/flow.css"
+  ],
+  "origin": "new Core row"
+}
