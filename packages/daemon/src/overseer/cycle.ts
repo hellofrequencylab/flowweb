@@ -152,10 +152,16 @@ interface Draft {
 function brief(key: string, stream: Record<string, unknown>, hunts: Hunt[]): string {
   const lines = [
     `Run one cycle of the flow "${String(stream.name ?? key)}".`,
-    "Read README.md and config.json in the current folder (the flow's description and its settings on this machine) for the offer, territories, sources, funnels and send routes.",
-    'Find leads, score fit and timing, route each one, and draft invites and posts for the Owner to review.',
+    "Read README.md and config.json in the current folder (the flow's description and its settings on this machine) for the offer, territories, funnels and send routes.",
+    ...(hunts.length === 0
+      ? [
+          'You have no network access and no lead list in this cycle, so do not look for leads or contacts.',
+          'Instead draft one template invite per funnel in config.json (host, venue, builder, resident) for the seed territory, for the Owner to personalize: four drafts in all.',
+          'Use lead_id "template:<funnel>" and send_via "founder_email" for host, venue and builder, "frequency" for resident.',
+        ]
+      : ['Draft invites only for the leads you find through the lead hunts below.']),
     'Write your drafts to drafts.json in the current folder as {"drafts":[{"id","lead_id","send_via","subject","body"}]}.',
-    'Commit nothing. In your final report, list drafts.json as a file artifact.',
+    'This folder is scratch space, not a repository checkout: commit nothing. In your final report, say how many drafts you wrote.',
     'Never send, post or email anything: every draft waits for the Owner.',
   ];
   if (hunts.length > 0)
@@ -233,13 +239,19 @@ export async function runFlowCycle(d: CycleDeps, fire: CycleFire): Promise<void>
       context_links: ['README.md', 'config.json'],
       // The agent writes its own outputs only; the files fwd put there for it are read-only.
       scope: {
-        touches: ['drafts.json', 'leads.json'],
+        touches: hunts.length > 0 ? ['drafts.json', 'leads.json'] : ['drafts.json'],
         forbidden: ['README.md', 'config.json', 'hunts.json', '.git/**'],
       },
       constraints: {
+        // Nothing is committed, so there is no diff to cap; the prompt leaves the diff rule out for 0.
         max_diff_lines: 0,
         ...(ownerBrief.style ? { style: ownerBrief.style } : {}),
-        notes: ['This is a flow cycle: write drafts.json only and commit nothing.', ...ownerBrief.notes],
+        notes: [
+          hunts.length > 0
+            ? 'This is a flow cycle: write drafts.json and leads.json only, and commit nothing.'
+            : 'This is a flow cycle: write drafts.json only, and commit nothing.',
+          ...ownerBrief.notes,
+        ],
       },
       acceptance: [
         {

@@ -130,6 +130,14 @@ test("the flow's engine picks the adapter and its sign-in lane", async () => {
     .work_order.scope;
   expect(scope.touches).toContain('drafts.json');
   expect(scope.forbidden.some((g) => g === '**/*' || g === '**' || g === 'drafts.json')).toBe(false);
+  // Without hunts or network the order asks for templates only, names one output, and never says to
+  // find leads (run 5 on the Owner's Mac refused an order that contradicted itself).
+  const wo = (r.seen.input as { work_order: { goal: string; constraints: { notes: string[] } } }).work_order;
+  expect(scope.touches).toEqual(['drafts.json']);
+  expect(wo.goal).not.toMatch(/find leads/i);
+  expect(wo.goal).toContain('template invite per funnel');
+  expect(wo.constraints.notes[0]).toBe('This is a flow cycle: write drafts.json only, and commit nothing.');
+  expect((r.seen.input as { workspace: { base_commit: string } }).workspace.base_commit).toMatch(/^0+$/);
   // Codex refuses to start outside a git repository, so the cycle folder is one.
   expect(existsSync(join(home, 'flows', KEY, 'cycles', 'fire3', '.git'))).toBe(true);
   expect(r.seen.options).toMatchObject({ codex: { auth: 'signin' }, env: { FW_CODEX_AUTH: 'signin' } });
