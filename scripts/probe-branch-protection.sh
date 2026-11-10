@@ -1,6 +1,6 @@
 #!/usr/bin/env bash
 # Probe for row WS-P0-003 (human): branch protection and code-owner review on main. Tier 0.
-# Reads the live settings through `gh api`; changes nothing.
+# Reads the live settings (classic branch protection and rulesets) through `gh api`; changes nothing.
 #
 # Inputs:
 #   FW_GH_REPO        owner/repo (default: the repo of the current checkout, via gh repo view)
@@ -26,35 +26,61 @@ REPO="${FW_GH_REPO:-$(gh repo view --json nameWithOwner --jq .nameWithOwner 2>/d
 BRANCH=main
 CHECKS="${FW_REQUIRED_CHECKS:-checks schema-and-contracts tier0-guard probe-immutability ledger-row}"
 
-P="$(gh api "repos/$REPO/branches/$BRANCH/protection" 2>/dev/null)" || fail "no branch protection on $REPO:$BRANCH"
-# j <dotted.path>: JSON value at that path in the protection document ("null" when absent).
-j() {
-  printf '%s' "$P" | python3 -I -c '
+# Protection can come from classic branch protection, from rulesets, or both. A requirement counts
+# only when a source that nobody can bypass enforces it: classic protection with enforce_admins on, or
+# an active ruleset with no bypass actors. Each source is read through `gh api`.
+CLASSIC="$(gh api "repos/$REPO/branches/$BRANCH/protection" 2>/dev/null)" || CLASSIC=null
+RULES="$(gh api "repos/$REPO/rules/branches/$BRANCH" 2>/dev/null)" || fail "cannot read the rules for $REPO:$BRANCH"
+RULESETS="[]"
+for id in $(printf '%s' "$RULES" | python3 -I -c 'import json,sys; print(" ".join(sorted({str(r["ruleset_id"]) for r in json.load(sys.stdin) if "ruleset_id" in r})))'); do
+  one="$(gh api "repos/$REPO/rulesets/$id" 2>/dev/null)" || fail "cannot read ruleset $id (its bypass list decides whether it counts)"
+  RULESETS="$(printf '%s\n%s' "$RULESETS" "$one" | python3 -I -c 'import json,sys; a,b=sys.stdin.read().split("\n",1); print(json.dumps(json.loads(a)+[json.loads(b)]))')"
+done
+# Prints one line per requirement: "<key> <true|false> <detail>", from the sources that cannot be bypassed.
+EFFECTIVE="$(python3 -I -c '
 import json, sys
-v = json.load(sys.stdin)
-for k in sys.argv[1].split("."):
-    v = v.get(k) if isinstance(v, dict) else None
-print(json.dumps(v))' "$1"
+classic, rules, rulesets = (json.loads(x) for x in sys.argv[1:4])
+solid = {r["id"] for r in rulesets if r.get("enforcement") == "active" and not r.get("bypass_actors")}
+bypass = sorted({json.dumps(a, sort_keys=True) for r in rulesets for a in (r.get("bypass_actors") or [])})
+rules = [r for r in rules if r.get("ruleset_id") in solid]
+c = classic if isinstance(classic, dict) and (classic.get("enforce_admins") or {}).get("enabled") else {}
+pr = [r.get("parameters", {}) for r in rules if r["type"] == "pull_request"]
+cr = c.get("required_pull_request_reviews") or {}
+count = max([p.get("required_approving_review_count", 0) for p in pr] + [cr.get("required_approving_review_count", 0)])
+checks = {x["context"] for r in rules if r["type"] == "required_status_checks" for x in r["parameters"].get("required_status_checks", [])}
+checks |= set((c.get("required_status_checks") or {}).get("contexts") or [])
+types = {r["type"] for r in rules}
+out = {
+  "code_owner": any(p.get("require_code_owner_review") for p in pr) or bool(cr.get("require_code_owner_reviews")),
+  "dismiss_stale": any(p.get("dismiss_stale_reviews_on_push") for p in pr) or bool(cr.get("dismiss_stale_reviews")),
+  "approvals": count >= 1,
+  "no_bypass": bool(c) or bool(rules),
+  "no_force_push": "non_fast_forward" in types or (c.get("allow_force_pushes") or {}).get("enabled") is False,
+  "no_deletion": "deletion" in types or (c.get("allow_deletions") or {}).get("enabled") is False,
 }
-
-[ "$(j required_pull_request_reviews.require_code_owner_reviews)" = "true" ] || fail "code-owner review is not required"
+for k, v in out.items(): print(k, str(v).lower(), count if k == "approvals" else "")
+print("checks", " ".join(sorted(checks)))
+print("bypass", " ".join(bypass) or "-")
+' "$CLASSIC" "$RULES" "$RULESETS")"
+e() { printf '%s\n' "$EFFECTIVE" | awk -v k="$1" '$1 == k { $1 = ""; sub(/^ /, ""); print }'; }
+[ "$(e no_bypass)" = "true" ] || fail "nothing protects $BRANCH without a bypass (no classic protection with enforce_admins, no active ruleset without bypass actors; bypass actors: $(e bypass))"
+ok "protection that admins cannot bypass"
+[ "$(e code_owner)" = "true" ] || fail "code-owner review is not required"
 ok "code-owner review required"
-[ "$(j required_pull_request_reviews.dismiss_stale_reviews)" = "true" ] || fail "stale approvals are not dismissed"
+[ "$(e dismiss_stale)" = "true" ] || fail "stale approvals are not dismissed"
 ok "stale approvals dismissed"
-COUNT="$(j required_pull_request_reviews.required_approving_review_count)"
-[ "$COUNT" != "null" ] && [ "$COUNT" -ge 1 ] || fail "required approving review count is $COUNT, want >= 1"
+COUNT="$(e approvals | awk '{print $2}')"
+[ "$(e approvals | awk '{print $1}')" = "true" ] || fail "required approving review count is $COUNT, want >= 1"
 ok "at least one approving review required"
-[ "$(j enforce_admins.enabled)" = "true" ] || fail "admins can bypass protection (enforce_admins off)"
-ok "admins included"
-[ "$(j allow_force_pushes.enabled)" = "false" ] || fail "force pushes to $BRANCH are allowed"
-[ "$(j allow_deletions.enabled)" = "false" ] || fail "deleting $BRANCH is allowed"
+[ "$(e no_force_push)" = "true" ] || fail "force pushes to $BRANCH are allowed"
+[ "$(e no_deletion)" = "true" ] || fail "deleting $BRANCH is allowed"
 ok "no force push, no deletion"
-CONTEXTS="$(j required_status_checks.contexts)"
+CONTEXTS=" $(e checks) "
 for c in $CHECKS; do
-  printf '%s' "$CONTEXTS" | grep -q "\"$c\"" || fail "required status check '$c' is not required on $BRANCH"
+  case "$CONTEXTS" in *" $c "*) ;; *) fail "required status check '$c' is not required on $BRANCH" ;; esac
 done
 ok "required checks: $CHECKS"
-BYPASS="$(j required_pull_request_reviews.bypass_pull_request_allowances)"
+BYPASS="$(printf '%s' "$CLASSIC" | python3 -I -c 'import json,sys; v=json.load(sys.stdin) or {}; print(json.dumps(((v.get("required_pull_request_reviews") or {}).get("bypass_pull_request_allowances")) or {}))')"
 
 ERRS="$(gh api "repos/$REPO/codeowners/errors" --jq '.errors | length' 2>/dev/null)" || fail "cannot read CODEOWNERS errors"
 [ "$ERRS" = "0" ] || fail "GitHub reports $ERRS CODEOWNERS error(s)"
