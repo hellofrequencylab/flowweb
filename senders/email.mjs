@@ -5,7 +5,7 @@
 // Never through Resend: its rules ban cold outreach. Usage: node senders/email.mjs --once
 // (launchd runs it every few minutes; see senders/README.md).
 import { execFileSync } from 'node:child_process';
-import { randomBytes } from 'node:crypto';
+import { createHmac, randomBytes } from 'node:crypto';
 import { appendFileSync, existsSync, mkdirSync, readdirSync, readFileSync, renameSync, writeFileSync } from 'node:fs';
 import net from 'node:net';
 import { join } from 'node:path';
@@ -46,7 +46,56 @@ function loadConfig() {
   if (smtp.protocol === 'smtp:' && smtp.hostname !== '127.0.0.1') stop('plain smtp:// is only for 127.0.0.1');
   if (!['smtp:', 'smtps:'].includes(smtp.protocol)) stop('smtp_url must be smtps:// (or smtp:// to 127.0.0.1)');
   const h = c.hours ?? { start: 9, end: 17, days: [1, 2, 3, 4, 5] };
-  return { boxes, routes: c.routes ?? {}, postal, cap, perPass, smtp, hours: h };
+  let claim = null;
+  if (c.claim?.url !== undefined) {
+    claim = new URL(c.claim.url);
+    if (claim.protocol !== 'https:' && claim.hostname !== '127.0.0.1') stop('claim.url must be https:// (or http:// to 127.0.0.1)');
+  }
+  return { boxes, routes: c.routes ?? {}, postal, cap, perPass, smtp, hours: h, claim };
+}
+
+/** FW-C-044: the secret shared with Frequency's claim builder. */
+function claimSecret() {
+  if (process.env.FW_CLAIM_SECRET) return process.env.FW_CLAIM_SECRET;
+  if (process.platform !== 'darwin') return null;
+  try {
+    const w = execFileSync('security', ['find-generic-password', '-s', 'flowweb-claim', '-a', 'frequency', '-w'], {
+      encoding: 'utf8',
+      stdio: ['ignore', 'pipe', 'ignore'],
+    });
+    return w.trim() || null;
+  } catch {
+    return null;
+  }
+}
+
+/**
+ * Asks Frequency to build the event page and its claim link. Sends the outbox file's bytes unchanged,
+ * signed. Returns built (with claimUrl), suppressed, refused (with a reason) or wait.
+ */
+async function askClaim(url, secret, raw) {
+  const ts = String(Math.floor(Date.now() / 1000));
+  const sig = createHmac('sha256', secret).update(`${ts}.${raw}`).digest('hex');
+  let res;
+  let answer = {};
+  try {
+    res = await fetch(url, {
+      method: 'POST',
+      headers: { 'content-type': 'application/json', 'x-flowweb-timestamp': ts, 'x-flowweb-signature': sig },
+      body: raw,
+      signal: AbortSignal.timeout(30_000),
+    });
+    answer = await res.json().catch(() => ({}));
+  } catch (e) {
+    return { status: 'wait', reason: String(e?.message ?? e) };
+  }
+  const reason = typeof answer?.reason === 'string' ? answer.reason : `HTTP ${res.status}`;
+  if (res.status === 400 || res.status === 422 || answer?.status === 'refused') return { status: 'refused', reason };
+  if (!res.ok) return { status: 'wait', reason };
+  if (answer?.status === 'suppressed') return { status: 'suppressed' };
+  if (answer?.status === 'built' && typeof answer.claimUrl === 'string' && /^https:\/\/\S+$/.test(answer.claimUrl))
+    return { status: 'built', claimUrl: answer.claimUrl };
+  return { status: 'wait', reason: answer?.status === 'off' ? 'claim links are switched off in Frequency' : reason };
 }
 
 function password(key, address) {
@@ -169,6 +218,7 @@ async function main() {
   const open = inHours(cfg.hours, now);
   let sent = 0;
   let noPass = false;
+  let secret;
   const outbox = join(HOME, 'outbox');
   const flows = existsSync(outbox) ? readdirSync(outbox).filter((f) => !f.startsWith('.')).sort() : [];
   for (const flow of flows) {
@@ -185,7 +235,8 @@ async function main() {
       const src = String(lead.source_url ?? '');
       const body = String(item.body ?? '');
       dnc ??= doNotContact(flow);
-      if (lead.build && body.includes(SLOT)) {
+      const needsClaim = lead.build === true && body.includes(SLOT);
+      if (needsClaim && !cfg.claim) {
         move(dir, file, 'held', { reason: 'needs a claim link, which no builder makes yet', at: now.toISOString() });
         say(`held ${item.id}: needs a claim link`);
       } else if ([to, `mailto:${to}`, `@${to.split('@')[1]}`, src.toLowerCase()].some((k) => dnc.has(k))) {
@@ -206,8 +257,33 @@ async function main() {
           process.stderr.write(`email sender: no app password for ${box.address} (mailbox ${key})\n`);
           continue;
         }
+        let text = body;
+        if (needsClaim) {
+          secret ??= claimSecret();
+          if (!secret) {
+            noPass = true;
+            process.stderr.write(`email sender: no claim secret, so ${item.id} waits for its claim link\n`);
+            continue;
+          }
+          const c = await askClaim(cfg.claim, secret, readFileSync(join(dir, file), 'utf8'));
+          if (c.status === 'suppressed') {
+            move(dir, file, 'skipped', { reason: 'suppressed in Frequency', at: now.toISOString() });
+            say(`skipped ${item.id}: Frequency has this address unsubscribed`);
+            continue;
+          }
+          if (c.status === 'refused') {
+            move(dir, file, 'failed', { reason: 'Frequency did not build the claim link', answer: c.reason, at: now.toISOString() });
+            say(`failed ${item.id}: ${c.reason}`);
+            continue;
+          }
+          if (c.status !== 'built') {
+            process.stderr.write(`email sender: ${item.id} waits for its claim link: ${c.reason}\n`);
+            continue;
+          }
+          text = body.split(SLOT).join(c.claimUrl);
+        }
         const subject = String(lead.subject ?? '').replace(/[\r\n]+/g, ' ').trim() || 'Hello from a neighbor';
-        const m = message(box, to, subject, `${body}\n\n${cfg.postal}\n`, item.id);
+        const m = message(box, to, subject, `${text}\n\n${cfg.postal}\n`, item.id);
         const r = await smtpSend(cfg.smtp, box.address, pass, box.address, to, m.data);
         if (r.ok) {
           const at = new Date().toISOString();
