@@ -29,6 +29,7 @@ Things the build hit where the handoff docs disagree with each other or leave a 
 14. **Estimated cost has no home.** `run-result.cost` allows no extra fields and `spend_entries` has no `estimated` column. Default: the flag lives in the adapter's run metadata only.
 15. **Fake scenario selection.** `vendor-adapter-input` allows no extra fields, so the fake reads a `[fake:<name>]` tag in the work order title (as FW-C-007 says).
 16. **Claude CLI 2.1.319 has no `--max-turns`.** The adapter enforces the turn cap itself. Required flags checked at preflight: `--print`, `--output-format stream-json`, `--verbose`, `--bare`, `--session-id`, `--permission-mode acceptEdits`, `--max-budget-usd`, `--json-schema`. Only `ANTHROPIC_API_KEY` is accepted (subscription tokens are refused, per the API-key-lane rule).
+    Decided (Owner, 2026-11-10): both lanes, API key default, FW_CLAUDE_AUTH=signin for a Claude Pro/Max plan via CLAUDE_CODE_OAUTH_TOKEN.
 17. **Refused runs.** The run-result schema has no refused status; a refused run returns `exit_code: -1`.
 
 ## Ledger

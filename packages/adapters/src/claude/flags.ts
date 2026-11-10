@@ -34,19 +34,28 @@ export function parseHelp(text: string): HelpIndex {
   return { flags };
 }
 
+/** Credential lane: an API key (the default) or a Claude Pro/Max sign-in token. */
+export type ClaudeAuth = 'api_key' | 'signin';
+
 export interface FlagRequirement {
   flag: string;
+  /** Lanes the flag is required or used in. Absent means every lane. */
+  lanes?: readonly ClaudeAuth[];
   /** Values that must be listed in the flag's help block (for example a choice). */
   mentions?: string[];
   why: string;
 }
 
-/** Flags every run uses. Missing any of these fails the preflight closed. */
+/** Flags runs use (in the lanes listed). Missing any of these fails the preflight closed. */
 export const REQUIRED_FLAGS: readonly FlagRequirement[] = [
   { flag: '--print', why: 'headless, non-interactive mode' },
   { flag: '--output-format', mentions: ['stream-json'], why: 'line-delimited JSON events' },
   { flag: '--verbose', why: 'stream-json in print mode needs verbose output' },
-  { flag: '--bare', why: 'API-key-only auth, no hooks, no CLAUDE.md auto-discovery' },
+  {
+    flag: '--bare',
+    lanes: ['api_key'],
+    why: 'API-key-only auth, no hooks, no CLAUDE.md auto-discovery (it never reads OAuth, so not in signin)',
+  },
   { flag: '--session-id', why: 'session id assigned by the adapter and stored before the run starts' },
   {
     flag: '--permission-mode',
@@ -67,6 +76,17 @@ export const CONDITIONAL_FLAGS: readonly FlagRequirement[] = [
 /** Hardening flags used when present; their absence is recorded but not fatal. */
 export const OPTIONAL_FLAGS: readonly FlagRequirement[] = [
   { flag: '--permission-prompts', mentions: ['none'], why: 'deny anything that would prompt' },
+  {
+    flag: '--setting-sources',
+    mentions: ['user'],
+    lanes: ['signin'],
+    why: 'no --bare: load user settings only (the empty run HOME), never the worktree project settings or hooks',
+  },
+  {
+    flag: '--strict-mcp-config',
+    lanes: ['signin'],
+    why: 'no --bare: ignore MCP servers configured in the worktree',
+  },
 ];
 
 function satisfied(index: HelpIndex, r: FlagRequirement): boolean {
@@ -75,17 +95,20 @@ function satisfied(index: HelpIndex, r: FlagRequirement): boolean {
   return (r.mentions ?? []).every((m) => block.includes(`"${m}"`) || block.includes(m));
 }
 
-/** Returns the verified flag set or throws AdapterError('missing_flag'). */
-export function verifyFlags(helpText: string): string[] {
+const inLane = (r: FlagRequirement, auth: ClaudeAuth) => !r.lanes || r.lanes.includes(auth);
+
+/** Returns the verified flag set for the lane or throws AdapterError('missing_flag'). */
+export function verifyFlags(helpText: string, auth: ClaudeAuth = 'api_key'): string[] {
   const index = parseHelp(helpText);
-  const missing = REQUIRED_FLAGS.filter((r) => !satisfied(index, r));
+  const required = REQUIRED_FLAGS.filter((r) => inLane(r, auth));
+  const missing = required.filter((r) => !satisfied(index, r));
   if (missing.length > 0) {
     throw new AdapterError(
       'missing_flag',
       `claude --help lacks required flag(s): ${missing.map((m) => m.flag + (m.mentions ? ` (${m.mentions.join(', ')})` : '')).join(', ')}`,
     );
   }
-  const verified = REQUIRED_FLAGS.map((r) => r.flag);
+  const verified = required.map((r) => r.flag);
   for (const r of [...CONDITIONAL_FLAGS, ...OPTIONAL_FLAGS]) if (satisfied(index, r)) verified.push(r.flag);
   return verified;
 }

@@ -3,7 +3,9 @@ import { join } from 'node:path';
 import { describe, expect, test } from 'vitest';
 import {
   AdapterError,
+  adapterCredentials,
   buildClaudeArgv,
+  createAdapter,
   createClaudeAdapter,
   createClaudeParser,
   parseHelp,
@@ -176,6 +178,84 @@ describe('claude argv and credentials', () => {
     } finally {
       wt.cleanup();
     }
+  });
+});
+
+describe('claude sign-in lane (Claude Pro/Max token)', () => {
+  const token = () => `${fakeCredential()}oauth`;
+
+  test('--bare is required only in the api_key lane', async () => {
+    const noBare = helpWithout('--bare');
+    expect(() => verifyFlags(noBare)).toThrow(expect.objectContaining({ code: 'missing_flag' }));
+    expect(verifyFlags(noBare, 'signin')).not.toContain('--bare');
+    const viaEnv = createAdapter('claude', {
+      env: { FW_CLAUDE_AUTH: 'signin' },
+      claude: { exec: execWith(noBare) },
+    });
+    await expect(viaEnv.preflight()).resolves.toMatchObject({ fingerprint: { version: '2.1.319' } });
+  });
+
+  test('argv drops --bare and keeps project settings and MCP servers out', () => {
+    const argv = buildClaudeArgv({
+      verified: new Set(verifyFlags(HELP, 'signin')),
+      auth: 'signin',
+      sessionId: '11111111-2222-4333-8444-555555555555',
+      resumeSessionId: null,
+      permissionMode: 'acceptEdits',
+    });
+    expect(argv).not.toContain('--bare');
+    expect(argv).toEqual(expect.arrayContaining(['--setting-sources', 'user', '--strict-mcp-config']));
+  });
+
+  test('refuses without the token, and refuses a bearer token', async () => {
+    const wt = makeWorktree();
+    try {
+      const adapter = createClaudeAdapter({ exec: execWith(HELP), auth: 'signin' });
+      const none = await collect(
+        adapter.start(makeInput(wt), { credentialEnv: { ANTHROPIC_API_KEY: fakeCredential() } }),
+      );
+      expect(none.result.status).toBe('refused');
+      expect(none.events.find((e) => e.type === 'error')).toMatchObject({ code: 'credential_missing' });
+      const bearer = await collect(
+        adapter.start(makeInput(wt), {
+          credentialEnv: { CLAUDE_CODE_OAUTH_TOKEN: token(), ANTHROPIC_AUTH_TOKEN: fakeCredential() },
+        }),
+      );
+      expect(bearer.events.find((e) => e.type === 'error')).toMatchObject({ code: 'credential_rejected' });
+    } finally {
+      wt.cleanup();
+    }
+  });
+
+  test('replayed run completes on the token alone; an injected API key is not passed', async () => {
+    const wt = makeWorktree();
+    try {
+      const t = token();
+      const adapter = createClaudeAdapter({
+        command: process.execPath,
+        commandArgs: [REPLAY, join(DIR, 'success.jsonl'), '--fw-commit'],
+        auth: 'signin',
+      });
+      // The replay exits 97 if it sees --bare or ANTHROPIC_API_KEY next to the token, 99 if argv has it.
+      const c = await collect(
+        adapter.start(makeInput(wt), {
+          credentialEnv: { CLAUDE_CODE_OAUTH_TOKEN: t, ANTHROPIC_API_KEY: fakeCredential() },
+        }),
+      );
+      expect(c.result.status).toBe('completed');
+      expect(JSON.stringify([c.result, c.events])).not.toContain(t);
+    } finally {
+      wt.cleanup();
+    }
+  });
+
+  test('the daemon resolves only the lane handle', () => {
+    expect(adapterCredentials('claude', {}).map((c) => [c.handle, c.required])).toEqual([
+      ['crd_claude0001', true],
+    ]);
+    expect(
+      adapterCredentials('claude', { FW_CLAUDE_AUTH: 'signin' }).map((c) => [c.handle, c.env, c.required]),
+    ).toEqual([['crd_claude0002', 'CLAUDE_CODE_OAUTH_TOKEN', false]]);
   });
 });
 

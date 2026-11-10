@@ -1,7 +1,13 @@
 // @fw/adapters: the vendor adapter SDK, the scripted fake vendor, the no-op reference adapter, the
 // Claude headless adapter and the Codex exec adapter.
 // Vendor names may appear in this package and nowhere else in the kernel.
-import { CLAUDE_API_KEY_ENV, type ClaudeAdapterOptions, createClaudeAdapter } from './claude/index.ts';
+import {
+  CLAUDE_API_KEY_ENV,
+  CLAUDE_OAUTH_TOKEN_ENV,
+  type ClaudeAdapterOptions,
+  claudeAuthFromEnv,
+  createClaudeAdapter,
+} from './claude/index.ts';
 import { CODEX_API_KEY_ENV, type CodexAdapterOptions, createCodexAdapter } from './codex/index.ts';
 import { createFakeAdapter, type FakeAdapterOptions } from './fake/index.ts';
 import { createNoopAdapter } from './noop/index.ts';
@@ -12,12 +18,15 @@ export const PACKAGE = '@fw/adapters';
 export type {
   ArgvContext,
   ClaudeAdapterOptions,
+  ClaudeAuth,
   CliExec,
 } from './claude/index.ts';
 export {
   AGENT_REPORT_SCHEMA,
   buildClaudeArgv,
   CLAUDE_API_KEY_ENV,
+  CLAUDE_OAUTH_TOKEN_ENV,
+  claudeAuthFromEnv,
   createClaudeAdapter,
   createClaudeParser,
   parseHelp,
@@ -70,6 +79,8 @@ export interface AdapterCredential {
   /** A required credential that cannot be resolved fails the run before the vendor starts. */
   required: boolean;
   scopes: string[];
+  /** Credential lane the handle belongs to. Absent means every lane. */
+  lane?: 'api_key' | 'signin';
 }
 
 export const ADAPTER_CREDENTIALS: Readonly<Record<AdapterName, readonly AdapterCredential[]>> = {
@@ -77,10 +88,39 @@ export const ADAPTER_CREDENTIALS: Readonly<Record<AdapterName, readonly AdapterC
   fake: [{ handle: 'crd_fake0001', env: 'FAKE_VENDOR_API_KEY', required: false, scopes: ['vendor.api'] }],
   // The noop adapter runs nothing, so it is given nothing.
   noop: [],
-  claude: [{ handle: 'crd_claude0001', env: CLAUDE_API_KEY_ENV, required: true, scopes: ['vendor.api'] }],
+  // One handle per lane (FW_CLAUDE_AUTH=signin picks the Pro/Max token); see adapterCredentials.
+  claude: [
+    {
+      handle: 'crd_claude0001',
+      env: CLAUDE_API_KEY_ENV,
+      required: true,
+      scopes: ['vendor.api'],
+      lane: 'api_key',
+    },
+    {
+      handle: 'crd_claude0002',
+      env: CLAUDE_OAUTH_TOKEN_ENV,
+      required: false,
+      scopes: ['vendor.api'],
+      lane: 'signin',
+    },
+  ],
   // Not required: the sign-in lane (FW_CODEX_AUTH=signin) runs on the Codex CLI's own login instead.
   codex: [{ handle: 'crd_codex0001', env: CODEX_API_KEY_ENV, required: false, scopes: ['vendor.api'] }],
 };
+
+/**
+ * The handles to resolve for one run: the adapter's table, narrowed to the credential lane the
+ * environment selects. Only the lane's own handle is injected, so a signin run never needs (or
+ * passes) the API key, and an api_key run never receives the sign-in token.
+ */
+export function adapterCredentials(
+  name: AdapterName,
+  env: Record<string, string | undefined> = process.env,
+): readonly AdapterCredential[] {
+  const lane = name === 'claude' ? claudeAuthFromEnv(env) : undefined;
+  return ADAPTER_CREDENTIALS[name].filter((c) => !c.lane || c.lane === lane);
+}
 
 /** The adapter `fw run start` uses when neither --adapter nor $FW_VENDOR names one. */
 export const DEFAULT_ADAPTER: AdapterName = 'claude';
@@ -93,6 +133,8 @@ export interface CreateAdapterOptions {
   fake?: FakeAdapterOptions;
   claude?: ClaudeAdapterOptions;
   codex?: CodexAdapterOptions;
+  /** Environment that picks the default credential lane (FW_CLAUDE_AUTH). Default process.env. */
+  env?: Record<string, string | undefined>;
 }
 
 /** Adapter registry. */
@@ -103,7 +145,7 @@ export function createAdapter(name: AdapterName, options: CreateAdapterOptions =
     case 'noop':
       return createNoopAdapter();
     case 'claude':
-      return createClaudeAdapter(options.claude);
+      return createClaudeAdapter({ auth: claudeAuthFromEnv(options.env), ...options.claude });
     case 'codex':
       return createCodexAdapter(options.codex);
     default:

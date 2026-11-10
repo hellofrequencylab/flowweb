@@ -11,9 +11,9 @@ import { spawnSync } from 'node:child_process';
 import { appendFileSync, existsSync, mkdirSync, readFileSync, writeFileSync } from 'node:fs';
 import { isAbsolute, join, relative, resolve } from 'node:path';
 import {
-  ADAPTER_CREDENTIALS,
   type AdapterEvent,
   type AdapterName,
+  adapterCredentials,
   createAdapter,
   DEFAULT_ADAPTER,
   isAdapterName,
@@ -382,7 +382,7 @@ export async function runStart(w: Writer, code: string, opts: RunStartOptions): 
     w.get<{ default_branch: string }>('SELECT default_branch FROM projects WHERE id = ?', [row.project_id])
       ?.default_branch ??
     'main';
-  const adapter = (opts.adapterFactory ?? ((n: AdapterName) => createAdapter(n)))(adapterName);
+  const adapter = (opts.adapterFactory ?? ((n: AdapterName) => createAdapter(n, { env })))(adapterName);
 
   const caps = order.budget.caps;
   const wallS = Math.min(
@@ -691,7 +691,10 @@ async function execute(c: ExecCtx): Promise<void> {
 
   // ---- 5. credentials (vendor env only) ----
   c.creds = injectCredentials(
-    ADAPTER_CREDENTIALS[c.adapterName].map((r) => ({ ...r, scopes: [...r.scopes] })),
+    adapterCredentials(c.adapterName, c.opts.env ?? process.env).map((r) => ({
+      ...r,
+      scopes: [...r.scopes],
+    })),
     { home: c.fwHome, ...(c.opts.keychain !== undefined ? { keychain: c.opts.keychain } : {}) },
   );
   const creds = c.creds;
@@ -704,7 +707,7 @@ async function execute(c: ExecCtx): Promise<void> {
       sha256: sha256Hex(readFileSync(join(created.path, f))),
     }),
   );
-  const handle = ADAPTER_CREDENTIALS[c.adapterName][0];
+  const handle = adapterCredentials(c.adapterName, c.opts.env ?? process.env)[0];
   const input: VendorAdapterInput = {
     schema_version: '1',
     run_id: runId,
