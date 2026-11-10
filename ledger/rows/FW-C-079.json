@@ -1,0 +1,32 @@
+{
+  "id": "FW-C-079",
+  "title": "The Owner sees corners that fit together: one smaller radius scale across the site, inner corners tighter than the card they sit in, and nothing touching a curved corner",
+  "core_milestone": "C2",
+  "phase": 4,
+  "epic": "C2.2 Daily screens",
+  "priority": "P2",
+  "size": "M",
+  "lane": "web",
+  "agent_suitability": "agent",
+  "gate": "none",
+  "depends_on": [
+    "FW-C-077"
+  ],
+  "description": "The Owner wants the corner radius reworked so the elements look good together: less rounded, with better spacing in the corners. Today the token scale runs 10/16/20/26px plus a 32px flow radius, cards also use hand-written 28px, buttons 14px, and the filter chips and small buttons are full pills, so a 26px card holds a 20px pane holding 999px chips and a 14px button, and the drafts list's selected-row accent bar runs into the pane's curved corner. Set one smaller scale in tokens.css (xs 4, sm 6, md 8, lg 12; the flow radius no larger than lg), use the tokens instead of literal radii, make buttons and filter chips use a control radius instead of a pill, keep pills only for small status badges, dots, meters and switches, keep an inner pane's radius below its card's, and give the drafts list padding so the selected row and its bar sit inside the corner. Visual only; no behaviour changes.",
+  "acceptance": [
+    "tokens.css sets --radius-xs 4px, --radius-sm 6px, --radius-md 8px, --radius-lg 12px and --radius-flow no larger than 12px",
+    "No stylesheet in packages/web/src uses a literal border-radius larger than 12px other than a full pill (99px or more)",
+    ".btn, .btn-quiet, .btn-small and .inbox-filter are not pills and have a radius no larger than 8px",
+    "The drafts inbox's radius is smaller than the panel's, and its list has padding so the selected row does not touch the corner",
+    "Every existing probe for the web screens still passes"
+  ],
+  "verify_probe": "pnpm probe ui/radius-scale",
+  "files_hint": [
+    "packages/web/src/ui-kit/tokens.css",
+    "packages/web/src/ui-kit/base.css",
+    "packages/web/src/ui-kit/flow.css",
+    "packages/web/src/dawn/today.css",
+    "packages/web/src/**/*.css"
+  ],
+  "origin": "new Core row"
+}
