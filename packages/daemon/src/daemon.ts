@@ -18,9 +18,10 @@ import { ApiError, sendError } from './api/http.ts';
 import { buildRouter, principalOf, type RunStartBody } from './api/routes.ts';
 import type { ChainStatus } from './api/status.ts';
 import { hostAllowed, PairingStore, writeOriginAllowed } from './auth.ts';
+import { syncAll as syncCrm } from './flows/crm.ts';
 import { pullOutcomes } from './flows/outcomes.ts';
 import { loadFlow as loadAdsFlow } from './flows/paid-ads.ts';
-import { ga4Of, pullGa4, readPullStatus } from './flows/paid-ads-ga4.ts';
+import { ga4Of, pullDue, pullGa4, readPullStatus } from './flows/paid-ads-ga4.ts';
 import { runReview } from './flows/review.ts';
 import { reapOrphanCycles, runFlowCycle } from './overseer/cycle.ts';
 import { approveDraft, rejectDraft } from './overseer/drafts.ts';
@@ -232,8 +233,7 @@ export async function startDaemon(opts: DaemonOptions): Promise<Daemon> {
       const f = loadAdsFlow(REPO_ROOT, fwHome);
       const g = f && ga4Of(f.cfg);
       if (!g) return;
-      const due = readPullStatus(fwHome);
-      if (due && Date.now() - Date.parse(due.at) < g.pull_every_hours * 3_600_000 - 60_000) return;
+      if (!pullDue(readPullStatus(fwHome), g, Date.now())) return;
       const s = await pullGa4(g, fwHome, {
         ...(process.env.FW_GA4_TOKEN_URL ? { tokenUrl: process.env.FW_GA4_TOKEN_URL } : {}),
         ...(process.env.FW_GA4_API_BASE ? { apiBase: process.env.FW_GA4_API_BASE } : {}),
@@ -256,6 +256,13 @@ export async function startDaemon(opts: DaemonOptions): Promise<Daemon> {
     pullOutcomes({ repoRoot: REPO_ROOT, fwHome, env: process.env }).then(
       (n) => log(`outcomes: pulled ${n.outcomes} outcome row(s) and ${n.regions} region(s) from Frequency`),
       (e) => log(`outcomes: pull failed: ${(e as Error)?.message ?? e}`),
+    );
+    // FW-C-065: and tell Frequency's CRM where each lead is, which also picks up who signed up.
+    syncCrm({ repoRoot: REPO_ROOT, fwHome, env: process.env }).then(
+      (n) => {
+        if (n.synced + n.failed > 0) log(`crm: ${n.synced} lead(s) synced to Frequency, ${n.failed} failed`);
+      },
+      (e) => log(`crm: sync failed: ${(e as Error)?.message ?? e}`),
     );
   };
   const everyMs = Number(process.env.FW_OUTCOMES_PULL_EVERY_MS) || 86_400_000;

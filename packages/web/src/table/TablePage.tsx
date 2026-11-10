@@ -68,7 +68,7 @@ export function TablePage({ cardId }: { cardId?: string }) {
 
   // Keep the URL on a real card once the list is known.
   useEffect(() => {
-    if (!cardId && cards[0] && list.honesty === 'current') go(`/table/${cards[0].id}`);
+    if (!cardId && cards[0] && list.honesty === 'current') go(`/inbox/${cards[0].id}`);
   }, [cardId, cards, list.honesty, go]);
 
   useKeys(
@@ -76,11 +76,11 @@ export function TablePage({ cardId }: { cardId?: string }) {
       j: () => {
         if (chordPending()) return;
         const n = cards[Math.min(cards.length - 1, idx + 1)];
-        if (n) go(`/table/${n.id}`);
+        if (n) go(`/inbox/${n.id}`);
       },
       k: () => {
         const n = cards[Math.max(0, idx - 1)];
-        if (n) go(`/table/${n.id}`);
+        if (n) go(`/inbox/${n.id}`);
       },
       enter: (e) => {
         if ((e.target as HTMLElement).closest('button, a, input, textarea, select')) return;
@@ -98,14 +98,14 @@ export function TablePage({ cardId }: { cardId?: string }) {
     list.reload();
     if (remaining.length > 0) {
       const next = remaining[Math.min(idx, remaining.length - 1)];
-      go(`/table/${next.id}`);
+      go(`/inbox/${next.id}`);
     } else {
       // Table cleared: fired from fwd confirming the answer, not from a click alone.
       setCleared({
         count: progress.answered + 1,
         minutes: Math.max(1, Math.round((Date.now() - Date.parse(progress.startedAt)) / 60000)),
       });
-      go('/table');
+      go('/inbox');
     }
   };
 
@@ -115,7 +115,7 @@ export function TablePage({ cardId }: { cardId?: string }) {
     <>
       <PageHead
         overline="Decisions waiting on you"
-        title="Sign-offs"
+        title="Inbox"
         lede={
           <>
             {list.honesty === 'current' && cards.length > 0
@@ -164,7 +164,7 @@ export function TablePage({ cardId }: { cardId?: string }) {
                 type="button"
                 className="btn btn-small"
                 disabled={idx <= 0}
-                onClick={() => go(`/table/${cards[idx - 1].id}`)}
+                onClick={() => go(`/inbox/${cards[idx - 1].id}`)}
               >
                 <Icon name="arrow-left" /> Previous
               </button>
@@ -175,7 +175,7 @@ export function TablePage({ cardId }: { cardId?: string }) {
                 type="button"
                 className="btn btn-small"
                 disabled={idx < 0 || idx >= cards.length - 1}
-                onClick={() => go(`/table/${cards[idx + 1].id}`)}
+                onClick={() => go(`/inbox/${cards[idx + 1].id}`)}
               >
                 Next <Icon name="arrow-right" />
               </button>
@@ -189,7 +189,7 @@ export function TablePage({ cardId }: { cardId?: string }) {
                     type="button"
                     className="queue-item"
                     aria-current={c.id === selected ? 'true' : undefined}
-                    onClick={() => go(`/table/${c.id}`)}
+                    onClick={() => go(`/inbox/${c.id}`)}
                   >
                     <span className="queue-kind">
                       <FlowRing
