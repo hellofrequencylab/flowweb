@@ -23,19 +23,34 @@ export class WriterLockError extends EventLogError {
   }
 }
 
-/** The database was migrated from a schema file whose sha256 differs from the one on disk now. */
+/**
+ * The database was migrated from a schema (or upgrade) file whose sha256 differs from the one on disk
+ * now, and no released upgrade path leads from what it recorded to the current schema.
+ */
 export class SchemaMismatchError extends EventLogError {
   readonly recorded: string | undefined;
   readonly current: string;
-  constructor(recorded: string | undefined, current: string, schemaPath: string) {
+  constructor(recorded: string | undefined, current: string, schemaPath: string, migration = '0001') {
     super(
       'SCHEMA_MISMATCH',
       recorded === undefined
-        ? `database has no recorded migration 0001 hash; refusing to start (schema file ${schemaPath})`
-        : `migration 0001 hash mismatch: database recorded ${recorded}, ${schemaPath} is ${current}; refusing to start`,
+        ? `database has no recorded migration ${migration} hash; refusing to start (schema file ${schemaPath})`
+        : `migration ${migration} hash mismatch: database recorded ${recorded}, ${schemaPath} is ${current}; refusing to start`,
     );
     this.recorded = recorded;
     this.current = current;
+  }
+}
+
+/** The database is at an earlier schema version and needs an upgrade, which a read-only open cannot do. */
+export class SchemaUpgradeRequiredError extends EventLogError {
+  readonly pending: readonly string[];
+  constructor(pending: readonly string[]) {
+    super(
+      'SCHEMA_UPGRADE_REQUIRED',
+      `database needs schema upgrade(s) ${pending.join(', ')}; open it read-write once (fwd or fw) to apply them`,
+    );
+    this.pending = pending;
   }
 }
 

@@ -307,7 +307,8 @@ export type FailureClass =
   | 'timeout'
   | 'budget'
   | 'killed'
-  | 'cancelled';
+  | 'cancelled'
+  | 'policy';
 
 export interface Fingerprint {
   name: string;

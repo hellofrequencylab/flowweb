@@ -13,6 +13,7 @@ export {
   EventLogError,
   ForbiddenStatementError,
   SchemaMismatchError,
+  SchemaUpgradeRequiredError,
   SecretShapeError,
   StoreClosedError,
   WriterLockError,
@@ -20,4 +21,11 @@ export {
 export { hasSecretShape, REDACTED, REDACTION_KEY, type RedactionResult, redactSecrets } from './redact.ts';
 export { DEFAULT_SCHEMA_PATH, MIGRATION_0001_KEY, openStore } from './store.ts';
 export type * from './types.ts';
+export {
+  MIGRATIONS_DIR,
+  SCHEMA_HISTORY,
+  schemaVersionOf,
+  UPGRADES,
+  type Upgrade,
+} from './upgrade.ts';
 export { canonicalJson, newId, nowIso, sha256Hex } from './util.ts';

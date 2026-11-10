@@ -1393,7 +1393,7 @@ async function quarantine(c: ExecCtx, verdict: DiffVerdict): Promise<never> {
   });
   if (q.quarantined) c.report.branch = q.to;
   throw new PolicyRefusal(
-    'no_artifact',
+    'policy',
     `diff policy violation (${summary}); branch ${q.quarantined ? `quarantined as ${q.to}` : `not quarantined: ${q.reason}`}, nothing pushed`,
     { violations: verdict.violations, quarantine: q },
   );

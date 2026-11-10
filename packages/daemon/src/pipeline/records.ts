@@ -16,7 +16,8 @@ export type FailureClass =
   | 'timeout'
   | 'budget'
   | 'killed'
-  | 'cancelled';
+  | 'cancelled'
+  | 'policy';
 
 export type EndState = 'failed' | 'timed_out' | 'killed' | 'cancelled';
 

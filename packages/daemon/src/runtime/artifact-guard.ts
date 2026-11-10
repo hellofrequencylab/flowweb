@@ -23,12 +23,14 @@ export type ArtifactReason =
   | 'pr_url_mismatch'
   | 'pr_not_open';
 
+type GuardFailure = 'no_artifact' | 'claim_mismatch' | 'policy';
+
 export interface ArtifactCheck {
   ok: boolean;
   head_sha: string | null;
   reason: ArtifactReason;
-  /** Maps onto runs.failure_class; null when ok. */
-  failure_class: 'no_artifact' | 'claim_mismatch' | null;
+  /** Maps onto runs.failure_class; null when ok. A diff-policy violation is 'policy'. */
+  failure_class: GuardFailure | null;
   commits_ahead: number;
   verdict: DiffVerdict | null;
   pr: PrStatus | null;
@@ -66,7 +68,7 @@ export async function checkRunArtifact(input: ArtifactGuardInput): Promise<Artif
   };
   const fail = (
     reason: ArtifactReason,
-    failure_class: 'no_artifact' | 'claim_mismatch' = 'no_artifact',
+    failure_class: GuardFailure = 'no_artifact',
     detail?: string,
   ): ArtifactCheck => ({ ...base, ok: false, reason, failure_class, ...(detail ? { detail } : {}) });
 
@@ -86,7 +88,7 @@ export async function checkRunArtifact(input: ArtifactGuardInput): Promise<Artif
     allowedFiles: input.allowedFiles,
     tier0Paths: input.tier0Paths ?? TIER0_PATHS,
   });
-  if (!base.verdict.allowed) return fail('policy_violation');
+  if (!base.verdict.allowed) return fail('policy_violation', 'policy');
 
   if (input.claimed?.head_sha !== undefined && input.claimed.head_sha !== headSha) {
     return fail('claimed_head_mismatch', 'claim_mismatch', `claimed ${input.claimed.head_sha}`);

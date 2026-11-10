@@ -484,7 +484,7 @@ describe('exit codes', () => {
       ...base,
       ok: false,
       status: 'failed',
-      failure_class: 'no_artifact',
+      failure_class: 'policy',
       reason: 'diff policy violation (tier0_path CODEOWNERS); branch quarantined as fw/quarantine/run_x',
       pr: null,
     };

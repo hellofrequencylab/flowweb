@@ -15,14 +15,14 @@ export const SECRET_PATTERNS: readonly RegExp[] = [
   /github_pat_[A-Za-z0-9_]*/g, // GLOB '*github_pat_*'
   /AKIA[0-9A-Z]{4}[0-9A-Z]*/g, // GLOB '*AKIA[0-9A-Z][0-9A-Z][0-9A-Z][0-9A-Z]*'
   /xox[bp]-[A-Za-z0-9-]*/g, // GLOB '*xox[bp]-*'
-  // GLOB '*BEGIN * PRIVATE KEY*': a whole PEM block when it is closed, else from BEGIN to the end of
-  // the string. Also catches the bare PKCS#8 header "BEGIN PRIVATE KEY", which the GLOB misses.
+  // GLOB '*BEGIN *PRIVATE KEY*': a whole PEM block when it is closed, else from BEGIN to the end of
+  // the string. Typed keys ("BEGIN RSA PRIVATE KEY") and the bare PKCS#8 header ("BEGIN PRIVATE KEY").
   /(?:-----)?BEGIN [\s\S]*?PRIVATE KEY(?:[\s\S]*?-----END [^-]*PRIVATE KEY-----|[\s\S]*$)/g,
 ];
 
 /** True when text still contains something the trigger would refuse (same GLOBs, as regexes). */
 export function hasSecretShape(text: string): boolean {
-  return /sk-ant-|sk-proj-|ghp_[A-Za-z0-9]|github_pat_|AKIA[0-9A-Z]{4}|xox[bp]-|BEGIN [\s\S]* PRIVATE KEY/.test(
+  return /sk-ant-|sk-proj-|ghp_[A-Za-z0-9]|github_pat_|AKIA[0-9A-Z]{4}|xox[bp]-|BEGIN [\s\S]*PRIVATE KEY/.test(
     text,
   );
 }
