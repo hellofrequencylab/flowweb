@@ -659,6 +659,8 @@ export type SupervisorGate =
   | 'supervisor_paused'
   | 'flow_disabled'
   | 'no_engine'
+  | 'dial_unapproved'
+  | 'cap_required'
   | 'budget'
   | 'open_asks'
   | 'dormant'
@@ -667,10 +669,14 @@ export type SupervisorGate =
   | 'not_due'
   | 'machine_busy';
 
+/** FW-C-035: Draft only drafts; Copilot acts after your OK; Autopilot hands off to a sender outside Core. */
+export type SupervisorDial = 'draft' | 'copilot' | 'autopilot';
+
 export interface SupervisorFlow {
   key: string;
   name: string;
   enabled: boolean;
+  dial: SupervisorDial;
   tier: string;
   state: 'ready' | 'held' | 'running';
   gate: SupervisorGate | null;

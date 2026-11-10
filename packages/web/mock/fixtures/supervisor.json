@@ -6,8 +6,10 @@
   "gates": [
     "kill_switch",
     "supervisor_paused",
+    "dial_unapproved",
     "flow_disabled",
     "no_engine",
+    "cap_required",
     "budget",
     "open_asks",
     "dormant",
@@ -21,23 +23,37 @@
       "key": "local-saturation",
       "name": "Local saturation marketing",
       "enabled": false,
+      "dial": "draft",
       "tier": "L1",
       "state": "held",
       "gate": "flow_disabled",
       "reason": "The Owner has not turned this flow on.",
       "open_asks": 0,
-      "budget": { "max_usd": 5, "max_turns": 200, "period": "week", "spent_usd": 0, "used_turns": 0 }
+      "budget": {
+        "max_usd": 5,
+        "max_turns": 200,
+        "period": "week",
+        "spent_usd": 0,
+        "used_turns": 0
+      }
     },
     {
       "key": "neighborhood-activation",
       "name": "Neighborhood activation",
       "enabled": true,
+      "dial": "copilot",
       "tier": "L1",
       "state": "held",
       "gate": "not_due",
       "reason": "Nothing is due: no scheduled or manual run is waiting.",
       "open_asks": 0,
-      "budget": { "max_usd": 5, "max_turns": 200, "period": "week", "spent_usd": 1.2, "used_turns": 31 }
+      "budget": {
+        "max_usd": 5,
+        "max_turns": 200,
+        "period": "week",
+        "spent_usd": 1.2,
+        "used_turns": 31
+      }
     }
   ],
   "next": []

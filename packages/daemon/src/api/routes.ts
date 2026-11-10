@@ -81,6 +81,8 @@ export interface ApiDeps {
 export interface SupervisorControls {
   setFlowEnabled(key: string, enabled: boolean): { changed: boolean };
   setPaused(paused: boolean): { changed: boolean };
+  /** FW-C-035: autopilot needs the flow's current confirm hash. */
+  setDial(key: string, stop: string, confirm?: string): { changed: boolean };
 }
 
 /** The body of POST /v1/runs, checked. */
@@ -390,7 +392,20 @@ export function buildRouter(deps: ApiDeps): Router {
         },
       }));
     } catch (e) {
-      if (e instanceof SupervisorError) throw new ApiError(404, 'not_found', e.message);
+      if (e instanceof SupervisorError) {
+        if (e.code === 'CONFIRM_REQUIRED') {
+          const flow = String(e.details.flow ?? '');
+          const hash = String(e.details.confirm_hash ?? '');
+          throw new ApiError(
+            409,
+            'conflict',
+            `${e.message} Run: fw supervisor dial ${flow} autopilot --confirm ${hash}`,
+            { confirm_hash: hash },
+          );
+        }
+        if (e.code === 'INVALID') throw new ApiError(400, 'validation_failed', e.message);
+        throw new ApiError(404, 'not_found', e.message);
+      }
       throw kernelError(e);
     }
   };
@@ -402,6 +417,13 @@ export function buildRouter(deps: ApiDeps): Router {
   r.post('/v1/supervisor/flows/{key}/disable', ({ req, params }) =>
     ownerControl(req, (c) => c.setFlowEnabled(params.key ?? '', false)),
   );
+  // FW-C-035: the dial. Body { stop: draft|copilot|autopilot, confirm?: hash }.
+  r.post('/v1/supervisor/flows/{key}/dial', async ({ req, params }) => {
+    const body = await readJsonBody(req);
+    const stop = typeof body.stop === 'string' ? body.stop : '';
+    const confirm = typeof body.confirm === 'string' ? body.confirm : undefined;
+    return ownerControl(req, (c) => c.setDial(params.key ?? '', stop, confirm));
+  });
 
   r.get('/v1/status-reports', ({ query }) => {
     const kind = oneOf(query, 'kind', REPORT_KINDS);

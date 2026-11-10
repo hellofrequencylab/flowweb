@@ -1,6 +1,6 @@
 import { api } from '../api/client';
 import { useResource } from '../api/resource';
-import type { Supervisor, SupervisorFlow, SupervisorGate } from '../api/types';
+import type { Supervisor, SupervisorDial, SupervisorFlow, SupervisorGate } from '../api/types';
 import { AsOf, ResourceView } from '../ui-kit/honest';
 import { StatusLabel, type StatusSpec } from '../ui-kit/status';
 import { usd } from '../ui-kit/time';
@@ -11,6 +11,8 @@ const GATE: Record<SupervisorGate, StatusSpec> = {
   supervisor_paused: { word: 'Supervisor paused', tone: 'warn', icon: 'paused' },
   flow_disabled: { word: 'Off', tone: 'neutral', icon: 'stopped' },
   no_engine: { word: 'No logic yet', tone: 'unknown', icon: 'unknown' },
+  dial_unapproved: { word: 'Autopilot needs your confirm', tone: 'attention', icon: 'waiting' },
+  cap_required: { word: 'Needs a spend cap', tone: 'warn', icon: 'blocked' },
   budget: { word: 'Spend cap reached', tone: 'warn', icon: 'paused' },
   open_asks: { word: 'Waiting on your answers', tone: 'attention', icon: 'waiting' },
   dormant: { word: 'Dormant: nothing to do', tone: 'neutral', icon: 'paused' },
@@ -18,6 +20,13 @@ const GATE: Record<SupervisorGate, StatusSpec> = {
   wip: { word: 'At its run limit', tone: 'neutral', icon: 'clock' },
   not_due: { word: 'On, nothing due', tone: 'ok', icon: 'clock' },
   machine_busy: { word: 'Machine busy', tone: 'neutral', icon: 'clock' },
+};
+
+/** The dial, in the Owner's words. Core never sends at any stop. */
+export const DIAL: Record<SupervisorDial, string> = {
+  draft: 'Draft',
+  copilot: 'Copilot',
+  autopilot: 'Autopilot',
 };
 
 export function flowSpec(f: SupervisorFlow): StatusSpec {
@@ -49,6 +58,7 @@ export function SupervisorFlows({ s }: { s: Supervisor }) {
           <thead>
             <tr>
               <th>Flow</th>
+              <th>Dial</th>
               <th>State</th>
               <th className="hide-narrow">Why</th>
               <th className="hide-narrow">Spent</th>
@@ -58,6 +68,7 @@ export function SupervisorFlows({ s }: { s: Supervisor }) {
             {s.flows.map((f) => (
               <tr key={f.key}>
                 <td>{f.name}</td>
+                <td>{DIAL[f.dial] ?? 'Draft'}</td>
                 <td>
                   <StatusLabel spec={flowSpec(f)} plain />
                 </td>
@@ -70,7 +81,8 @@ export function SupervisorFlows({ s }: { s: Supervisor }) {
       </div>
       <p className="muted">
         Only the CLI changes these: <code>fw supervisor enable &lt;flow&gt;</code>, <code>disable</code>,{' '}
-        <code>pause</code> and <code>resume</code>.
+        <code>pause</code>, <code>resume</code> and <code>dial &lt;flow&gt; &lt;stop&gt;</code>. On Autopilot,
+        Core still never sends: it hands finished items to your sending app.
       </p>
     </>
   );

@@ -131,6 +131,7 @@ function fakeClient(overrides: Partial<CoreClient> = {}): CoreClient {
     projectLabel: async () => ({ project: {} as never, changed_fields: [], event_seq: null }),
     supervisorStatus: async () => supervisorReport,
     supervisorControl: async () => ({ ...supervisorReport, changed: true }),
+    supervisorDial: async () => ({ ...supervisorReport, changed: true }),
     gc: async () => ({
       home: '/h',
       removed: [{ run_id: 'run_done', path: '/h/runs/run_done', status: 'succeeded' }],

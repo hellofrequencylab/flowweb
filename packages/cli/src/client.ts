@@ -330,6 +330,8 @@ export interface SupervisorReport {
     key: string;
     name: string;
     enabled: boolean;
+    /** FW-C-035: draft, copilot or autopilot. */
+    dial?: string;
     tier: string;
     state: 'ready' | 'held' | 'running';
     gate: string | null;
@@ -373,6 +375,8 @@ export interface CoreClient {
   /** The Supervisor: optional, served by the daemon package. Controls need fwd up (CLI token). */
   supervisorStatus?(): Promise<SupervisorReport>;
   supervisorControl?(action: SupervisorAction, flow?: string): Promise<SupervisorReport>;
+  /** FW-C-035: set a flow's dial; autopilot needs the confirm hash fwd names. */
+  supervisorDial?(flow: string, stop: string, confirm?: string): Promise<SupervisorReport>;
   close(): void;
 }
 
