@@ -12,7 +12,7 @@ import { AdminError, adminDir, writeJsonAtomic } from './neighborhood-admin.ts';
 const DAY = 86_400_000;
 export const MAX_SENDS = 25;
 export const MAX_LINKS = 20;
-const DEFAULT_SIGN_OFF = 'Daniel, founder of Frequency (frequencylocal.com)';
+const DEFAULT_SIGN_OFF = 'Daniel Tyack\nFounder, Frequency (frequencylocal.com)';
 
 export type Hunt = {
   id: string;
@@ -177,7 +177,7 @@ export function composeBody(cfg: FlowConfig, h: Hunt, lead: HuntLead): string {
     '',
     link,
     '',
-    `— ${signOff}`,
+    signOff,
     `I found your address on ${lead.organizer.source_url}. Not interested? Reply "no" and I won't write again.`,
   ].join('\n');
 }
