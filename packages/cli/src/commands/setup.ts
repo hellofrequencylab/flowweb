@@ -1,4 +1,4 @@
-// fw setup (FW-C-038): where this machine is in getting FlowWeb set up, one step at a time. Each
+// fw setup (FW-C-039): where this machine is in getting FlowWeb set up, one step at a time. Each
 // step is checked from real state (fwd answering, a passing account test, a labelled project, a
 // brief, a flow that is on, a recent push to the live site) and a step not done names its fix, so
 // running it again picks up wherever you stopped. Exit 0 when every required step is done, else 1.

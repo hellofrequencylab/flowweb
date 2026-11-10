@@ -268,7 +268,7 @@ async function once() {
     return;
   }
   const r = await push(entries, report);
-  // FW-C-038: `fw setup` counts the live site as working only from an accepted push. No secret here.
+  // FW-C-039: `fw setup` counts the live site as working only from an accepted push. No secret here.
   try {
     writeFileSync(
       join(FW_HOME, 'relay-last-push.json'),

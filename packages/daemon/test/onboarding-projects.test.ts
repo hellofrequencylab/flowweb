@@ -1,4 +1,4 @@
-// FW-C-038: projects with no repository, the Owner's brief, and project writes through fwd while it
+// FW-C-039: projects with no repository, the Owner's brief, and project writes through fwd while it
 // holds the writer. The kernel functions run on a writer; the routes run on a real fwd (auth off).
 import { addProject, briefProject, getBrief, PROJECT_BRIEFS_KEY } from '@fw/ledger';
 import { afterAll, beforeAll, describe, expect, test } from 'vitest';

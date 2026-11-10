@@ -1,4 +1,4 @@
-// FW-C-038: the setup report reads real state only, and names a fix for every step not done.
+// FW-C-039: the setup report reads real state only, and names a fix for every step not done.
 import { writeFileSync } from 'node:fs';
 import { join } from 'node:path';
 import { openStore } from '@fw/eventlog';

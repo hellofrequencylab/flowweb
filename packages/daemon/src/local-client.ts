@@ -89,7 +89,7 @@ export interface DaemonCoreClient extends LocalCoreClient {
   relayResult(runId: string, text: string): Promise<RelayResult>;
   doctor(): Promise<DoctorReport>;
   gc(): Promise<GcReport>;
-  /** FW-C-038: GET /v1/setup from fwd, or the same report read here when fwd is down. */
+  /** FW-C-039: GET /v1/setup from fwd, or the same report read here when fwd is down. */
   setup(): Promise<SetupReport>;
 }
 
@@ -223,7 +223,7 @@ export function createCoreClient(opts: LocalClientOptions): DaemonCoreClient {
     streamAdd: viaLedger(ledger.streamAdd),
     streamList: viaLedger(ledger.streamList),
     projectList: viaLedger(ledger.projectList),
-    // FW-C-038: project writes work while fwd runs. fwd holds the writer, so they go to it.
+    // FW-C-039: project writes work while fwd runs. fwd holds the writer, so they go to it.
     projectLabel: (ref, change) =>
       viaFwdWhenLocked(
         () => viaLedger(ledger.projectLabel)(ref, change),

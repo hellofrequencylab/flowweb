@@ -55,9 +55,9 @@ export interface LocalCoreClient {
   streamList(): Promise<StreamView[]>;
   projectList(filter?: ProjectFilter): Promise<ProjectView[]>;
   projectLabel(ref: string, change: LabelChange): Promise<LabelReport>;
-  /** FW-C-038: a project with no repository. */
+  /** FW-C-039: a project with no repository. */
   projectAdd(input: ProjectAdd): Promise<ProjectAddReport>;
-  /** FW-C-038: with answers, saves the brief (all five or nothing); without, reads it. */
+  /** FW-C-039: with answers, saves the brief (all five or nothing); without, reads it. */
   projectBrief(ref: string, answers?: Record<string, string | undefined>): Promise<BriefReport>;
   close(): void;
 }

@@ -316,7 +316,7 @@ export interface ProjectLabelReport {
   event_seq: number | null;
 }
 
-/** FW-C-038: `fw project add`. */
+/** FW-C-039: `fw project add`. */
 export interface ProjectAddInput {
   slug: string;
   name?: string;
@@ -330,7 +330,7 @@ export interface ProjectAddReport {
   event_seq: number;
 }
 
-/** FW-C-038: the Owner's answers to the five brief questions, word for word. */
+/** FW-C-039: the Owner's answers to the five brief questions, word for word. */
 export interface ProjectBrief {
   what: string;
   who: string;
@@ -346,7 +346,7 @@ export interface ProjectBriefReport {
   event_seq: number | null;
 }
 
-/** FW-C-038: `fw setup` / GET /v1/setup. Every step is read from real state. */
+/** FW-C-039: `fw setup` / GET /v1/setup. Every step is read from real state. */
 export interface SetupStep {
   id: 'machine' | 'sign_ins' | 'project' | 'brief' | 'flow' | 'live_site';
   title: string;
@@ -488,7 +488,7 @@ export interface CoreClient {
   supervisorControl?(action: SupervisorAction, flow?: string): Promise<SupervisorReport>;
   /** FW-C-035: set a flow's dial; autopilot needs the confirm hash fwd names. */
   supervisorDial?(flow: string, stop: string, confirm?: string): Promise<SupervisorReport>;
-  /** FW-C-038: where setup stands; served by the daemon package. */
+  /** FW-C-039: where setup stands; served by the daemon package. */
   setup?(): Promise<SetupReport>;
   /** The policy engine: optional, served by the daemon package (the CLI never imports @fw/policy). */
   policyCheck?(input: PolicyCheckInput): Promise<PolicyDecision>;
