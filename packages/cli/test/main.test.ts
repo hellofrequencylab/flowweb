@@ -187,6 +187,10 @@ function without(client: CoreClient, method: keyof CoreClient): CoreClient {
 const control = (level: 'enforced' | 'best_effort' | 'absent', detail: string) => ({ level, detail });
 const doctorReport = {
   home: '/h',
+  checks: [
+    { name: 'core_policy', status: 'pass' as const, detail: 'loaded' },
+    { name: 'last_backup', status: 'warn' as const, detail: 'no backup yet' },
+  ],
   sandbox: {
     run_id: 'run_doctor-x',
     mode: 'userdir',
@@ -368,7 +372,19 @@ describe('doctor and gc', () => {
 
   test('fw doctor --json is the report', async () => {
     const r = await run(['doctor', '--json']);
+    expect(r.code).toBe(EXIT.OK);
     expect(JSON.parse(r.out)).toEqual(doctorReport);
+  });
+
+  test('fw doctor prints each check and exits 1 when one failed, in --json mode too', async () => {
+    const bad = { ...doctorReport, checks: [{ name: 'disk', status: 'fail' as const, detail: 'full' }] };
+    const client = fakeClient({ doctor: async () => bad });
+    const text = await run(['doctor'], client);
+    expect(text.code).toBe(EXIT.FAILED);
+    expect(text.out).toMatch(/FAIL\s+disk\s+full/);
+    const json = await run(['doctor', '--json'], client);
+    expect(json.code).toBe(EXIT.FAILED);
+    expect(JSON.parse(json.out).checks[0].status).toBe('fail');
   });
 
   test('fw gc reports what it removed and what it kept', async () => {

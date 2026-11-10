@@ -216,9 +216,17 @@ export interface SpendGroupRow {
 
 export type ControlLevel = 'enforced' | 'best_effort' | 'absent';
 
-/** `fw doctor`: the sandbox self-test a run would get, in this home. */
+/** One line of `fw doctor`: a fail makes the command exit nonzero. Never carries a secret. */
+export interface DoctorCheck {
+  name: string;
+  status: 'pass' | 'warn' | 'fail';
+  detail: string;
+}
+
+/** `fw doctor`: the health checks of this home, and the sandbox self-test a run would get. */
 export interface DoctorReport {
   home: string;
+  checks: DoctorCheck[];
   sandbox: {
     run_id: string;
     mode: string;

@@ -68,6 +68,7 @@ describe('setup report', () => {
     r = report(false);
     expect(step(r, 'sign_ins').done).toBe(true);
     expect(step(r, 'machine').fix).toContain('FW_CODEX_AUTH=signin pnpm fwd');
+    expect(step(r, 'machine').fix).toContain('ops/launchd/app.flowweb.fwd.plist');
 
     withWriter(home.path, (w) =>
       addProject(w, { slug: 'launch', brand: 'Frequency', category: 'marketing' }),
