@@ -1,4 +1,4 @@
-// Probe for FW-C-050 (hunts skip organizers in the EU, the UK and Canada, and label each draft with how
+// Probe for FW-C-052 (hunts skip organizers in the EU, the UK and Canada, and label each draft with how
 // to send it): `pnpm probe flows/hunt-reach`. Tier 0.
 // Surfaces: the daemon fwd (one node process on a fresh FW_HOME, with FW_VENDOR=fake and
 // FW_FAKE_SCENARIO=hunt_reach), the hunt routes under /v1/flows/neighborhood-activation/hunts with the
