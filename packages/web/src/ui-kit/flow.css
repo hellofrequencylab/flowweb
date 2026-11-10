@@ -1553,3 +1553,10 @@ a.flow-line:hover .flow-line-name {
   overflow-wrap: anywhere;
   font: inherit;
 }
+.draft-group-title {
+  margin: 0;
+  font-size: var(--text-md, 1rem);
+}
+.draft-group-hint {
+  margin: 0 0 var(--space-2);
+}
