@@ -93,9 +93,17 @@ export function steps(events: AdapterEvent[]) {
   return events.flatMap((e) => (e.type === 'step' ? [e.step] : []));
 }
 
-/** True if any process in the group is alive (and not a zombie). */
+/** Live (not zombie) members of the process group. Linux reads /proc; macOS and others read `ps`. */
 export function liveGroupMembers(pgid: number): number[] {
   const pids: number[] = [];
+  if (process.platform !== 'linux') {
+    const out = execFileSync('ps', ['-axww', '-o', 'pid=,pgid=,stat='], { encoding: 'utf8' });
+    for (const line of out.split('\n')) {
+      const m = /^\s*(\d+)\s+(\d+)\s+(\S+)/.exec(line);
+      if (m && Number(m[2]) === pgid && !m[3]?.startsWith('Z')) pids.push(Number(m[1]));
+    }
+    return pids;
+  }
   for (const name of readdirSync('/proc')) {
     if (!/^\d+$/.test(name)) continue;
     try {

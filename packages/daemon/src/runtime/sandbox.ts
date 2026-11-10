@@ -56,6 +56,7 @@ const CONTROLLED_KEYS = new Set([
   'LD_PRELOAD',
   'LD_LIBRARY_PATH',
   'DYLD_INSERT_LIBRARIES',
+  '__CF_USER_TEXT_ENCODING',
 ]);
 const ENV_KEY_RE = /^[A-Za-z_][A-Za-z0-9_]*$/;
 const HOST_RE = /^\.?[A-Za-z0-9-]+(?:\.[A-Za-z0-9-]+)*(?::\d{1,5})?$/;
@@ -94,7 +95,11 @@ export interface BuildEnvInput {
   tmp: string;
   runId: string;
   egressProxy?: string | null;
+  /** Defaults to process.platform; tests pass 'darwin' to check the macOS branch anywhere. */
+  platform?: NodeJS.Platform;
 }
+
+const CF_TEXT_ENCODING = '__CF_USER_TEXT_ENCODING';
 
 /** Builds the child environment from scratch. Throws when a credential key is malformed or reserved. */
 export function buildSandboxEnv(input: BuildEnvInput): Record<string, string> {
@@ -113,6 +118,14 @@ export function buildSandboxEnv(input: BuildEnvInput): Record<string, string> {
   env.XDG_CACHE_HOME = join(input.home, '.cache');
   env.XDG_DATA_HOME = join(input.home, '.local', 'share');
   env.FW_RUN_ID = input.runId;
+  // macOS CoreFoundation adds __CF_USER_TEXT_ENCODING (the user id and text encoding, no secret) to
+  // any child started without it, so the sandbox sets it itself and the child env stays exactly this.
+  if ((input.platform ?? process.platform) === 'darwin') {
+    const cf = input.parentEnv[CF_TEXT_ENCODING];
+    const uid = typeof process.getuid === 'function' ? process.getuid() : 0;
+    env[CF_TEXT_ENCODING] =
+      typeof cf === 'string' && cf.length > 0 ? cf : `0x${uid.toString(16).toUpperCase()}:0x0:0x0`;
+  }
   if (input.egressProxy) {
     for (const k of ['HTTPS_PROXY', 'HTTP_PROXY', 'ALL_PROXY', 'https_proxy', 'http_proxy', 'all_proxy']) {
       env[k] = input.egressProxy;
