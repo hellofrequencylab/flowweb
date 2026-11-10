@@ -4,11 +4,7 @@
     "profile": "core",
     "schema": "ledger-row/1",
     "generated": "2026-11-09",
-<<<<<<< HEAD
     "row_count": 116,
-=======
-    "row_count": 115,
->>>>>>> origin/claude/project-thread-l0nxm0
     "conventions": {
       "verify_probe": "Same convention as 04-build-plan/backlog.json: 'pnpm probe <path>' runs probes/<path>.probe.ts, a Tier 0 file written before the implementation row starts and never edited by the agent doing the row. Every probe fails today because its target does not exist (a missing probe file exits 2, a missing behaviour exits 1). The probe pack for a milestone is committed by the Owner or a pair session before the milestone's rows start.",
       "status": "All rows start as open. Status lives only in the ledger database (imported with fw ledger sync), never in prose.",
@@ -32,11 +28,7 @@
       }
     },
     "full_plan_rows_included": 37,
-<<<<<<< HEAD
     "new_core_rows": 78
-=======
-    "new_core_rows": 77
->>>>>>> origin/claude/project-thread-l0nxm0
   },
   "rows": [
     {
@@ -4071,7 +4063,6 @@
         "packages/web/test/"
       ],
       "origin": "new Core row"
-<<<<<<< HEAD
     },
     {
       "id": "FW-C-082",
@@ -4104,8 +4095,6 @@
         "packages/web/test/"
       ],
       "origin": "new Core row"
-=======
->>>>>>> origin/claude/project-thread-l0nxm0
     }
   ]
 }
