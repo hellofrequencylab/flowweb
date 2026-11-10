@@ -182,8 +182,22 @@ export function addTouch(state: FlowState, leadId: string, body: Row, now: Date)
 /** Puts a lead (by id) or an address (by url) on the do-not-contact list. Doing it twice is harmless. */
 export function addDoNotContact(state: FlowState, body: Row): Change {
   const [leadId, url, reason] = [text(body.lead_id), text(body.url), text(body.reason)];
+  const email = text(body.email).toLowerCase();
   if (!reason) throw new AdminError(400, 'reason is required');
-  if (!leadId === !url) throw new AdminError(400, 'give exactly one of lead_id or url');
+  // FW-C-041: hunts write to addresses, so an address or a whole @domain can be blocked too.
+  if (email) {
+    if (leadId || url) throw new AdminError(400, 'give exactly one of lead_id, url or email');
+    if (!/^([^@\s]+)?@[^@\s]+\.[^@\s]+$/.test(email))
+      throw new AdminError(400, 'email must be an address or an @domain');
+    const already = state.do_not_contact.includes(email);
+    const next = already ? undefined : { ...state, do_not_contact: [...state.do_not_contact, email] };
+    return {
+      state: next,
+      summary: `Added ${email} to the do-not-contact list: ${reason}`,
+      data: { blocked: email, already },
+    };
+  }
+  if (!leadId === !url) throw new AdminError(400, 'give exactly one of lead_id, url or email');
   if (url && !isUrl(url)) throw new AdminError(400, 'url must be an http or https address');
   const lead = leadId ? state.leads.find((l) => l.id === leadId) : state.leads.find((l) => l.url === url);
   if (leadId && !lead) throw new AdminError(404, `lead ${leadId} not found`);
@@ -279,7 +293,7 @@ export function leadsCsv(cfg: FlowConfig, state: FlowState, now: Date): string {
 
 // ---- files ----------------------------------------------------------------------------------------
 
-export type AdminAction = 'leads' | 'metrics' | 'touch' | 'do_not_contact' | 'open' | 'config';
+export type AdminAction = 'leads' | 'metrics' | 'touch' | 'do_not_contact' | 'open' | 'config' | 'hunt';
 export type AdminLogEntry = { at: string; action: AdminAction; summary: string };
 export const adminDir = (fwHome: string) => join(fwHome, 'flows', FLOW_KEY);
 
