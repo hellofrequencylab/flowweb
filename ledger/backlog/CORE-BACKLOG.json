@@ -3565,11 +3565,11 @@
         "FW-C-062",
         "FW-C-066"
       ],
-      "description": "Copilot says approved drafts go to your sending app and Autopilot hands finished drafts to it, but the Owner chose drafts only and has no sender installed (senders/email.mjs), so Approve drops a draft into an outbox that nothing reads and the dial promises something that does not happen. The sender writes a heartbeat at the end of every pass that loaded its settings: $FW_HOME/senders/email/last-pass.json { at, ok, sent }. A pass that cannot load its settings writes none. fwd reads it and reports sender { installed, last_pass_at } on GET /v1/status and at the top of GET /v1/supervisor; installed is true only when the last pass was in the last 24 hours, and last_pass_at is shown even when it is older. The hosted relay copies both answers as they are, so flowweb.app sees the same. fwd refuses a move to Copilot or Autopilot with no installed sender (409, the reason names the sender), from the CLI token, the paired browser and the site's queued flow.dial alike; Draft is always allowed. On the Flows page, with no installed sender, the Copilot and Autopilot stops are disabled with the reason 'Needs a sender on your Mac' and a link to the steps in senders/README.md, and a ready draft shows Copy and send instead of Approve: it copies the subject and text so the Owner sends it from his own mail, then marks it sent. With a sender installed everything is as before. Nothing here sends anything, adds a sender or widens what one may send; Resend is never used for outreach.",
+      "description": "Copilot says approved drafts go to your sending app and Autopilot hands finished drafts to it, but the Owner chose drafts only and has no sender installed (senders/email.mjs), so Approve drops a draft into an outbox that nothing reads and the dial promises something that does not happen. The sender writes a heartbeat at the end of every pass that loaded its settings: $FW_HOME/senders/email/last-pass.json { at, ok, sent }. A pass that cannot load its settings writes none. fwd reads it and reports sender { installed, last_pass_at } on GET /v1/status and at the top of GET /v1/supervisor; installed is true only when the last pass was in the last 24 hours, and last_pass_at is shown even when it is older. The hosted relay copies both answers as they are, so flowweb.app sees the same. A move to Copilot or Autopilot queued from flowweb.app with no installed sender is refused by the relay on the Owner's Mac (senderHold in hosted/server/requests.mjs gives the reason, which names the sender) and never reaches fwd; Draft is always allowed. fw supervisor dial in the Owner's terminal still works, because that is a deliberate choice at the Mac and several earlier probes set the dial that way. On the Flows page, with no installed sender, the Copilot and Autopilot stops are disabled with the reason 'Needs a sender on your Mac' and a link to the steps in senders/README.md, and a ready draft shows Copy and send instead of Approve: it copies the subject and text so the Owner sends it from his own mail, then marks it sent. With a sender installed everything is as before. Nothing here sends anything, adds a sender or widens what one may send; Resend is never used for outreach.",
       "acceptance": [
         "A sender pass that loads its settings writes $FW_HOME/senders/email/last-pass.json with the time of the pass; a pass with no settings writes none",
         "GET /v1/status and GET /v1/supervisor report sender { installed, last_pass_at }: not installed with no heartbeat or one older than 24 hours, installed with a fresh one",
-        "With no installed sender fwd answers 409 to a move to Copilot or Autopilot and the dial stays where it was; Draft is allowed; with a fresh heartbeat Copilot is allowed",
+        "A site request to move the dial to Copilot or Autopilot with no installed sender is held with a reason naming the sender, and the relay never calls fwd for it; Draft and other requests are not held",
         "On the Flows page with no installed sender the Copilot and Autopilot stops are disabled and say Needs a sender on your Mac with a link to the sender steps; with one they are enabled",
         "With no installed sender a ready draft shows Copy and send, which copies its subject and text and approves nothing; with one it shows Approve"
       ],
@@ -3581,7 +3581,6 @@
         "packages/daemon/src/overseer/index.ts",
         "packages/daemon/src/api/status.ts",
         "packages/daemon/src/api/routes.ts",
-        "packages/daemon/src/daemon.ts",
         "packages/daemon/test/",
         "packages/web/src/api/types.ts",
         "packages/web/src/api/wire.ts",
@@ -3591,7 +3590,10 @@
         "packages/web/src/flows/DraftsInbox.tsx",
         "packages/web/test/",
         "hosted/README.md",
-        "docs/api/LOCAL-API-V1.md"
+        "docs/api/LOCAL-API-V1.md",
+        "hosted/server/requests.mjs",
+        "hosted/relay/fw-relay.mjs",
+        "hosted/test/"
       ],
       "origin": "new Core row"
     }

@@ -2,9 +2,10 @@
 // probe-timeout-s: 240
 // Tier 0.
 // Surfaces: senders/email.mjs run once on a fresh FW_HOME with an empty outbox (it sends nothing and asks
-// no Keychain), a real fwd on a fresh FW_HOME with its CLI token and a paired browser session, and
-// packages/web's FlowControls and DraftsInbox (their checks are in probes/flows/sender-honest.spec.tsx,
-// run with vitest in jsdom against a fetch stub, as probes/flows/drafts-inbox.mjs does).
+// no Keychain), a real fwd on a fresh FW_HOME with its CLI token, hosted/server/requests.mjs (pure: the
+// relay asks it before applying a site request on the Owner's Mac), and packages/web's FlowControls and
+// DraftsInbox (their checks are in probes/flows/sender-honest.spec.tsx, run with vitest in jsdom against a
+// fetch stub, as probes/flows/drafts-inbox.mjs does).
 //
 // The surface this probe expects:
 //   `node senders/email.mjs --once` with readable settings ends every pass by writing
@@ -13,23 +14,24 @@
 //   GET /v1/status data.sender and GET /v1/supervisor data.sender are { installed, last_pass_at }:
 //     installed is true only when last-pass.json's at is within the last 24 hours; last_pass_at is that
 //     time (also when it is older), or null with no heartbeat.
-//   POST /v1/supervisor/flows/{key}/dial { stop: copilot | autopilot } with no installed sender answers 409
-//     and the message names the sender; the dial does not move. { stop: draft } is always allowed.
+//   senderHold(request, sender) from hosted/server/requests.mjs: for a flow.dial request to copilot or
+//     autopilot and a sender that is not installed (or unknown), a reason that names the sender; otherwise
+//     null. The relay refuses such a site request with that reason instead of calling fwd.
 //
 // Proves, in order:
 //   1. A sender pass with no settings writes no heartbeat; one with settings writes a fresh one.
-//   2. With no heartbeat fwd reports sender not installed on both routes, refuses Copilot (paired browser)
-//      and Autopilot (CLI token) with 409, keeps the dial at Draft, and allows Draft.
-//   3. A heartbeat 25 hours old is reported with its time but not installed, and Copilot is still refused.
-//   4. With a fresh heartbeat written by the sender itself, fwd reports it installed and allows Copilot.
-//   5. The Flows page checks pass (4 of them): Copilot and Autopilot disabled with "Needs a sender on your
+//   2. fwd reports no heartbeat as not installed, a heartbeat 25 hours old with its time but not installed,
+//      and the sender's own fresh heartbeat as installed, on both routes.
+//   3. senderHold holds a site move to Copilot or Autopilot without an installed sender, and nothing else.
+//   4. The Flows page checks pass (4 of them): Copilot and Autopilot disabled with "Needs a sender on your
 //      Mac" and a link to the sender steps when there is none, enabled when there is one; a ready draft
 //      shows Copy and send (copies, approves nothing) without a sender, and Approve with one.
 import { spawnSync } from 'node:child_process';
 import { existsSync, mkdirSync, readFileSync, writeFileSync } from 'node:fs';
 import { join } from 'node:path';
+import { pathToFileURL } from 'node:url';
 import { baseEnv, check, freshHome, missing, probe, root, tmpDir } from '../c0/_lib.mjs';
-import { api, pair, startFwd } from '../lib/fwd.mjs';
+import { api, startFwd } from '../lib/fwd.mjs';
 
 const NAME = 'flows/sender-honest';
 const KEY = 'neighborhood-activation';
@@ -75,58 +77,48 @@ await probe(NAME, async () => {
   check(Number.isFinite(at) && at >= before - 2000 && at <= Date.now() + 2000, `the heartbeat's at is ${beat?.at}, want the time of the pass`);
   const fresh = beat.at;
 
-  // 2-4. fwd on a home with no heartbeat, then a stale one, then the sender's fresh one.
+  // 2. fwd on a home with no heartbeat, then a stale one, then the sender's fresh one.
   const fwHome = freshHome('sender-honest-fwd');
   const fwd = await startFwd(fwHome, { env: { FW_VENDOR: 'fake' } });
   try {
-    const { cookie } = await pair(fwd.port, fwd.pairingCode);
-    const S = `/v1/supervisor/flows/${KEY}`;
-    const senderOn = async (path) => {
-      const r = await api(fwd.port, 'GET', path, { auth: fwd.token });
-      check(r.status === 200, `GET ${path} answered ${r.status}`);
-      return r.json?.data?.sender;
-    };
-    const dialOf = async () => {
-      const r = await api(fwd.port, 'GET', '/v1/supervisor', { auth: fwd.token });
-      return (r.json?.data?.flows ?? []).find((f) => f.key === KEY)?.dial;
-    };
     const expectSender = async (installed, last, what) => {
       for (const path of ['/v1/status', '/v1/supervisor']) {
-        const s = await senderOn(path);
+        const r = await api(fwd.port, 'GET', path, { auth: fwd.token });
+        check(r.status === 200, `GET ${path} answered ${r.status}`);
+        const s = r.json?.data?.sender;
         if (s === undefined) missing(`GET ${path} has no sender (row FW-C-071)`);
         check(s?.installed === installed, `${what}: GET ${path} sender.installed is ${s?.installed}, want ${installed}`);
         check(s?.last_pass_at === last, `${what}: GET ${path} sender.last_pass_at is ${s?.last_pass_at}, want ${last}`);
       }
     };
-    const refused = async (stop, auth, what) => {
-      const r = await api(fwd.port, 'POST', `${S}/dial`, { auth, body: { stop } });
-      check(r.status === 409, `${what}: ${stop} answered ${r.status}, want 409: ${r.text.slice(0, 200)}`);
-      check(/sender/i.test(r.json?.error?.message ?? r.text), `${what}: the refusal of ${stop} does not name the sender: ${r.text.slice(0, 200)}`);
-      check((await dialOf()) === 'draft', `${what}: after refusing ${stop} the dial is ${await dialOf()}, want draft`);
-    };
-
     await expectSender(false, null, 'with no heartbeat');
-    await refused('copilot', { cookie }, 'with no heartbeat');
-    await refused('autopilot', fwd.token, 'with no heartbeat');
-    const draft = await api(fwd.port, 'POST', `${S}/dial`, { auth: { cookie }, body: { stop: 'draft' } });
-    check(draft.status === 200, `Draft with no sender answered ${draft.status}: ${draft.text.slice(0, 200)}`);
-
     const old = new Date(Date.now() - 25 * 3600e3).toISOString();
     mkdirSync(join(fwHome, 'senders', 'email'), { recursive: true });
     writeFileSync(beatOf(fwHome), JSON.stringify({ at: old, ok: true, sent: 0 }));
     await expectSender(false, old, 'with a heartbeat 25 hours old');
-    await refused('copilot', { cookie }, 'with a heartbeat 25 hours old');
-
     writeFileSync(beatOf(fwHome), JSON.stringify(beat));
     await expectSender(true, fresh, 'with a fresh heartbeat');
-    const co = await api(fwd.port, 'POST', `${S}/dial`, { auth: { cookie }, body: { stop: 'copilot' } });
-    check(co.status === 200, `Copilot with a fresh heartbeat answered ${co.status}: ${co.text.slice(0, 200)}`);
-    check((await dialOf()) === 'copilot', `with a fresh heartbeat the dial is ${await dialOf()}, want copilot`);
   } finally {
     await fwd.stop();
   }
 
-  // 5. The Flows page.
+  // 3. The relay holds a site move to Copilot or Autopilot without a sender.
+  const { senderHold } = await import(pathToFileURL(join(root, 'hosted/server/requests.mjs')).href);
+  if (typeof senderHold !== 'function') missing('hosted/server/requests.mjs does not export senderHold (row FW-C-071)');
+  const dial = (stop) => ({ kind: 'flow.dial', flow: KEY, draft_id: null, payload: { stop } });
+  const off = { installed: false, last_pass_at: null };
+  const on = { installed: true, last_pass_at: fresh };
+  for (const stop of ['copilot', 'autopilot']) {
+    for (const s of [off, undefined, null]) {
+      const why = senderHold(dial(stop), s);
+      check(typeof why === 'string' && /sender/i.test(why), `${stop} with sender ${JSON.stringify(s)} was not held: ${why}`);
+    }
+    check(senderHold(dial(stop), on) === null, `${stop} with an installed sender was held`);
+  }
+  check(senderHold(dial('draft'), off) === null, 'a move to Draft without a sender was held');
+  check(senderHold({ kind: 'flow.enable', flow: KEY, draft_id: null, payload: {} }, off) === null, 'turning a flow on without a sender was held');
+
+  // 4. The Flows page.
   const mods = join(root, 'packages/web/node_modules');
   const cfg = join(tmpDir('sender-honest'), 'vitest.config.mjs');
   writeFileSync(
