@@ -382,7 +382,7 @@ function Summary({ d, s, honest }: { d: Dawn; s: Status | null; honest: boolean 
 }
 
 /** Problems line: only when something is wrong, first thing on the page. */
-function Problems({ status: s, down }: { status: Status | null; down: boolean }) {
+export function Problems({ status: s, down }: { status: Status | null; down: boolean }) {
   const items: string[] = [];
   if (down) items.push(`${UNREACHABLE}. Every value below is Unknown.`);
   if (s?.kill_switch.state === 'stopped')
@@ -394,7 +394,7 @@ function Problems({ status: s, down }: { status: Status | null; down: boolean })
     items.push(
       `Event log integrity check failed${s.integrity.failed_at_seq ? ` at #${s.integrity.failed_at_seq}` : ''}.`,
     );
-  if (s && s.sandbox_egress !== 'enforced')
+  if (s?.sandbox_egress && s.sandbox_egress !== 'enforced')
     items.push(
       `Sandbox not fully enforced (egress ${s.sandbox_egress === 'best_effort' ? 'best effort' : 'none'}).`,
     );
