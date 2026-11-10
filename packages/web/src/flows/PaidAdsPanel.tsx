@@ -3,7 +3,7 @@ import { useResource } from '../api/resource';
 import type { AdsFigures, AdsFlow, AdsNextMove } from '../api/types';
 import { AsOf, ResourceView } from '../ui-kit/honest';
 import { StatusLabel, type StatusSpec } from '../ui-kit/status';
-import { usd } from '../ui-kit/time';
+import { age, usd } from '../ui-kit/time';
 
 const MOVE: Record<AdsNextMove['kind'], StatusSpec> = {
   waiting_for_data: { word: 'Waiting for a report', tone: 'neutral', icon: 'clock' },
@@ -14,6 +14,26 @@ const MOVE: Record<AdsNextMove['kind'], StatusSpec> = {
 };
 
 const num = (n: number) => n.toLocaleString('en-US');
+
+/** FW-C-058: where the numbers come from, and whether the last automatic pull worked. */
+function PullLine({ pull }: { pull: AdsFlow['pull'] }) {
+  if (!pull) return null;
+  const last = pull.last;
+  if (!last)
+    return <p className="small">Pulling from Google Analytics every {pull.every_hours} h. No pull yet.</p>;
+  if (last.ok)
+    return (
+      <p className="small">
+        Pulled from Google Analytics {age(last.at)} ({last.days ?? 0} days). Next pull within{' '}
+        {pull.every_hours} h.
+      </p>
+    );
+  return (
+    <p className="small" role="status">
+      <strong>The Google Analytics pull failed {age(last.at)}.</strong> {last.error}
+    </p>
+  );
+}
 const pct = (x: number | null) => (x === null ? 'n/a' : `${(x * 100).toFixed(1)}%`);
 const money = (n: number | null) => (n === null ? 'n/a' : usd(n));
 
@@ -47,6 +67,7 @@ export function PaidAdsPanel() {
         {(a: AdsFlow) => (
           <div className="stack">
             <p>{a.next_move.why}</p>
+            <PullLine pull={a.pull} />
             <p className="muted small">
               {a.campaign.platform} campaign “{a.campaign.name}”, goal: {a.campaign.goal}. Target{' '}
               {usd(a.target_cost_per_subscription_usd)} per subscription
@@ -70,7 +91,9 @@ export function PaidAdsPanel() {
             <details className="fold">
               <summary>
                 <span className="fold-label">Add the latest numbers</span>
-                <span className="fold-hint">a report CSV from Google Ads</span>
+                <span className="fold-hint">
+                  {a.pull ? 'by hand, if you need to' : 'a report CSV from Google Ads'}
+                </span>
               </summary>
               <div className="fold-body">
                 <p className="small">{a.source.how}</p>

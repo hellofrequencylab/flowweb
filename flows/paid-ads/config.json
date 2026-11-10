@@ -4,14 +4,20 @@
     "name": "Find your people locally",
     "platform": "Google Ads",
     "goal": "subscriptions",
-    "landing_url": "https://frequencylocal.com/start"
+    "landing_url": "https://frequencylocal.com/"
   },
   "source": {
     "kind": "csv_import",
-    "how": "In Google Ads open Campaigns, set the date range, click Download and choose .csv with Day as a segment. Drop the file in $FW_HOME/flows/paid-ads/imports/."
+    "how": "FlowWeb pulls these numbers from Google Analytics every few hours once the ga4 key is set up. To add numbers by hand, open Campaigns in Google Ads, set the date range, segment by Day, download .csv, and drop the file in $FW_HOME/flows/paid-ads/imports/."
   },
   "target_cost_per_subscription_usd": 10,
   "target_is_placeholder": true,
   "learning_days": 14,
-  "check_tracking_multiple": 3
+  "check_tracking_multiple": 3,
+  "ga4": {
+    "property_id": "539919559",
+    "credential": "crd_ga4paidads",
+    "pull_every_hours": 6,
+    "lookback_days": 90
+  }
 }

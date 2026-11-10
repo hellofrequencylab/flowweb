@@ -13,6 +13,7 @@ import * as localSaturation from '../flows/local-saturation.ts';
 import * as neighborhoodActivation from '../flows/neighborhood-activation.ts';
 import * as naAdmin from '../flows/neighborhood-admin.ts';
 import * as paidAds from '../flows/paid-ads.ts';
+import * as adsPull from '../flows/paid-ads-ga4.ts';
 import { type DraftView, editDraft, listDrafts } from '../overseer/drafts.ts';
 import { SupervisorError, supervisorView } from '../overseer/index.ts';
 import type { RewriteProposal } from '../overseer/rewrite.ts';
@@ -66,7 +67,14 @@ const FLOWS: Record<string, (repoRoot: string, fwHome: string, now: Date) => unk
   },
   [paidAds.FLOW_KEY]: (repo, home, now) => {
     const f = paidAds.loadFlow(repo, home);
-    return f && paidAds.flowView(f.cfg, f.stream, f.days, now);
+    if (!f) return null;
+    const g = adsPull.ga4Of(f.cfg);
+    const pull = g && {
+      property_id: g.property_id,
+      every_hours: g.pull_every_hours,
+      last: adsPull.readPullStatus(home),
+    };
+    return { ...paidAds.flowView(f.cfg, f.stream, f.days, now), pull };
   },
 };
 

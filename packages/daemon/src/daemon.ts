@@ -11,6 +11,8 @@ import { ApiError, sendError } from './api/http.ts';
 import { buildRouter, principalOf, type RunStartBody } from './api/routes.ts';
 import type { ChainStatus } from './api/status.ts';
 import { hostAllowed, PairingStore, writeOriginAllowed } from './auth.ts';
+import { loadFlow as loadAdsFlow } from './flows/paid-ads.ts';
+import { ga4Of, pullGa4, readPullStatus } from './flows/paid-ads-ga4.ts';
 import { reapOrphanCycles, runFlowCycle } from './overseer/cycle.ts';
 import { approveDraft, rejectDraft } from './overseer/drafts.ts';
 import {
@@ -60,6 +62,8 @@ export interface DaemonOptions {
   chainVerifyIntervalMs?: number;
   /** How often decision items past their deadline are expired (default 60 s; also once at start). */
   decisionExpiryIntervalMs?: number;
+  /** How often to check whether a paid-ads Google Analytics pull is due. Default 10 minutes. */
+  adsPullCheckMs?: number;
   ssePollMs?: number;
   sseHeartbeatMs?: number;
   log?: (line: string) => void;
@@ -202,6 +206,33 @@ export async function startDaemon(opts: DaemonOptions): Promise<Daemon> {
   const decisionTimer = setInterval(expireDecisions, opts.decisionExpiryIntervalMs ?? 60_000);
   decisionTimer.unref();
 
+  // ---- paid ads: pull the campaign's daily numbers from Google Analytics (FW-C-058) ---------
+  // Only when the flow's config names a GA4 property and credential. A failed pull is written to
+  // the flow's pull status (shown on the Flows page) and logged; it never stops the daemon.
+  const pullAds = async (): Promise<void> => {
+    try {
+      const f = loadAdsFlow(REPO_ROOT, fwHome);
+      const g = f && ga4Of(f.cfg);
+      if (!g) return;
+      const due = readPullStatus(fwHome);
+      if (due && Date.now() - Date.parse(due.at) < g.pull_every_hours * 3_600_000 - 60_000) return;
+      const s = await pullGa4(g, fwHome, {
+        ...(process.env.FW_GA4_TOKEN_URL ? { tokenUrl: process.env.FW_GA4_TOKEN_URL } : {}),
+        ...(process.env.FW_GA4_API_BASE ? { apiBase: process.env.FW_GA4_API_BASE } : {}),
+      });
+      log(
+        s.ok
+          ? `paid-ads: pulled ${s.days} day(s) from Google Analytics`
+          : `paid-ads: pull failed: ${s.error}`,
+      );
+    } catch (e) {
+      log(`paid-ads: pull error: ${(e as Error).message}`);
+    }
+  };
+  void pullAds();
+  const adsTimer = setInterval(() => void pullAds(), opts.adsPullCheckMs ?? 10 * 60_000);
+  adsTimer.unref();
+
   // ---- auth --------------------------------------------------------------------------------
   const pairing = new PairingStore(join(fwHome, 'pairing'));
   const cliTokenPath = pairing.ensureCliToken();
@@ -337,6 +368,7 @@ export async function startDaemon(opts: DaemonOptions): Promise<Daemon> {
   } catch (e) {
     clearInterval(chainTimer);
     clearInterval(decisionTimer);
+    clearInterval(adsTimer);
     try {
       writer.appendEvent({
         type: 'system.stopped',
@@ -408,6 +440,7 @@ export async function startDaemon(opts: DaemonOptions): Promise<Daemon> {
     }
     clearInterval(chainTimer);
     clearInterval(decisionTimer);
+    clearInterval(adsTimer);
     for (const end of [...streams]) end();
     await new Promise<void>((ok) => {
       server.close(() => ok());
