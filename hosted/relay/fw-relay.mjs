@@ -101,6 +101,12 @@ async function snapshot() {
     }
   }
   put('/status-reports', await all('/status-reports', {}, 50));
+  // FW-C-039: the Get started checklist. An older fwd has no /setup; the site then shows it as not synced.
+  try {
+    put('/setup', await fwd('/setup'));
+  } catch {
+    // skipped, not invented
+  }
 
   const projects = await all('/projects');
   put('/projects', projects);
