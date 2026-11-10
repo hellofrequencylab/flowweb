@@ -4,7 +4,7 @@
     "profile": "core",
     "schema": "ledger-row/1",
     "generated": "2026-11-09",
-    "row_count": 70,
+    "row_count": 71,
     "conventions": {
       "verify_probe": "Same convention as 04-build-plan/backlog.json: 'pnpm probe <path>' runs probes/<path>.probe.ts, a Tier 0 file written before the implementation row starts and never edited by the agent doing the row. Every probe fails today because its target does not exist (a missing probe file exits 2, a missing behaviour exits 1). The probe pack for a milestone is committed by the Owner or a pair session before the milestone's rows start.",
       "status": "All rows start as open. Status lives only in the ledger database (imported with fw ledger sync), never in prose.",
@@ -28,7 +28,7 @@
       }
     },
     "full_plan_rows_included": 37,
-    "new_core_rows": 33
+    "new_core_rows": 34
   },
   "rows": [
     {
@@ -2440,6 +2440,48 @@
         "packages/web/src/api/",
         "packages/web/src/shell/",
         "packages/web/src/ui-kit/base.css",
+        "packages/web/mock/",
+        "docs/api/LOCAL-API-V1.md"
+      ],
+      "agent_suitability": "agent",
+      "gate": "none",
+      "status": "open",
+      "origin": "new Core row",
+      "core_milestone": "C1"
+    },
+    {
+      "id": "FW-C-033",
+      "title": "Supervisor: one place that runs every flow",
+      "phase": 1,
+      "epic": "C1.5 First flow",
+      "priority": "P1",
+      "size": "L",
+      "lane": "workstreams",
+      "depends_on": [
+        "FW-C-031"
+      ],
+      "description": "Add the Supervisor to fwd: one place that knows every flow shipped under flows/, decides with deterministic code whether each one may run, and names the single gate holding it (kill switch, Supervisor paused, flow not enabled, no engine, budget used up, open asks, dormant, stalled, work in progress, not due). Only the Owner enables a flow or pauses the Supervisor, with the CLI token; each change is a system.config_changed event. Serves GET /v1/supervisor, adds fw supervisor, and shows it on the Flows page. Dispatching steps (after the scheduler, WS-P1-004), asks as decision cards (after WS-P1-024) and the planning agent turn are later rows. The governance dial (Safe, Controlled, Ungoverned on autonomy tiers L1, L3 to L4, L5) and the policy change it needs are a separate row. Design: https://claude.ai/artifact/SWupbhYmuvW36xGdfb5mYn",
+      "acceptance": [
+        "GET /v1/supervisor lists every flow that ships a stream.json under flows/, each either ready or held by exactly one named gate from a closed list; a shipped flow starts held by flow_disabled",
+        "Only the CLI token can enable or disable a flow and pause or resume the Supervisor; each change writes a system.config_changed event naming what changed",
+        "With the kill switch engaged every flow is held by kill_switch, and a paused Supervisor holds every flow by supervisor_paused",
+        "A flow with a dollar or turn cap set is held by budget once that cap is used up; a flow with no cap set is never held by budget",
+        "fw supervisor status --json prints the same flows and gates",
+        "The web UI shows each flow's state and gate on the Flows page with no horizontal scroll at 390 px"
+      ],
+      "verify_probe": "pnpm probe flows/supervisor",
+      "files_hint": [
+        "packages/daemon/src/overseer/",
+        "packages/daemon/src/api/routes.ts",
+        "packages/daemon/src/daemon.ts",
+        "packages/daemon/src/local-client.ts",
+        "packages/daemon/test/",
+        "packages/cli/src/client.ts",
+        "packages/cli/src/commands/supervisor.ts",
+        "packages/cli/src/main.ts",
+        "packages/cli/test/",
+        "packages/web/src/flows/",
+        "packages/web/src/api/",
         "packages/web/mock/",
         "docs/api/LOCAL-API-V1.md"
       ],
