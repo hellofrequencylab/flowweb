@@ -1,9 +1,9 @@
 import { type ReactNode, useEffect, useState } from 'react';
 import { BuildOverview } from '../dawn/BuildOverview';
-import { DawnLog } from '../dawn/DawnLog';
 import { EvidencePage } from '../evidence/EvidencePage';
 import { AdminPage } from '../flows';
 import { ActivationPage } from '../flows/ActivationPage';
+import { FlowsHome } from '../flows/FlowsHome';
 import { HoodTabs } from '../hood';
 import { LedgerPage } from '../ledger/LedgerPage';
 import { RowPage } from '../ledger/RowPage';
@@ -84,7 +84,7 @@ export function Layout({ pairedAt, onSignedOut }: { pairedAt: string; onSignedOu
         return (
           <>
             <SetupNudge />
-            <DawnLog />
+            <FlowsHome />
           </>
         );
       case 'setup':
@@ -96,7 +96,7 @@ export function Layout({ pairedAt, onSignedOut }: { pairedAt: string; onSignedOu
       case 'evidence':
         return <EvidencePage id={id} />;
       case 'growth':
-        return <ActivationPage />;
+        return <ActivationPage flow={id || undefined} />;
       case 'growth-admin':
         return <AdminPage />;
       case 'logs':
