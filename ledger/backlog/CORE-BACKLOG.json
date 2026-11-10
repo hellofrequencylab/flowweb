@@ -4,7 +4,7 @@
     "profile": "core",
     "schema": "ledger-row/1",
     "generated": "2026-11-09",
-    "row_count": 83,
+    "row_count": 84,
     "conventions": {
       "verify_probe": "Same convention as 04-build-plan/backlog.json: 'pnpm probe <path>' runs probes/<path>.probe.ts, a Tier 0 file written before the implementation row starts and never edited by the agent doing the row. Every probe fails today because its target does not exist (a missing probe file exits 2, a missing behaviour exits 1). The probe pack for a milestone is committed by the Owner or a pair session before the milestone's rows start.",
       "status": "All rows start as open. Status lives only in the ledger database (imported with fw ledger sync), never in prose.",
@@ -2943,6 +2943,42 @@
         "packages/cli/src/client.ts",
         "packages/cli/src/commands/supervisor.ts",
         "packages/cli/test/",
+        "docs/api/LOCAL-API-V1.md"
+      ],
+      "origin": "new Core row"
+    },
+    {
+      "id": "FW-C-048",
+      "title": "Paid ads flow: see what the Google Ads campaign spends and what each subscription costs",
+      "core_milestone": "C1",
+      "phase": 1,
+      "epic": "C1.5 First flow",
+      "priority": "P1",
+      "size": "L",
+      "lane": "workstreams",
+      "agent_suitability": "agent",
+      "gate": "none",
+      "depends_on": [
+        "FW-C-031"
+      ],
+      "description": "The Owner runs a Google Ads campaign for Frequency (Find your people locally, goal: subscriptions) and nothing in FlowWeb shows it. Ship a read-only flow, paid-ads, in the Frequency project: flows/paid-ads/ (stream, config, project), daemon logic that reads the campaign's daily numbers and decides a next move, GET /v1/flows/paid-ads, and a section on the web Flows page. Daily numbers come from Google Ads campaign report CSVs the Owner drops into $FW_HOME/flows/paid-ads/imports/ (title lines, then a header row with Day, Campaign, Impr., Clicks, Cost, Conversions; amounts may carry commas). Rows for other campaigns are ignored; a later day's file replaces an earlier one's numbers for the same day. The view gives totals and last-7-days figures (spend, impressions, clicks, CTR, cost per click, subscriptions, cost per subscription) and one next move: waiting_for_data with no rows, learning while fewer than learning_days days have data, check_tracking when spend has reached check_tracking_multiple times the target cost per subscription with zero subscriptions, over_target when cost per subscription is above target, on_target otherwise. The flow never changes the campaign, its budget or its bids: it holds no ad account credential and its stream has no outward action class. Pulling the same numbers automatically from Google Analytics is a later row.",
+      "acceptance": [
+        "flows/paid-ads/stream.json ships disabled at L1 with a dollar cap, and its action classes are read only",
+        "A fresh fwd serves GET /v1/flows/paid-ads with next move waiting_for_data and zero spend",
+        "An imported report CSV with five days of spend gives totals that match it and next move learning; another campaign's rows are not counted",
+        "Twenty days of spend past the check-tracking line with no subscription gives check_tracking",
+        "Twenty days with cost per subscription above target gives over_target, and below target gives on_target",
+        "The web UI shows the flow on the Flows page with no horizontal scroll at 390 px"
+      ],
+      "verify_probe": "pnpm probe flows/paid-ads",
+      "files_hint": [
+        "flows/paid-ads/",
+        "packages/daemon/src/flows/paid-ads.ts",
+        "packages/daemon/src/api/routes.ts",
+        "packages/daemon/test/",
+        "packages/web/src/flows/",
+        "packages/web/src/api/",
+        "packages/web/mock/",
         "docs/api/LOCAL-API-V1.md"
       ],
       "origin": "new Core row"
