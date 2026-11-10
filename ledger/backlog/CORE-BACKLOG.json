@@ -4,7 +4,7 @@
     "profile": "core",
     "schema": "ledger-row/1",
     "generated": "2026-11-09",
-    "row_count": 116,
+    "row_count": 117,
     "conventions": {
       "verify_probe": "Same convention as 04-build-plan/backlog.json: 'pnpm probe <path>' runs probes/<path>.probe.ts, a Tier 0 file written before the implementation row starts and never edited by the agent doing the row. Every probe fails today because its target does not exist (a missing probe file exits 2, a missing behaviour exits 1). The probe pack for a milestone is committed by the Owner or a pair session before the milestone's rows start.",
       "status": "All rows start as open. Status lives only in the ledger database (imported with fw ledger sync), never in prose.",
@@ -28,7 +28,7 @@
       }
     },
     "full_plan_rows_included": 37,
-    "new_core_rows": 78
+    "new_core_rows": 79
   },
   "rows": [
     {
@@ -4093,6 +4093,40 @@
         "packages/web/src/hosted/auth.ts",
         "packages/web/src/shell/App.tsx",
         "hosted/README.md"
+      ],
+      "origin": "new Core row"
+    },
+    {
+      "id": "FW-C-083",
+      "title": "People share a FlowWeb business with roles (owner, admin, helper, viewer), for the whole business or one flow, and each business sees only its own data",
+      "core_milestone": "C2",
+      "phase": 4,
+      "epic": "C2.4 Accounts",
+      "priority": "P1",
+      "size": "L",
+      "lane": "security",
+      "agent_suitability": "agent",
+      "gate": "none",
+      "depends_on": [],
+      "description": "The Owner wants to give FlowWeb to friends and add people to a business or a single flow, to help out or just watch. Today flowweb.app lets in one hand-filled list of owner emails (fw_owners) and every mirrored row, machine and queued request sits in shared tables with no owner column, so a second person would see everything or nothing. Migration 0006 adds accounts (businesses), members with a role (owner: everything; admin: people, machines, flow controls, drafts; helper: works drafts; viewer: reads only), optionally limited to named flows (helper or viewer only), and invite links (for one email or anyone holding the link; used, revoked and expired ones fail). account_id goes on fw_mirror, fw_runners and fw_requests; row level security reads by membership and flow; every write is a SECURITY DEFINER function that checks the role; a machine token belongs to one business, so a relay only replaces and takes its own business's rows. Existing data moves into one business owned by the fw_owners logins, and the existing relay token keeps working. hosted/server/accounts.mjs holds the same role table for the screens. The hosted /v1 adds the account, member and invite routes and reads only the business the person chose (x-fw-account) or their only one. The migration is a production schema change: the Owner runs it.",
+      "acceptance": [
+        "Migration 0006 runs after 0001-0005 and moves existing data into one business owned by the fw_owners logins; the old relay token keeps working",
+        "A stranger reads no mirror rows, machines, members or requests, and can make a business of their own",
+        "An email invite cannot be used by another email; a used or revoked invite fails; invites never make owners, and only helpers and viewers can be limited to flows",
+        "A whole-business viewer reads every mirror row; a one-flow viewer reads only that flow's rows; only owners and admins read machines and invites",
+        "Queued requests follow role and flow: helpers ask only draft changes, viewers ask nothing, one-flow members only for their flows",
+        "A relay snapshot or take never touches another business's rows",
+        "Admins cannot change or make owners, the last owner cannot step down or leave, anyone else can leave, only owners delete a business",
+        "hosted/server/accounts.mjs can(role, action) agrees with the database for every role and action",
+        "The hosted /v1 serves the account, member and invite routes, scopes mirror reads and machine and request calls to the chosen business, refuses a business the person is not in, and still answers /v1/session for a login with no business"
+      ],
+      "verify_probe": "pnpm probe hosted/accounts",
+      "files_hint": [
+        "hosted/supabase/migrations/0006_flowweb_accounts.sql",
+        "hosted/server/accounts.mjs",
+        "api/v1.mjs",
+        "hosted/README.md",
+        "hosted/test/"
       ],
       "origin": "new Core row"
     }
