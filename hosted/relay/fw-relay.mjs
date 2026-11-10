@@ -136,8 +136,14 @@ async function snapshot() {
       // The drafts waiting for the Owner, so the site can show them. Older fwd builds answer 404.
       const drafts = await fwd(`/supervisor/flows/${encodeURIComponent(key)}/drafts`).catch(ifFound);
       if (drafts) put(`/supervisor/flows/${key}/drafts`, drafts);
+      // The flow's saved lead hunts. Only flows with hunts answer; the rest answer 404.
+      const hunts = await fwd(`/flows/${encodeURIComponent(key)}/hunts`).catch(ifFound);
+      if (hunts) put(`/flows/${key}/hunts`, hunts);
     }
   }
+  // The paid ads flow is read only and not run by the Supervisor, so it is not in the list above.
+  const ads = out['/flows/paid-ads'] ? null : await fwd('/flows/paid-ads').catch(ifFound);
+  if (ads) put('/flows/paid-ads', ads);
   put('/status-reports', await all('/status-reports', {}, 50));
   // FW-C-039: the Get started checklist. An older fwd has no /setup; the site then shows it as not synced.
   try {
