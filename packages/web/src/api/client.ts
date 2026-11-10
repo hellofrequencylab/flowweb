@@ -746,6 +746,11 @@ export const api = {
     return { data_as_of: e.as_of, ...e.data };
   },
 
+  async activationFlow(): Promise<V.ActivationFlow> {
+    const e = await get<Omit<V.ActivationFlow, 'data_as_of'>>('/flows/neighborhood-activation');
+    return { data_as_of: e.as_of, ...e.data };
+  },
+
   async policy(): Promise<V.PolicyFile> {
     const e = await get<W.WPolicy>('/policy');
     return { data_as_of: e.as_of, ...e.data };

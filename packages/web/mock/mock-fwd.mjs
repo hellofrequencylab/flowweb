@@ -29,6 +29,29 @@ const PAIR_CODE = '424242';
 
 const backlog = JSON.parse(readFileSync(join(here, 'fixtures/backlog.json'), 'utf8'));
 const flowFixture = JSON.parse(readFileSync(join(here, 'fixtures/flow-local-saturation.json'), 'utf8'));
+const activationFixture = withFunnels(
+  JSON.parse(readFileSync(join(here, 'fixtures/flow-neighborhood-activation.json'), 'utf8')),
+);
+
+/** Builds each lead's funnel link the way the contract does, so the fixture does not repeat it. */
+function withFunnels(view) {
+  for (const l of view.leads) {
+    const fn = view.funnels[l.kind];
+    if (!l.send_via || !fn) {
+      l.funnel = null;
+      continue;
+    }
+    const q = new URLSearchParams({ persona: fn.persona, region: l.territory_id });
+    if (l.sub_area) q.set('area', l.sub_area);
+    if (l.channel) q.set('channel', l.channel);
+    q.set('src', l.source);
+    q.set('utm_source', 'flowweb');
+    q.set('utm_medium', l.send_via);
+    q.set('utm_campaign', l.territory_id);
+    l.funnel = { path: fn.path, persona: fn.persona, url: `${view.offer.url}${fn.path}?${q}` };
+  }
+  return view;
+}
 
 /* ---------------- helpers ---------------- */
 
@@ -1099,6 +1122,7 @@ const server = createServer(async (req, res) => {
     if (route === '/status') return send(res, 200, envelope(statusView()));
     if (route === '/status-reports') return send(res, 200, envelope(state.digest ? [state.digest] : []));
     if (route === '/flows/local-saturation') return send(res, 200, envelope(flowFixture));
+    if (route === '/flows/neighborhood-activation') return send(res, 200, envelope(activationFixture));
     if (route === '/policy')
       return send(
         res,
