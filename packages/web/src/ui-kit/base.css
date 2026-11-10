@@ -2107,6 +2107,40 @@ dialog .kill-card {
     padding: var(--space-8) 0;
   }
 }
+/* Look and feel: one fold for the display preferences, closed by default. */
+.settings-fold {
+  grid-template-columns: minmax(0, 1fr);
+}
+.settings-fold-toggle {
+  display: flex;
+  width: 100%;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--space-6);
+  min-height: var(--hit-min);
+  padding: 0;
+  border: 0;
+  background: transparent;
+  color: inherit;
+  font: inherit;
+  letter-spacing: inherit;
+  text-align: left;
+  cursor: pointer;
+}
+.settings-fold-chevron {
+  display: inline-flex;
+  flex: none;
+  color: var(--text-secondary);
+  transition: transform var(--dur-fast) var(--ease-standard);
+}
+.settings-fold-toggle[aria-expanded="true"] > .settings-fold-chevron {
+  transform: rotate(180deg);
+}
+.settings-fold-toggle:focus-visible {
+  outline: 2px solid var(--focus-ring);
+  outline-offset: 4px;
+  border-radius: var(--radius-sm);
+}
 
 /* ---------- spend meter ---------- */
 
