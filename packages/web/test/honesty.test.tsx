@@ -9,7 +9,7 @@ import type { Resource } from '../src/api/resource';
 import type { CardSummary, Envelope } from '../src/api/types';
 import type { WRun, WStatus } from '../src/api/wire';
 import { Fact } from '../src/ui-kit/honest';
-import { CHECK_STATUS, probeSpec, runStatusSpec } from '../src/ui-kit/status';
+import { CHECK_STATUS, probeSpec, runStatusSpec, SANDBOX, StatusLabel } from '../src/ui-kit/status';
 
 type D = Envelope & { n?: number };
 const res = (honesty: Resource<D>['honesty'], data: D | null): Resource<D> => ({
@@ -51,6 +51,17 @@ describe('never show unproven state', () => {
       /No signal since/,
     );
     expect(runStatusSpec('running', undefined, now).word).toBe('No signal');
+  });
+  it('reads a sandbox level of "absent" as no egress control, not a crash', () => {
+    expect(SANDBOX.absent.word).toBe('No sandbox egress control');
+    expect(SANDBOX.absent.tone).toBe('fail');
+    const fromFwd = 'absent' as string;
+    render(<StatusLabel spec={SANDBOX[fromFwd as keyof typeof SANDBOX]} />);
+    expect(screen.getByText('No sandbox egress control')).toBeTruthy();
+  });
+  it('shows Unknown status for a value the UI has no word for', () => {
+    render(<StatusLabel spec={undefined} />);
+    expect(screen.getByText('Unknown status')).toBeTruthy();
   });
 });
 
