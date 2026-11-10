@@ -10,6 +10,7 @@ import type { ActorKind, Reader, Writer } from '@fw/eventlog';
 import { ownerActor } from '@fw/ledger';
 import { loadFlow as loadLocalSaturation } from '../flows/local-saturation.ts';
 import * as neighborhood from '../flows/neighborhood-activation.ts';
+import type { OnFire } from '../scheduler/index.ts';
 import {
   type Caps,
   capUsed,
@@ -176,9 +177,29 @@ export interface SupervisorDeps {
   now?: () => Date;
   maxConcurrent?: number;
   engines?: Record<string, Engine>;
+  /** The flow a scheduled fire is asking about: the fire itself makes it due. */
+  dueFlow?: string;
 }
 
 export function supervisorView(d: SupervisorDeps): SupervisorView {
+  const { sup, flows } = verdicts(d);
+  return {
+    kill_switch: sup.kill_switch,
+    paused: sup.paused,
+    max_concurrent: sup.max_concurrent,
+    running: sup.running_total,
+    gates: GATES,
+    flows: flows.map((x) => x.view),
+    next: plan(
+      flows.map((x) => ({ key: x.view.key, verdict: x.verdict })),
+      sup,
+    ),
+  };
+}
+
+const flowVerdicts = (d: SupervisorDeps) => verdicts(d).flows;
+
+function verdicts(d: SupervisorDeps) {
   const now = d.now?.() ?? new Date();
   const engines = d.engines ?? ENGINES;
   const settings = readSettings(d.reader);
@@ -213,7 +234,7 @@ export function supervisorView(d: SupervisorDeps): SupervisorView {
       stall_streak: 0,
       running: 0,
       wip_limit: Number.isInteger(wip) && wip > 0 ? wip : 1,
-      due: false,
+      due: key === d.dueFlow,
     };
     let verdict = decide(f, sup);
     // A broken engine is a deny with its reason, never a silent pass (a gate failure is a deny).
@@ -235,17 +256,23 @@ export function supervisorView(d: SupervisorDeps): SupervisorView {
     };
     return { view, verdict };
   });
-  return {
-    kill_switch: sup.kill_switch,
-    paused: sup.paused,
-    max_concurrent: sup.max_concurrent,
-    running: sup.running_total,
-    gates: GATES,
-    flows: flows.map((x) => x.view),
-    next: plan(
-      flows.map((x) => ({ key: x.view.key, verdict: x.verdict })),
-      sup,
-    ),
+  return { sup, flows };
+}
+
+/**
+ * FW-C-036: the scheduler's onFire. A fire of a stream whose key names a shipped flow is admitted
+ * only when the Supervisor would let that flow run now; otherwise it is held and the reason starts
+ * with the gate. Streams that are not flows are admitted as before. A failure here holds the fire
+ * (the scheduler records a throw as held).
+ */
+export function createSupervisorOnFire(d: SupervisorDeps): OnFire {
+  return async (fire) => {
+    if (!shippedFlows(d.repoRoot).some((f) => f.key === fire.streamKey)) return { outcome: 'admit' };
+    const verdict = flowVerdicts({ ...d, dueFlow: fire.streamKey }).find(
+      (x) => x.view.key === fire.streamKey,
+    )!.verdict;
+    if (verdict.state === 'ready') return { outcome: 'admit' };
+    return { outcome: 'hold', reason: `${verdict.gate ?? verdict.state}: ${verdict.reason}` };
   };
 }
 

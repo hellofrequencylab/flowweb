@@ -6,6 +6,7 @@ import { describe, expect, test } from 'vitest';
 import {
   ASK_CAP,
   capUsed,
+  createSupervisorOnFire,
   DRY_STOP,
   decide,
   type FlowFacts,
@@ -258,6 +259,64 @@ describe('the Supervisor in fwd', () => {
         );
         expect(events.filter((e) => e.payload.includes('"dial":"autopilot"')).length).toBe(1);
       });
+    } finally {
+      home.cleanup();
+    }
+  });
+});
+
+describe('the Supervisor decides each scheduled fire (FW-C-036)', () => {
+  const fire = (streamKey: string) => ({
+    streamKey,
+    streamId: 'stm_x',
+    fireId: 'f1',
+    dueAt: '2026-01-05T10:05:00.000Z',
+  });
+
+  test('holds a flow by its gate, admits it once due and clear, and leaves other streams alone', async () => {
+    const home = tempHome();
+    try {
+      // onFire decides synchronously; the verdicts are awaited after the writer closes.
+      const verdicts = withWriter(home.path, (w) => {
+        const onFire = createSupervisorOnFire({ reader: w, repoRoot, fwHome: home.path });
+        const off = onFire(fire('local-saturation'));
+        setFlowEnabled(w, repoRoot, 'local-saturation', true);
+        const on = onFire(fire('local-saturation'));
+        setPaused(w, true);
+        const paused = onFire(fire('local-saturation'));
+        const other = onFire(fire('not-a-flow'));
+        return [off, on, paused, other] as const;
+      });
+      const [off, on, paused, other] = await Promise.all(verdicts);
+      expect(off.outcome).toBe('hold');
+      expect(off.reason).toMatch(/^flow_disabled: /);
+      // The fire itself makes the flow due, so not_due never holds it.
+      expect(on).toEqual({ outcome: 'admit' });
+      expect(paused.reason).toMatch(/^supervisor_paused: /);
+      expect(other).toEqual({ outcome: 'admit' });
+    } finally {
+      home.cleanup();
+    }
+  });
+
+  test('a flow whose engine throws is held by no_engine', async () => {
+    const home = tempHome();
+    try {
+      const [v] = withWriter(home.path, (w) => {
+        setFlowEnabled(w, repoRoot, 'local-saturation', true);
+        const onFire = createSupervisorOnFire({
+          reader: w,
+          repoRoot,
+          fwHome: home.path,
+          engines: {
+            'local-saturation': () => {
+              throw new Error('boom');
+            },
+          },
+        });
+        return [onFire(fire('local-saturation'))] as const;
+      });
+      expect((await v).reason).toMatch(/^no_engine: .*boom/);
     } finally {
       home.cleanup();
     }
