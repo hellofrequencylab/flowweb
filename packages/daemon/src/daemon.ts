@@ -14,6 +14,7 @@ import { setFlowEnabled, setPaused } from './overseer/index.ts';
 import { runStart } from './pipeline/run-start.ts';
 import { type ReconcileReport, reconcileOnStart } from './reconciler.ts';
 import { RunHost } from './run-host.ts';
+import { createScheduler, type OnFire, type Scheduler } from './scheduler/index.ts';
 
 export const DEFAULT_PORT = 7317;
 /** How long a stop waits for interrupted runs to be recorded before it gives up (clean: false). */
@@ -53,6 +54,8 @@ export interface DaemonOptions {
   stopTimeoutMs?: number;
   /** Test hook: runs after the reconciler and before the server listens. */
   beforeListen?: (writer: Writer) => void;
+  /** Admits or holds each stream fire. Default: every fire is admitted. */
+  onFire?: OnFire;
 }
 
 export interface Daemon {
@@ -64,6 +67,8 @@ export interface Daemon {
   readonly bootId: string;
   readonly startedAt: string;
   readonly reconcile: ReconcileReport;
+  /** Fires cron streams on schedule and records every fire, missed and held ones included. */
+  readonly scheduler: Scheduler;
   /** The code printed for pairing on this start, if one is pending. */
   readonly pairingCode: string | undefined;
   readonly cliTokenPath: string;
@@ -292,9 +297,13 @@ export async function startDaemon(opts: DaemonOptions): Promise<Daemon> {
   const addr = server.address();
   port = typeof addr === 'object' && addr ? addr.port : opts.port;
 
+  const scheduler = createScheduler({ writer, log, ...(opts.onFire ? { onFire: opts.onFire } : {}) });
+
   const stop = async (reason = 'stop requested'): Promise<void> => {
     if (stopped) return;
     stopped = true;
+    // No new fires once a stop has begun.
+    await scheduler.stop();
     // Runs first: each one in flight is killed and recorded before system.stopped is written.
     const drained = await runs.drain(
       `interrupted: fwd stopping (${reason})`,
@@ -324,6 +333,13 @@ export async function startDaemon(opts: DaemonOptions): Promise<Daemon> {
     }
   };
 
+  try {
+    await scheduler.start();
+  } catch (e) {
+    await stop(`scheduler failed to start: ${(e as Error).message}`);
+    throw e;
+  }
+
   return {
     fwHome,
     port,
@@ -333,6 +349,7 @@ export async function startDaemon(opts: DaemonOptions): Promise<Daemon> {
     bootId,
     startedAt,
     reconcile,
+    scheduler,
     pairingCode,
     cliTokenPath,
     verifyChainNow,
