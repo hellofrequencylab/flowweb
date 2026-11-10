@@ -18,6 +18,7 @@ import { ApiError, sendError } from './api/http.ts';
 import { buildRouter, principalOf, type RunStartBody } from './api/routes.ts';
 import type { ChainStatus } from './api/status.ts';
 import { hostAllowed, PairingStore, writeOriginAllowed } from './auth.ts';
+import { syncAll as syncCrm } from './flows/crm.ts';
 import { pullOutcomes } from './flows/outcomes.ts';
 import { loadFlow as loadAdsFlow } from './flows/paid-ads.ts';
 import { ga4Of, pullGa4, readPullStatus } from './flows/paid-ads-ga4.ts';
@@ -254,6 +255,13 @@ export async function startDaemon(opts: DaemonOptions): Promise<Daemon> {
     pullOutcomes({ repoRoot: REPO_ROOT, fwHome, env: process.env }).then(
       (n) => log(`outcomes: pulled ${n.outcomes} outcome row(s) and ${n.regions} region(s) from Frequency`),
       (e) => log(`outcomes: pull failed: ${(e as Error)?.message ?? e}`),
+    );
+    // FW-C-065: and tell Frequency's CRM where each lead is, which also picks up who signed up.
+    syncCrm({ repoRoot: REPO_ROOT, fwHome, env: process.env }).then(
+      (n) => {
+        if (n.synced + n.failed > 0) log(`crm: ${n.synced} lead(s) synced to Frequency, ${n.failed} failed`);
+      },
+      (e) => log(`crm: sync failed: ${(e as Error)?.message ?? e}`),
     );
   };
   const everyMs = Number(process.env.FW_OUTCOMES_PULL_EVERY_MS) || 86_400_000;
