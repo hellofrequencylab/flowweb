@@ -30,6 +30,10 @@ What it guarantees on every pass:
 Where items go: `sent/`, `skipped/`, `held/`, `failed/` next to the outbox files, each with a `sender`
 note saying why.
 
+Every pass that loads its settings writes `$FW_HOME/senders/email/last-pass.json` (`at`, `ok`, `sent`).
+FlowWeb reads it to know a sender is here (FW-C-071): until a pass has run in the last 24 hours, the
+Flows page keeps Copilot and Autopilot off and shows Copy and send in place of Approve.
+
 ### Set up (once)
 
 1. Turn on 2-Step Verification for daniel@danieltyack.com, then make an app password at
