@@ -15,6 +15,7 @@ import * as naAdmin from '../flows/neighborhood-admin.ts';
 import * as outcomes from '../flows/outcomes.ts';
 import * as paidAds from '../flows/paid-ads.ts';
 import * as adsPull from '../flows/paid-ads-ga4.ts';
+import * as review from '../flows/review.ts';
 import { type DraftView, editDraft, listDrafts, markDraft } from '../overseer/drafts.ts';
 import { SupervisorError, supervisorView } from '../overseer/index.ts';
 import type { RewriteProposal } from '../overseer/rewrite.ts';
@@ -242,6 +243,22 @@ function addFlowAdminRoutes(r: Router, deps: ApiDeps): void {
       throw new ApiError(e.status, e.status === 409 ? 'conflict' : 'unavailable', e.message);
     }
   });
+  // FW-C-056: the weekly review: a scorecard per hunt and shifts toward what works.
+  r.get(`${base}/review`, () => envelope(deps.reader, () => ({ data: review.readReview(deps.fwHome) })));
+  r.post(`${base}/review/run`, () => {
+    const data = review.runReview({ reader: deps.reader, repoRoot: deps.repoRoot, fwHome: deps.fwHome });
+    return envelope(deps.reader, () => ({ data }));
+  });
+  for (const action of ['apply', 'dismiss'] as const)
+    r.post(`${base}/review/shifts/{id}/${action}`, ({ params }) => {
+      try {
+        const data = review.decideShift(deps.fwHome, params.id ?? '', action);
+        return envelope(deps.reader, () => ({ data }));
+      } catch (e) {
+        if (!(e instanceof review.ReviewError)) throw e;
+        throw new ApiError(e.status, e.status === 404 ? 'not_found' : 'conflict', e.message);
+      }
+    });
   r.get(`${base}/leads.csv`, ({ req, res }) => {
     const now = new Date();
     const f = load(now);

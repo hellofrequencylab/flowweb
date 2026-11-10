@@ -9,6 +9,7 @@ import type {
   FlowDraft,
   LeadStage,
   SendVia,
+  Supervisor,
 } from '../api/types';
 import { Gauge, IconTile } from '../ui-kit/flow';
 import { AsOf, ResourceView } from '../ui-kit/honest';
@@ -18,10 +19,10 @@ import { usd } from '../ui-kit/time';
 import { DraftEditor } from './DraftEditor';
 import { groupDrafts, outcomeOf } from './drafts';
 import { FlowAdmin } from './FlowAdmin';
-import { MeasureDials, PipelineBar, RegionPath } from './FlowVisuals';
+import { FlowPulse, MeasureDials, PipelineBar, type PulseState, RegionPath } from './FlowVisuals';
 import { LeadHunts } from './LeadHunts';
 import { PaidAdsPanel } from './PaidAdsPanel';
-import { SupervisorPanel } from './SupervisorPanel';
+import { flowSpec, SupervisorPanel } from './SupervisorPanel';
 
 const pct = (x: number) => `${Math.round(x * 100)}%`;
 const num = (n: number) => n.toLocaleString('en-US');
@@ -74,6 +75,32 @@ function regionName(f: ActivationFlow, id: string) {
   return f.territories.find((t) => t.id === id)?.name ?? id;
 }
 
+const KEY = 'neighborhood-activation';
+
+/** Whether a cycle is working right now, from the Supervisor. Only a current read can say "running". */
+function pulseOf(s: Supervisor | null): { state: PulseState; word: string } {
+  const f = s?.flows.find((x) => x.key === KEY);
+  if (!f) return { state: 'unknown', word: 'Unknown: no word from the Supervisor' };
+  if (f.state === 'running') return { state: 'running', word: 'Running a cycle now' };
+  if (f.state === 'ready') return { state: 'ready', word: 'Ready: starts on the next turn' };
+  return { state: 'held', word: `Idle: ${flowSpec(f).word}` };
+}
+
+/** A chapter of the page: a numbered display heading over a hairline. The panels after it belong to it. */
+function ChapterHead({ n, id, title, lede }: { n: number; id: string; title: string; lede: string }) {
+  return (
+    <header className="chapter-head">
+      <span className="chapter-num" aria-hidden="true">
+        {String(n).padStart(2, '0')}
+      </span>
+      <div>
+        <h2 id={id}>{title}</h2>
+        <p className="chapter-lede">{lede}</p>
+      </div>
+    </header>
+  );
+}
+
 /** A quiet open and close control: the summary is a small pill, the body stays out of the way until asked. */
 function Fold({
   label,
@@ -102,6 +129,9 @@ export function ActivationPage() {
   const res = useResource('flow:neighborhood-activation', () => api.activationFlow(), ['runs', 'cards']);
   const d = res.honesty === 'current' ? res.data : null;
   const active = d?.territories.find((t) => t.status === 'active');
+  const sup = useResource('supervisor', () => api.supervisor(), ['runs', 'cards']);
+  const pulse = pulseOf(sup.honesty === 'current' ? sup.data : null);
+  const live = pulse.state === 'running';
   return (
     <>
       <PageHead
@@ -116,9 +146,10 @@ export function ActivationPage() {
             </span>
           </>
         }
+        aside={<FlowPulse {...pulse} />}
       />
       <ul className="kpis" aria-label="Flow at a glance">
-        <li className="kpi">
+        <li className={`kpi${live ? ' is-live' : ''}`}>
           <IconTile name="flow" tone="brand" />
           <span className="kpi-text">
             <span className="kpi-value">{active ? active.name : 'Unknown'}</span>
@@ -171,9 +202,15 @@ export function ActivationPage() {
       <ResourceView res={res} what="this flow">
         {(f) => (
           <div className="stack flows-page">
-            <section className="panel" aria-labelledby="na-next">
+            <ChapterHead
+              n={1}
+              id="na-now"
+              title="Right now"
+              lede="Lines move only while a cycle is working. Still means idle."
+            />
+            <section className={`panel${live ? ' is-live' : ''}`} aria-labelledby="na-next">
               <div className="panel-head">
-                <h2 id="na-next">Now</h2>
+                <h3 id="na-next">Where the flow is</h3>
                 <StatusLabel spec={decisionSpec(f.decision, f)} />
               </div>
               <p>{f.decision.summary}</p>
@@ -182,7 +219,7 @@ export function ActivationPage() {
                   The flow never opens a region by itself. This becomes a card in Sign-offs.
                 </p>
               )}
-              <RegionPath territories={f.territories} />
+              <RegionPath territories={f.territories} live={live} />
               {f.plan.sub_areas.length > 0 && (
                 <Fold label="This cycle works" hint={`${f.plan.sub_areas.length} sub-areas`}>
                   <ul className="chip-list">
@@ -212,21 +249,37 @@ export function ActivationPage() {
               </Fold>
             </section>
 
+            <ChapterHead
+              n={2}
+              id="na-regions"
+              title="Regions"
+              lede="Opened one at a time, in this order, and only with your OK."
+            />
             <section aria-labelledby="na-regions">
-              <h2 id="na-regions" className="section-title">
-                Regions
-              </h2>
               <div className="region-grid">
                 {[...f.territories]
                   .sort((a, b) => a.order - b.order)
                   .map((t) => (
-                    <Region key={t.id} t={t} holdWeeks={f.thresholds.hold_weeks} />
+                    <Region key={t.id} t={t} holdWeeks={f.thresholds.hold_weeks} live={live} />
                   ))}
               </div>
             </section>
 
+            <ChapterHead
+              n={3}
+              id="na-yours"
+              title="Waiting on you"
+              lede="Messages to check and send, and the hunts that find more people."
+            />
             <DraftsPanel />
+            <LeadHunts regions={f.territories.map((t) => ({ id: t.id, name: t.name }))} />
 
+            <ChapterHead
+              n={4}
+              id="na-reach"
+              title="Reach"
+              lede="Who the flow has found, and what the ads bring in."
+            />
             <section className="panel" aria-labelledby="na-leads">
               <div className="panel-head">
                 <h2 id="na-leads">Lead pipeline</h2>
@@ -279,6 +332,14 @@ export function ActivationPage() {
               </Fold>
             </section>
 
+            <PaidAdsPanel />
+
+            <ChapterHead
+              n={5}
+              id="na-runs"
+              title="How it runs"
+              lede="The rules, the engine and the admin tools."
+            />
             <section className="panel" aria-labelledby="na-how">
               <h2 id="na-how">How this flow works</h2>
               <p className="small">
@@ -339,8 +400,6 @@ export function ActivationPage() {
               </Fold>
             </section>
 
-            <LeadHunts regions={f.territories.map((t) => ({ id: t.id, name: t.name }))} />
-
             <section aria-labelledby="na-admin" className="panel">
               <h2 id="na-admin">Uploads and admin</h2>
               <Fold label="Upload leads or metrics, edit targets" hint="also raw config and the admin log">
@@ -352,7 +411,6 @@ export function ActivationPage() {
           </div>
         )}
       </ResourceView>
-      <PaidAdsPanel />
     </>
   );
 }
@@ -361,10 +419,11 @@ function subAreaName(f: ActivationFlow, id: string) {
   return f.territories.flatMap((t) => t.sub_areas).find((s) => s.id === id)?.name ?? id;
 }
 
-function Region({ t, holdWeeks }: { t: ActivationTerritory; holdWeeks: number }) {
+function Region({ t, holdWeeks, live }: { t: ActivationTerritory; holdWeeks: number; live: boolean }) {
+  const here = t.status === 'active';
   return (
     <section
-      className={`panel region-card${t.status === 'active' ? ' is-active' : ''}`}
+      className={`panel region-card${here ? ' is-active' : ''}${here && live ? ' is-live' : ''}`}
       aria-labelledby={`na-r-${t.id}`}
     >
       <div className="panel-head">

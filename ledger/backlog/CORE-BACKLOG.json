@@ -4,7 +4,7 @@
     "profile": "core",
     "schema": "ledger-row/1",
     "generated": "2026-11-09",
-    "row_count": 94,
+    "row_count": 95,
     "conventions": {
       "verify_probe": "Same convention as 04-build-plan/backlog.json: 'pnpm probe <path>' runs probes/<path>.probe.ts, a Tier 0 file written before the implementation row starts and never edited by the agent doing the row. Every probe fails today because its target does not exist (a missing probe file exits 2, a missing behaviour exits 1). The probe pack for a milestone is committed by the Owner or a pair session before the milestone's rows start.",
       "status": "All rows start as open. Status lives only in the ledger database (imported with fw ledger sync), never in prose.",
@@ -28,7 +28,7 @@
       }
     },
     "full_plan_rows_included": 37,
-    "new_core_rows": 57
+    "new_core_rows": 58
   },
   "rows": [
     {
@@ -3283,6 +3283,35 @@
         "packages/daemon/src/flows/hunts.ts",
         "packages/daemon/src/api/routes.ts",
         "packages/daemon/src/daemon.ts",
+        "packages/daemon/test/"
+      ],
+      "origin": "new Core row"
+    },
+    {
+      "id": "FW-C-057",
+      "title": "Each flow cycle starts from what the last weekly review learned",
+      "core_milestone": "C1",
+      "phase": 1,
+      "epic": "C1.5 First flow",
+      "priority": "P1",
+      "size": "S",
+      "lane": "workstreams",
+      "agent_suitability": "agent",
+      "gate": "owner-approval",
+      "depends_on": [
+        "FW-C-038",
+        "FW-C-041"
+      ],
+      "description": "On 10 Nov the Owner asked for flows that learn and get better as they go. The weekly review writes a few plain learnings lines to review.json (which hunts get replies and signups, which got nothing back), but the agent writing the next cycle's drafts never sees them, so its notes do not change. When the flow's last review has learnings and is at most 30 days old, fwd writes them to learnings.json in each cycle folder as { from, learnings }, next to hunts.json, and the cycle's brief tells the agent to read it as data and lean toward what works: the organizers, events and angle that drew replies, and away from what got nothing back. The agent may not write the file. With no review, an empty one or a stale one, the folder has no learnings.json and the brief is unchanged. Nothing about caps, regions, the dial or sending changes. It builds on the weekly review, which is an open row of its own.",
+      "acceptance": [
+        "A cycle folder has learnings.json { from, learnings } exactly when the flow's last review has learnings and is at most 30 days old",
+        "learnings.json carries the review's learnings unchanged and names the review by its at",
+        "The cycle brief points the agent at learnings.json as data, and the work order forbids writing it",
+        "The hunts, dispatch and review probes still pass"
+      ],
+      "verify_probe": "pnpm probe flows/brief-learnings",
+      "files_hint": [
+        "packages/daemon/src/overseer/cycle.ts",
         "packages/daemon/test/"
       ],
       "origin": "new Core row"
