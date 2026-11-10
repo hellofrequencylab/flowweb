@@ -1,0 +1,32 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<!--
+  Keeps the live-site relay running at login and restarts it if it stops. See hosted/README.md.
+  Replace YOU with your macOS user name and NODE with the absolute path of a Node 22 binary
+  (for nvm: ~/.nvm/versions/node/v22.x.y/bin/node). The relay token is read from
+  FW_HOME/relay.token (mode 600); never put it in this file.
+  Install: cp to ~/Library/LaunchAgents/, then
+    launchctl bootstrap gui/$(id -u) ~/Library/LaunchAgents/app.flowweb.relay.plist
+  After a git pull: launchctl kickstart -k gui/$(id -u)/app.flowweb.relay
+-->
+<plist version="1.0">
+<dict>
+  <key>Label</key><string>app.flowweb.relay</string>
+  <key>ProgramArguments</key>
+  <array>
+    <string>NODE</string>
+    <string>/Users/YOU/flowweb/hosted/relay/fw-relay.mjs</string>
+  </array>
+  <key>WorkingDirectory</key><string>/Users/YOU/flowweb</string>
+  <key>EnvironmentVariables</key>
+  <dict>
+    <key>FW_HOME</key><string>/Users/YOU/.flowweb</string>
+    <key>FW_RELAY_SITE</key><string>https://flowweb.app</string>
+  </dict>
+  <key>RunAtLoad</key><true/>
+  <key>KeepAlive</key><true/>
+  <key>ThrottleInterval</key><integer>30</integer>
+  <key>StandardOutPath</key><string>/Users/YOU/.flowweb/logs/relay.log</string>
+  <key>StandardErrorPath</key><string>/Users/YOU/.flowweb/logs/relay.log</string>
+</dict>
+</plist>
