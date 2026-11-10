@@ -3581,6 +3581,7 @@
         "packages/daemon/src/overseer/index.ts",
         "packages/daemon/src/api/status.ts",
         "packages/daemon/src/api/routes.ts",
+        "packages/daemon/src/local-client.ts",
         "packages/daemon/test/",
         "packages/web/src/api/types.ts",
         "packages/web/src/api/wire.ts",
