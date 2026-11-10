@@ -60,7 +60,7 @@
     }
   ],
   "funnels": {
-    "host": { "path": "/start/host", "persona": "practitioner", "placeholder": true },
+    "host": { "path": "/start/host", "persona": "practitioner" },
     "venue": { "path": "/start/partner", "persona": "partner" },
     "builder": { "path": "/start/welcome", "persona": "builder" },
     "resident": { "path": "/start/event", "persona": "visitor" }
@@ -73,7 +73,7 @@
     },
     "frequency": { "label": "Frequency messaging", "adds": ["unsubscribe link", "postal address"] }
   },
-  "placeholders": ["host_funnel"],
+  "placeholders": [],
   "thresholds": {
     "hosts_floor": 100,
     "hosts_per_10k": 0.75,
