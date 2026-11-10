@@ -846,3 +846,44 @@ export const flowAdmin = {
   /** A plain link works: the paired browser's session cookie goes with it. */
   leadsCsvUrl: `${API_BASE}${NA}/leads.csv`,
 };
+
+/** FW-C-049: a saved lead hunt, as fwd keeps it in hunts.json. */
+export interface LeadHunt {
+  id: string;
+  name: string;
+  looking_for: string;
+  region: string;
+  areas: string[];
+  links: string[];
+  every_days: number;
+  max_sends: number;
+  build: boolean;
+  enabled: boolean;
+  created_at: string;
+  last_run_at: string | null;
+}
+export interface LeadHuntInput {
+  name: string;
+  looking_for: string;
+  region: string;
+  links: string[];
+  every_days: number;
+  max_sends: number;
+  build: boolean;
+}
+
+/** The Owner's lead hunts and do-not-contact by address, through fwd's hunt routes. */
+export const leadHunts = {
+  list: async () => (await get<LeadHunt[]>(`${NA}/hunts`)).data ?? [],
+  save: (input: LeadHuntInput) => post<LeadHunt>(`${NA}/hunts`, input),
+  run: (id: string) =>
+    post<{ hunt_id: string; fire_id: string; outcome: string; reason?: string }>(
+      `${NA}/hunts/${enc(id)}/run`,
+      {},
+    ),
+  remove: async (id: string) => {
+    await raw('DELETE', `${NA}/hunts/${enc(id)}`);
+  },
+  block: (email: string, reason: string) =>
+    send<{ blocked: string; already: boolean }>('POST', `${NA}/do-not-contact`, { email, reason }),
+};

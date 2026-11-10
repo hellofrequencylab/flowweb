@@ -43,6 +43,7 @@ import {
   relayPrompt,
   relayResult,
 } from './relay/src/index.ts';
+import { type BackupResult, createBackup, type RestoreResult, restoreBackup } from './runtime/backup.ts';
 import { type DoctorReport, runDoctor } from './runtime/doctor.ts';
 import { type GcReport, gcRunDirs } from './runtime/gc.ts';
 import { type SetupReport, setupReport } from './setup/index.ts';
@@ -83,8 +84,14 @@ export interface DaemonCoreClient extends LocalCoreClient {
   supervisorControl(action: SupervisorAction, flow?: string): Promise<SupervisorReport>;
   supervisorDial(flow: string, stop: string, confirm?: string): Promise<SupervisorReport>;
   supervisorRun(flow: string): Promise<SupervisorRunReport>;
+  flowApi(method: 'GET' | 'POST' | 'DELETE', path: string, body?: unknown): Promise<unknown>;
   supervisorDrafts(flow: string): Promise<DraftView[]>;
   supervisorDraft(action: 'approve' | 'reject', flow: string, id: string): Promise<DraftView>;
+  supervisorEditDraft(
+    flow: string,
+    id: string,
+    edit: { subject?: string; body?: string },
+  ): Promise<DraftView>;
   spendRollup(opts: { by: string }): Promise<(SpendRow & { unknown_runs?: number })[]>;
   policyCheck(input: DecisionInput): Promise<Decision & { policy_path: string }>;
   policyApply(): Promise<ApplyReport & { policy_path: string }>;
@@ -94,6 +101,10 @@ export interface DaemonCoreClient extends LocalCoreClient {
   relayResult(runId: string, text: string): Promise<RelayResult>;
   doctor(): Promise<DoctorReport>;
   gc(): Promise<GcReport>;
+  /** FW-C-029: a consistent copy of the database and the home's config, as one tar file. */
+  backup(out: string): Promise<BackupResult>;
+  /** FW-C-029: restores a backup into this home, which must have no database yet. */
+  restore(file: string): Promise<RestoreResult>;
   /** FW-C-039: GET /v1/setup from fwd, or the same report read here when fwd is down. */
   setup(): Promise<SetupReport>;
 }
@@ -317,6 +328,16 @@ export function createCoreClient(opts: LocalClientOptions): DaemonCoreClient {
       }
       return runDoctor(home, { repoDir, lastBackupAt });
     },
+    async backup(out) {
+      // The writer lock keeps fwd and every other writer out while the copy is taken.
+      return createBackup(home, open(true).writer!, out);
+    },
+    async restore(file) {
+      store?.close();
+      store = undefined;
+      ledger.close();
+      return restoreBackup(home, path, file);
+    },
     async gc() {
       // No database means no run was ever started in this home, so no directory has a live run.
       if (!existsSync(path)) return gcRunDirs(home, () => undefined);
@@ -372,6 +393,22 @@ export function createCoreClient(opts: LocalClientOptions): DaemonCoreClient {
       const path = `/v1/supervisor/flows/${encodeURIComponent(flow)}/run`;
       return (await supervisorPost(path, {})) as unknown as SupervisorRunReport;
     },
+    async flowApi(method, path, body) {
+      // FW-C-048: hunts and do-not-contact live with fwd, so these calls need it running.
+      const ep = fwdEndpoint(home);
+      let res: Awaited<ReturnType<typeof fwdRequest>>;
+      try {
+        res = await fwdRequest(ep, method, path, body, 30000);
+      } catch (e) {
+        if (e instanceof FwdUnreachableError)
+          throw Object.assign(new Error(`this goes through fwd, and fwd is not running: ${e.message}`), {
+            code: 'UNAVAILABLE',
+          });
+        throw e;
+      }
+      if (res.status < 200 || res.status > 299) throw fwdError(res);
+      return res.body.data;
+    },
     // FW-C-046: Copilot. fwd holds the drafts' writer, so these always go through it.
     async supervisorDrafts(flow) {
       return (await fwdData('GET', `/v1/supervisor/flows/${encodeURIComponent(flow)}/drafts`)) as DraftView[];
@@ -379,6 +416,10 @@ export function createCoreClient(opts: LocalClientOptions): DaemonCoreClient {
     async supervisorDraft(action, flow, id) {
       const path = `/v1/supervisor/flows/${encodeURIComponent(flow)}/drafts/${encodeURIComponent(id)}/${action}`;
       return (await fwdData('POST', path, {})) as DraftView;
+    },
+    async supervisorEditDraft(flow, id, edit) {
+      const path = `/v1/supervisor/flows/${encodeURIComponent(flow)}/drafts/${encodeURIComponent(id)}/edit`;
+      return (await fwdData('POST', path, edit)) as DraftView;
     },
     close() {
       store?.close();

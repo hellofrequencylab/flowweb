@@ -1,4 +1,4 @@
-// Probe for FW-C-048 (paid ads flow): `pnpm probe flows/paid-ads`. Tier 0.
+// Probe for FW-C-053 (paid ads flow): `pnpm probe flows/paid-ads`. Tier 0.
 // Surfaces: the shipped definition in flows/paid-ads/, the daemon fwd (started as one node process
 // on a fresh FW_HOME), Google Ads campaign report CSVs in $FW_HOME/flows/paid-ads/imports/, and
 // GET /v1/flows/paid-ads with the CLI token fwd prints.
