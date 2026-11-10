@@ -12,6 +12,7 @@ import { confirmHash, ENGINES, readSettings, supervisorView } from '../overseer/
 import { type Hunt, loadHunts, MAX_SENDS, saveHunts } from './hunts.ts';
 import { FLOW_KEY } from './neighborhood-activation.ts';
 import { appendAdminLog, writeJsonAtomic } from './neighborhood-admin.ts';
+import { dimensionsOf, type ReviewBreakdown } from './review-summary.ts';
 
 /** Sent drafts with no response before a hunt is paused. */
 export const PAUSE_AFTER = 15;
@@ -56,7 +57,8 @@ export type Shift = {
 export type Review = {
   at: string;
   auto_apply: boolean;
-  scorecard: { hunts: HuntCard[]; pooled_rate: number | null };
+  /** FW-C-072: totals and by (source, hunt, funnel, sub_area, angle) score the sent drafts per value. */
+  scorecard: { hunts: HuntCard[]; pooled_rate: number | null } & Partial<ReviewBreakdown>;
   shifts: Shift[];
   learnings: string[];
 };
@@ -275,7 +277,9 @@ export function runReview(o: { reader: Reader; repoRoot: string; fwHome: string;
   const now = o.now ?? new Date();
   const at = now.toISOString();
   const hunts = loadHunts(o.fwHome);
-  const cards = scorecard(hunts, loadDrafts(o.fwHome), loadOutcomeRows(o.fwHome));
+  const drafts = loadDrafts(o.fwHome);
+  const rows = loadOutcomeRows(o.fwHome);
+  const cards = scorecard(hunts, drafts, rows);
   const { shifts, pooled } = proposeShifts(hunts, cards, at);
   const auto = mayAutoApply(o.reader, o.repoRoot, o.fwHome, now);
   if (auto)
@@ -286,7 +290,7 @@ export function runReview(o: { reader: Reader; repoRoot: string; fwHome: string;
   const review: Review = {
     at,
     auto_apply: auto,
-    scorecard: { hunts: cards, pooled_rate: pooled },
+    scorecard: { hunts: cards, pooled_rate: pooled, ...dimensionsOf(hunts, drafts, rows) },
     shifts,
     learnings: learningsOf(cards, pooled),
   };
