@@ -138,7 +138,7 @@ function move(dir, file, sub, extra) {
 }
 
 // ---- a small SMTP client: implicit TLS to Gmail, AUTH PLAIN, one message per connection --------------
-function smtpSend(url, user, pass, from, to, data) {
+function smtpSend(url, user, pass, from, to, data, onText = () => {}) {
   return new Promise((resolve) => {
     const port = Number(url.port) || (url.protocol === 'smtps:' ? 465 : 25);
     const sock =
@@ -163,8 +163,11 @@ function smtpSend(url, user, pass, from, to, data) {
       sock.destroy();
       resolve(r);
     };
-    sock.setTimeout(30_000, () => finish({ ok: false, temp: true, answer: 'timed out' }));
-    sock.on('error', (e) => finish({ ok: false, temp: true, answer: String(e.message) }));
+    // FW-C-047: once the message text went over (i >= 5), a lost answer may still mean Gmail kept it.
+    const lost = (answer) => finish({ ok: false, temp: true, unsure: i >= 5, answer });
+    sock.setTimeout(30_000, () => lost('timed out'));
+    sock.on('error', (e) => lost(String(e.message)));
+    sock.on('close', () => lost('the server closed the connection without answering'));
     sock.on('data', (d) => {
       buf += d.toString('utf8');
       const lines = buf.split('\r\n');
@@ -176,6 +179,7 @@ function smtpSend(url, user, pass, from, to, data) {
         if (code >= 400) return finish({ ok: false, temp: code < 500 || i < 3, auth: i < 3, answer: line });
         if (i === 5) return finish({ ok: true, answer: line });
         i++;
+        if (i === 5) onText();
         sock.write(`${steps[i]()}\r\n`);
       }
     });
@@ -211,10 +215,15 @@ async function main() {
   const log = existsSync(SENT_LOG)
     ? readFileSync(SENT_LOG, 'utf8').split('\n').filter(Boolean).map((l) => JSON.parse(l))
     : [];
-  const sentIds = new Set(log.map((l) => l.id));
-  const sentTo = new Set(log.map((l) => String(l.to).toLowerCase()));
+  // FW-C-047: the line for a message is written just before its text goes over, so a lost answer still
+  // counts as written to. Only a refusal the server gave after that (state refused) takes it back off.
+  const last = new Map();
+  for (const l of log) last.set(l.id, l.state === 'refused' ? null : { ...(last.get(l.id) ?? {}), ...l });
+  const written = [...last.values()].filter(Boolean);
+  const sentIds = new Set(written.map((l) => l.id));
+  const sentTo = new Set(written.map((l) => String(l.to).toLowerCase()));
   const todayBy = {};
-  for (const l of log) if (new Date(l.at).toDateString() === today) todayBy[l.from] = (todayBy[l.from] ?? 0) + 1;
+  for (const l of written) if (new Date(l.at).toDateString() === today) todayBy[l.from] = (todayBy[l.from] ?? 0) + 1;
   const open = inHours(cfg.hours, now);
   let sent = 0;
   let noPass = false;
@@ -284,16 +293,29 @@ async function main() {
         }
         const subject = String(lead.subject ?? '').replace(/[\r\n]+/g, ' ').trim() || 'Hello from a neighbor';
         const m = message(box, to, subject, `${text}\n\n${cfg.postal}\n`, item.id);
-        const r = await smtpSend(cfg.smtp, box.address, pass, box.address, to, m.data);
-        if (r.ok) {
-          const at = new Date().toISOString();
-          appendFileSync(SENT_LOG, `${JSON.stringify({ id: item.id, to, from: box.address, at, message_id: m.mid })}\n`);
+        const line = { id: item.id, to, from: box.address, at: new Date().toISOString(), message_id: m.mid };
+        let pending = false;
+        const r = await smtpSend(cfg.smtp, box.address, pass, box.address, to, m.data, () => {
+          appendFileSync(SENT_LOG, `${JSON.stringify(line)}\n`);
+          pending = true;
           sentIds.add(item.id);
           sentTo.add(to);
           todayBy[box.address] = (todayBy[box.address] ?? 0) + 1;
           sent++;
+        });
+        if (pending && !r.ok && !r.unsure)
+          appendFileSync(SENT_LOG, `${JSON.stringify({ id: item.id, to, state: 'refused', at: new Date().toISOString() })}\n`);
+        if (r.ok) {
+          const at = new Date().toISOString();
           move(dir, file, 'sent', { from: box.address, at, message_id: m.mid });
           say(`sent ${item.id} to ${to} from ${box.address}`);
+        } else if (r.unsure) {
+          move(dir, file, 'failed', {
+            reason: 'no answer after the message went over, so it may have been delivered; check Sent mail. It will not be sent again',
+            answer: r.answer,
+            at: now.toISOString(),
+          });
+          say(`failed ${item.id}: no answer after the message went over; it may have been delivered`);
         } else if (!r.temp) {
           move(dir, file, 'failed', { reason: 'the mail server refused it', answer: r.answer, at: now.toISOString() });
           say(`failed ${item.id}: ${r.answer}`);

@@ -136,7 +136,7 @@ export function reconcileOnStart(w: Writer, opts: { now?: () => Date; bootId: st
         payload: {
           run_id: run.id,
           failure_class: 'killed',
-          detail: `orphaned: fwd stopped while the run was ${run.status}; failed on restart, not retried`,
+          detail: `interrupted: fwd stopped while the run was ${run.status} (orphaned); failed on restart, not retried`,
           previous_status: run.status,
           vendor_group: { pgid, outcome: group },
         },

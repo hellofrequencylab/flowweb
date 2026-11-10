@@ -63,6 +63,10 @@ function readJson(path: string): Record<string, unknown> | null {
 
 const P = 'pnpm fw';
 
+/** FW-C-029: how to keep fwd up after the terminal closes (the service files in ops/). */
+export const KEEP_RUNNING =
+  'To keep it running and restart it after a crash, install ops/launchd/app.flowweb.fwd.plist (macOS) or ops/systemd/fwd.service (Linux); see ops/README.md.';
+
 function machine(
   d: SetupDeps,
   accounts: Record<string, unknown> | null,
@@ -77,8 +81,8 @@ function machine(
     detail: `fwd is not answering on ${where}.${db}`,
     fix:
       major === 22
-        ? `Start fwd from the FlowWeb folder: ${start}`
-        : `Use Node 22 (this shell runs Node ${major}; for example nvm use 22), then start fwd from the FlowWeb folder: ${start}`,
+        ? `Start fwd from the FlowWeb folder: ${start}. ${KEEP_RUNNING}`
+        : `Use Node 22 (this shell runs Node ${major}; for example nvm use 22), then start fwd from the FlowWeb folder: ${start}. ${KEEP_RUNNING}`,
   };
 }
 
