@@ -3212,6 +3212,7 @@
         "packages/daemon/src/flows/hunts.ts",
         "packages/daemon/src/flows/neighborhood-admin.ts",
         "packages/daemon/src/api/routes.ts",
+        "packages/daemon/src/local-client.ts",
         "packages/cli/src/",
         "packages/daemon/test/",
         "packages/cli/test/"
