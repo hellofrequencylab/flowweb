@@ -113,6 +113,83 @@ function Group({
   );
 }
 
+/**
+ * Display preferences the Owner sets once. Calm mode stays in view; rewards, motion, theme,
+ * density and keys fold under Look and feel, closed by default, so Settings leads with what he comes for.
+ */
+function LookAndFeel() {
+  const { prefs } = usePrefs();
+  const [open, setOpen] = useState(false);
+  return (
+    <section className="settings-group settings-fold" aria-labelledby="look-h">
+      <h2 id="look-h" className="settings-fold-head">
+        <button
+          type="button"
+          className="settings-fold-toggle"
+          aria-expanded={open}
+          aria-controls="look-body"
+          onClick={() => setOpen((v) => !v)}
+        >
+          <span>
+            Look and feel
+            <span className="setting-desc">Rewards, motion, theme, density and keyboard.</span>
+          </span>
+          <span className="settings-fold-chevron">
+            <Icon name="chevron-down" />
+          </span>
+        </button>
+      </h2>
+      <div className="panel settings-panel">
+        <Toggle k="calm" label="Calm mode" hint="No animation; rewards become a static tick. Key m." />
+      </div>
+      {open && (
+        <div className="settings-body" id="look-body">
+          <div className="panel settings-panel">
+            <Toggle k="rewards" label="Rewards" hint="The two small marks for proven outcomes." />
+            <Toggle k="rewardTableCleared" label="All signed off" disabled={!prefs.rewards} nested />
+            <Toggle k="rewardCargoLanded" label="Landed and proven" disabled={!prefs.rewards} nested />
+            <Choice
+              k="motion"
+              label="Motion"
+              options={[
+                { v: 'system', label: 'Follow system' },
+                { v: 'reduced', label: 'Reduced' },
+              ]}
+            />
+            <Choice
+              k="theme"
+              label="Theme"
+              options={[
+                { v: 'system', label: 'System' },
+                { v: 'light', label: 'Light' },
+                { v: 'dark', label: 'Dark' },
+              ]}
+            />
+            <Choice
+              k="density"
+              label="Table density"
+              options={[
+                { v: 'comfortable', label: 'Comfortable' },
+                { v: 'compact', label: 'Compact' },
+              ]}
+            />
+            <Toggle k="shortcuts" label="Single-key shortcuts" hint="Press ? for the list." />
+            <Choice
+              k="killMode"
+              label="Kill switch"
+              hint="How the Stop button asks you to mean it."
+              options={[
+                { v: 'hold', label: 'Press and hold' },
+                { v: 'arm', label: 'Arm, then confirm' },
+              ]}
+            />
+          </div>
+        </div>
+      )}
+    </section>
+  );
+}
+
 export function SettingsPage({
   pairedAt,
   onSignedOut,
@@ -121,7 +198,6 @@ export function SettingsPage({
   onSignedOut: () => void;
   onOpenKill: () => void;
 }) {
-  const { prefs } = usePrefs();
   const policy = useResource('policy', api.policy);
   const [showPolicy, setShowPolicy] = useState(false);
   return (
@@ -134,68 +210,35 @@ export function SettingsPage({
 
       {HOSTED && (
         <>
-          <MachinesPanel />
           <AccountsPanel />
+          <MachinesPanel />
         </>
       )}
 
-      <Group
-        id="calm-h"
-        title="Calm and rewards"
-        desc="Quieter screens, and the two small marks for proven outcomes."
-      >
-        <div className="panel settings-panel">
-          <Toggle k="calm" label="Calm mode" hint="No animation; rewards become a static tick. Key m." />
-          <Toggle k="rewards" label="Rewards" hint="The two small marks for proven outcomes." />
-          <Toggle k="rewardTableCleared" label="All signed off" disabled={!prefs.rewards} nested />
-          <Toggle k="rewardCargoLanded" label="Landed and proven" disabled={!prefs.rewards} nested />
-          <Choice
-            k="motion"
-            label="Motion"
-            options={[
-              { v: 'system', label: 'Follow system' },
-              { v: 'reduced', label: 'Reduced' },
-            ]}
-          />
+      <Group id="sess-h" title="Session">
+        <div className="panel">
+          <p>
+            {HOSTED
+              ? `Signed in as ${signedInEmail() ?? 'the owner'} since ${when(pairedAt)}.`
+              : `This browser has been paired since ${when(pairedAt)}.`}
+          </p>
+          <button
+            type="button"
+            className="btn"
+            onClick={async () => {
+              try {
+                await api.signOut();
+              } finally {
+                onSignedOut();
+              }
+            }}
+          >
+            <Icon name="log-out" /> Sign out
+          </button>
         </div>
       </Group>
 
-      <Group id="look-h" title="Appearance">
-        <div className="panel settings-panel">
-          <Choice
-            k="theme"
-            label="Theme"
-            options={[
-              { v: 'system', label: 'System' },
-              { v: 'light', label: 'Light' },
-              { v: 'dark', label: 'Dark' },
-            ]}
-          />
-          <Choice
-            k="density"
-            label="Table density"
-            options={[
-              { v: 'comfortable', label: 'Comfortable' },
-              { v: 'compact', label: 'Compact' },
-            ]}
-          />
-        </div>
-      </Group>
-
-      <Group id="keys-h" title="Keyboard">
-        <div className="panel settings-panel">
-          <Toggle k="shortcuts" label="Single-key shortcuts" hint="Press ? for the list." />
-          <Choice
-            k="killMode"
-            label="Kill switch"
-            hint="How the Stop button asks you to mean it."
-            options={[
-              { v: 'hold', label: 'Press and hold' },
-              { v: 'arm', label: 'Arm, then confirm' },
-            ]}
-          />
-        </div>
-      </Group>
+      <LookAndFeel />
 
       <Group id="pol-h" title="Policy" desc="Locked. Human-only; edit the file, not this page.">
         <div className="panel">
@@ -233,29 +276,6 @@ export function SettingsPage({
               </>
             )}
           </ResourceView>
-        </div>
-      </Group>
-
-      <Group id="sess-h" title="Session">
-        <div className="panel">
-          <p>
-            {HOSTED
-              ? `Signed in as ${signedInEmail() ?? 'the owner'} since ${when(pairedAt)}.`
-              : `This browser has been paired since ${when(pairedAt)}.`}
-          </p>
-          <button
-            type="button"
-            className="btn"
-            onClick={async () => {
-              try {
-                await api.signOut();
-              } finally {
-                onSignedOut();
-              }
-            }}
-          >
-            <Icon name="log-out" /> Sign out
-          </button>
         </div>
       </Group>
     </>
