@@ -10,6 +10,8 @@ import { type AdapterName, createAdapter, isAdapterName, type VendorAdapterInput
 import type { WorkOrder } from '@fw/contracts';
 import { newId, nowIso, type Writer } from '@fw/eventlog';
 import { addStream, DEFAULT_AGENTS, ownerActor } from '@fw/ledger';
+import { type InjectedCredentials, injectCredentials, redactLiterals } from '../creds/index.ts';
+import { runCredentials } from '../pipeline/credentials.ts';
 import { chooseAdapter } from '../pipeline/route.ts';
 
 const SAFE = /[^A-Za-z0-9_-]/g;
@@ -59,12 +61,35 @@ function ensureReporter(w: Writer): void {
   });
 }
 
+/** The engine a flow names in config.json: which adapter runs its cycles and on which sign-in lane. */
+export function flowEngine(repoRoot: string, key: string): { adapter?: string; auth?: 'signin' | 'api_key' } {
+  try {
+    const cfg = JSON.parse(readFileSync(join(repoRoot, 'flows', key, 'config.json'), 'utf8')) as {
+      engine?: { adapter?: unknown; auth?: unknown };
+    };
+    const e = cfg.engine ?? {};
+    return {
+      ...(typeof e.adapter === 'string' ? { adapter: e.adapter } : {}),
+      ...(e.auth === 'signin' || e.auth === 'api_key' ? { auth: e.auth } : {}),
+    };
+  } catch {
+    return {};
+  }
+}
+
 export interface CycleDeps {
   writer: Writer;
   repoRoot: string;
   fwHome: string;
   env: Record<string, string | undefined>;
   log?: (line: string) => void;
+  /** Keychain override for tests (see creds); the real one otherwise. */
+  keychain?: Parameters<typeof injectCredentials>[1]['keychain'];
+  /** Builds the adapter (tests pass a stub); createAdapter otherwise. */
+  adapterFactory?: (
+    name: AdapterName,
+    options: Parameters<typeof createAdapter>[1],
+  ) => ReturnType<typeof createAdapter>;
 }
 
 export interface CycleFire {
@@ -104,11 +129,27 @@ export async function runFlowCycle(d: CycleDeps, fire: CycleFire): Promise<void>
   let outcome: 'drafted' | 'dry' | 'failed' = 'failed';
   let reason: string | undefined;
   let written = 0;
+  let creds: InjectedCredentials | null = null;
   try {
     mkdirSync(dir, { recursive: true, mode: 0o700 });
-    adapterName = chooseAdapter({ env: d.env, fwHome: d.fwHome, repoDir: d.repoRoot }).name;
+    // $FW_VENDOR still wins (tests, a deliberate override); otherwise the flow's own engine, then routing.
+    const engine = flowEngine(d.repoRoot, fire.flow);
+    adapterName =
+      d.env.FW_VENDOR ??
+      engine.adapter ??
+      chooseAdapter({ env: d.env, fwHome: d.fwHome, repoDir: d.repoRoot }).name;
     if (!isAdapterName(adapterName)) throw new Error(`unknown adapter ${adapterName}`);
-    const adapter = createAdapter(adapterName as AdapterName, { env: d.env });
+    const env = { ...d.env };
+    if (engine.auth && engine.adapter === adapterName) {
+      if (adapterName === 'claude' && !env.FW_CLAUDE_AUTH) env.FW_CLAUDE_AUTH = engine.auth;
+      if (adapterName === 'codex' && !env.FW_CODEX_AUTH) env.FW_CODEX_AUTH = engine.auth;
+    }
+    const adapter = (d.adapterFactory ?? createAdapter)(adapterName as AdapterName, {
+      env,
+      ...(adapterName === 'codex'
+        ? { codex: { auth: env.FW_CODEX_AUTH === 'signin' ? 'signin' : 'api_key' } }
+        : {}),
+    });
     const caps = ((stream.budget as { caps?: Record<string, number> } | undefined)?.caps ?? {}) as Record<
       string,
       number
@@ -147,6 +188,13 @@ export async function runFlowCycle(d: CycleDeps, fire: CycleFire): Promise<void>
         approver: { kind: 'owner', id: 'owner' },
       },
     } as unknown as WorkOrder;
+    // The same credential path as a ledger run: the adapter's handles for its lane, from the keychain.
+    const credRequests = runCredentials(order, adapterName as AdapterName, env);
+    creds = injectCredentials(credRequests, {
+      home: d.fwHome,
+      ...(d.keychain !== undefined ? { keychain: d.keychain } : {}),
+    });
+    const handle = credRequests[0];
     const input: VendorAdapterInput = {
       schema_version: '1',
       run_id: runId,
@@ -154,8 +202,8 @@ export async function runFlowCycle(d: CycleDeps, fire: CycleFire): Promise<void>
       work_order: order,
       workspace: { path: dir, base_commit: '0'.repeat(40), read_only: false },
       credentials_handle: {
-        handle_id: 'none',
-        scopes: [],
+        handle_id: handle?.handle ?? 'crd_none0000',
+        scopes: handle ? [...handle.scopes] : [],
         expires_at: new Date(Date.now() + 3600e3).toISOString(),
       },
       budget: caps,
@@ -169,7 +217,7 @@ export async function runFlowCycle(d: CycleDeps, fire: CycleFire): Promise<void>
       planner_text_is_data: true,
     };
     const scenario = adapterName === 'fake' ? d.env.FW_FAKE_SCENARIO : undefined;
-    const run = adapter.start(input, scenario ? { scenario } : {});
+    const run = adapter.start(input, { credentialEnv: creds.env, ...(scenario ? { scenario } : {}) });
     for await (const _ of run.events) {
       // drain: the result settles after the events end
     }
@@ -193,7 +241,7 @@ export async function runFlowCycle(d: CycleDeps, fire: CycleFire): Promise<void>
       );
     addFlowSpend(d, fire.flow, usd, Number(result.turns ?? 0));
     if (result.status !== 'completed') {
-      reason = `adapter ended ${result.status}: ${result.summary ?? ''}`;
+      reason = redactLiterals(`adapter ended ${result.status}: ${result.summary ?? ''}`, creds.literals);
     } else {
       const p = join(dir, 'drafts.json');
       const drafts = existsSync(p)
@@ -221,7 +269,7 @@ export async function runFlowCycle(d: CycleDeps, fire: CycleFire): Promise<void>
       outcome = written > 0 ? 'drafted' : 'dry';
     }
   } catch (e) {
-    reason = (e as Error)?.message ?? String(e);
+    reason = redactLiterals((e as Error)?.message ?? String(e), creds?.literals ?? []);
     log(`supervisor: cycle ${fire.fireId} failed: ${reason}`);
   }
   try {
