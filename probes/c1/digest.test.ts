@@ -20,7 +20,7 @@
 import { join } from 'node:path';
 import { pathToFileURL } from 'node:url';
 import { describe, expect, test } from 'vitest';
-import { count, fail, fixtureProject, fw, freshHome, openDbReadonly, requireExport, root } from '../c0/_lib.mjs';
+import { fail, fixtureProject, fw, freshHome, openDbReadonly, requireExport, root } from '../c0/_lib.mjs';
 
 type Line = { text: string };
 type Report = Record<string, unknown> & {
@@ -108,8 +108,6 @@ describe('c1/digest', () => {
       const wrong = { ...day, id: 'rpt_probewrong001', headline: `${day.headline.replace(/\d+/, '9999')}` };
       if (/9999/.test(wrong.headline)) expect(checkDigest(r, wrong).problems.map((p: { reason: string }) => p.reason)).toContain('mismatch');
 
-      const before = count(store.reader() as never, 'SELECT count(*) AS n FROM status_reports');
-      void before;
       const refused = await publishDigest(store.writer, { ...busy, report: uncited });
       expect(refused.published, 'an uncited digest is not published').toBe(false);
 
