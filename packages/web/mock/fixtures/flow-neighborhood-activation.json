@@ -73,7 +73,7 @@
     },
     "frequency": { "label": "Frequency messaging", "adds": ["unsubscribe link", "postal address"] }
   },
-  "placeholders": ["host_funnel", "inland_north"],
+  "placeholders": ["host_funnel"],
   "thresholds": {
     "hosts_floor": 100,
     "hosts_per_10k": 0.75,

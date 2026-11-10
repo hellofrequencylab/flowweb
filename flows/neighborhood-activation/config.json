@@ -27,7 +27,7 @@
       {"id": "north-oc", "name": "North OC", "population": 650000},
       {"id": "west-oc", "name": "West OC", "population": 470000}
     ]},
-    {"id": "inland-north", "name": "Inland North (Temecula Valley)", "order": 3, "lat": 33.6, "lng": -117.15, "placeholder": true, "borders": ["north-county-sd", "orange-county"], "sub_areas": [
+    {"id": "inland-north", "name": "Inland North (Temecula Valley)", "order": 3, "lat": 33.6, "lng": -117.15, "borders": ["north-county-sd", "orange-county"], "sub_areas": [
       {"id": "temecula", "name": "Temecula", "population": 110000},
       {"id": "murrieta", "name": "Murrieta", "population": 115000},
       {"id": "menifee", "name": "Menifee", "population": 110000},
