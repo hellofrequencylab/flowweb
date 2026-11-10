@@ -47,7 +47,10 @@ const row = (d: string, c: string, m: string[]) => ({
   metricValues: m.map((value) => ({ value })),
 });
 
-function fakeFetch(report: unknown, seen: { url: string; body: string; auth?: string | undefined }[]): typeof fetch {
+function fakeFetch(
+  report: unknown,
+  seen: { url: string; body: string; auth?: string | undefined }[],
+): typeof fetch {
   return (async (url: string, init: RequestInit) => {
     const body = String(init.body ?? '');
     seen.push({ url, body, auth: (init.headers as Record<string, string>).authorization });
