@@ -44,6 +44,12 @@ export type WorkOrder = {
     caps: BudgetCaps;
     ttl_hours: number;
   };
+  /** Credential handles the run may receive, each injected only into the vendor process environment under env (values never enter the work order, prompts or logs). When absent, the adapter's fixed per-adapter handles are used. A required handle that cannot be resolved fails the run before the vendor starts. */
+  credentials?: Array<{
+    handle: string;
+    env: string;
+    required: boolean;
+  }>;
   escalate_if: Array<{
     condition: string;
     to: "program_lead" | "chief_of_staff" | "owner" | "auditor";

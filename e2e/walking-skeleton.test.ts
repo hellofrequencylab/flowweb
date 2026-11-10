@@ -273,10 +273,11 @@ describe('walking skeleton: success path', () => {
       const eb = (await (await fetch(`${d.url}/v1/evidence-bundles/${r.evidence_bundle_id}`)).json()) as {
         data: {
           bundle_hash: string;
+          bundle: { provenance: { sandbox: { level: string }; adapter: { name: string; vendor: string } } };
           view: {
             probe: { status: string };
             sandbox: { level: string };
-            diff: { hash: string; files: string[] };
+            diff: { hash: string; files: { path: string; added: number | null; removed: number | null }[] };
             policy: { status: string }[];
           };
         };
@@ -284,7 +285,11 @@ describe('walking skeleton: success path', () => {
       expect(eb.data.bundle_hash).toBe(r.bundle_hash);
       expect(eb.data.view.probe.status).toBe('pass');
       expect(eb.data.view.sandbox.level).toBe(r.sandbox_level);
-      expect(eb.data.view.diff.files).toEqual([expect.stringMatching(/^fw-fake\/run_.*\.md$/)]);
+      expect(eb.data.view.diff.files).toEqual([
+        { path: expect.stringMatching(/^fw-fake\/run_.*\.md$/), added: expect.any(Number), removed: 0 },
+      ]);
+      expect(eb.data.bundle.provenance.adapter).toMatchObject({ name: 'fake', vendor: expect.any(String) });
+      expect(eb.data.bundle.provenance.sandbox.level).toBe(r.sandbox_level);
       expect(eb.data.view.policy.every((p: { status: string }) => p.status === 'pass')).toBe(true);
       const diff = await fetch(`${d.url}/v1/evidence-bundles/${r.evidence_bundle_id}/diff`);
       expect(diff.status).toBe(200);

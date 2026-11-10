@@ -312,29 +312,32 @@
       "additionalProperties": false,
       "description": "Computed by the kernel from tool manifest and context provenance; score 3 requires L3 with approval."
     },
+    "untrusted_input": {
+      "type": "object",
+      "properties": {
+        "source": {
+          "type": "string"
+        },
+        "ref": {
+          "$ref": "common.json#/$defs/ref"
+        },
+        "ingested_at": {
+          "$ref": "common.json#/$defs/timestamp"
+        }
+      },
+      "required": [
+        "source",
+        "ref"
+      ],
+      "additionalProperties": false
+    },
     "provenance": {
       "type": "object",
       "properties": {
         "untrusted_inputs": {
           "type": "array",
           "items": {
-            "type": "object",
-            "properties": {
-              "source": {
-                "type": "string"
-              },
-              "ref": {
-                "$ref": "common.json#/$defs/ref"
-              },
-              "ingested_at": {
-                "$ref": "common.json#/$defs/timestamp"
-              }
-            },
-            "required": [
-              "source",
-              "ref"
-            ],
-            "additionalProperties": false
+            "$ref": "common.json#/$defs/untrusted_input"
           }
         },
         "rule_of_two": {

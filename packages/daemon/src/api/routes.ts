@@ -207,7 +207,7 @@ function gitHead(repoRoot: string): string | null {
   }
 }
 
-/** The diff a bundle points at: `body.diff.path` or `intent_payload.rendered_ref` under FW_HOME, else runs/<run>/diff.patch. */
+/** The diff a bundle points at: `body.diff.ref` or `intent_payload.rendered_ref` under FW_HOME, else runs/<run>/diff.patch. */
 function storedDiff(fwHome: string, bundle: Row): { hash: string; candidates: string[] } | undefined {
   const body = (bundle.body ?? {}) as Row;
   const diff = (body.diff ?? {}) as Row;
@@ -220,8 +220,8 @@ function storedDiff(fwHome: string, bundle: Row): { hash: string; candidates: st
         : undefined;
   if (hash === undefined) return undefined;
   const candidates: string[] = [];
-  if (typeof diff.path === 'string') {
-    candidates.push(isAbsolute(diff.path) ? diff.path : resolve(fwHome, diff.path));
+  if (typeof diff.ref === 'string') {
+    candidates.push(isAbsolute(diff.ref) ? diff.ref : resolve(fwHome, diff.ref));
   }
   // `fw run start` bundles: intent_payload.rendered_ref is the stored diff, relative to FW_HOME.
   if (intent.format === 'diff' && typeof intent.rendered_ref === 'string') {
@@ -714,7 +714,11 @@ export function buildRouter(deps: ApiDeps): Router {
           "SELECT COALESCE(json_extract(body, '$.diff.files'), json_extract(body, '$.blast_radius.affected')) AS files FROM evidence_bundles WHERE id = ?",
           [card.evidence_bundle_id],
         );
-        if (eb?.files) files = JSON.parse(eb.files);
+        // body.diff.files: [{path, added, removed}]; an older bundle has only the paths.
+        if (eb?.files)
+          files = (JSON.parse(eb.files) as unknown[]).map((f) =>
+            typeof f === 'string' ? { path: f, added: null, removed: null } : f,
+          );
       }
       // merge_slot and policy are null until C1 (FW-C-011 merge slot, FW-C-010 approval service).
       return { data: { ...card, approval, pr, merge_slot: null, policy: null, files } };

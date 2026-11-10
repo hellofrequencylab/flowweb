@@ -13,7 +13,6 @@ import { isAbsolute, join, relative, resolve } from 'node:path';
 import {
   type AdapterEvent,
   type AdapterName,
-  adapterCredentials,
   createAdapter,
   DEFAULT_ADAPTER,
   isAdapterName,
@@ -56,6 +55,7 @@ import {
 } from '../runtime/sandbox.ts';
 import { AGENT_INSTRUCTION_FILES, TIER0_PATHS } from '../runtime/tier0.ts';
 import { runBranchName, WorktreeManager } from '../runtime/worktrees.ts';
+import { runCredentials } from './credentials.ts';
 import { buildEvidenceBundle, diffFileStats, type EvidenceInput, prComment } from './evidence.ts';
 import {
   ACTIVE_RUN_STATES,
@@ -689,14 +689,12 @@ async function execute(c: ExecCtx): Promise<void> {
       },
     );
 
-  // ---- 5. credentials (vendor env only) ----
-  c.creds = injectCredentials(
-    adapterCredentials(c.adapterName, c.opts.env ?? process.env).map((r) => ({
-      ...r,
-      scopes: [...r.scopes],
-    })),
-    { home: c.fwHome, ...(c.opts.keychain !== undefined ? { keychain: c.opts.keychain } : {}) },
-  );
+  // ---- 5. credentials (vendor env only): the work order's, else the adapter's fixed handles ----
+  const credRequests = runCredentials(order, c.adapterName, c.opts.env ?? process.env);
+  c.creds = injectCredentials(credRequests, {
+    home: c.fwHome,
+    ...(c.opts.keychain !== undefined ? { keychain: c.opts.keychain } : {}),
+  });
   const creds = c.creds;
 
   // ---- 6. adapter under the supervisor ----
@@ -707,7 +705,7 @@ async function execute(c: ExecCtx): Promise<void> {
       sha256: sha256Hex(readFileSync(join(created.path, f))),
     }),
   );
-  const handle = adapterCredentials(c.adapterName, c.opts.env ?? process.env)[0];
+  const handle = credRequests[0];
   const input: VendorAdapterInput = {
     schema_version: '1',
     run_id: runId,

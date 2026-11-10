@@ -88,12 +88,14 @@ export type RuleOfTwo = {
   inputs_hash?: Sha256;
 };
 
+export type UntrustedInput = {
+  source: string;
+  ref: Ref;
+  ingested_at?: Timestamp;
+};
+
 export type Provenance = {
-  untrusted_inputs: Array<{
-    source: string;
-    ref: Ref;
-    ingested_at?: Timestamp;
-  }>;
+  untrusted_inputs: UntrustedInput[];
   rule_of_two: RuleOfTwo;
 };
 

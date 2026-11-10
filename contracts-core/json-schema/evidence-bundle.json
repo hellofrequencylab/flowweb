@@ -68,8 +68,126 @@
       "additionalProperties": false,
       "description": "The literal payload, rendered not described."
     },
+    "diff": {
+      "type": "object",
+      "description": "The change a run made, for subjects that are a diff: where the exact bytes are stored, their sha256 (the same value as intent_payload.payload_hash), and per-file line counts.",
+      "properties": {
+        "ref": {
+          "$ref": "common.json#/$defs/ref"
+        },
+        "hash": {
+          "$ref": "common.json#/$defs/sha256"
+        },
+        "files": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "properties": {
+              "path": {
+                "type": "string",
+                "minLength": 1
+              },
+              "added": {
+                "type": "integer",
+                "minimum": 0
+              },
+              "removed": {
+                "type": "integer",
+                "minimum": 0
+              }
+            },
+            "required": [
+              "path",
+              "added",
+              "removed"
+            ],
+            "additionalProperties": false
+          }
+        }
+      },
+      "required": [
+        "ref",
+        "hash",
+        "files"
+      ],
+      "additionalProperties": false
+    },
     "provenance": {
-      "$ref": "common.json#/$defs/provenance"
+      "type": "object",
+      "description": "Where the change came from. The common provenance fields, plus, for a bundle the kernel builds from a run, the sandbox the run had and the adapter that drove it (both measured by the kernel, not reported by the agent). Bundles written before these fields existed carry the same facts as automated_evidence entries named 'sandbox self-test' and 'adapter fingerprint'.",
+      "properties": {
+        "untrusted_inputs": {
+          "type": "array",
+          "items": {
+            "$ref": "common.json#/$defs/untrusted_input"
+          }
+        },
+        "rule_of_two": {
+          "$ref": "common.json#/$defs/rule_of_two"
+        },
+        "sandbox": {
+          "type": "object",
+          "description": "The sandbox self-test of the run: the weakest level across its controls, and each control's level.",
+          "properties": {
+            "level": {
+              "enum": [
+                "enforced",
+                "best_effort",
+                "absent"
+              ]
+            },
+            "controls": {
+              "type": "object",
+              "additionalProperties": {
+                "enum": [
+                  "enforced",
+                  "best_effort",
+                  "absent"
+                ]
+              }
+            }
+          },
+          "required": [
+            "level",
+            "controls"
+          ],
+          "additionalProperties": false
+        },
+        "adapter": {
+          "type": "object",
+          "description": "The vendor adapter that ran, as its preflight fingerprinted it.",
+          "properties": {
+            "name": {
+              "type": "string",
+              "minLength": 1,
+              "maxLength": 64
+            },
+            "vendor": {
+              "$ref": "common.json#/$defs/vendor"
+            },
+            "version": {
+              "type": "string",
+              "minLength": 1,
+              "maxLength": 64
+            },
+            "help_sha256": {
+              "$ref": "common.json#/$defs/sha256"
+            }
+          },
+          "required": [
+            "name",
+            "vendor",
+            "version",
+            "help_sha256"
+          ],
+          "additionalProperties": false
+        }
+      },
+      "required": [
+        "untrusted_inputs",
+        "rule_of_two"
+      ],
+      "additionalProperties": false
     },
     "automated_evidence": {
       "type": "array",
