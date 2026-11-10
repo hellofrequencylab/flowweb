@@ -72,7 +72,9 @@ export function positionOf(f: SupervisorFlow, c: Counts | null | undefined): Pos
 }
 
 const hueOf = (i: number): Hue => hueAt(i);
-const money = (n: number) => `$${n.toFixed(2)}`;
+/** fwd sends null for a cap that is not set: never crash on it. */
+const money = (n: number | null | undefined) =>
+  typeof n === 'number' && Number.isFinite(n) ? `$${n.toFixed(2)}` : null;
 const unknown = <span className="fact-unknown">Unknown</span>;
 
 function greeting(now: number) {
@@ -127,8 +129,10 @@ export function FlowsHome() {
               },
               {
                 label: 'spent today',
-                value: status?.spend_today ? money(status.spend_today.usd) : unknown,
-                of: status?.spend_today ? `of ${money(status.spend_today.cap_usd)}` : undefined,
+                value: money(status?.spend_today?.usd) ?? unknown,
+                of: money(status?.spend_today?.cap_usd)
+                  ? `of ${money(status?.spend_today?.cap_usd)}`
+                  : undefined,
               },
             ]}
           />
