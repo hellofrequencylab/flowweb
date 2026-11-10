@@ -843,6 +843,14 @@ export const api = {
     return { data_as_of: e.as_of, ...e.data };
   },
 
+  /** FW-C-072: what's working, from the flow's latest weekly review. */
+  async reviewSummary(key: string): Promise<V.ReviewSummary> {
+    const e = await get<Omit<V.ReviewSummary, 'data_as_of'>>(
+      `/flows/${encodeURIComponent(key)}/review/summary`,
+    );
+    return { data_as_of: e.as_of, ...e.data };
+  },
+
   /** The drafts a flow's cycles wrote, newest first. fwd answers these to the CLI token only. */
   async flowDrafts(key: string): Promise<V.FlowDrafts> {
     const e = await get<V.FlowDraft[]>(`/supervisor/flows/${encodeURIComponent(key)}/drafts`);

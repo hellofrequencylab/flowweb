@@ -139,6 +139,9 @@ async function snapshot() {
       // The flow's saved lead hunts. Only flows with hunts answer; the rest answer 404.
       const hunts = await fwd(`/flows/${encodeURIComponent(key)}/hunts`).catch(ifFound);
       if (hunts) put(`/flows/${key}/hunts`, hunts);
+      // FW-C-072: what's working, from the flow's latest weekly review. Older fwd builds answer 404.
+      const summary = await fwd(`/flows/${encodeURIComponent(key)}/review/summary`).catch(ifFound);
+      if (summary) put(`/flows/${key}/review/summary`, summary);
     }
   }
   // The paid ads flow is read only and not run by the Supervisor, so it is not in the list above.
