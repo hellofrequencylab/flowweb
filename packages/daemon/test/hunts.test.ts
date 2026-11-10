@@ -102,3 +102,15 @@ describe('hunts', () => {
     expect(() => addDoNotContact(s, { email: 'nope', reason: 'asked' })).toThrow(/address/);
   });
 });
+
+test('the sign-off is plain text with no em dash, in the Owner name', () => {
+  const body = composeBody(cfg, hunt({ build: false }), {
+    hunt_id: 'h',
+    event: { title: 'T', starts_at: null, url: 'https://e.example/x' },
+    organizer: { name: null, email: 'a@example.com', source_url: 'https://e.example/x' },
+    subject: null,
+    body: 'Hi.',
+  });
+  expect(body.includes('\u2014')).toBe(false);
+  expect(body).toMatch(/\nDaniel Tyack\n/);
+});
