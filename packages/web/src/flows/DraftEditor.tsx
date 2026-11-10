@@ -107,7 +107,12 @@ export function DraftEditor({
         <>
           <label className="field">
             <span className="field-label">Subject</span>
-            <input type="text" value={subject} onChange={(e) => setSubject(e.target.value)} maxLength={20000} />
+            <input
+              type="text"
+              value={subject}
+              onChange={(e) => setSubject(e.target.value)}
+              maxLength={20000}
+            />
           </label>
           <label className="field">
             <span className="field-label">Message</span>
