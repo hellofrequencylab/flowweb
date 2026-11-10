@@ -191,15 +191,18 @@ export function consumeRedirect(): { kind: 'signin' | 'recovery' | null; error: 
   return { kind: h.get('type') === 'recovery' ? 'recovery' : 'signin', error: null };
 }
 
-function emailOf(jwt: string): string | null {
+function claims(jwt: string): { email?: string; sub?: string } {
   try {
-    const p = JSON.parse(atob(jwt.split('.')[1]!.replace(/-/g, '+').replace(/_/g, '/'))) as {
+    return JSON.parse(atob(jwt.split('.')[1]!.replace(/-/g, '+').replace(/_/g, '/'))) as {
       email?: string;
+      sub?: string;
     };
-    return p.email ?? null;
   } catch {
-    return null;
+    return {};
   }
+}
+function emailOf(jwt: string): string | null {
+  return claims(jwt).email ?? null;
 }
 
 let refreshing: Promise<Session | null> | null = null;
@@ -227,6 +230,33 @@ export function signedInEmail(): string | null {
   return memory?.email ?? null;
 }
 
+/** The login's own id, for "Leave this business". */
+export function signedInUserId(): string | null {
+  return memory ? (claims(memory.access_token).sub ?? null) : null;
+}
+
+// Which business the screens are about, when a login belongs to more than one (FW-C-088). Sent to the
+// hosted /v1 as x-fw-account; with none chosen the server uses the login's first business.
+const CHOSEN = 'fw.hosted.account';
+let chosen: string | null = null;
+try {
+  chosen = HOSTED ? localStorage.getItem(CHOSEN) : null;
+} catch {
+  /* storage blocked */
+}
+export function chosenAccount(): string | null {
+  return chosen;
+}
+export function chooseAccount(id: string | null): void {
+  chosen = id;
+  try {
+    if (id) localStorage.setItem(CHOSEN, id);
+    else localStorage.removeItem(CHOSEN);
+  } catch {
+    /* storage blocked: the choice lasts for this page only */
+  }
+}
+
 /** Forgets the session here and ends it at Supabase. */
 export async function signOut(): Promise<void> {
   const s = memory;
@@ -250,24 +280,59 @@ export interface AccountSummary {
   flows: string[] | null;
 }
 
-async function v1<T>(method: string, path: string, body?: unknown): Promise<T> {
+async function v1<T>(method: string, path: string, body?: unknown, account = chosen): Promise<T> {
   const token = await accessToken();
   if (!token) throw new Error(SAY.signedOut);
   const res = await fetch(`/v1${path}`, {
     method,
-    headers: { Authorization: `Bearer ${token}`, 'Content-Type': 'application/json' },
+    headers: {
+      Authorization: `Bearer ${token}`,
+      'Content-Type': 'application/json',
+      ...(account ? { 'x-fw-account': account } : {}),
+    },
     ...(body === undefined ? {} : { body: JSON.stringify(body) }),
   });
   const j = (await res.json().catch(() => ({}))) as { data?: T; error?: { message?: string } };
   if (!res.ok) throw new Error(res.status === 401 ? SAY.signedOut : (j.error?.message ?? SAY.failed));
-  return j.data as T;
+  return (res.status === 204 ? undefined : j.data) as T;
 }
 
 /** The businesses this login belongs to, with its role in each. A new login has none. */
-export const listAccounts = () => v1<AccountSummary[]>('GET', '/accounts');
+export const listAccounts = () => v1<AccountSummary[]>('GET', '/accounts', undefined, null);
 /** Makes a business with this login as its owner. */
 export const createAccount = (name: string) =>
   v1<{ id: string; name: string }>('POST', '/accounts', { name });
 /** Joins the business (or flow) an invite link names. */
 export const acceptInvite = (token: string) =>
   v1<{ account_id: string }>('POST', `/invites/${encodeURIComponent(token)}/accept`);
+
+export type Role = AccountSummary['role'];
+export interface Member {
+  user_id: string;
+  email: string | null;
+  role: Role;
+  flows: string[] | null;
+}
+export interface Invite {
+  id: string;
+  email: string | null;
+  role: Role;
+  flows: string[] | null;
+  expires_at: string;
+}
+const acc = (id: string) => `/accounts/${encodeURIComponent(id)}`;
+/** Who is in a business, and its open invites (owners and admins only see invites). */
+export const listMembers = (account: string) =>
+  v1<{ members: Member[]; invites: Invite[] }>('GET', `${acc(account)}/members`, undefined, account);
+/** A /join/<token> link for one email, or for anyone holding it when email is null. */
+export const makeInvite = (
+  account: string,
+  invite: { role: Role; email: string | null; flows: string[] | null },
+) => v1<{ url: string }>('POST', `${acc(account)}/invites`, invite, account);
+export const cancelInvite = (account: string, id: string) =>
+  v1<void>('DELETE', `${acc(account)}/invites/${encodeURIComponent(id)}`, undefined, account);
+export const setMemberRole = (account: string, user: string, role: Role, flows: string[] | null) =>
+  v1<void>('PATCH', `${acc(account)}/members/${encodeURIComponent(user)}`, { role, flows }, account);
+/** Removes someone; with the login's own id, leaves the business. */
+export const removeMember = (account: string, user: string) =>
+  v1<void>('DELETE', `${acc(account)}/members/${encodeURIComponent(user)}`, undefined, account);

@@ -10,7 +10,7 @@ import {
   rememberInvite,
 } from '../home/firstRun';
 import { HomePage } from '../home/HomePage';
-import { accessToken, consumeRedirect, HOSTED, listAccounts } from '../hosted/auth';
+import { accessToken, chooseAccount, consumeRedirect, HOSTED, listAccounts } from '../hosted/auth';
 import { Logo } from '../ui-kit/Logo';
 import { Layout } from './Layout';
 import { Pairing } from './Pairing';
@@ -79,10 +79,15 @@ export function App() {
     }
     session();
   }, [session]);
-  const joined = useCallback(() => {
-    clearInvite();
-    void check();
-  }, [check]);
+  const joined = useCallback(
+    (accountId: string) => {
+      clearInvite();
+      // FW-C-088: the business just joined is the one the site shows.
+      if (accountId) chooseAccount(accountId);
+      void check();
+    },
+    [check],
+  );
 
   useEffect(() => {
     if (landing.kind !== 'recovery') void check();
@@ -108,7 +113,14 @@ export function App() {
         ))}
       {gate.kind === 'recovery' && <HomePage recovery onSignedIn={() => void check()} />}
       {gate.kind === 'join' && <JoinInvite token={gate.token} onJoined={joined} />}
-      {gate.kind === 'name' && <NameBusiness onDone={() => session()} />}
+      {gate.kind === 'name' && (
+        <NameBusiness<{ id: string }>
+          onDone={(account) => {
+            chooseAccount(account.id);
+            session();
+          }}
+        />
+      )}
       {gate.kind === 'paired' && (
         <RouterProvider>
           <LiveProvider>
