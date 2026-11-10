@@ -258,3 +258,60 @@
     align-items: center;
   }
 }
+
+/* ---------- One flow's page: the hero ---------- */
+.flow-hero {
+  display: grid;
+  gap: var(--space-5);
+  margin-bottom: var(--space-8);
+}
+.flow-hero-back {
+  justify-self: start;
+  display: inline-flex;
+  align-items: center;
+  gap: var(--space-2);
+  min-height: 44px;
+  font: var(--type-small);
+}
+.flow-hero-body {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--space-8) var(--space-11);
+  padding: var(--space-8);
+  border-radius: var(--radius-flow);
+  background: var(--texture-waves), var(--surface-sheen), var(--flow-ground);
+  box-shadow: var(--shadow-card);
+}
+.flow-hero-text {
+  display: grid;
+  gap: var(--space-3);
+  flex: 1 1 260px;
+  min-width: 0;
+}
+.flow-hero-text p {
+  margin: 0;
+}
+.flow-hero-name {
+  font: var(--weight-light) 34px / 1.1 var(--font-display);
+  letter-spacing: -0.02em;
+}
+.flow-hero-state {
+  font: var(--weight-medium) var(--text-base) / 1.3 var(--font-sans);
+  color: var(--text-secondary);
+}
+.flow-hero-state.is-running {
+  color: var(--active-fg);
+}
+.flow-hero-state.is-waiting {
+  color: var(--waiting-fg);
+}
+.flow-hero-reason {
+  color: var(--text-secondary);
+}
+@media (max-width: 767px) {
+  .flow-hero-body {
+    padding: var(--space-6) var(--space-4);
+    justify-content: center;
+  }
+}

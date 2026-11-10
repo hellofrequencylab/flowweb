@@ -18,6 +18,7 @@ import { StatusLabel, type StatusSpec } from '../ui-kit/status';
 import { usd } from '../ui-kit/time';
 import { DraftsInbox } from './DraftsInbox';
 import { FlowControls } from './FlowControls';
+import { FlowHero } from './FlowHero';
 import { FlowPulse, MeasureDials, PipelineBar, type PulseState, RegionPath } from './FlowVisuals';
 import { flowSpec } from './flowState';
 import { LeadHunts } from './LeadHunts';
@@ -159,6 +160,7 @@ export function ActivationPage({ flow }: { flow?: string } = {}) {
         }
         aside={<FlowPulse {...pulse} />}
       />
+      <FlowHero flowKey={flow ?? KEY} />
       <ul className="kpis" aria-label="Flow at a glance">
         <li className={`kpi${live ? ' is-live' : ''}`}>
           <IconTile name="flow" tone="brand" />
