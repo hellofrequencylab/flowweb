@@ -30,6 +30,7 @@
     "packages/ledger/src/local-client.ts",
     "packages/daemon/src/setup/",
     "packages/daemon/src/api/routes.ts",
+    "packages/daemon/src/daemon.ts",
     "packages/daemon/src/local-client.ts",
     "packages/daemon/test/",
     "hosted/relay/fw-relay.mjs",
