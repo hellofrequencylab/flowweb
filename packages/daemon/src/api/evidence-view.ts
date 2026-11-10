@@ -1,9 +1,13 @@
 // The `view` the API offers beside an evidence bundle: the same facts the PR comment shows, derived
 // back from where the builder (src/pipeline/evidence.ts) encodes them inside the contract's shape.
-// Bundles that lack an entry (a closing bundle, an older bundle) get null for that part.
+// Bundles are immutable, so each part reads the current field first (diff, provenance.sandbox,
+// provenance.adapter) and falls back to the older encoding (intent_payload with blast_radius.affected,
+// the 'sandbox self-test' and 'adapter fingerprint' automated_evidence entries). A bundle that has
+// neither (a closing bundle) gets null for that part.
 import { EVIDENCE_NAMES, parseKv } from '../pipeline/evidence.ts';
 
 type Row = Record<string, unknown>;
+type DiffFile = { path: string; added: number; removed: number };
 
 interface Entry {
   name: string;
@@ -16,7 +20,12 @@ interface Entry {
 
 export interface EvidenceView {
   probe: { status: string; result_id: string | null; summary: string | null; ran_at: string | null } | null;
-  diff: { hash: string; ref: string | null; files: string[] } | null;
+  /** added and removed are null for an older bundle, which recorded only the paths. */
+  diff: {
+    hash: string;
+    ref: string | null;
+    files: { path: string; added: number | null; removed: number | null }[];
+  } | null;
   checks: { name: string; status: string; summary: string | null }[];
   policy: { rule: string; status: string; summary: string | null }[];
   sandbox: { level: string | null; mode: string | null; controls: Record<string, string> } | null;
@@ -41,12 +50,18 @@ export function evidenceView(body: unknown): EvidenceView {
 
   const intent = (b.intent_payload ?? {}) as Row;
   const blast = (b.blast_radius ?? {}) as Row;
-  const diff =
-    intent.format === 'diff' && typeof intent.payload_hash === 'string'
+  const d = (b.diff ?? null) as { ref: string; hash: string; files: DiffFile[] } | null;
+  const diff: EvidenceView['diff'] = d
+    ? { hash: d.hash, ref: d.ref, files: d.files.map((f) => ({ ...f })) }
+    : intent.format === 'diff' && typeof intent.payload_hash === 'string'
       ? {
           hash: intent.payload_hash,
           ref: typeof intent.rendered_ref === 'string' ? intent.rendered_ref : null,
-          files: Array.isArray(blast.affected) ? (blast.affected as string[]) : [],
+          files: (Array.isArray(blast.affected) ? (blast.affected as string[]) : []).map((path) => ({
+            path,
+            added: null,
+            removed: null,
+          })),
         }
       : null;
 
@@ -65,12 +80,18 @@ export function evidenceView(body: unknown): EvidenceView {
       summary: e.summary ?? null,
     }));
 
+  const prov = (b.provenance ?? {}) as Row;
+  const pSandbox = prov.sandbox as { level: string; controls: Record<string, string> } | undefined;
   const sb = named(EVIDENCE_NAMES.sandbox);
+  const fromEntry = sb ? parseKv(sb.summary) : undefined;
   let sandbox: EvidenceView['sandbox'] = null;
-  if (sb) {
-    const { level, mode, ...controls } = parseKv(sb.summary);
+  if (pSandbox) {
+    sandbox = { level: pSandbox.level, mode: fromEntry?.mode ?? null, controls: { ...pSandbox.controls } };
+  } else if (fromEntry) {
+    const { level, mode, ...controls } = fromEntry;
     sandbox = { level: level ?? null, mode: mode ?? null, controls };
   }
+  const pAdapter = prov.adapter as Record<string, string> | undefined;
   const ad = named(EVIDENCE_NAMES.adapter);
   const cost = named(EVIDENCE_NAMES.cost);
   return {
@@ -79,7 +100,7 @@ export function evidenceView(body: unknown): EvidenceView {
     checks,
     policy,
     sandbox,
-    adapter: ad ? parseKv(ad.summary) : null,
+    adapter: pAdapter ? { ...pAdapter } : ad ? parseKv(ad.summary) : null,
     cost: cost ? parseKv(cost.summary) : null,
   };
 }

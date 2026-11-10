@@ -61,6 +61,13 @@
     },
     "ttl_hours": 24
   },
+  "credentials": [
+    {
+      "handle": "crd_claude0001",
+      "env": "ANTHROPIC_API_KEY",
+      "required": true
+    }
+  ],
   "escalate_if": [
     {
       "condition": "Fix requires touching a forbidden path or a public API shape",
@@ -111,5 +118,5 @@
   },
   "issued_at": "2026-11-08T09:20:00Z",
   "expires_at": "2026-11-09T09:20:00Z",
-  "content_hash": "3721ad4554323f632f1751528a3027fd7f49d7bc085d817f2bdc6f4e2cf4e126"
+  "content_hash": "3e9bd3b43553446e53fba187112639f2146cbe449e1d44dfb1be9a9f66ef69b7"
 }

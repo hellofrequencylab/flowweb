@@ -1,18 +1,22 @@
 // WS-P0-038: the evidence bundle builder. Pure: the same input gives the same bundle and hash. The
 // body is exactly contracts-core/json-schema/evidence-bundle.json, so everything the API's `view`
 // shows is encoded where that schema allows it:
-//   - the diff: intent_payload {rendered_ref: the stored diff, payload_hash: sha256 of its bytes, format: diff}
-//   - the probe, each check, each diff-policy rule, the cost: automated_evidence entries
-//   - the sandbox level and controls, and the adapter fingerprint: automated_evidence entries of kind
-//     'other' with fixed names and a `key=value` summary (provenance allows no extra fields)
-// The API derives the view back from these entries (src/api/evidence-view.ts).
-import type { EvidenceBundle } from '@fw/contracts';
+//   - the diff: `diff {ref, hash, files[]}` (the stored bytes, their sha256, per-file line counts),
+//     and still intent_payload {rendered_ref, payload_hash, format: diff}, which approvals bind to
+//   - the sandbox level and controls: provenance.sandbox; the adapter fingerprint: provenance.adapter
+//   - the probe, each check, each diff-policy rule, the sandbox self-test (with its mode), the cost:
+//     automated_evidence entries
+// The API derives the view back from these (src/api/evidence-view.ts). Bundles are immutable, so the
+// view still reads the older encoding: the adapter as an automated_evidence entry named 'adapter
+// fingerprint', the sandbox only from the 'sandbox self-test' entry, files from blast_radius.affected.
+import type { EvidenceBundle, Vendor } from '@fw/contracts';
 import { validate } from '@fw/contracts';
 import { canonicalJson, sha256Hex } from '@fw/eventlog';
 import type { DiffRule, DiffVerdict } from '@fw/policy';
 
 export const EVIDENCE_NAMES = {
   sandbox: 'sandbox self-test',
+  /** Read only: bundles written before provenance.adapter carried the fingerprint here. */
   adapter: 'adapter fingerprint',
   cost: 'cost record',
   policyPrefix: 'diff policy: ',
@@ -57,8 +61,8 @@ export interface EvidenceInput {
     ran_at: string;
   }[];
   policy: { verdict: DiffVerdict; ran_at: string };
-  sandbox: { level: string; mode: string; controls: Record<string, string>; checked_at: string };
-  adapter: { name: string; vendor: string; version: string; help_sha256: string; checked_at: string };
+  sandbox: { level: ControlLevel; mode: string; controls: Record<string, ControlLevel>; checked_at: string };
+  adapter: { name: string; vendor: Vendor; version: string; help_sha256: string; checked_at: string };
   cost: {
     usd: number | null;
     tokens_in: number;
@@ -69,6 +73,8 @@ export interface EvidenceInput {
   provenance: EvidenceBundle['provenance'];
   now: string;
 }
+
+type ControlLevel = NonNullable<EvidenceBundle['provenance']['sandbox']>['level'];
 
 export interface DiffFileStat {
   path: string;
@@ -200,14 +206,6 @@ export function buildEvidenceBundle(input: EvidenceInput): BuiltEvidence {
 
   const ad = input.adapter;
   ev.push({
-    name: EVIDENCE_NAMES.adapter,
-    kind: 'other',
-    status: 'pass',
-    ran_at: ad.checked_at,
-    summary: clip(kv({ name: ad.name, vendor: ad.vendor, version: ad.version, help_sha256: ad.help_sha256 })),
-  });
-
-  ev.push({
     name: EVIDENCE_NAMES.cost,
     kind: 'cost_estimate',
     status: input.cost.usd === null ? 'warn' : 'pass',
@@ -242,7 +240,16 @@ export function buildEvidenceBundle(input: EvidenceInput): BuiltEvidence {
     id: input.id,
     subject: input.subject,
     intent_payload: { rendered_ref: input.diff.ref, payload_hash: diffHash, format: 'diff' },
-    provenance: input.provenance,
+    diff: {
+      ref: input.diff.ref,
+      hash: diffHash,
+      files: input.diff.files.map((f) => ({ path: f.path, added: f.added, removed: f.removed })),
+    },
+    provenance: {
+      ...input.provenance,
+      sandbox: { level: sb.level, controls: { ...sb.controls } },
+      adapter: { name: ad.name, vendor: ad.vendor, version: ad.version, help_sha256: ad.help_sha256 },
+    },
     automated_evidence: ev,
     blast_radius: {
       summary: clip(

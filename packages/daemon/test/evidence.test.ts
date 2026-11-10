@@ -53,7 +53,7 @@ function input(patch: Partial<EvidenceInput> = {}): EvidenceInput {
     sandbox: {
       level: 'best_effort',
       mode: 'worktree',
-      controls: { filesystem: 'enforced', network: 'absent', env: 'enforced' },
+      controls: { filesystem: 'best_effort', network: 'absent', env: 'enforced' },
       checked_at: AT,
     },
     adapter: { name: 'fake', vendor: 'local', version: '1.0.0', help_sha256: 'c'.repeat(64), checked_at: AT },
@@ -90,13 +90,34 @@ describe('evidence bundle builder', () => {
       format: 'diff',
     });
     expect(b.bundle.scan_red).toBe(false);
-    // One automated_evidence entry per policy rule, plus probe, check, sandbox, adapter and cost.
+    // One automated_evidence entry per policy rule, plus probe, check, sandbox self-test and cost.
     expect(b.bundle.automated_evidence.filter((e) => e.kind === 'diff_policy')).toHaveLength(
       POLICY_RULES.length,
     );
     expect(b.bundle.automated_evidence.map((e) => e.kind)).toEqual(
       expect.arrayContaining(['probe', 'tests', 'other', 'cost_estimate']),
     );
+    // The diff, the sandbox and the adapter have their own fields (Owner decisions 28 and 29).
+    expect(b.bundle.diff).toEqual({
+      ref: 'runs/run_01TESTRUN000000000000000A/diff.patch',
+      hash: b.diff_hash,
+      files: [
+        { path: 'src/a.ts', added: 2, removed: 1 },
+        { path: 'docs/n.md', added: 1, removed: 0 },
+      ],
+    });
+    expect(b.bundle.provenance.sandbox).toEqual({
+      level: 'best_effort',
+      controls: { filesystem: 'best_effort', network: 'absent', env: 'enforced' },
+    });
+    expect(b.bundle.provenance.adapter).toEqual({
+      name: 'fake',
+      vendor: 'local',
+      version: '1.0.0',
+      help_sha256: 'c'.repeat(64),
+    });
+    expect(b.bundle.provenance.rule_of_two).toEqual(input().provenance.rule_of_two);
+    expect(b.bundle.automated_evidence.some((e) => e.name === 'adapter fingerprint')).toBe(false);
   });
 
   test('pure: the same input gives the same bundle and hash; the hash covers the diff bytes', () => {
@@ -146,14 +167,22 @@ describe('evidence bundle builder', () => {
     expect(v.diff).toEqual({
       hash: b.diff_hash,
       ref: b.bundle.intent_payload.rendered_ref,
-      files: ['src/a.ts', 'docs/n.md'],
+      files: [
+        { path: 'src/a.ts', added: 2, removed: 1 },
+        { path: 'docs/n.md', added: 1, removed: 0 },
+      ],
     });
     expect(v.sandbox).toEqual({
       level: 'best_effort',
       mode: 'worktree',
-      controls: { filesystem: 'enforced', network: 'absent', env: 'enforced' },
+      controls: { filesystem: 'best_effort', network: 'absent', env: 'enforced' },
     });
-    expect(v.adapter).toMatchObject({ name: 'fake', vendor: 'local', version: '1.0.0' });
+    expect(v.adapter).toEqual({
+      name: 'fake',
+      vendor: 'local',
+      version: '1.0.0',
+      help_sha256: 'c'.repeat(64),
+    });
     expect(v.cost).toMatchObject({ usd: '0.0123', estimated: 'false' });
     expect(v.policy.map((p) => p.rule)).toEqual([...POLICY_RULES]);
     expect(v.checks).toEqual([{ name: 'none', status: 'skipped', summary: expect.any(String) }]);
@@ -165,6 +194,40 @@ describe('evidence bundle builder', () => {
       adapter: null,
       cost: null,
     });
+  });
+
+  test('a bundle stored before the diff and provenance fields still yields the same view', () => {
+    // Bundles are immutable: one written by the earlier builder keeps the adapter and sandbox as
+    // automated_evidence entries and the changed paths in blast_radius.affected.
+    const b = buildEvidenceBundle(input()).bundle;
+    const { diff: _diff, ...rest } = b;
+    const { sandbox: _s, adapter: _a, ...provenance } = b.provenance;
+    const old = {
+      ...rest,
+      provenance,
+      automated_evidence: [
+        ...b.automated_evidence,
+        {
+          name: 'adapter fingerprint',
+          kind: 'other' as const,
+          status: 'pass' as const,
+          ran_at: AT,
+          summary: `name=fake vendor=local version=1.0.0 help_sha256=${'c'.repeat(64)}`,
+        },
+      ],
+    };
+    expect(validate('evidence-bundle', old).ok).toBe(true);
+    const v = evidenceView(old);
+    expect(v.diff).toEqual({
+      hash: b.intent_payload.payload_hash,
+      ref: b.intent_payload.rendered_ref,
+      files: [
+        { path: 'src/a.ts', added: null, removed: null },
+        { path: 'docs/n.md', added: null, removed: null },
+      ],
+    });
+    expect(v.sandbox).toEqual(evidenceView(b).sandbox);
+    expect(v.adapter).toEqual(evidenceView(b).adapter);
   });
 
   test('the PR comment names the bundle id and hash, probe, policy, cost and sandbox', () => {

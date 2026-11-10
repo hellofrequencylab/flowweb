@@ -168,6 +168,33 @@
       ],
       "additionalProperties": false
     },
+    "credentials": {
+      "type": "array",
+      "description": "Credential handles the run may receive, each injected only into the vendor process environment under env (values never enter the work order, prompts or logs). When absent, the adapter's fixed per-adapter handles are used. A required handle that cannot be resolved fails the run before the vendor starts.",
+      "items": {
+        "type": "object",
+        "properties": {
+          "handle": {
+            "type": "string",
+            "pattern": "^crd_[0-9A-Za-z]{4,40}$"
+          },
+          "env": {
+            "type": "string",
+            "pattern": "^[A-Z][A-Z0-9_]{0,63}$"
+          },
+          "required": {
+            "type": "boolean"
+          }
+        },
+        "required": [
+          "handle",
+          "env",
+          "required"
+        ],
+        "additionalProperties": false
+      },
+      "maxItems": 8
+    },
     "escalate_if": {
       "type": "array",
       "items": {

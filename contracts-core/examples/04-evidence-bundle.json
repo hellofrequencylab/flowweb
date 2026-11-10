@@ -10,6 +10,27 @@
     "payload_hash": "021548f263676d3760c29ade4dea3979be35fd59c20fdacb071c4b1734e6f9e7",
     "format": "diff"
   },
+  "diff": {
+    "ref": "artifact://rendered-diff-481-3",
+    "hash": "021548f263676d3760c29ade4dea3979be35fd59c20fdacb071c4b1734e6f9e7",
+    "files": [
+      {
+        "path": "src/checkout/shipping-estimate.ts",
+        "added": 31,
+        "removed": 9
+      },
+      {
+        "path": "src/checkout/address-form.tsx",
+        "added": 6,
+        "removed": 2
+      },
+      {
+        "path": "test/checkout/shipping-estimate.test.ts",
+        "added": 10,
+        "removed": 0
+      }
+    ]
+  },
   "provenance": {
     "untrusted_inputs": [
       {
@@ -24,6 +45,22 @@
       "state_change_or_external_comms": true,
       "score": 2,
       "inputs_hash": "7e9be676a5ca922657e734595e5c131921cbfd00770edbebd2d8ad91f1c35c7c"
+    },
+    "sandbox": {
+      "level": "best_effort",
+      "controls": {
+        "env_scrub": "enforced",
+        "home_isolation": "best_effort",
+        "fs_write_confinement": "best_effort",
+        "process_group_kill": "best_effort",
+        "egress": "absent"
+      }
+    },
+    "adapter": {
+      "name": "claude",
+      "vendor": "anthropic",
+      "version": "2.1.319",
+      "help_sha256": "5f0c8a3c1d2e4b6a79808f1e2d3c4b5a69788796a5b4c3d2e1f0a9b8c7d6e5f4"
     }
   },
   "automated_evidence": [
