@@ -100,10 +100,69 @@ export function DraftEditor({
   const why = busy ?? (locked ? 'This draft is already in the outbox.' : null);
   return (
     <div className="draft-editor">
+      <div className="draft-toolbar" role="toolbar" aria-label="Draft actions">
+        <div className="draft-toolbar-group">
+          {mode === 'view' ? (
+            <>
+              <Button onClick={copy}>
+                <Icon name={copied ? 'check' : 'copy'} size={15} /> {copied ? 'Copied' : 'Copy'}
+              </Button>
+              <Button onClick={start} disabledReason={why}>
+                <Icon name="pencil" size={15} /> Edit
+              </Button>
+            </>
+          ) : (
+            <>
+              <Button
+                variant="primary"
+                onClick={save}
+                disabledReason={busy ?? (body.trim() ? null : 'The message cannot be empty.')}
+              >
+                Save
+              </Button>
+              <Button variant="quiet" onClick={() => setMode('view')} disabledReason={busy}>
+                Cancel
+              </Button>
+            </>
+          )}
+        </div>
+        <div className="draft-toolbar-group draft-toolbar-end">
+          {canApprove && (
+            <Button
+              variant="primary"
+              onClick={approve}
+              disabledReason={why}
+              title="Needs the flow at Copilot"
+            >
+              Approve
+            </Button>
+          )}
+          {draft.status !== 'rejected' && (
+            <Button variant="quiet" onClick={reject} disabledReason={why}>
+              Reject
+            </Button>
+          )}
+        </div>
+      </div>
+
+      {busy && (
+        <p className="muted draft-status" role="status">
+          {busy}
+        </p>
+      )}
+      {note && (
+        <p
+          className={note.tone === 'fail' ? 'draft-note-fail' : 'muted draft-status'}
+          role={note.tone === 'fail' ? 'alert' : 'status'}
+        >
+          {note.text}
+        </p>
+      )}
+
       {mode === 'view' ? (
-        <pre className="draft-body">{draft.body}</pre>
+        <div className="draft-body">{draft.body}</div>
       ) : (
-        <>
+        <div className="draft-fields">
           <label className="field">
             <span className="field-label">Subject</span>
             <input
@@ -117,42 +176,8 @@ export function DraftEditor({
             <span className="field-label">Message</span>
             <textarea rows={16} value={body} onChange={(e) => setBody(e.target.value)} maxLength={20000} />
           </label>
-        </>
+        </div>
       )}
-
-      <div className="draft-actions">
-        {mode === 'view' ? (
-          <>
-            <Button onClick={copy}>{copied ? 'Copied' : 'Copy'}</Button>
-            <Button onClick={start} disabledReason={why}>
-              Edit
-            </Button>
-          </>
-        ) : (
-          <>
-            <Button
-              variant="primary"
-              onClick={save}
-              disabledReason={busy ?? (body.trim() ? null : 'The message cannot be empty.')}
-            >
-              Save
-            </Button>
-            <Button variant="quiet" onClick={() => setMode('view')} disabledReason={busy}>
-              Cancel
-            </Button>
-          </>
-        )}
-        {canApprove && (
-          <Button onClick={approve} disabledReason={why} title="Needs the flow at Copilot">
-            Approve
-          </Button>
-        )}
-        {draft.status !== 'rejected' && (
-          <Button variant="quiet" onClick={reject} disabledReason={why}>
-            Reject
-          </Button>
-        )}
-      </div>
 
       {!locked && (
         <DraftAssistant
@@ -211,20 +236,6 @@ export function DraftEditor({
             This only records what happened, so the flow learns. Nothing is sent.
           </p>
         </div>
-      )}
-
-      {busy && (
-        <p className="muted" role="status">
-          {busy}
-        </p>
-      )}
-      {note && (
-        <p
-          className={note.tone === 'fail' ? 'draft-note-fail' : 'muted'}
-          role={note.tone === 'fail' ? 'alert' : 'status'}
-        >
-          {note.text}
-        </p>
       )}
     </div>
   );

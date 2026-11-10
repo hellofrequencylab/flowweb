@@ -1,11 +1,12 @@
 // FW-C-066: the flow's drafts as an inbox. Every drafted message is listed on the left with who it is for,
 // its state and its age; the selected one is shown in full on the right with the editor, Rewrite with AI,
-// Approve, Reject and the after-you-send buttons (DraftEditor). Nothing here sends anything.
+// Approve, Reject and the after-you-send buttons (DraftEditor). FW-C-077: plain white, no avatars, a tinted
+// selected row. Nothing here sends anything.
 import { type KeyboardEvent, useEffect, useId, useMemo, useRef, useState } from 'react';
 import { ApiError, api } from '../api/client';
 import { useResource } from '../api/resource';
 import type { FlowDraft } from '../api/types';
-import { GroupBadge, hueFor, IconTile } from '../ui-kit/flow';
+import { IconTile } from '../ui-kit/flow';
 import { AsOf, ResourceView } from '../ui-kit/honest';
 import { DraftEditor } from './DraftEditor';
 import { ageOf, type DraftState, inboxOrder, recipientOf, stateOf } from './drafts';
@@ -118,16 +119,13 @@ function Inbox({ flow, drafts, onChanged }: { flow: string; drafts: FlowDraft[];
                   listRef.current?.focus();
                 }}
               >
-                <GroupBadge name={who(d)} hue={hueFor(who(d))} size="sm" />
-                <span className="inbox-item-text">
-                  <span className="inbox-item-top">
-                    <span className="inbox-item-who">{who(d)}</span>
-                    <span className="inbox-item-age">{ageOf(d.sent_at ?? d.created_at)}</span>
-                  </span>
-                  <span className="inbox-item-subject">{d.subject ?? 'Untitled draft'}</span>
-                  <span className="inbox-item-snippet">{snippet(d)}</span>
-                  <StatePill s={st} />
+                <span className="inbox-item-top">
+                  <span className="inbox-item-who">{who(d)}</span>
+                  <span className="inbox-item-age">{ageOf(d.sent_at ?? d.created_at)}</span>
                 </span>
+                <span className="inbox-item-subject">{d.subject ?? 'Untitled draft'}</span>
+                <span className="inbox-item-snippet">{snippet(d)}</span>
+                <StatePill s={st} />
               </div>
             );
           })}
@@ -136,17 +134,16 @@ function Inbox({ flow, drafts, onChanged }: { flow: string; drafts: FlowDraft[];
           {selected && s ? (
             <>
               <header className="viewer-head">
-                <GroupBadge name={who(selected)} hue={hueFor(who(selected))} size="lg" />
-                <div className="viewer-title">
+                <div className="viewer-line">
                   <span className="viewer-who">{recipientOf(selected) ?? 'No name found'}</span>
-                  <h3>{selected.subject ?? 'Untitled draft'}</h3>
-                  <span className="viewer-meta">
-                    Drafted {ageOf(selected.created_at) || 'at an unknown time'}
-                    {selected.created_at && ageOf(selected.created_at) !== 'now' ? ' ago' : ''}
-                    {selected.channel ? ` · send by ${CHANNEL[selected.channel] ?? selected.channel}` : ''}
-                  </span>
+                  <StatePill s={s} />
                 </div>
-                <StatePill s={s} />
+                <h3>{selected.subject ?? 'Untitled draft'}</h3>
+                <span className="viewer-meta">
+                  Drafted {ageOf(selected.created_at) || 'at an unknown time'}
+                  {selected.created_at && ageOf(selected.created_at) !== 'now' ? ' ago' : ''}
+                  {selected.channel ? ` · send by ${CHANNEL[selected.channel] ?? selected.channel}` : ''}
+                </span>
               </header>
               <DraftEditor key={selected.id} flow={flow} draft={selected} onChanged={onChanged} />
             </>

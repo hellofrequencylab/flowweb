@@ -1639,7 +1639,8 @@ a.flow-line:hover .flow-line-name {
   padding: 0 var(--space-4);
   border: 0;
   border-radius: var(--radius-full);
-  background: var(--surface-soft);
+  background: var(--surface-raised);
+  box-shadow: inset 0 0 0 1px var(--border-default);
   color: var(--text-secondary);
   font: var(--weight-medium) var(--text-sm) / 1 var(--font-sans);
   cursor: pointer;
@@ -1651,6 +1652,7 @@ a.flow-line:hover .flow-line-name {
 }
 .inbox-filter.is-on {
   background: var(--surface-inverse);
+  box-shadow: none;
   color: var(--text-inverse);
 }
 .inbox-filter-n {
@@ -1658,26 +1660,30 @@ a.flow-line:hover .flow-line-name {
   opacity: 0.7;
 }
 
+/* FW-C-077: one plain white surface, a hairline between the list and the editor, no avatars, no sand. */
 .inbox {
   display: grid;
-  grid-template-columns: minmax(250px, 340px) minmax(0, 1fr);
+  grid-template-columns: minmax(250px, 320px) minmax(0, 1fr);
   min-height: 560px;
-  border-radius: var(--radius-lg);
-  background: var(--surface-sunken);
-  box-shadow: var(--shadow-inset);
+  border-radius: var(--radius-md);
+  background: var(--surface-raised);
+  box-shadow: 0 0 0 1px var(--border-default);
   overflow: hidden;
 }
 .inbox-list {
   position: relative;
   max-height: 760px;
   margin: 0;
-  padding: var(--space-3);
+  padding: 0;
   list-style: none;
   overflow-y: auto;
   outline: none;
+  box-shadow: 1px 0 0 var(--border-default);
 }
 .inbox-list:focus-visible {
-  box-shadow: inset 0 0 0 2px var(--flow-teal);
+  box-shadow:
+    inset 0 0 0 2px var(--flow-teal),
+    1px 0 0 var(--border-default);
 }
 .inbox-none {
   padding: var(--space-5);
@@ -1685,37 +1691,26 @@ a.flow-line:hover .flow-line-name {
 .inbox-item {
   position: relative;
   display: grid;
-  grid-template-columns: auto minmax(0, 1fr);
-  gap: var(--space-4);
-  padding: var(--space-4);
-  border-radius: var(--radius-md);
+  gap: 3px;
+  padding: var(--space-4) var(--space-5);
   cursor: pointer;
-  transition:
-    background var(--dur-fast) var(--ease-standard),
-    box-shadow var(--dur-fast) var(--ease-standard);
+  transition: background var(--dur-fast) var(--ease-standard);
 }
 .inbox-item + .inbox-item {
-  margin-top: 2px;
+  box-shadow: inset 0 1px 0 var(--border-subtle);
 }
 .inbox-item:hover {
   background: var(--surface-hover);
 }
 .inbox-item.is-on {
-  background: var(--surface-raised);
-  box-shadow: var(--shadow-1);
+  background: color-mix(in srgb, var(--flow-teal) 8%, var(--surface-raised));
 }
 .inbox-item.is-on::before {
   position: absolute;
-  inset: 14px auto 14px 0;
+  inset: 0 auto 0 0;
   width: 3px;
-  border-radius: var(--radius-full);
   background: var(--flow-teal);
   content: "";
-}
-.inbox-item-text {
-  display: grid;
-  gap: 2px;
-  min-width: 0;
 }
 .inbox-item-top {
   display: flex;
@@ -1726,14 +1721,14 @@ a.flow-line:hover .flow-line-name {
   flex: 1;
   min-width: 0;
   overflow: hidden;
-  font: var(--weight-medium) var(--text-sm) / 1.3 var(--font-sans);
+  font: var(--weight-medium) var(--text-sm) / 1.35 var(--font-sans);
   color: var(--text-primary);
   white-space: nowrap;
   text-overflow: ellipsis;
 }
 .inbox-item-age {
   flex: none;
-  font: var(--text-xs) / 1.3 var(--font-sans);
+  font: var(--text-xs) / 1.35 var(--font-sans);
   font-variant-numeric: tabular-nums;
   color: var(--text-tertiary);
 }
@@ -1745,16 +1740,17 @@ a.flow-line:hover .flow-line-name {
   text-overflow: ellipsis;
 }
 .inbox-item-snippet {
-  display: -webkit-box;
   overflow: hidden;
   font: var(--text-xs) / 1.45 var(--font-sans);
   color: var(--text-tertiary);
-  -webkit-line-clamp: 2;
-  -webkit-box-orient: vertical;
+  white-space: nowrap;
+  text-overflow: ellipsis;
 }
-.inbox-item .draft-state {
-  margin-top: 6px;
+.inbox .inbox-item .draft-state {
   justify-self: start;
+  margin-top: 4px;
+  padding: 0;
+  background: none;
 }
 .inbox-item.is-quiet .inbox-item-who,
 .inbox-item.is-quiet .inbox-item-subject {
@@ -1806,36 +1802,32 @@ a.flow-line:hover .flow-line-name {
   background: var(--flow-indigo);
 }
 
+/* The editor: who and state, the subject as the heading, one action bar, then the letter as plain text. */
 .inbox-viewer {
   display: flex;
   flex-direction: column;
   gap: var(--space-5);
   min-width: 0;
-  padding: var(--space-7);
-  background: var(--surface-raised);
-  box-shadow: -1px 0 0 var(--border-subtle);
+  padding: var(--space-6) var(--space-7) var(--space-7);
 }
 .viewer-head {
+  display: grid;
+  gap: 4px;
+}
+.viewer-line {
   display: flex;
   flex-wrap: wrap;
-  align-items: flex-start;
-  gap: var(--space-4) var(--space-5);
-  padding-bottom: var(--space-5);
-  box-shadow: 0 1px 0 var(--border-subtle);
-}
-.viewer-title {
-  display: grid;
-  flex: 1 1 220px;
-  gap: 2px;
-  min-width: 0;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--space-2) var(--space-4);
 }
 .viewer-who {
   font: var(--weight-medium) var(--text-sm) / 1.3 var(--font-sans);
   color: var(--text-secondary);
 }
-.flows-page .viewer-title h3 {
+.inbox-viewer .viewer-head h3 {
   margin: 0;
-  font: var(--weight-regular) var(--text-xl) / 1.2 var(--font-display);
+  font: var(--weight-regular) var(--text-xl) / 1.25 var(--font-display);
   letter-spacing: -0.01em;
   overflow-wrap: anywhere;
 }
@@ -1853,28 +1845,66 @@ a.flow-line:hover .flow-line-name {
   text-align: center;
 }
 
-/* The editor inside the viewer: the message reads like a letter, the tools sit in soft trays. */
 .draft-editor {
   display: grid;
   gap: var(--space-5);
 }
-.draft-body {
+.draft-toolbar {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--space-3);
+  padding: var(--space-3) 0;
+  box-shadow:
+    inset 0 1px 0 var(--border-default),
+    inset 0 -1px 0 var(--border-default);
+}
+.draft-toolbar-group {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: flex-start;
+  gap: var(--space-2);
+}
+.draft-toolbar .btn {
+  gap: 6px;
+  min-height: 40px;
+  padding: 0 var(--space-5);
+}
+.draft-toolbar .btn-quiet {
+  font-size: var(--text-base);
+}
+.draft-status {
   margin: 0;
-  padding: var(--space-6) var(--space-7);
-  border-radius: var(--radius-md);
-  background: var(--surface-page);
-  box-shadow: var(--shadow-inset);
-  font: var(--text-base) / 1.7 var(--font-sans);
+  font: var(--type-small);
+}
+.draft-body {
+  max-width: 68ch;
+  margin: 0;
+  font: var(--text-base) / 1.75 var(--font-sans);
   color: var(--text-primary);
   white-space: pre-wrap;
   overflow-wrap: anywhere;
+}
+.draft-fields {
+  display: grid;
+  gap: var(--space-4);
 }
 .draft-editor input,
 .draft-editor textarea {
   width: 100%;
   font: inherit;
+  background: var(--surface-raised);
+  box-shadow: inset 0 0 0 1px var(--border-strong);
+}
+.draft-editor input:focus,
+.draft-editor textarea:focus {
+  box-shadow:
+    inset 0 0 0 1.5px var(--harbor-500),
+    0 0 0 4px var(--active-bg);
 }
 .draft-editor textarea {
+  padding: var(--space-4) 14px;
   min-height: 360px;
   line-height: 1.7;
 }
@@ -1884,17 +1914,12 @@ a.flow-line:hover .flow-line-name {
   gap: var(--space-2);
   align-items: center;
 }
+/* The AI assistant and After you send it: quiet sections under the letter, split by a hairline. */
 .draft-ai {
   display: grid;
   gap: var(--space-3);
-  padding: var(--space-5);
-  border-radius: var(--radius-md);
-  background: var(--surface-soft);
-}
-.draft-rewrite {
-  background:
-    linear-gradient(135deg, color-mix(in srgb, var(--flow-teal) 9%, transparent), transparent 60%),
-    var(--surface-soft);
+  padding-top: var(--space-5);
+  box-shadow: inset 0 1px 0 var(--border-default);
 }
 .draft-ai .field-label {
   display: inline-flex;
@@ -1929,13 +1954,9 @@ a.flow-line:hover .flow-line-name {
   }
   .inbox-list {
     max-height: 300px;
-    box-shadow: 0 1px 0 var(--border-subtle);
+    box-shadow: inset 0 -1px 0 var(--border-default);
   }
   .inbox-viewer {
-    padding: var(--space-5);
-    box-shadow: none;
-  }
-  .draft-body {
     padding: var(--space-5);
   }
   .draft-ai-ask {
@@ -2245,7 +2266,7 @@ a.flow-line:hover .flow-line-name {
   margin: 0;
   padding: var(--space-2) var(--space-3);
   border-radius: var(--radius-md);
-  background: color-mix(in srgb, var(--flow-teal) 14%, var(--surface-soft));
+  background: color-mix(in srgb, var(--flow-teal) 10%, var(--surface-raised));
 }
 .assist-reply {
   display: grid;
