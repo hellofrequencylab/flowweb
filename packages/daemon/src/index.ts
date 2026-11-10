@@ -162,3 +162,15 @@ export {
   type SpendRow,
   spendRollup,
 } from './spend.ts';
+export {
+  buildDigest,
+  checkDigest,
+  type DigestCheck,
+  type DigestLine,
+  type DigestOptions,
+  type DigestProblem,
+  type DigestReport,
+  type PublishOptions,
+  type PublishResult,
+  publishDigest,
+} from './streams/digest/index.ts';
