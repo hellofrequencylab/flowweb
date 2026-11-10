@@ -4,7 +4,7 @@
     "profile": "core",
     "schema": "ledger-row/1",
     "generated": "2026-11-09",
-    "row_count": 68,
+    "row_count": 69,
     "conventions": {
       "verify_probe": "Same convention as 04-build-plan/backlog.json: 'pnpm probe <path>' runs probes/<path>.probe.ts, a Tier 0 file written before the implementation row starts and never edited by the agent doing the row. Every probe fails today because its target does not exist (a missing probe file exits 2, a missing behaviour exits 1). The probe pack for a milestone is committed by the Owner or a pair session before the milestone's rows start.",
       "status": "All rows start as open. Status lives only in the ledger database (imported with fw ledger sync), never in prose.",
@@ -28,7 +28,7 @@
       }
     },
     "full_plan_rows_included": 37,
-    "new_core_rows": 31
+    "new_core_rows": 32
   },
   "rows": [
     {
@@ -2401,6 +2401,45 @@
         "packages/web/src/flows/",
         "packages/web/src/api/",
         "packages/web/src/shell/",
+        "packages/web/mock/",
+        "docs/api/LOCAL-API-V1.md"
+      ],
+      "agent_suitability": "agent",
+      "gate": "none",
+      "status": "open",
+      "origin": "new Core row",
+      "core_milestone": "C1"
+    },
+    {
+      "id": "FW-C-032",
+      "title": "Neighborhood activation flow: territories, leads and funnels",
+      "phase": 1,
+      "epic": "C1.5 First flow",
+      "priority": "P1",
+      "size": "L",
+      "lane": "workstreams",
+      "depends_on": [
+        "FW-C-031"
+      ],
+      "description": "Evolve the first marketing flow into the neighborhood activation flow for Frequency. Towns and distance rings become large regions with sub-areas and borders, seeded at North County San Diego, expanding in the Owner's order. Saturation becomes an activation check: a territory is fully active when active hosts, upcoming events with Channel coverage, and weekly active members all meet their targets, held for a number of weeks. Leads found through several sources get a fit score and a decaying timing score and are routed to the matching Frequency lead funnel with a link that carries persona, region, sub-area, Channel and source, and a send route (a personal founder email or Frequency messaging), inside touch caps and a permanent do-not-contact list. Only the active territory gets outreach. When it qualifies, the flow proposes one bordering territory and the Owner opens it. It still only drafts at tier L1, and every outward item waits for the Owner.",
+      "acceptance": [
+        "The shipped stream definition starts disabled at L1, its human gate is the Owner and covers every lead source's action class, and it carries a dollar cap",
+        "fwd serves GET /v1/flows/neighborhood-activation: the seed territory is active, the rest wait, and with no Frequency data the measures read as unknown, not zero",
+        "A seed meeting every target for the hold weeks produces a proposal naming exactly one territory that borders an opened one, and nothing opens without the Owner",
+        "Each lead is routed by kind, fit and timing to a funnel; leads outside the active territory wait, leads on the do-not-contact list are blocked, and a lead at the touch cap is held",
+        "A used-up dollar or turn cap pauses the flow before anything else",
+        "The Flows page shows each territory's three measures against target, the lead pipeline and the next move, with no horizontal scroll at 390 px"
+      ],
+      "verify_probe": "pnpm probe flows/neighborhood-activation",
+      "files_hint": [
+        "flows/neighborhood-activation/",
+        "packages/daemon/src/flows/",
+        "packages/daemon/src/api/routes.ts",
+        "packages/daemon/test/",
+        "packages/web/src/flows/",
+        "packages/web/src/api/",
+        "packages/web/src/shell/",
+        "packages/web/src/ui-kit/base.css",
         "packages/web/mock/",
         "docs/api/LOCAL-API-V1.md"
       ],
