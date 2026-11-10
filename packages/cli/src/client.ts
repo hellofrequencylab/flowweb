@@ -368,6 +368,33 @@ export interface ReconcileReport {
   duration_ms: number;
 }
 
+export interface RelayPromptReport {
+  run_id: string;
+  work_order_id: string;
+  prompt: string;
+  prompt_hash: string;
+  reused: boolean;
+}
+
+export interface RelayOwedReport {
+  older_than_hours: number;
+  owed: {
+    run_id: string;
+    work_order_id: string;
+    ledger_row_id: string;
+    queued_at: string;
+    age_hours: number;
+  }[];
+  review_items: { run_id: string; card_id: string; created: boolean }[];
+}
+
+export interface RelayResultReport {
+  run_id: string;
+  result_hash: string;
+  status: string;
+  exit_code: number;
+}
+
 export interface PolicyApplyReport {
   rules_changed: string[];
   rules_unchanged: number;
@@ -415,6 +442,10 @@ export interface CoreClient {
   policyApply?(): Promise<PolicyApplyReport>;
   /** One git host reconcile pass: optional, served by the daemon package. */
   reconcile?(opts?: { host?: string }): Promise<ReconcileReport>;
+  /** Relay R1: paste-ready prompts, owed prompts and pasted results; served by the daemon package. */
+  relayPrompt?(order: string): Promise<RelayPromptReport>;
+  relayOwed?(opts?: { olderThanHours?: number }): Promise<RelayOwedReport>;
+  relayResult?(runId: string, text: string): Promise<RelayResultReport>;
   close(): void;
 }
 

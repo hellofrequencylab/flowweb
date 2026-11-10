@@ -143,6 +143,20 @@ function fakeClient(overrides: Partial<CoreClient> = {}): CoreClient {
       policy_path: '/p/core-policy.yaml',
     }),
     reconcile: async () => ({ checked: 2, changes: 0, drift: [], duration_ms: 3 }),
+    relayPrompt: async (order: string) => ({
+      run_id: 'run_fake0001',
+      work_order_id: order,
+      prompt: 'the prompt',
+      prompt_hash: 'a'.repeat(64),
+      reused: false,
+    }),
+    relayOwed: async () => ({ older_than_hours: 24, owed: [], review_items: [] }),
+    relayResult: async (runId: string) => ({
+      run_id: runId,
+      result_hash: 'b'.repeat(64),
+      status: 'completed',
+      exit_code: 0,
+    }),
     policyApply: async () => ({
       rules_changed: [],
       rules_unchanged: 12,
