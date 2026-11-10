@@ -454,7 +454,7 @@ export async function runFlowCycle(d: CycleDeps, fire: CycleFire): Promise<void>
           : [];
       const out = join(d.fwHome, 'flows', fire.flow, 'drafts');
       mkdirSync(out, { recursive: true, mode: 0o700 });
-      // FW-C-082: links become Frequency short links when the outcomes secret is set.
+      // FW-C-084: links become Frequency short links when the outcomes secret is set.
       const offer = loadFlow(d.repoRoot, d.fwHome, new Date())?.cfg.offer.url ?? '';
       const short = shortenerFor({ fwHome: d.fwHome, site: d.env.FW_FREQUENCY_URL || offer, log });
       for (const [i, x] of drafts.entries()) {

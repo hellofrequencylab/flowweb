@@ -1,4 +1,4 @@
-// FW-C-082: drafts read like a person wrote them. Every link fwd puts in a draft to the offer's site
+// FW-C-084: drafts read like a person wrote them. Every link fwd puts in a draft to the offer's site
 // becomes a Frequency short link (frequency-web LIVE-2257: POST /api/webhooks/flowweb-link, signed with the
 // outcomes secret), so a note ends with frequencylocal.com/q/<slug> and not a long tracked URL. The short
 // link redirects to the full one, so utm_campaign and utm_content still reach Frequency. When there is no

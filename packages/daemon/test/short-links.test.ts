@@ -5,7 +5,7 @@ import { join } from 'node:path';
 import { describe, expect, it } from 'vitest';
 import { noDashes, shortenerFor } from '../src/flows/short-links.ts';
 
-describe('noDashes (FW-C-082)', () => {
+describe('noDashes (FW-C-084)', () => {
   it('turns em and en dashes into commas', () => {
     expect(noDashes('your workshop caught my eye—the idea sounds lovely')).toBe(
       'your workshop caught my eye, the idea sounds lovely',
@@ -17,7 +17,7 @@ describe('noDashes (FW-C-082)', () => {
   });
 });
 
-describe('shortenerFor (FW-C-082)', () => {
+describe('shortenerFor (FW-C-084)', () => {
   const long = 'https://frequencylocal.com/start/host?persona=practitioner&utm_source=flowweb&utm_content=t1';
   const home = () => {
     const h = mkdtempSync(join(tmpdir(), 'fw-short-'));

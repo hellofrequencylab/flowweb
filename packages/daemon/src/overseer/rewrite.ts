@@ -222,7 +222,7 @@ export async function rewriteDraft(
   }
   return {
     id: o.id,
-    // FW-C-082: no em or en dash survives a rewrite.
+    // FW-C-084: no em or en dash survives a rewrite.
     subject:
       typeof proposal.subject === 'string' ? noDashes(proposal.subject).slice(0, MAX_DRAFT_FIELD) : subject,
     body: noDashes(proposal.body).slice(0, MAX_DRAFT_FIELD),

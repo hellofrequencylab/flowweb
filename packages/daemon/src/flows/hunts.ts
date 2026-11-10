@@ -241,7 +241,7 @@ export function composeBody(cfg: FlowConfig, h: Hunt, lead: HuntLead): string {
   const link = h.build
     ? `I set up a page for your event on Frequency. It is yours to claim: {{claim_url}}`
     : `If you'd like to host on Frequency, start here: ${funnelLink(cfg, h)}`;
-  // FW-C-082: no em or en dash survives the model's words.
+  // FW-C-084: no em or en dash survives the model's words.
   return [
     noDashes(lead.body),
     '',

@@ -1,4 +1,4 @@
-// Probe for FW-C-082 (outreach drafts read like a person wrote them): `pnpm probe flows/draft-links`.
+// Probe for FW-C-084 (outreach drafts read like a person wrote them): `pnpm probe flows/draft-links`.
 // Tier 0.
 // Surfaces: the daemon fwd on a fresh FW_HOME (FW_VENDOR=fake, FW_FAKE_SCENARIO=hunt_leads), a stand-in
 // Frequency on 127.0.0.1 named by FW_FREQUENCY_URL, the credential file $FW_HOME/creds/crd_frequencyoutcomes,
