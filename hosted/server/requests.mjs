@@ -24,6 +24,37 @@ const HUNT_FIELDS = ['name', 'looking_for', 'region', 'areas', 'links', 'every_d
 /** The stops the site may set. Autopilot binds to a confirm hash and is set on the Owner's machine. */
 const SITE_STOPS = ['draft', 'copilot'];
 const OUTCOMES = ['sent', 'replied', 'declined'];
+/** FW-C-095: the email sender's settings, checked as fwd and senders/email.mjs check them. Never a password. */
+const SENDER_SECRET = /password|secret|token|^pass$/i;
+const SENDER_BOX = /^[a-z][a-z0-9_]{0,19}$/;
+const SENDER_ADDRESS = /^[^@\s<>"]+@[^@\s<>"]+\.[^@\s<>"]+$/;
+const whole = (v, lo, hi) => Number.isInteger(v) && v >= lo && v <= hi;
+function senderPayload(b) {
+  if (Object.keys(b).some((k) => SENDER_SECRET.test(k))) return { error: 'passwords stay in the keychain' };
+  const boxes = Array.isArray(b.mailboxes) ? b.mailboxes : [];
+  if (boxes.length < 1 || boxes.length > 3) return { error: 'give one to three mailboxes' };
+  const mailboxes = [];
+  for (const m of boxes) {
+    const x = m && typeof m === 'object' ? m : {};
+    if (Object.keys(x).some((k) => SENDER_SECRET.test(k))) return { error: 'passwords stay in the keychain' };
+    const key = typeof x.key === 'string' ? x.key : '';
+    const address = typeof x.address === 'string' ? x.address.trim() : '';
+    const name = typeof x.name === 'string' ? x.name.trim().slice(0, 100) : '';
+    if (!SENDER_BOX.test(key) || mailboxes.some((y) => y.key === key)) return { error: 'bad or repeated mailbox key' };
+    if (!SENDER_ADDRESS.test(address)) return { error: 'a mailbox needs an email address' };
+    mailboxes.push({ key, address, name });
+  }
+  const postal = typeof b.postal === 'string' ? b.postal.trim() : '';
+  if (!postal || postal.length > 300) return { error: 'a postal address is required' };
+  if (!whole(b.daily_cap, 1, 40) || !whole(b.per_pass, 1, 5)) return { error: 'daily_cap is 1 to 40, per_pass 1 to 5' };
+  const h = b.hours && typeof b.hours === 'object' ? b.hours : {};
+  if (!whole(h.start, 0, 23) || !whole(h.end, 1, 24) || h.end <= h.start) return { error: 'bad sending hours' };
+  const days = Array.isArray(h.days) ? h.days : [];
+  if (days.length === 0 || !days.every((d) => whole(d, 0, 6))) return { error: 'pick at least one day' };
+  const hours = { start: h.start, end: h.end, days: [...new Set(days)].sort((x, y) => x - y) };
+  return { payload: { mailboxes, postal, daily_cap: b.daily_cap, per_pass: b.per_pass, hours } };
+}
+
 /** FW-C-087: a project's brief (the five answers) and its labels, from Settings. */
 const PROJECT = /^[A-Za-z0-9_-]{1,100}$/;
 const BRIEF_KEYS = ['what', 'who', 'voice', 'never', 'done'];
@@ -143,6 +174,11 @@ export function requestOf(method, path, body) {
     const t = tuningPayload(tune[2], b);
     return t.error ? t : { kind: `flow.${tune[2]}`, flow: tune[1], draft_id: null, payload: t.payload };
   }
+  if (path === '/connections/email') {
+    if (method !== 'POST') return null;
+    const sp = senderPayload(b);
+    return sp.error ? sp : { kind: 'connection.email', flow: 'all', draft_id: null, payload: sp.payload };
+  }
   const proj = /^\/projects\/([^/]+)\/(brief|labels)$/.exec(path);
   if (proj) {
     if (method !== 'POST') return null;
@@ -226,6 +262,10 @@ export function fwdCallFor(req) {
   const f = encodeURIComponent(flow);
   if (kind === 'supervisor.pause' || kind === 'supervisor.resume')
     return { method: 'POST', path: `/supervisor/${kind.slice(11)}`, body: {} };
+  if (kind === 'connection.email') {
+    const sp = senderPayload(p);
+    return sp.error ? null : { method: 'POST', path: '/connections/email', body: sp.payload };
+  }
   if (kind === 'project.brief' || kind === 'project.labels') {
     const id = String(req?.draft_id ?? '');
     const action = kind.slice(8);
