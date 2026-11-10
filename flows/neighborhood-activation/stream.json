@@ -1,7 +1,7 @@
 {
   "id": "stm_nbhdact1",
   "key": "neighborhood-activation",
-  "name": "Neighborhood activation",
+  "name": "Frequency Saturation Engine",
   "project_id": "prj_frequency1",
   "version": 1,
   "template": "custom",

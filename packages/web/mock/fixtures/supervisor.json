@@ -22,6 +22,7 @@
     {
       "key": "local-saturation",
       "name": "Local saturation marketing",
+      "merged_into": "neighborhood-activation",
       "enabled": false,
       "dial": "draft",
       "tier": "L1",
@@ -39,7 +40,8 @@
     },
     {
       "key": "neighborhood-activation",
-      "name": "Neighborhood activation",
+      "name": "Frequency Saturation Engine",
+      "merged_into": null,
       "enabled": true,
       "dial": "copilot",
       "tier": "L1",

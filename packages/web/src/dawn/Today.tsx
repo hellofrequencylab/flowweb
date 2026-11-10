@@ -5,6 +5,7 @@ import { type Resource, useResource } from '../api/resource';
 import type { ActivationFlow, ActivationMeasures, Envelope, Supervisor, SupervisorFlow } from '../api/types';
 import { stateOf } from '../flows/drafts';
 import { FlowPulse } from '../flows/FlowVisuals';
+import { liveFlows } from '../flows/visible';
 import { Link } from '../shell/router';
 import { Icon, type IconName } from '../ui-kit/Icon';
 import { age, clock } from '../ui-kit/time';
@@ -32,7 +33,7 @@ type ReadyDrafts = Envelope & { ready: number; flows: number };
 
 /** Drafts waiting for the Owner with nothing left blank and not yet sent, over every flow. */
 async function readyDrafts(): Promise<ReadyDrafts> {
-  const s = await api.supervisor();
+  const s = await api.supervisor().then((s) => ({ ...s, flows: liveFlows(s.flows) }));
   const lists = await Promise.all(s.flows.map((f) => api.flowDrafts(f.key)));
   const ready = lists.reduce((n, l) => n + l.drafts.filter((d) => stateOf(d) === 'Ready').length, 0);
   const asOf = [s.data_as_of, ...lists.map((l) => l.data_as_of)].sort()[0];
@@ -45,7 +46,11 @@ async function readyDrafts(): Promise<ReadyDrafts> {
  */
 export function Today({ status, now }: { status: ReturnType<typeof useStatusResource>; now: number }) {
   const drafts = useResource('today:drafts', readyDrafts, ['runs', 'cards']);
-  const sup = useResource('supervisor', () => api.supervisor(), ['runs', 'cards']);
+  const sup = useResource(
+    'supervisor',
+    () => api.supervisor().then((s) => ({ ...s, flows: liveFlows(s.flows) })),
+    ['runs', 'cards'],
+  );
   const act = useResource('flow:neighborhood-activation', () => api.activationFlow(), ['runs', 'cards']);
   const s = status.honesty === 'current' ? status.data : null;
   const d = drafts.honesty === 'current' ? drafts.data : null;
@@ -178,7 +183,7 @@ export function RegionProgress({ res }: { res: Resource<ActivationFlow> }) {
         </ul>
       )}
       <Link to={TODAY_LINKS.flows} className="small">
-        Regions and leads in Neighborhood activation
+        Regions and leads in the Frequency Saturation Engine
       </Link>
     </section>
   );

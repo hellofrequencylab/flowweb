@@ -9,7 +9,7 @@ const COLUMNS: { title: string; links: { to: string; label: string }[] }[] = [
     links: [
       { to: '/', label: 'Your flows' },
       { to: '/inbox', label: 'Needs you' },
-      { to: '/flows/neighborhood-activation', label: 'Neighborhood activation' },
+      { to: '/flows/neighborhood-activation', label: 'Frequency Saturation Engine' },
     ],
   },
   {
