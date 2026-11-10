@@ -12,6 +12,7 @@ import { AsOf, ResourceView } from '../ui-kit/honest';
 import { Figures, PageHead } from '../ui-kit/page';
 import { StatusLabel, type StatusSpec } from '../ui-kit/status';
 import { usd } from '../ui-kit/time';
+import { FlowAdmin } from './FlowAdmin';
 import { SupervisorPanel } from './SupervisorPanel';
 
 const pct = (x: number) => `${Math.round(x * 100)}%`;
@@ -269,6 +270,11 @@ export function ActivationPage() {
                 <dt>Needs your approval</dt>
                 <dd>{f.gate_on.map((g) => g.replaceAll('_', ' ')).join(', ')}</dd>
               </dl>
+            </section>
+
+            <section aria-labelledby="na-admin" className="stack">
+              <h2 id="na-admin">Uploads and admin</h2>
+              <FlowAdmin flow={f} refresh={res.reload} />
             </section>
           </div>
         )}

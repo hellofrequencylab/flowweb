@@ -17,6 +17,8 @@ export class ApiError extends Error {
     readonly status: number,
     readonly code: string,
     message: string,
+    /** fwd's error details, when it sent any (for example the reasons a config was refused). */
+    readonly details?: unknown,
   ) {
     super(message);
   }
@@ -85,14 +87,16 @@ async function raw(
   if (!res.ok) {
     let code = `http_${res.status}`;
     let message = res.statusText || 'Request failed';
+    let details: unknown;
     try {
       const j = (await res.json()) as W.WireError;
       code = j.error?.code ?? code;
       message = j.error?.message ?? message;
+      details = j.error?.details;
     } catch {
       /* not JSON */
     }
-    throw new ApiError(res.status, code, message);
+    throw new ApiError(res.status, code, message, details);
   }
   return res;
 }
@@ -769,4 +773,58 @@ export const api = {
 
   kill: (reason = 'Stopped from the web UI') => post<unknown>('/kill-switch', { reason }),
   release: (reason = 'Released from the web UI') => post<unknown>('/kill-switch/release', { reason }),
+};
+
+/* ---------------- neighborhood activation admin (FW-C-034) ----------------
+ * The Owner's writes for /v1/flows/neighborhood-activation (LOCAL-API-V1.md). Kept apart from `api`:
+ * the Flows page owns the view's full type; FlowAdmin only needs the fields named here. */
+
+export type SendVia = 'founder_email' | 'frequency';
+export interface AdminSkipped {
+  row: number;
+  reason: string;
+}
+export interface AdminUpload {
+  added?: number;
+  updated: number;
+  skipped: AdminSkipped[];
+}
+export interface AdminLogEntry {
+  at: string;
+  action: string;
+  summary: string;
+}
+/** The parts of the flow view FlowAdmin reads. */
+export interface FlowAdminView {
+  thresholds: Record<string, number>;
+  territories: { id: string; name: string; status: string }[];
+  decision: { kind: string; territory_id?: string; summary: string };
+  leads: {
+    id: string;
+    name: string;
+    kind: string;
+    territory_id: string;
+    stage: string;
+    send_via: SendVia | null;
+  }[];
+  admin_log?: AdminLogEntry[];
+}
+export type FlowConfigJson = Record<string, unknown> & { activation: Record<string, number> };
+
+const NA = '/flows/neighborhood-activation';
+async function send<T>(method: 'POST' | 'PUT', path: string, body: unknown): Promise<T> {
+  return ((await (await raw(method, path, body)).json()) as W.Envelope<T>).data;
+}
+
+export const flowAdmin = {
+  uploadLeads: (csv: string) => send<AdminUpload>('POST', `${NA}/leads`, { format: 'csv', data: csv }),
+  uploadMetrics: (csv: string) => send<AdminUpload>('POST', `${NA}/metrics`, { format: 'csv', data: csv }),
+  markSent: (id: string, via: SendVia) => send<unknown>('POST', `${NA}/leads/${enc(id)}/touches`, { via }),
+  doNotContact: (id: string, reason: string) =>
+    send<unknown>('POST', `${NA}/do-not-contact`, { lead_id: id, reason }),
+  openRegion: (territoryId: string) => send<unknown>('POST', `${NA}/open`, { territory_id: territoryId }),
+  config: async () => (await get<FlowConfigJson>(`${NA}/config`)).data,
+  saveConfig: (config: FlowConfigJson) => send<unknown>('PUT', `${NA}/config`, config),
+  /** A plain link works: the paired browser's session cookie goes with it. */
+  leadsCsvUrl: `${API_BASE}${NA}/leads.csv`,
 };
