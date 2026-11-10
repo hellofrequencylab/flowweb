@@ -238,11 +238,19 @@ export async function startDaemon(opts: DaemonOptions): Promise<Daemon> {
       setDial: (key, stop, confirm) => setDial(writer, REPO_ROOT, fwHome, key, stop, confirm),
       runFlow: async (key) => {
         const s = writer.get<{ id: string }>('SELECT id FROM streams WHERE key = ?', [key]);
-        if (!s || !shippedFlows(REPO_ROOT).some((f) => f.key === key))
+        const shipped = shippedFlows(REPO_ROOT).find((f) => f.key === key);
+        if (!shipped) throw new SupervisorError('NOT_FOUND', `no flow named ${key}`);
+        if (!s) {
+          // Say why it cannot run: a flow whose project fwd does not know is never registered, even when on.
+          const projectId = String(shipped.stream.project_id ?? '');
+          const known = projectId !== '' && writer.get('SELECT 1 FROM projects WHERE id = ?', [projectId]);
           throw new SupervisorError(
             'NOT_FOUND',
-            `no flow named ${key} with a registered stream (turn it on first)`,
+            known
+              ? `${key} has no registered stream yet (turn it on first)`
+              : `${key} cannot run: its project ${projectId || '(none)'} is not set up in FlowWeb, and flows/${key}/ has no project.json to file it`,
           );
+        }
         const rec = await scheduler.fireNow(s.id);
         return { fire_id: rec.fire_id, outcome: rec.outcome, ...(rec.reason ? { reason: rec.reason } : {}) };
       },
