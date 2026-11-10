@@ -90,6 +90,16 @@ async function snapshot() {
   const status = await fwd('/status');
   put('/status', status);
   for (const p of ['/policy', '/budgets']) put(p, await fwd(p));
+  // The Supervisor and each flow's view. Older fwd builds have neither, so a miss is skipped.
+  const supervisor = await fwd('/supervisor').catch(() => null);
+  if (supervisor) {
+    put('/supervisor', supervisor);
+    const keys = (supervisor.data?.flows ?? []).map((f) => f?.key).filter(Boolean);
+    for (const key of new Set(keys)) {
+      const view = await fwd(`/flows/${encodeURIComponent(key)}`).catch(() => null);
+      if (view) put(`/flows/${key}`, view);
+    }
+  }
   put('/status-reports', await all('/status-reports', {}, 50));
   // FW-C-038: the Get started checklist. An older fwd has no /setup; the site then shows it as not synced.
   try {

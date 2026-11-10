@@ -1,6 +1,6 @@
 // FW-C-033: the Supervisor's gates (pure) and its Owner controls (settings plus one event each).
 
-import { mkdirSync, readFileSync, writeFileSync } from 'node:fs';
+import { existsSync, mkdirSync, readFileSync, writeFileSync } from 'node:fs';
 import { join, resolve } from 'node:path';
 import { describe, expect, test } from 'vitest';
 import {
@@ -11,6 +11,7 @@ import {
   decide,
   type FlowFacts,
   GATES,
+  handOff,
   plan,
   readSettings,
   STALL_STOP,
@@ -317,6 +318,62 @@ describe('the Supervisor decides each scheduled fire (FW-C-036)', () => {
         return [onFire(fire('local-saturation'))] as const;
       });
       expect((await v).reason).toMatch(/^no_engine: .*boom/);
+    } finally {
+      home.cleanup();
+    }
+  });
+});
+
+describe('the Supervisor hands finished Autopilot items to the outbox (FW-C-037)', () => {
+  const KEY = 'local-saturation';
+  const channel = JSON.parse(readFileSync(join(repoRoot, 'flows', KEY, 'config.json'), 'utf8')).channels[0]
+    .key as string;
+
+  const why = (r: { outcome: string; reason?: string }) => r.reason;
+
+  test('queues once at confirmed Autopilot, holds at Draft, and refuses bad input', () => {
+    const home = tempHome();
+    try {
+      withWriter(home.path, (w) => {
+        const give = (id: string, ch = channel) =>
+          handOff({
+            writer: w,
+            repoRoot,
+            fwHome: home.path,
+            flow: KEY,
+            item: { id, channel: ch, body: `post ${id}` },
+          });
+        expect(why(give('a1'))).toMatch(/^flow_disabled: /);
+        setFlowEnabled(w, repoRoot, KEY, true);
+        expect(why(give('a1'))).toMatch(/^needs_owner: /);
+        let hash: string | undefined;
+        try {
+          setDial(w, repoRoot, home.path, KEY, 'autopilot');
+        } catch (e) {
+          hash = (e as { details?: { confirm_hash?: string } }).details?.confirm_hash;
+        }
+        setDial(w, repoRoot, home.path, KEY, 'autopilot', hash);
+        const first = give('a1');
+        expect(first.outcome).toBe('queued');
+        expect(existsSync(join(home.path, 'outbox', KEY, 'a1.json'))).toBe(true);
+        // A repeat is idempotent: same path, no second event.
+        expect(give('a1')).toEqual(first);
+        const n = w.get<{ n: number }>("SELECT count(*) AS n FROM events WHERE type = 'notification.queued'");
+        expect(n?.n).toBe(1);
+        expect(why(give('a2', 'no-such-channel'))).toMatch(/^unknown_channel: /);
+        setPaused(w, true);
+        expect(why(give('a3'))).toMatch(/^supervisor_paused: /);
+        expect(() => give('../escape')).toThrow(SupervisorError);
+        expect(() =>
+          handOff({
+            writer: w,
+            repoRoot,
+            fwHome: home.path,
+            flow: 'nope',
+            item: { id: 'x', channel, body: 'b' },
+          }),
+        ).toThrow(SupervisorError);
+      });
     } finally {
       home.cleanup();
     }

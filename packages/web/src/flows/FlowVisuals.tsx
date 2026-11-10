@@ -60,28 +60,38 @@ export function RegionPath({ territories, hue = 'teal' }: { territories: Activat
 export function MeasureDials({
   t,
   measures,
+  compact = false,
 }: {
   t: ActivationTerritory;
   measures: { key: keyof ActivationMeasures; label: string }[];
+  /** Small dials, with the value and target in the caption instead of inside the dial. */
+  compact?: boolean;
 }) {
   const m = t.measures;
   return (
-    <ul className="dials">
+    <ul className={compact ? 'dials is-compact' : 'dials'}>
       {measures.map(({ key, label }) => {
         const target = t.targets[key];
         const v = m ? m[key] : null;
         return (
           <li key={key} className="dial">
             <Gauge
-              size={124}
+              size={compact ? 64 : 124}
               value={v}
               cap={target}
               label={`${label} in ${t.name}`}
               valueText={v == null ? undefined : `${num(v)} of ${num(target)}`}
-              center={v == null ? <span className="dial-unknown">Unknown</span> : num(v)}
-              sub={`of ${num(target)}`}
+              center={v == null ? <span className="dial-unknown">Unknown</span> : compact ? null : num(v)}
+              sub={compact ? undefined : `of ${num(target)}`}
             />
-            <span className="dial-caption">{label}</span>
+            {compact ? (
+              <span className="dial-caption">
+                <strong>{v == null ? 'Unknown' : num(v)}</strong> of {num(target)}
+                <span className="dial-what">{label}</span>
+              </span>
+            ) : (
+              <span className="dial-caption">{label}</span>
+            )}
           </li>
         );
       })}

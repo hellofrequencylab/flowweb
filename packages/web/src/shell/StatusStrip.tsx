@@ -19,7 +19,7 @@ const CONN: Record<Connection, { word: string; icon: IconName }> = {
 /**
  * The top bar, always visible. Every value here is either current or plainly
  * marked otherwise. Standing conditions (calm mode, budget pause, sandbox)
- * sit on a second line as chips.
+ * sit on the same line as icons; the words are in a tooltip and the accessible name.
  */
 export function StatusStrip({ onStop }: { onStop: () => void }) {
   const { connection, status, statusAt } = useLive();
@@ -35,7 +35,7 @@ export function StatusStrip({ onStop }: { onStop: () => void }) {
       : `Last update ${clock(last)}, ${age(last, now)}`
     : 'No data yet';
 
-  type Condition = { icon: IconName; text: string; tone?: 'warn' | 'fail' };
+  type Condition = { icon: IconName; text: string; tip?: string; tone?: 'warn' | 'fail' };
   const conditions: Condition[] = [];
   if (prefs.calm) conditions.push({ icon: 'paused', text: 'Calm mode' });
   if (s?.paused_by_budget) conditions.push({ icon: 'paused', text: 'Paused: budget', tone: 'warn' });
@@ -44,6 +44,10 @@ export function StatusStrip({ onStop }: { onStop: () => void }) {
     conditions.push({
       icon: 'warn',
       text: `Sandbox egress ${s.sandbox_egress === 'best_effort' ? 'best effort' : 'none'}`,
+      tip:
+        s.sandbox_egress === 'best_effort'
+          ? 'Sandbox egress: best effort. Agent network access is limited where the machine allows it, not guaranteed.'
+          : 'Sandbox egress: none. Agent runs are not stopped from reaching the network.',
       tone: 'warn',
     });
   if (s && !s.integrity.ok) conditions.push({ icon: 'fail', text: 'Integrity check failed', tone: 'fail' });
@@ -56,6 +60,24 @@ export function StatusStrip({ onStop }: { onStop: () => void }) {
         </Link>
         <TopNav />
         <span className="spacer" />
+
+        {conditions.length > 0 && (
+          <ul className="topbar-conditions" aria-label="Standing conditions">
+            {conditions.map((c) => (
+              <li key={c.text}>
+                {/* A button so keyboard users can focus it and get the same tooltip. */}
+                <button
+                  type="button"
+                  className={`cond-icon${c.tone ? ` cond-${c.tone}` : ''}`}
+                  aria-label={c.tip ?? c.text}
+                  data-tip={c.tip ?? c.text}
+                >
+                  <Icon name={c.icon} size={18} />
+                </button>
+              </li>
+            ))}
+          </ul>
+        )}
 
         <span
           className={`conn conn-${connection}`}
@@ -97,15 +119,6 @@ export function StatusStrip({ onStop }: { onStop: () => void }) {
         </Link>
         <KillPill onOpen={onStop} />
       </div>
-      {conditions.length > 0 && (
-        <ul className="topbar-conditions" aria-label="Standing conditions">
-          {conditions.map((c) => (
-            <li key={c.text} className={`chip${c.tone ? ` chip-${c.tone}` : ''}`}>
-              <Icon name={c.icon} /> {c.text}
-            </li>
-          ))}
-        </ul>
-      )}
     </header>
   );
 }
