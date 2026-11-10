@@ -119,7 +119,7 @@ jobs:
           tar -xzf "$RUNNER_TEMP/$f" -C "$RUNNER_TEMP" gitleaks
           echo "$RUNNER_TEMP" >> "$GITHUB_PATH"
       - name: Scan the whole history
-        run: gitleaks detect --source . --config .gitleaks.toml --redact --no-banner
+        run: gitleaks detect --source . --config .gitleaks.toml --redact --no-banner --verbose
       - name: Seeded fake key must be caught (fixture)
         # Assembled at run time so no key-shaped literal lives in this file.
         run: |

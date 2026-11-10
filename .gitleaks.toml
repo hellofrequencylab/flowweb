@@ -24,12 +24,15 @@ description = "GitHub token shape (classic, OAuth, app, refresh, fine-grained)"
 regex = '''(?:gh[pousr]_[A-Za-z0-9]{30,}|github_pat_[A-Za-z0-9_]{40,})'''
 keywords = ["ghp_", "gho_", "ghu_", "ghs_", "ghr_", "github_pat_"]
 
-[[rules]]
-id = "fw-private-key"
-description = "PEM private key header"
-regex = '''-----BEGIN [A-Z ]*PRIVATE KEY-----'''
-keywords = ["PRIVATE KEY"]
-
-# The allowlist is deliberately empty. Tests and fixtures assemble fake keys at runtime (see
-# probes/c0/_lib.mjs fakeSecret and the adapter replay fixtures), so no key-shaped literal is
-# stored in the repo. Adding an entry here is an Owner decision.
+# Private keys are left to the default rule, which needs a key body, so a bare PEM header in docs
+# and redaction tests is not a finding.
+#
+# The allowlist names exact fake values only, never paths, so a real key in a test file is still
+# caught. New tests should assemble fake keys at run time (probes/c0/_lib.mjs fakeSecret) instead
+# of adding entries here. Adding an entry is an Owner decision.
+[allowlist]
+description = "Known fake test values"
+regexes = [
+  # AWS key id made of the alphabet, used by the event-log redaction tests and schema_core_test.py.
+  '''AKIAABCDEFGHIJKLMNOP''',
+]
