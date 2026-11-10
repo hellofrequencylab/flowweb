@@ -1302,3 +1302,41 @@ a.flow-line:hover .flow-line-name {
   grid-template-columns: repeat(auto-fill, minmax(170px, 1fr));
   column-gap: var(--space-8);
 }
+
+/* ---------------------------------------------------------------- Sign-offs: queue accent, checks summary */
+.queue-item {
+  position: relative;
+  overflow: hidden;
+}
+/* Compact requests carry the waiting accent: a saffron top edge. Every queued card waits on you. */
+.queue-item::before {
+  position: absolute;
+  inset: 0 0 auto;
+  height: 3px;
+  background: var(--flow-gate);
+  content: "";
+}
+.checks-summary {
+  display: flex;
+  align-items: center;
+  gap: var(--space-5);
+  margin-bottom: var(--space-6);
+}
+.checks-summary .donut-value {
+  font-size: var(--text-sm);
+}
+.trace-lines {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 2px;
+}
+.trace-lines > * {
+  margin: 0;
+}
+/* Waves sit behind flows: the region path reads as one. */
+.region-path {
+  padding: var(--space-4) var(--space-4) var(--space-2);
+  border-radius: var(--radius-md);
+  background: var(--texture-waves);
+}

@@ -1,6 +1,7 @@
 import { api } from '../api/client';
 import { type Resource, useResource } from '../api/resource';
-import type { Evidence, ParsedDiff } from '../api/types';
+import type { CheckStatus, Evidence, ParsedDiff } from '../api/types';
+import { Donut, RunTrace, type Slice, type TraceStatus } from '../ui-kit/flow';
 import { Copy, LoadError, Loading } from '../ui-kit/honest';
 import { CHECK_STATUS, SANDBOX, StatusLabel, VERDICT } from '../ui-kit/status';
 import { clock, shortHash, usd } from '../ui-kit/time';
@@ -22,6 +23,43 @@ export function useDiff(id: string | undefined) {
  * Judge a change in under a minute without trusting the agent's summary.
  * Each section loads and fails on its own, with Retry.
  */
+/** Each check status as a trace step. Skipped is never a pass, so it never gets the tick. */
+const CHECK_TRACE: Record<CheckStatus, TraceStatus> = {
+  pass: 'done',
+  fail: 'failed',
+  warn: 'blocked',
+  skipped: 'skipped',
+  pending: 'pending',
+};
+
+/** How many checks passed, as a small donut with the count in words beside it. */
+function ChecksSummary({ checks }: { checks: Evidence['checks'] }) {
+  const count = (s: CheckStatus) => checks.filter((c) => c.status === s).length;
+  const slices: Slice[] = [
+    { key: 'pass', label: 'Passed', value: count('pass'), tone: 'ok' },
+    { key: 'fail', label: 'Failed', value: count('fail'), tone: 'fail' },
+    { key: 'warn', label: 'Warnings', value: count('warn'), tone: 'warn' },
+    { key: 'skipped', label: 'Not verified', value: count('skipped') + count('pending'), tone: 'unknown' },
+  ];
+  const words = slices.filter((s) => s.value > 0).map((s) => `${s.value} ${s.label.toLowerCase()}`);
+  return (
+    <div className="checks-summary">
+      <Donut
+        size={64}
+        slices={slices}
+        center={`${count('pass')}/${checks.length}`}
+        label={`${count('pass')} of ${checks.length} checks passed`}
+      />
+      <span className="small">
+        <strong>
+          {count('pass')} of {checks.length} passed
+        </strong>
+        {words.length > 1 && <span className="muted"> · {words.slice(1).join(', ')}</span>}
+      </span>
+    </div>
+  );
+}
+
 export function EvidenceView({
   ev,
   diff,
@@ -54,23 +92,33 @@ export function EvidenceView({
           <LoadError what="the evidence" error={ev.error} onRetry={ev.reload} />
         )}
         {e && (
-          <ul className="plain-list">
-            {e.checks.map((c) => (
-              <li key={c.name} className="row">
-                <StatusLabel spec={CHECK_STATUS[c.status]} />
-                <span>{c.name}</span>
-                {c.summary && <span className="muted small">{c.summary}</span>}
-                <span className="spacer" />
-                <span className="asof">ran {clock(c.ran_at)}</span>
-                {c.artifact_ref && <RefLink r={c.artifact_ref} label="Output" copy={false} />}
-              </li>
-            ))}
+          <>
+            <ChecksSummary checks={e.checks} />
+            <RunTrace
+              steps={e.checks.map((c) => ({
+                key: c.name,
+                status: CHECK_TRACE[c.status],
+                name: (
+                  <>
+                    {c.name}
+                    {c.status !== 'pass' && <span className="muted"> · {CHECK_STATUS[c.status].word}</span>}
+                  </>
+                ),
+                detail: (c.summary || c.artifact_ref) && (
+                  <span className="trace-lines">
+                    {c.summary && <span>{c.summary}</span>}
+                    {c.artifact_ref && <RefLink r={c.artifact_ref} label="Output" copy={false} />}
+                  </span>
+                ),
+                aside: `ran ${clock(c.ran_at)}`,
+              }))}
+            />
             {e.not_verified.length > 0 && (
-              <li className="small muted">
+              <p className="small muted">
                 Not verified: {e.not_verified.join(', ')}. Skipped checks are never counted as a pass.
-              </li>
+              </p>
             )}
-          </ul>
+          </>
         )}
       </section>
 
