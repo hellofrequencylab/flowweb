@@ -187,6 +187,28 @@ const edit: Command = {
   },
 };
 
+const rewrite: Command = {
+  path: ['supervisor', 'rewrite'],
+  usage: 'fw supervisor rewrite <flow> <id> --how <text>',
+  summary: "Ask the flow's engine to rewrite a draft; prints the proposal and saves nothing (Owner)",
+  args: ['flow', 'id'],
+  options: ['how'],
+  async run(ctx) {
+    if (typeof ctx.client.supervisorRewriteDraft !== 'function')
+      throw new UnsupportedError(
+        'the core client in use does not serve the Supervisor; the daemon package provides it',
+      );
+    const [flow = '', id = ''] = ctx.args;
+    const p = await ctx.client.supervisorRewriteDraft(flow, id, ctx.opts.how ?? '');
+    if (ctx.json) ctx.io.out(JSON.stringify({ data: p }, null, 2));
+    else
+      ctx.io.out(
+        `${p.subject ? `${p.subject}\n\n` : ''}${p.body}\n\nSave it with: fw supervisor edit ${flow} ${id} --body-file <file>`,
+      );
+    return EXIT.OK;
+  },
+};
+
 export const supervisorCommands: Command[] = [
   status,
   control('pause', false, 'Pause the Supervisor: hold every flow until resumed (Owner)'),
@@ -199,4 +221,5 @@ export const supervisorCommands: Command[] = [
   draftAction('approve', 'Approve one draft: it goes to the outbox, as at Autopilot (Owner, Copilot)'),
   draftAction('reject', 'Reject one draft: it is never handed off (Owner)'),
   edit,
+  rewrite,
 ];

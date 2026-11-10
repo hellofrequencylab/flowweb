@@ -15,7 +15,7 @@ Reads a JSON request on stdin and plays a scripted scenario.
 Options:
   --version   Print the version
   --help      Print this help
-Scenarios: success, flow_drafts, hunt_leads, fail, hang, secret_leak, prompt_injection, over_budget,
+Scenarios: success, flow_drafts, hunt_leads, draft_rewrite, fail, hang, secret_leak, prompt_injection, over_budget,
   forbidden_path, malformed_output, fabricated_claim
 `;
 
@@ -150,6 +150,39 @@ const scenarios = {
   },
   // FW-C-041: a hunt cycle. For every hunt in ./hunts.json, six leads: three good ones (a, d, f), one
   // whose address is on the probe's do-not-contact list, one with no source page, one repeating a.
+  async draft_rewrite() {
+    session();
+    out({
+      t: 'turn',
+      id: 'msg_1',
+      text: 'Rewriting the draft.',
+      usage: { input_tokens: 500, output_tokens: 200, cached_tokens: 0 },
+    });
+    const read = (f) => {
+      try {
+        return JSON.parse(readFileSync(join(process.cwd(), f), 'utf8'));
+      } catch {
+        return {};
+      }
+    };
+    const draft = read('draft.json');
+    const how = String(read('instruction.json').instruction ?? '');
+    writeFileSync(
+      join(process.cwd(), 'rewrite.json'),
+      JSON.stringify({
+        subject: `${draft.subject ?? 'Hello'} (rewritten)`,
+        body: `${draft.body ?? ''}\n\n[rewritten: ${how}]`,
+      }),
+    );
+    out({
+      t: 'result',
+      ok: true,
+      usd: 0.0042,
+      artifacts: [{ kind: 'file', ref: 'rewrite.json' }],
+      report: { summary: 'rewrote 1 draft', claims: [], followups: [] },
+    });
+  },
+
   async hunt_leads() {
     session();
     // FW-C-043: say whether the run was started with web access, so a probe can see it.

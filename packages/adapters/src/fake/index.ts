@@ -31,6 +31,7 @@ export const FAKE_SCENARIOS = [
   'fabricated_claim',
   'flow_drafts',
   'hunt_leads',
+  'draft_rewrite',
 ] as const;
 
 export type FakeScenario = (typeof FAKE_SCENARIOS)[number];
@@ -56,6 +57,10 @@ export const FAKE_EXPECTED: Record<FakeScenario, { status: RunStatus; note: stri
   hunt_leads: {
     status: 'completed',
     note: 'a hunt cycle: leads.json for each hunt in hunts.json, no commit',
+  },
+  draft_rewrite: {
+    status: 'completed',
+    note: 'a draft rewrite: rewrite.json from draft.json and instruction.json, no commit',
   },
 };
 

@@ -113,7 +113,7 @@ export function flowEngine(
 }
 
 /** Copies the flow's README and its effective config (the $FW_HOME override, else the repo's) into dir. */
-function copyFlowFiles(d: Pick<CycleDeps, 'fwHome' | 'repoRoot'>, key: string, dir: string): void {
+export function copyFlowFiles(d: Pick<CycleDeps, 'fwHome' | 'repoRoot'>, key: string, dir: string): void {
   const repoDir = join(d.repoRoot, 'flows', key);
   const override = join(d.fwHome, 'flows', key, 'config.json');
   const config = existsSync(override) ? override : join(repoDir, 'config.json');
@@ -123,7 +123,7 @@ function copyFlowFiles(d: Pick<CycleDeps, 'fwHome' | 'repoRoot'>, key: string, d
 }
 
 /** The Owner's project brief, worded as ledger work orders carry it (FW-C-040); empty without a complete brief. */
-function briefConstraints(r: Writer, projectId: string): { style?: string[]; notes: string[] } {
+export function briefConstraints(r: Writer, projectId: string): { style?: string[]; notes: string[] } {
   const b = projectId ? readBriefs(r)[projectId] : undefined;
   if (!isCompleteBrief(b)) return { notes: [] };
   return {
