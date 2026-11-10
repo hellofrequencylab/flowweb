@@ -10,6 +10,7 @@
 //     database checks the role again when the request is queued.
 //   - A key-shaped question is refused before any call. Nothing is stored or logged.
 // Pure apart from the injected fetch and mirror read, so it is tested without a network.
+import { isSignInToken, refusalReason, retryWithoutBeta, SIGN_IN_TOKEN, siteKey } from './site-key.mjs';
 import { ASSISTANT_MODEL, looksLikeSecret } from './assistant.mjs';
 import { requestOf } from './requests.mjs';
 
@@ -138,7 +139,8 @@ export async function answerConsole(body, { env = {}, fetchImpl = fetch, role = 
   if (question.length > MAX_QUESTION) return bad(400, 'validation_failed', `Keep it under ${MAX_QUESTION} characters.`);
   if (looksLikeSecret(question))
     return bad(400, 'looks_like_secret', 'That looks like a key, so it was not sent. Paste keys only into your terminal when a command asks.');
-  const key = String(env.FW_ASSISTANT_ANTHROPIC_KEY ?? '').trim();
+  const key = siteKey(env);
+  if (key && isSignInToken(key)) return bad(500, 'upstream_failed', SIGN_IN_TOKEN);
   if (!key) return bad(503, 'not_configured', 'The console has no AI on this site yet.');
 
   const p = b.page && typeof b.page === 'object' ? b.page : {};
@@ -193,19 +195,18 @@ export async function answerConsole(body, { env = {}, fetchImpl = fetch, role = 
   let res;
   try {
     res = await call(true);
-    if (res.status === 400) res = await call(false);
+    if (retryWithoutBeta(res.status)) res = await call(false);
   } catch {
     return bad(502, 'unreachable', 'The console could not reach the AI.');
   }
   if (!res.ok) {
-    const type = (await res.json().catch(() => null))?.error?.type ?? 'unknown';
+    const e = (await res.json().catch(() => null))?.error;
+    const type = e?.type ?? 'unknown';
     console.warn(`console: Anthropic API answered ${res.status} (${type})`);
     return bad(
       500,
       'upstream_failed',
-      res.status === 401 || res.status === 403
-        ? 'The site key was turned down. Check FW_ASSISTANT_ANTHROPIC_KEY in Vercel.'
-        : 'The console could not answer just now.',
+      refusalReason(res.status, type, 'The console could not answer just now.', e?.message),
     );
   }
   const msg = await res.json().catch(() => null);
