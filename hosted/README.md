@@ -35,7 +35,10 @@ your machine                                   hosted
    by the function at run time).
 4. Sign in on the site, open Settings, "Add a machine", and run the command it shows in this
    repo on your machine while fwd is running. Add `--once` to push a single snapshot.
+5. To keep the relay running across logins on a Mac, save the token to `~/.flowweb/relay.token`
+   (mode 600) and install `relay/app.flowweb.relay.plist` (fill in the paths it names).
 
 ## Tests
 
-`node --test hosted/test/mirror.test.mjs`
+`node --test hosted/test/mirror.test.mjs`. CI does not run this yet: `vitest` only covers
+`packages/*/test`, and adding a step to `.github/workflows/ci.yml` is an Owner change.
