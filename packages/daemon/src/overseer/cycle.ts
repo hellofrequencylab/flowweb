@@ -5,12 +5,12 @@
 // against the flow's stream and writes one run report. Core never sends: every draft waits for the
 // Owner (handing Autopilot items to the outbox is FW-C-037).
 import { execFileSync } from 'node:child_process';
-import { existsSync, mkdirSync, readFileSync, writeFileSync } from 'node:fs';
+import { copyFileSync, existsSync, mkdirSync, readFileSync, writeFileSync } from 'node:fs';
 import { join } from 'node:path';
 import { type AdapterName, createAdapter, isAdapterName, type VendorAdapterInput } from '@fw/adapters';
 import type { WorkOrder } from '@fw/contracts';
 import { newId, nowIso, type Writer } from '@fw/eventlog';
-import { addStream, DEFAULT_AGENTS, ownerActor } from '@fw/ledger';
+import { addStream, DEFAULT_AGENTS, isCompleteBrief, ownerActor, readBriefs } from '@fw/ledger';
 import { type InjectedCredentials, injectCredentials, redactLiterals } from '../creds/index.ts';
 import {
   dueHunts,
@@ -92,6 +92,31 @@ export function flowEngine(repoRoot: string, key: string): { adapter?: string; a
   }
 }
 
+/** Copies the flow's README and its effective config (the $FW_HOME override, else the repo's) into dir. */
+function copyFlowFiles(d: Pick<CycleDeps, 'fwHome' | 'repoRoot'>, key: string, dir: string): void {
+  const repoDir = join(d.repoRoot, 'flows', key);
+  const override = join(d.fwHome, 'flows', key, 'config.json');
+  const config = existsSync(override) ? override : join(repoDir, 'config.json');
+  if (existsSync(join(repoDir, 'README.md')))
+    copyFileSync(join(repoDir, 'README.md'), join(dir, 'README.md'));
+  if (existsSync(config)) copyFileSync(config, join(dir, 'config.json'));
+}
+
+/** The Owner's project brief, worded as ledger work orders carry it (FW-C-040); empty without a complete brief. */
+function briefConstraints(r: Writer, projectId: string): { style?: string[]; notes: string[] } {
+  const b = projectId ? readBriefs(r)[projectId] : undefined;
+  if (!isCompleteBrief(b)) return { notes: [] };
+  return {
+    style: [`Voice, from the Owner's project brief: ${b.voice}`],
+    notes: [
+      `From the Owner's project brief. What the project is: ${b.what}`,
+      `Who it is for: ${b.who}`,
+      `What the agents must never do on it: ${b.never}`,
+      `What done looks like: ${b.done}`,
+    ],
+  };
+}
+
 export interface CycleDeps {
   writer: Writer;
   repoRoot: string;
@@ -100,6 +125,8 @@ export interface CycleDeps {
   log?: (line: string) => void;
   /** Keychain override for tests (see creds); the real one otherwise. */
   keychain?: Parameters<typeof injectCredentials>[1]['keychain'];
+  /** Aborting it kills the vendor process group; the cycle still ends in a report. */
+  signal?: AbortSignal;
   /** Builds the adapter (tests pass a stub); createAdapter otherwise. */
   adapterFactory?: (
     name: AdapterName,
@@ -125,9 +152,10 @@ interface Draft {
 function brief(key: string, stream: Record<string, unknown>, hunts: Hunt[]): string {
   const lines = [
     `Run one cycle of the flow "${String(stream.name ?? key)}".`,
-    `Read the flow's files under flows/${key}/ in the repository (README.md and config.json) for the offer, territories, sources, funnels and send routes.`,
+    "Read README.md and config.json in the current folder (the flow's description and its settings on this machine) for the offer, territories, sources, funnels and send routes.",
     'Find leads, score fit and timing, route each one, and draft invites and posts for the Owner to review.',
     'Write your drafts to drafts.json in the current folder as {"drafts":[{"id","lead_id","send_via","subject","body"}]}.',
+    'Commit nothing. In your final report, list drafts.json as a file artifact.',
     'Never send, post or email anything: every draft waits for the Owner.',
   ];
   if (hunts.length > 0)
@@ -162,6 +190,9 @@ export async function runFlowCycle(d: CycleDeps, fire: CycleFire): Promise<void>
     // Vendor CLIs such as Codex refuse to run outside a git repository, so the cycle folder is one.
     // Nothing is ever committed or pushed from it.
     if (!existsSync(join(dir, '.git'))) execFileSync('git', ['init', '-q'], { cwd: dir, stdio: 'ignore' });
+    // The agent works in this folder only, so it gets the flow's README and the config this machine
+    // actually uses (the Owner's override in $FW_HOME when there is one).
+    copyFlowFiles(d, fire.flow, dir);
     if (fire.flow === HUNTS_FLOW) {
       hunts = dueHunts(loadHunts(d.fwHome), new Date());
       if (hunts.length > 0) writeJsonAtomic(join(dir, 'hunts.json'), { hunts });
@@ -189,6 +220,7 @@ export async function runFlowCycle(d: CycleDeps, fire: CycleFire): Promise<void>
       number
     >;
     const runId = `cyc_${fire.fireId.replace(SAFE, '_')}`;
+    const ownerBrief = briefConstraints(w, projectId);
     const order = {
       id: `wo_${runId}`,
       version: 1,
@@ -198,11 +230,16 @@ export async function runFlowCycle(d: CycleDeps, fire: CycleFire): Promise<void>
       ledger_row_id: '',
       base_commit: '0'.repeat(40),
       goal: brief(fire.flow, stream, hunts),
-      context_links: [`flows/${fire.flow}/README.md`, `flows/${fire.flow}/config.json`],
-      scope: { touches: ['drafts.json'], forbidden: ['**/*'] },
+      context_links: ['README.md', 'config.json'],
+      // The agent writes its own outputs only; the files fwd put there for it are read-only.
+      scope: {
+        touches: ['drafts.json', 'leads.json'],
+        forbidden: ['README.md', 'config.json', 'hunts.json', '.git/**'],
+      },
       constraints: {
         max_diff_lines: 0,
-        notes: ['This is a flow cycle: write drafts.json only and commit nothing.'],
+        ...(ownerBrief.style ? { style: ownerBrief.style } : {}),
+        notes: ['This is a flow cycle: write drafts.json only and commit nothing.', ...ownerBrief.notes],
       },
       acceptance: [
         {
@@ -251,7 +288,11 @@ export async function runFlowCycle(d: CycleDeps, fire: CycleFire): Promise<void>
       planner_text_is_data: true,
     };
     const scenario = adapterName === 'fake' ? d.env.FW_FAKE_SCENARIO : undefined;
+    if (d.signal?.aborted) throw new Error(`interrupted before start: ${String(d.signal.reason ?? 'stop')}`);
     const run = adapter.start(input, { credentialEnv: creds.env, ...(scenario ? { scenario } : {}) });
+    const onAbort = () => void run.kill(`interrupted: ${String(d.signal?.reason ?? 'stop')}`);
+    d.signal?.addEventListener('abort', onAbort, { once: true });
+    run.result.finally(() => d.signal?.removeEventListener('abort', onAbort));
     for await (const _ of run.events) {
       // drain: the result settles after the events end
     }
@@ -274,7 +315,13 @@ export async function runFlowCycle(d: CycleDeps, fire: CycleFire): Promise<void>
         ],
       );
     addFlowSpend(d, fire.flow, usd, Number(result.turns ?? 0));
-    if (result.status !== 'completed') {
+    // A cycle commits nothing, so a vendor that wrote drafts.json but named no artifact still finished
+    // its work: the engine's no_artifact rule is for ledger runs, which must land a commit.
+    const draftsOnly =
+      result.status === 'failed' &&
+      (await run.meta)?.failure_class === 'no_artifact' &&
+      existsSync(join(dir, 'drafts.json'));
+    if (result.status !== 'completed' && !draftsOnly) {
       reason = redactLiterals(`adapter ended ${result.status}: ${result.summary ?? ''}`, creds.literals);
     } else {
       const p = join(dir, 'drafts.json');
@@ -286,15 +333,28 @@ export async function runFlowCycle(d: CycleDeps, fire: CycleFire): Promise<void>
       drafts.forEach((x, i) => {
         if (typeof x.body !== 'string' || x.body.length === 0) return;
         const id = `${fire.fireId}-${String(x.id ?? i)}`.replace(SAFE, '_').slice(0, 100);
+        const channel =
+          typeof (x.channel ?? x.send_via) === 'string' ? String(x.channel ?? x.send_via) : null;
+        // At confirmed Autopilot the draft goes to the outbox; at any other stop handOff holds it for the Owner.
+        const handed = channel
+          ? handOff({
+              writer: w,
+              repoRoot: d.repoRoot,
+              fwHome: d.fwHome,
+              flow: fire.flow,
+              item: { id, channel, body: x.body },
+            })
+          : null;
         const doc = {
           flow: fire.flow,
           id,
           fire_id: fire.fireId,
           lead_id: typeof x.lead_id === 'string' ? x.lead_id : null,
-          channel: typeof (x.channel ?? x.send_via) === 'string' ? String(x.channel ?? x.send_via) : null,
+          channel,
           subject: typeof x.subject === 'string' ? x.subject : null,
           body: x.body,
-          status: 'waiting_for_owner',
+          status: handed?.outcome === 'queued' ? 'handed_off' : 'waiting_for_owner',
+          ...(handed && handed.outcome !== 'queued' ? { held: handed.reason } : {}),
           created_at: nowIso(),
         };
         writeFileSync(join(out, `${id}.json`), `${JSON.stringify(doc, null, 2)}\n`, { mode: 0o600 });
@@ -350,17 +410,28 @@ export async function runFlowCycle(d: CycleDeps, fire: CycleFire): Promise<void>
   }
 }
 
-/** Adds a cycle's spend to the flow's own period total (state.json), which its cap reads. */
-function addFlowSpend(d: CycleDeps, key: string, usd: number, turns: number): void {
+const PERIOD_DAYS: Record<string, number> = { day: 1, week: 7, month: 30 };
+
+/** Adds a cycle's spend to the flow's own period total; a period that has ended starts again from zero. */
+export function addFlowSpend(
+  d: Pick<CycleDeps, 'fwHome' | 'repoRoot'>,
+  key: string,
+  usd: number,
+  turns: number,
+  now: Date = new Date(),
+): void {
   const p = join(d.fwHome, 'flows', key, 'state.json');
   if (usd <= 0 && turns <= 0) return;
   const state = existsSync(p) ? (JSON.parse(readFileSync(p, 'utf8')) as Record<string, unknown>) : {};
   const s = (state.spend ?? {}) as { period_start?: string; usd?: number; turns?: number };
-  state.spend = {
-    period_start: s.period_start ?? nowIso(),
-    usd: Number(s.usd ?? 0) + usd,
-    turns: Number(s.turns ?? 0) + turns,
-  };
+  const period = String(
+    (flowStream(d.repoRoot, key)?.budget as { period?: string } | undefined)?.period ?? 'week',
+  );
+  const start = s.period_start ? Date.parse(s.period_start) : Number.NaN;
+  const current = Number.isFinite(start) && now.getTime() - start < (PERIOD_DAYS[period] ?? 7) * 86_400_000;
+  state.spend = current
+    ? { period_start: s.period_start, usd: Number(s.usd ?? 0) + usd, turns: Number(s.turns ?? 0) + turns }
+    : { period_start: now.toISOString(), usd, turns };
   mkdirSync(join(d.fwHome, 'flows', key), { recursive: true, mode: 0o700 });
   writeFileSync(p, `${JSON.stringify(state, null, 2)}\n`);
 }

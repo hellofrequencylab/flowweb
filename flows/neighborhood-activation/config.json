@@ -57,7 +57,7 @@
     "founder_email": {"label": "Your own email, as the founder", "one_to_one": true, "needs": ["honest subject", "who you are", "one-line opt-out: reply no and I won't write again"]},
     "frequency": {"label": "Frequency messaging", "one_to_one": false, "adds": ["unsubscribe link", "postal address"]}
   },
-  "hunts": {"sign_off": "Daniel, founder of Frequency (frequencylocal.com)", "send_via": "frequency", "note": "Saved hunts live in $FW_HOME/flows/neighborhood-activation/hunts.json (FW-C-041). fwd adds the link or claim slot, this sign-off, the source page and a reply-no opt-out to every message."},
+  "hunts": {"sign_off": "Daniel Tyack\nFounder, Frequency (frequencylocal.com)", "send_via": "frequency", "note": "Saved hunts live in $FW_HOME/flows/neighborhood-activation/hunts.json (FW-C-041). fwd adds the link or claim slot, this sign-off, the source page and a reply-no opt-out to every message."},
   "sources": [
     {"key": "event_listings", "label": "Local event listings", "finds": "people already hosting classes, meetups and workshops", "reach": "personal founder email", "action_class": "outbound_email_external"},
     {"key": "business_listings", "label": "Business listings", "finds": "studios, cafes and venues with a room to host in", "reach": "personal founder email", "action_class": "outbound_email_external"},
