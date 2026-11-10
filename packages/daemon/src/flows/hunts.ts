@@ -31,16 +31,71 @@ export type Hunt = {
   requested_at?: string | null;
 };
 export type HuntCounts = Record<
-  'found' | 'drafted' | 'blocked' | 'not_public' | 'duplicate' | 'capped',
+  'found' | 'drafted' | 'blocked' | 'not_public' | 'duplicate' | 'capped' | 'restricted',
   number
 >;
+/** FW-C-052: how the organizer can be reached, as the lead says. */
+export type ContactVia = 'email' | 'form' | 'social' | 'platform';
+/** FW-C-052: how the Owner sends a draft. Only email may go to the outbox; the rest are sent by hand. */
+export type SendVia = 'email' | 'contact_form' | 'social_dm' | 'platform_message';
+const SEND_VIA: Record<ContactVia, SendVia> = {
+  email: 'email',
+  form: 'contact_form',
+  social: 'social_dm',
+  platform: 'platform_message',
+};
 export type HuntLead = {
   hunt_id: string;
-  event: { title: string; starts_at: string | null; url: string };
-  organizer: { name: string | null; email: string; source_url: string };
+  event: { title: string; starts_at: string | null; url: string; country: string | null };
+  organizer: {
+    name: string | null;
+    email: string;
+    source_url: string;
+    country: string | null;
+    contact_via: ContactVia;
+    contact_url: string | null;
+  };
   subject: string | null;
   body: string;
 };
+
+/**
+ * FW-C-052: places where most cold messages need consent first (GDPR and ePrivacy in the EU and EEA,
+ * PECR in the UK, CASL in Canada). A hunt writes to nobody there.
+ */
+export const RESTRICTED_COUNTRIES = new Set(
+  (
+    'AT BE BG HR CY CZ DK EE FI FR DE GR HU IE IT LV LT LU MT NL PL PT RO SK SI ES SE ' + // EU
+    'IS LI NO ' + // EEA
+    'GB CA'
+  )
+    .split(' ')
+    .filter(Boolean),
+);
+const RESTRICTED_TLDS = new Set(
+  [...RESTRICTED_COUNTRIES].map((c) => c.toLowerCase()).concat(['eu', 'uk', 'el']),
+);
+
+const tldOf = (host: string) => host.toLowerCase().replace(/\.$/, '').split('.').pop() ?? '';
+const hostOf = (u: string) => (URL.canParse(u) ? new URL(u).hostname : '');
+
+/** True when the lead's country or any of its addresses or pages points at a restricted place. */
+export function restrictedLead(lead: HuntLead): boolean {
+  if ([lead.event.country, lead.organizer.country].some((c) => c && RESTRICTED_COUNTRIES.has(c))) return true;
+  const hosts = [
+    lead.organizer.email.split('@')[1] ?? '',
+    ...[lead.organizer.contact_url, lead.organizer.source_url, lead.event.url].map((u) => hostOf(u ?? '')),
+  ].filter(Boolean);
+  return hosts.some((h) => RESTRICTED_TLDS.has(tldOf(h)));
+}
+
+/** One sentence telling the Owner how to send a draft. */
+export function sendHow(via: SendVia, to: string | null, page: string | null): string {
+  if (via === 'email') return `Email it to ${to} from your own mailbox.`;
+  if (via === 'contact_form') return `Paste it into the contact form at ${page}, by hand.`;
+  if (via === 'social_dm') return `Send it as a direct message on ${page}, by hand.`;
+  return `Send it with the event platform's message button on ${page}, by hand.`;
+}
 /** Who a hunt has already drafted for, by lower-case address. Kept in the flow's state.json. */
 export type HuntContacts = Record<string, { at: string; hunt_id: string; event_url: string }>;
 
@@ -127,12 +182,9 @@ export function dueHunts(hunts: Hunt[], now: Date): Hunt[] {
 export function onDoNotContact(dnc: string[], email: string, urls: string[]): boolean {
   const set = new Set(dnc.map((x) => x.trim().toLowerCase()));
   const e = email.toLowerCase();
-  return (
-    set.has(e) ||
-    set.has(`mailto:${e}`) ||
-    set.has(`@${e.split('@')[1]}`) ||
-    urls.some((u) => set.has(u.toLowerCase()))
-  );
+  const byAddress =
+    e.includes('@') && (set.has(e) || set.has(`mailto:${e}`) || set.has(`@${e.split('@')[1]}`));
+  return byAddress || urls.some((u) => set.has(u.toLowerCase()));
 }
 
 /** The leads the adapter answered, shaped; anything that is not a lead object is left out. */
@@ -141,13 +193,27 @@ export function parseLeads(raw: unknown): HuntLead[] {
   return list.filter(isObj).map((l) => {
     const ev = isObj(l.event) ? l.event : {};
     const org = isObj(l.organizer) ? l.organizer : {};
+    const country = (v: unknown) => (/^[A-Za-z]{2}$/.test(text(v)) ? text(v).toUpperCase() : null);
+    const via = text(org.contact_via).toLowerCase();
+    const contact_via: ContactVia = via in SEND_VIA ? (via as ContactVia) : 'email';
+    const email = text(org.email).toLowerCase();
+    const contact_url = text(org.contact_url) || null;
     return {
       hunt_id: text(l.hunt_id),
-      event: { title: text(ev.title), starts_at: text(ev.starts_at) || null, url: text(ev.url) },
+      event: {
+        title: text(ev.title),
+        starts_at: text(ev.starts_at) || null,
+        url: text(ev.url),
+        country: country(ev.country),
+      },
       organizer: {
         name: text(org.name) || null,
-        email: text(org.email).toLowerCase(),
-        source_url: text(org.source_url),
+        email,
+        // A form or profile is itself the public page the contact was found on, unless the lead names another.
+        source_url: text(org.source_url) || (contact_via !== 'email' && contact_url ? contact_url : ''),
+        country: country(org.country),
+        contact_via,
+        contact_url,
       },
       subject: text(l.subject) || null,
       body: typeof l.body === 'string' ? l.body.trim() : '',
@@ -178,16 +244,26 @@ export function composeBody(cfg: FlowConfig, h: Hunt, lead: HuntLead): string {
     link,
     '',
     signOff,
-    `I found your address on ${lead.organizer.source_url}. Not interested? Reply "no" and I won't write again.`,
+    `I found ${lead.organizer.contact_via === 'email' ? 'your address' : 'how to reach you'} on ${lead.organizer.source_url}. Not interested? Reply "no" and I won't write again.`,
   ].join('\n');
 }
 
-export type Kept = { hunt: Hunt; lead: HuntLead; id: string; body: string };
+export type Kept = {
+  hunt: Hunt;
+  lead: HuntLead;
+  id: string;
+  body: string;
+  /** The address or page fwd remembers this contact by. */
+  key: string;
+  send_via: SendVia;
+  send_how: string;
+};
 
 /**
- * Decides who gets a message. In order: not one of the due hunts, no address or no public source page
- * (not_public), on do-not-contact (blocked), drafted for before (duplicate), over the hunt's cap or the
- * flow's weekly cap (capped). Pure: the caller records the kept ones as contacts.
+ * Decides who gets a message. In order: not one of the due hunts, no address (or public contact page)
+ * or no public source page (not_public), in the EU or EEA, the UK or Canada (restricted, FW-C-052), on
+ * do-not-contact (blocked), drafted for before (duplicate), over the hunt's cap or the flow's weekly cap
+ * (capped). Pure: the caller records the kept ones as contacts.
  */
 export function screenLeads(o: {
   cfg: FlowConfig;
@@ -202,24 +278,41 @@ export function screenLeads(o: {
   const weekly = o.cfg.leads.max_new_invites_per_week;
   const counts: Record<string, HuntCounts> = {};
   for (const h of o.hunts)
-    counts[h.id] = { found: 0, drafted: 0, blocked: 0, not_public: 0, duplicate: 0, capped: 0 };
+    counts[h.id] = {
+      found: 0,
+      drafted: 0,
+      blocked: 0,
+      not_public: 0,
+      duplicate: 0,
+      capped: 0,
+      restricted: 0,
+    };
   const kept: Kept[] = [];
   for (const lead of o.leads) {
     const h = o.hunts.find((x) => x.id === lead.hunt_id);
     const c = h ? counts[h.id] : undefined;
     if (!h || !c) continue;
     c.found++;
-    const { email, source_url } = lead.organizer;
-    if (!EMAIL.test(email) || !isUrl(source_url) || !lead.body) c.not_public++;
-    else if (onDoNotContact(o.state.do_not_contact, email, [source_url, lead.event.url])) c.blocked++;
-    else if (contacts[email]) c.duplicate++;
+    const { email, source_url, contact_via, contact_url } = lead.organizer;
+    const byEmail = contact_via === 'email';
+    const reachable = byEmail
+      ? EMAIL.test(email)
+      : !!contact_url && /^https:\/\/\S+$/i.test(contact_url) && isUrl(contact_url);
+    const key = byEmail ? email : (contact_url ?? '').toLowerCase();
+    const pages = [source_url, lead.event.url, ...(contact_url ? [contact_url] : [])];
+    if (!reachable || !isUrl(source_url) || !lead.body) c.not_public++;
+    else if (restrictedLead(lead)) c.restricted++;
+    else if (onDoNotContact(o.state.do_not_contact, email, pages)) c.blocked++;
+    else if (contacts[key] || (email && contacts[email])) c.duplicate++;
     else if (c.drafted >= h.max_sends || week >= weekly) c.capped++;
     else {
       c.drafted++;
       week++;
-      contacts[email] = { at: o.now.toISOString(), hunt_id: h.id, event_url: lead.event.url };
-      const id = `${h.id}-${createHash('sha256').update(email).digest('hex').slice(0, 12)}`;
-      kept.push({ hunt: h, lead, id, body: composeBody(o.cfg, h, lead) });
+      contacts[key] = { at: o.now.toISOString(), hunt_id: h.id, event_url: lead.event.url };
+      const id = `${h.id}-${createHash('sha256').update(key).digest('hex').slice(0, 12)}`;
+      const send_via = SEND_VIA[contact_via];
+      const send_how = sendHow(send_via, byEmail ? email : null, contact_url);
+      kept.push({ hunt: h, lead, id, key, send_via, send_how, body: composeBody(o.cfg, h, lead) });
     }
   }
   return { kept, counts };
