@@ -1,0 +1,125 @@
+// FW-C-046: Copilot. A cycle's drafts wait in $FW_HOME/flows/<key>/drafts/ for the Owner, who lists
+// them and approves or rejects each one. Approving hands the draft off exactly as Autopilot does (the
+// same outbox file and notification.queued event, deduplicated on the same key), so approving twice
+// changes nothing. A rejected draft is never handed off.
+import { existsSync, readdirSync, readFileSync, renameSync, writeFileSync } from 'node:fs';
+import { join } from 'node:path';
+import type { Writer } from '@fw/eventlog';
+import { handOff, SupervisorError, shippedFlows } from './index.ts';
+
+export interface DraftView {
+  id: string;
+  fire_id: string | null;
+  lead_id: string | null;
+  channel: string | null;
+  subject: string | null;
+  body: string;
+  status: string;
+  held?: string;
+  created_at: string | null;
+  approved_at?: string;
+  rejected_at?: string;
+}
+
+const ID = /^[A-Za-z0-9_-]{1,100}$/;
+
+function draftsDir(repoRoot: string, fwHome: string, flow: string): string {
+  if (!shippedFlows(repoRoot).some((f) => f.key === flow))
+    throw new SupervisorError('NOT_FOUND', `no flow named ${flow}`);
+  return join(fwHome, 'flows', flow, 'drafts');
+}
+
+function view(doc: Record<string, unknown>): DraftView {
+  const str = (k: string) => (typeof doc[k] === 'string' ? (doc[k] as string) : null);
+  return {
+    id: String(doc.id),
+    fire_id: str('fire_id'),
+    lead_id: str('lead_id'),
+    channel: str('channel'),
+    subject: str('subject'),
+    body: str('body') ?? '',
+    status: str('status') ?? 'waiting_for_owner',
+    ...(str('held') ? { held: str('held') as string } : {}),
+    created_at: str('created_at'),
+    ...(str('approved_at') ? { approved_at: str('approved_at') as string } : {}),
+    ...(str('rejected_at') ? { rejected_at: str('rejected_at') as string } : {}),
+  };
+}
+
+/** The flow's drafts, newest first. */
+export function listDrafts(repoRoot: string, fwHome: string, flow: string): DraftView[] {
+  const dir = draftsDir(repoRoot, fwHome, flow);
+  if (!existsSync(dir)) return [];
+  const out: DraftView[] = [];
+  for (const f of readdirSync(dir)) {
+    if (!f.endsWith('.json')) continue;
+    try {
+      const doc = JSON.parse(readFileSync(join(dir, f), 'utf8')) as Record<string, unknown>;
+      if (typeof doc.id === 'string') out.push(view(doc));
+    } catch {
+      // A file being written or not a draft: skip it.
+    }
+  }
+  return out.sort(
+    (a, b) => (b.created_at ?? '').localeCompare(a.created_at ?? '') || b.id.localeCompare(a.id),
+  );
+}
+
+function load(repoRoot: string, fwHome: string, flow: string, id: string) {
+  if (!ID.test(id)) throw new SupervisorError('INVALID', 'draft id must be 1-100 letters, digits, _ or -');
+  const path = join(draftsDir(repoRoot, fwHome, flow), `${id}.json`);
+  if (!existsSync(path)) throw new SupervisorError('NOT_FOUND', `${flow} has no draft ${id}`);
+  return { path, doc: JSON.parse(readFileSync(path, 'utf8')) as Record<string, unknown> };
+}
+
+function save(path: string, doc: Record<string, unknown>): void {
+  const tmp = `${path}.tmp`;
+  writeFileSync(tmp, `${JSON.stringify(doc, null, 2)}\n`, { mode: 0o600 });
+  renameSync(tmp, path);
+}
+
+const conflict = (why: string, words: string) => new SupervisorError('CONFLICT', `${why}: ${words}`);
+
+/** Hands one draft off on the Owner's approval; refused (CONFLICT) when it may not go out. */
+export function approveDraft(o: {
+  writer: Writer;
+  repoRoot: string;
+  fwHome: string;
+  flow: string;
+  id: string;
+}): DraftView {
+  const { path, doc } = load(o.repoRoot, o.fwHome, o.flow, o.id);
+  if (doc.status === 'handed_off') return view(doc);
+  if (doc.status === 'rejected') throw conflict('rejected', 'The Owner rejected this draft.');
+  const lead = typeof doc.lead_id === 'string' ? doc.lead_id : '';
+  if (lead === '') throw conflict('no_recipient', 'This draft names no lead to send to.');
+  if (lead.startsWith('template:'))
+    throw conflict('template', 'This is a template, not a message to a lead.');
+  if (typeof doc.channel !== 'string' || doc.channel === '')
+    throw conflict('unknown_channel', 'This draft names no channel.');
+  if (typeof doc.body !== 'string' || doc.body === '') throw conflict('empty', 'This draft has no body.');
+  const r = handOff({
+    writer: o.writer,
+    repoRoot: o.repoRoot,
+    fwHome: o.fwHome,
+    flow: o.flow,
+    item: { id: o.id, channel: doc.channel, body: doc.body },
+    approved: true,
+  });
+  if (r.outcome !== 'queued') throw new SupervisorError('CONFLICT', r.reason ?? 'held');
+  const { held: _held, ...rest } = doc;
+  const next = { ...rest, status: 'handed_off', approved_at: new Date().toISOString() };
+  save(path, next);
+  return view(next);
+}
+
+/** Marks one draft rejected; a draft already handed off cannot be taken back. */
+export function rejectDraft(o: { repoRoot: string; fwHome: string; flow: string; id: string }): DraftView {
+  const { path, doc } = load(o.repoRoot, o.fwHome, o.flow, o.id);
+  if (doc.status === 'rejected') return view(doc);
+  if (doc.status === 'handed_off')
+    throw conflict('handed_off', 'This draft is already in the outbox and cannot be taken back.');
+  const next = { ...doc, status: 'rejected', rejected_at: new Date().toISOString() };
+  save(path, next);
+  return view(next);
+}

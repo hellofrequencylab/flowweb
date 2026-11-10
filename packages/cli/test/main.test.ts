@@ -136,6 +136,11 @@ function fakeClient(overrides: Partial<CoreClient> = {}): CoreClient {
     supervisorControl: async () => ({ ...supervisorReport, changed: true }),
     supervisorDial: async () => ({ ...supervisorReport, changed: true }),
     supervisorRun: async () => ({ fire_id: 'stm_x:manual:t', outcome: 'fired' }),
+    supervisorDrafts: async () => [sampleDraft],
+    supervisorDraft: async (action: 'approve' | 'reject') => ({
+      ...sampleDraft,
+      status: action === 'approve' ? 'handed_off' : 'rejected',
+    }),
     policyCheck: async () => ({
       effect: 'ask',
       rule_id: 'pol_0120',
@@ -234,6 +239,16 @@ function run(argv: string[], client: CoreClient = fakeClient()) {
   return main(argv, io, factory).then((code) => ({ code, out: out.join('\n'), err: err.join('\n') }));
 }
 
+const sampleDraft = {
+  id: 'fire1-d1',
+  fire_id: 'fire1',
+  lead_id: 'lead-1',
+  channel: 'email',
+  subject: 'Hello',
+  body: 'Hi there',
+  status: 'waiting_for_owner',
+  created_at: '2026-11-10T00:00:00.000Z',
+};
 const supervisorReport = {
   source: 'daemon' as const,
   kill_switch: false,

@@ -451,6 +451,19 @@ export interface PolicyApplyReport {
   policy_path: string;
 }
 
+/** One cycle draft, as `fw supervisor drafts` lists it (FW-C-046). */
+export interface SupervisorDraft {
+  id: string;
+  fire_id: string | null;
+  lead_id: string | null;
+  channel: string | null;
+  subject: string | null;
+  body: string;
+  status: string;
+  held?: string;
+  created_at: string | null;
+}
+
 /** What `fw supervisor run` prints. */
 export interface SupervisorRunReport {
   fire_id: string;
@@ -497,6 +510,9 @@ export interface CoreClient {
   supervisorDial?(flow: string, stop: string, confirm?: string): Promise<SupervisorReport>;
   /** FW-C-038: fire a flow by hand; the Supervisor decides it like any fire. */
   supervisorRun?(flow: string): Promise<SupervisorRunReport>;
+  /** FW-C-046: Copilot. A flow's cycle drafts, and the Owner's approve or reject of one. */
+  supervisorDrafts?(flow: string): Promise<SupervisorDraft[]>;
+  supervisorDraft?(action: 'approve' | 'reject', flow: string, id: string): Promise<SupervisorDraft>;
   /** FW-C-039: where setup stands; served by the daemon package. */
   setup?(): Promise<SetupReport>;
   /** The policy engine: optional, served by the daemon package (the CLI never imports @fw/policy). */
