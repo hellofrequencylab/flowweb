@@ -80,9 +80,8 @@ export function SupervisorFlows({ s }: { s: Supervisor }) {
         </table>
       </div>
       <p className="muted">
-        Only the CLI changes these: <code>fw supervisor enable &lt;flow&gt;</code>, <code>disable</code>,{' '}
-        <code>pause</code>, <code>resume</code> and <code>dial &lt;flow&gt; &lt;stop&gt;</code>. On Autopilot,
-        Core still never sends: it hands finished items to your sending app.
+        Change these under Controls at the top of this page. On Autopilot, Core still never sends: it hands
+        finished items to your sending app.
       </p>
     </>
   );

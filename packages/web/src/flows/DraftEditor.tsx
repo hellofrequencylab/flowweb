@@ -8,7 +8,7 @@ const QUICK = ['Shorter', 'Warmer and more personal', 'More specific about their
 type Mode = 'view' | 'edit';
 
 /**
- * One draft: read it, copy it, change it by hand or ask AI to rewrite it, or reject it.
+ * One draft: read it, copy it, change it by hand or ask AI to rewrite it, approve it (at Copilot) or reject it.
  * Nothing here sends anything. On the live site each change is applied on your Mac.
  */
 export function DraftEditor({
@@ -81,6 +81,20 @@ export function DraftEditor({
       },
     );
 
+  // FW-C-062: approving hands the draft to the outbox for a sending app. FlowWeb itself sends nothing,
+  // and fwd refuses it at Draft, for a template, or for a channel the flow does not use.
+  const approve = () =>
+    act(
+      'Approving.',
+      (q) => api.draftChange(flow, draft.id, 'approve', {}, q),
+      () => {
+        setNote({ tone: 'ok', text: 'Approved. It is in the outbox for your sending app.' });
+        onChanged();
+      },
+    );
+  const canApprove =
+    draft.status === 'waiting_for_owner' && !(draft.lead_id ?? '').startsWith('template:') && mode === 'view';
+
   const reject = () =>
     act(
       'Rejecting.',
@@ -149,6 +163,11 @@ export function DraftEditor({
               Cancel
             </Button>
           </>
+        )}
+        {canApprove && (
+          <Button onClick={approve} disabledReason={why} title="Needs the flow at Copilot">
+            Approve
+          </Button>
         )}
         {draft.status !== 'rejected' && (
           <Button variant="quiet" onClick={reject} disabledReason={why}>

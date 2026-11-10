@@ -519,17 +519,17 @@ export function buildRouter(deps: ApiDeps): Router {
   r.get('/v1/supervisor', () =>
     env(() => ({ data: supervisorView({ reader, repoRoot: deps.repoRoot, fwHome: deps.fwHome }) })),
   );
-  // The Owner's controls: CLI token only, never a browser session.
+  // The Owner's controls (FW-C-062): the CLI token or the paired browser session. Autopilot still
+  // needs the confirm hash, and the hosted site reaches these only through the relay's CLI token.
+  const requireOwner = (req: object) => {
+    const p = principalOf.get(req);
+    if (p?.kind !== 'cli' && p?.kind !== 'dev_no_auth' && p?.kind !== 'session')
+      throw new ApiError(401, 'unauthorized', 'pair this browser or use the CLI token');
+  };
   const ownerControl = (req: object, act: (c: SupervisorControls) => { changed: boolean }) => {
     const c = deps.supervisor;
     if (!c) throw new ApiError(501, 'not_implemented', 'this fwd does not host the Supervisor controls');
-    const p = principalOf.get(req);
-    if (p?.kind !== 'cli' && p?.kind !== 'dev_no_auth')
-      throw new ApiError(
-        403,
-        'forbidden',
-        'the Supervisor is controlled with the CLI token, not a browser session',
-      );
+    requireOwner(req);
     try {
       const out = act(c);
       return env(() => ({
@@ -568,13 +568,7 @@ export function buildRouter(deps: ApiDeps): Router {
   r.post('/v1/supervisor/flows/{key}/run', async ({ req, params }) => {
     const c = deps.supervisor;
     if (!c?.runFlow) throw new ApiError(501, 'not_implemented', 'this fwd cannot run flows by hand');
-    const p = principalOf.get(req);
-    if (p?.kind !== 'cli' && p?.kind !== 'dev_no_auth')
-      throw new ApiError(
-        403,
-        'forbidden',
-        'the Supervisor is controlled with the CLI token, not a browser session',
-      );
+    requireOwner(req);
     try {
       const out = await c.runFlow(params.key ?? '');
       return env(() => ({ data: out }));
@@ -591,16 +585,9 @@ export function buildRouter(deps: ApiDeps): Router {
     return ownerControl(req, (c) => c.setDial(params.key ?? '', stop, confirm));
   });
 
-  // FW-C-046: Copilot. The Owner lists a flow's cycle drafts and approves or rejects each one.
-  const ownerOnly = (req: object) => {
-    const p = principalOf.get(req);
-    if (p?.kind !== 'cli' && p?.kind !== 'dev_no_auth')
-      throw new ApiError(
-        403,
-        'forbidden',
-        'cycle drafts are handled with the CLI token, not a browser session',
-      );
-  };
+  // FW-C-046: Copilot. The Owner lists a flow's cycle drafts and approves or rejects each one
+  // (FW-C-062: from the paired browser too).
+  const ownerOnly = requireOwner;
   const draftError = (e: unknown) => {
     if (!(e instanceof SupervisorError)) return kernelError(e);
     if (e.code === 'CONFLICT') return new ApiError(409, 'conflict', e.message, { reason: e.message });

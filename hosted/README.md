@@ -42,3 +42,12 @@ your machine                                   hosted
 
 `node --test hosted/test/mirror.test.mjs`. CI does not run this yet: `vitest` only covers
 `packages/*/test`, and adding a step to `.github/workflows/ci.yml` is an Owner change.
+
+## Flow controls from the site (FW-C-062)
+
+The site can also turn a flow on or off, run it now, set its dial to Draft or Copilot, pause or resume
+the Supervisor, approve a draft, save, run or remove a lead hunt, and add an address to do-not-contact.
+Each one is queued in `fw_requests` and applied on the Owner's machine by the relay with the CLI token,
+exactly like draft edits. Autopilot, the kill switch, budgets and policy are never queued. Apply
+`supabase/migrations/0004_flowweb_flow_controls.sql` once in the Supabase SQL editor first; until then
+the database refuses the new kinds and the site says it could not queue the change.

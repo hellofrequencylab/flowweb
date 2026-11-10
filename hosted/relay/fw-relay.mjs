@@ -67,15 +67,15 @@ async function fwd(path, params = {}) {
 }
 
 /** One POST to fwd with the CLI token; answers { status, json }. Never throws on an HTTP error. */
-async function fwdPost(path, body) {
+async function fwdCall(method, path, body) {
   const res = await fetch(`${FWD}${path}`, {
-    method: 'POST',
+    method,
     headers: {
       accept: 'application/json',
-      'content-type': 'application/json',
+      ...(body === undefined ? {} : { 'content-type': 'application/json' }),
       authorization: `Bearer ${CLI_TOKEN}`,
     },
-    body: JSON.stringify(body ?? {}),
+    body: body === undefined ? undefined : JSON.stringify(body),
   });
   let json = null;
   try {
@@ -314,7 +314,7 @@ async function rpc(name, args) {
 }
 
 /**
- * Applies the draft changes the Owner asked for on the site. Answers how many it handled. A site
+ * Applies the changes the Owner asked for on the site (drafts, flow controls, hunts). Answers how many it handled. A site
  * without the requests table (an older database) answers 404: then there is nothing to do.
  */
 async function applyRequests() {
@@ -333,12 +333,12 @@ async function applyRequests() {
     if (!call) error = `not a change the site may ask for: ${String(req.kind)}`;
     else {
       try {
-        const r = await fwdPost(call.path, call.body);
+        const r = await fwdCall(call.method, call.path, call.body);
         ok = r.status >= 200 && r.status < 300;
         if (ok) result = r.json?.data ?? null;
         else
           error =
-            r.status === 404 && !r.json?.error?.message?.includes('draft')
+            r.status === 404 && !/draft|flow|hunt/.test(String(r.json?.error?.message ?? ''))
               ? 'FlowWeb on your machine does not support this yet; update it'
               : String(r.json?.error?.message ?? `fwd answered ${r.status}`);
       } catch (e) {
@@ -346,7 +346,7 @@ async function applyRequests() {
       }
     }
     await rpc('fw_relay_finish', { p_id: req.id, p_ok: ok, p_result: result, p_error: error });
-    console.log(`fw-relay: ${req.kind} ${req.draft_id}: ${ok ? 'done' : `failed: ${error}`}`);
+    console.log(`fw-relay: ${req.kind} ${req.draft_id ?? req.flow}: ${ok ? 'done' : `failed: ${error}`}`);
   }
   return Array.isArray(taken) ? taken.length : 0;
 }
@@ -388,7 +388,7 @@ async function once() {
 async function main() {
   let next = 0;
   for (;;) {
-    // Draft changes from the site first; any change pushes a fresh snapshot right away.
+    // Changes asked for on the site first; any change pushes a fresh snapshot right away.
     let changed = 0;
     if (!DUMP)
       try {

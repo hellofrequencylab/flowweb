@@ -113,6 +113,42 @@ async function post<T>(path: string, body: unknown): Promise<T> {
 }
 
 const enc = encodeURIComponent;
+
+/**
+ * An Owner write. Local fwd answers it at once. The live site queues it for the Owner's machine
+ * (FW-C-062) and answers a request id: then this waits for the relay's answer, saying so through
+ * `onQueued`, and gives up after `minutes` (the request stays queued for a day).
+ */
+export async function ownerWrite<T>(
+  method: 'POST' | 'DELETE',
+  path: string,
+  body?: unknown,
+  onQueued?: () => void,
+  minutes = 5,
+): Promise<T> {
+  const res = await raw(method, path, body);
+  if (res.status === 204) return undefined as T;
+  const j = (await res.json()) as unknown;
+  const r = (j && typeof j === 'object' && 'data' in j ? (j as { data: unknown }).data : j) as
+    | T
+    | { request_id: string; status: string };
+  if (!r || typeof r !== 'object' || !('request_id' in r) || res.status !== 202) return r as T;
+  onQueued?.();
+  const until = Date.now() + minutes * 60_000;
+  for (;;) {
+    await new Promise((ok) => setTimeout(ok, 2000));
+    const e = await get<{ status: string; result: T | null; error: string | null }>(
+      `/hosted/requests/${enc(r.request_id)}`,
+    );
+    if (e.data.status === 'done') return e.data.result as T;
+    if (e.data.status === 'failed')
+      throw new Error(e.data.error ?? 'Your machine could not make that change.');
+    if (Date.now() > until)
+      throw new Error(
+        'Your Mac has not answered yet. The change stays queued for a day and applies when FlowWeb there is running.',
+      );
+  }
+}
 const qs = (q: Record<string, string | number | undefined | null>) => {
   const p = Object.entries(q)
     .filter(([, v]) => v !== undefined && v !== null && v !== '')
@@ -776,37 +812,39 @@ export const api = {
   },
 
   /**
-   * A draft change: edit, reject or an AI rewrite. On the live site it is queued and applied on the
-   * Owner's machine by the relay, so this waits for that answer; `onQueued` says it is waiting.
+   * A draft change: edit, reject, approve, mark or an AI rewrite. On the live site it is queued and
+   * applied on the Owner's machine by the relay, so this waits for that answer; `onQueued` says it is waiting.
    */
-  async draftChange<T = V.FlowDraft>(
+  draftChange<T = V.FlowDraft>(
     flow: string,
     id: string,
-    action: 'edit' | 'reject' | 'rewrite' | 'mark',
+    action: 'edit' | 'reject' | 'rewrite' | 'mark' | 'approve',
     body: Record<string, string>,
     onQueued?: () => void,
   ): Promise<T> {
-    const r = await post<T | { request_id: string; status: string }>(
+    return ownerWrite<T>(
+      'POST',
       `/supervisor/flows/${enc(flow)}/drafts/${enc(id)}/${action}`,
       body,
+      onQueued,
+      action === 'rewrite' ? 15 : 5,
     );
-    if (!r || typeof r !== 'object' || !('request_id' in r)) return r as T;
-    onQueued?.();
-    const until = Date.now() + (action === 'rewrite' ? 15 : 5) * 60_000;
-    for (;;) {
-      await new Promise((ok) => setTimeout(ok, 2000));
-      const e = await get<{ status: string; result: T | null; error: string | null }>(
-        `/hosted/requests/${enc(r.request_id)}`,
-      );
-      if (e.data.status === 'done') return e.data.result as T;
-      if (e.data.status === 'failed')
-        throw new Error(e.data.error ?? 'Your machine could not make that change.');
-      if (Date.now() > until)
-        throw new Error(
-          'Your Mac has not answered yet. The change stays queued for a day and applies when FlowWeb there is running.',
-        );
-    }
   },
+
+  /** FW-C-062: turn a flow on or off, or run it now. */
+  flowControl: (flow: string, action: 'enable' | 'disable' | 'run', onQueued?: () => void) =>
+    ownerWrite<unknown>('POST', `/supervisor/flows/${enc(flow)}/${action}`, {}, onQueued),
+  /** FW-C-062: Draft or Copilot from anywhere; Autopilot needs the confirm hash fwd answers in a 409. */
+  setDial: (flow: string, stop: V.SupervisorDial, confirm?: string, onQueued?: () => void) =>
+    ownerWrite<unknown>(
+      'POST',
+      `/supervisor/flows/${enc(flow)}/dial`,
+      confirm ? { stop, confirm } : { stop },
+      onQueued,
+    ),
+  /** FW-C-062: pause or resume every flow. */
+  setSupervisorPaused: (paused: boolean, onQueued?: () => void) =>
+    ownerWrite<unknown>('POST', `/supervisor/${paused ? 'pause' : 'resume'}`, {}, onQueued),
 
   async supervisor(): Promise<V.Supervisor> {
     const e = await get<Omit<V.Supervisor, 'data_as_of'>>('/supervisor');
@@ -910,15 +948,23 @@ export interface LeadHuntInput {
 /** The Owner's lead hunts and do-not-contact by address, through fwd's hunt routes. */
 export const leadHunts = {
   list: async () => (await get<LeadHunt[]>(`${NA}/hunts`)).data ?? [],
-  save: (input: LeadHuntInput) => post<LeadHunt>(`${NA}/hunts`, input),
-  run: (id: string) =>
-    post<{ hunt_id: string; fire_id: string; outcome: string; reason?: string }>(
+  save: (input: LeadHuntInput, onQueued?: () => void) =>
+    ownerWrite<LeadHunt>('POST', `${NA}/hunts`, input, onQueued),
+  run: (id: string, onQueued?: () => void) =>
+    ownerWrite<{ hunt_id: string; fire_id: string; outcome: string; reason?: string }>(
+      'POST',
       `${NA}/hunts/${enc(id)}/run`,
       {},
+      onQueued,
     ),
-  remove: async (id: string) => {
-    await raw('DELETE', `${NA}/hunts/${enc(id)}`);
+  remove: async (id: string, onQueued?: () => void) => {
+    await ownerWrite<unknown>('DELETE', `${NA}/hunts/${enc(id)}`, undefined, onQueued);
   },
-  block: (email: string, reason: string) =>
-    send<{ blocked: string; already: boolean }>('POST', `${NA}/do-not-contact`, { email, reason }),
+  block: (email: string, reason: string, onQueued?: () => void) =>
+    ownerWrite<{ blocked: string; already: boolean }>(
+      'POST',
+      `${NA}/do-not-contact`,
+      { email, reason },
+      onQueued,
+    ),
 };

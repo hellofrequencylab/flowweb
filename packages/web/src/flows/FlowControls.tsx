@@ -1,0 +1,223 @@
+// FW-C-062: the Owner's flow controls on the Flows page. Turn each flow on or off, run it now, set its
+// dial, and pause or resume the Supervisor. Locally fwd answers at once; on flowweb.app each change is
+// queued and applied on the Owner's Mac by the relay, and the page says it is waiting.
+import { useId, useState } from 'react';
+import { ApiError, api } from '../api/client';
+import { useResource } from '../api/resource';
+import type { Supervisor, SupervisorDial, SupervisorFlow } from '../api/types';
+import { HOSTED } from '../hosted/auth';
+import { Button } from '../ui-kit/Button';
+import { AsOf, ResourceView } from '../ui-kit/honest';
+import { StatusLabel } from '../ui-kit/status';
+import { usd } from '../ui-kit/time';
+import { DIAL, flowSpec } from './SupervisorPanel';
+
+type Note = { tone: 'ok' | 'warn'; text: string } | null;
+
+const STOPS: { stop: SupervisorDial; hint: string }[] = [
+  { stop: 'draft', hint: 'Writes drafts. You copy and send each one.' },
+  { stop: 'copilot', hint: 'You approve each draft; approved ones go to your sending app.' },
+  { stop: 'autopilot', hint: 'Hands finished drafts to your sending app without asking.' },
+];
+
+const message = (e: unknown) => (e instanceof Error ? e.message : String(e));
+
+/** One write at a time, with what happened (or that the Mac has not answered yet) shown below. */
+function useWrite(reload: () => void) {
+  const [busy, setBusy] = useState<string | null>(null);
+  const [note, setNote] = useState<Note>(null);
+  const run = async (label: string, fn: (queued: () => void) => Promise<unknown>, done: string) => {
+    setBusy(label);
+    setNote(null);
+    let queued = false;
+    try {
+      await fn(() => {
+        queued = true;
+        setBusy(`${label} Waiting for your Mac to apply it.`);
+      });
+      setNote({ tone: 'ok', text: done });
+      return true;
+    } catch (e) {
+      setNote({ tone: 'warn', text: message(e) });
+      return false;
+    } finally {
+      setBusy(null);
+      reload();
+      // On the live site the page reads a copy the Mac refreshes right after a change.
+      if (queued) window.setTimeout(reload, 8000);
+    }
+  };
+  const shown = note && (
+    <div className={`callout ${note.tone === 'ok' ? 'callout-ok' : 'callout-warn'}`} role="status">
+      {note.text}
+    </div>
+  );
+  return { busy, run, setNote, shown };
+}
+
+function budgetLine(f: SupervisorFlow): string {
+  const b = f.budget;
+  if (!b) return 'No spend cap';
+  const spent = b.spent_usd == null ? 'unknown' : usd(b.spent_usd);
+  return b.max_usd == null ? `${spent} spent, no cap` : `${spent} of ${usd(b.max_usd)} this ${b.period}`;
+}
+
+function FlowRow({ f, stopped, reload }: { f: SupervisorFlow; stopped: boolean; reload: () => void }) {
+  const { busy, run, setNote, shown } = useWrite(reload);
+  const [confirm, setConfirm] = useState<string | null>(null);
+  const group = useId();
+  const toggle = () =>
+    run(
+      f.enabled ? 'Turning it off.' : 'Turning it on.',
+      (q) => api.flowControl(f.key, f.enabled ? 'disable' : 'enable', q),
+      f.enabled ? `${f.name} is off.` : `${f.name} is on. It runs on its schedule.`,
+    );
+  const runNow = () =>
+    run('Starting a cycle.', (q) => api.flowControl(f.key, 'run', q), `${f.name} was asked to run now.`);
+  const dial = async (stop: SupervisorDial, hash?: string) => {
+    if (stop === f.dial && !hash) return;
+    if (stop === 'autopilot' && HOSTED) {
+      setNote({
+        tone: 'warn',
+        text: `Autopilot is set on your Mac: pnpm fw supervisor dial ${f.key} autopilot`,
+      });
+      return;
+    }
+    setConfirm(null);
+    await run('Moving the dial.', (q) => api.setDial(f.key, stop, hash, q), `${f.name} is at ${DIAL[stop]}.`);
+  };
+  // Autopilot asks fwd first: a 409 carries the hash that binds the choice to this flow's channels and caps.
+  const askAutopilot = async () => {
+    if (HOSTED) return dial('autopilot');
+    try {
+      await api.setDial(f.key, 'autopilot');
+      reload();
+    } catch (e) {
+      const hash = e instanceof ApiError ? (e.details as { confirm_hash?: string })?.confirm_hash : undefined;
+      if (hash) setConfirm(hash);
+      else setNote({ tone: 'warn', text: message(e) });
+    }
+  };
+  const why = busy ?? (stopped ? 'The kill switch is engaged.' : null);
+  return (
+    <li className="stack">
+      <div className="panel-head">
+        <strong>{f.name}</strong>
+        <StatusLabel spec={flowSpec(f)} />
+      </div>
+      <p className="muted small">
+        {f.reason} · {budgetLine(f)}
+      </p>
+      <div className="row">
+        <Button
+          variant={f.enabled ? 'quiet' : 'primary'}
+          onClick={toggle}
+          disabledReason={why}
+          aria-label={`${f.enabled ? 'Turn off' : 'Turn on'} ${f.name}`}
+        >
+          {f.enabled ? 'Turn off' : 'Turn on'}
+        </Button>
+        <Button
+          onClick={runNow}
+          disabledReason={why ?? (f.enabled ? null : 'Turn it on first.')}
+          aria-label={`Run ${f.name} now`}
+        >
+          Run now
+        </Button>
+      </div>
+      <div role="radiogroup" aria-label={`Dial for ${f.name}`} className="stack">
+        {STOPS.map(({ stop, hint }) => (
+          <label key={stop} className="row">
+            <input
+              type="radio"
+              name={group}
+              value={stop}
+              checked={f.dial === stop}
+              disabled={Boolean(why)}
+              onChange={() => (stop === 'autopilot' ? askAutopilot() : dial(stop))}
+            />
+            <span>
+              <strong>{DIAL[stop]}</strong> <span className="muted small">{hint}</span>
+            </span>
+          </label>
+        ))}
+      </div>
+      {confirm && (
+        <div className="callout callout-attention stack">
+          <p>
+            Put {f.name} on Autopilot? It hands each finished draft to your sending app without asking you,
+            using only this flow's channels and caps. FlowWeb itself still never sends. The kill switch and
+            the stall breaker stay on.
+          </p>
+          <div className="row">
+            <Button variant="primary" onClick={() => dial('autopilot', confirm)} disabledReason={busy}>
+              Yes, Autopilot
+            </Button>
+            <Button variant="quiet" onClick={() => setConfirm(null)}>
+              Cancel
+            </Button>
+          </div>
+        </div>
+      )}
+      {busy && <p className="muted small">{busy}</p>}
+      {shown}
+    </li>
+  );
+}
+
+function Controls({ s, reload }: { s: Supervisor; reload: () => void }) {
+  const { busy, run, shown } = useWrite(reload);
+  const pause = () =>
+    run(
+      s.paused ? 'Resuming.' : 'Pausing.',
+      (q) => api.setSupervisorPaused(!s.paused, q),
+      s.paused ? 'Flows run again on their schedules.' : 'Paused. No flow starts until you resume.',
+    );
+  return (
+    <div className="stack">
+      <div className="row">
+        <p>
+          {s.kill_switch
+            ? 'The kill switch is engaged. Nothing runs until you release it.'
+            : s.paused
+              ? 'Paused: no flow starts until you resume.'
+              : `Runs up to ${s.max_concurrent} at once; ${s.running} running now.`}
+        </p>
+        <Button variant={s.paused ? 'primary' : 'quiet'} onClick={pause} disabledReason={busy}>
+          {s.paused ? 'Resume all flows' : 'Pause all flows'}
+        </Button>
+      </div>
+      {busy && <p className="muted small">{busy}</p>}
+      {shown}
+      <ul className="plain-list stack" aria-label="Flows">
+        {s.flows.map((f) => (
+          <FlowRow key={f.key} f={f} stopped={s.kill_switch} reload={reload} />
+        ))}
+      </ul>
+      {HOSTED && (
+        <p className="muted small">
+          Changes here are applied on your Mac, usually within a few seconds while FlowWeb runs there.
+        </p>
+      )}
+    </div>
+  );
+}
+
+/** The controls panel: every flow the Supervisor runs, with its switch, Run now and dial. */
+export function FlowControls() {
+  const id = useId();
+  const res = useResource('supervisor', () => api.supervisor(), ['runs', 'cards']);
+  return (
+    <section className="panel stack" aria-labelledby={id}>
+      <div className="panel-head">
+        <h2 id={id}>Controls</h2>
+        <span className="asof">
+          <AsOf res={res} />
+        </span>
+      </div>
+      <ResourceView res={res} what="the flow controls">
+        {(s) => <Controls s={s} reload={res.reload} />}
+      </ResourceView>
+    </section>
+  );
+}
