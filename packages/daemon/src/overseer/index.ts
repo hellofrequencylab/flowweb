@@ -447,6 +447,11 @@ export function handOff(o: {
     outcome: 'held',
     reason: `${why}: ${words}`,
   });
+  // FW-C-052: a hunt draft for a contact form, a social profile or an event platform is sent by hand:
+  // those sites ban automated messages, so it never goes to the outbox, approved or not.
+  const via = item.lead?.send_via;
+  if (typeof via === 'string' && via !== 'email')
+    return held('send_by_hand', `This draft is for ${via.replace('_', ' ')}, which the Owner sends by hand.`);
   if (killSwitch(w)) return held('kill_switch', 'The kill switch is engaged.');
   const s = readSettings(w);
   if (s.paused) return held('supervisor_paused', 'The Owner paused the Supervisor.');
