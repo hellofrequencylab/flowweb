@@ -1,6 +1,8 @@
 // fwd local API v1 (docs/api/LOCAL-API-V1.md): envelopes, derived fields, filters, paging, 404s,
 // the 501 write routes, the startup reconciler and SSE. Auth is off here (devNoAuth); auth.test.ts covers it.
+import { mkdirSync, rmSync, writeFileSync } from 'node:fs';
 import { request } from 'node:http';
+import { join } from 'node:path';
 import { sha256Hex } from '@fw/eventlog';
 import { labelProject } from '@fw/ledger';
 import { afterAll, beforeAll, describe, expect, test } from 'vitest';
@@ -373,6 +375,27 @@ describe('spend, budgets, cards, approvals, reports, policy', () => {
     expect(f.territories[0]).toMatchObject({ id: 'north-county-sd', status: 'active', measures: null });
     expect(f.decision.kind).toBe('keep_working');
     expect(f.budget.max_usd).toBe(5);
+  });
+
+  test('/flows/neighborhood-activation answers the Supervisor switch and the drafts waiting (FW-C-064)', async () => {
+    const key = 'neighborhood-activation';
+    const dir = join(home.path, 'flows', key, 'drafts');
+    mkdirSync(dir, { recursive: true });
+    const statuses = ['waiting_for_owner', 'waiting_for_owner', 'rejected', 'handed_off'];
+    for (const [i, status] of statuses.entries())
+      writeFileSync(join(dir, `d${i}.json`), JSON.stringify({ id: `d${i}`, status, body: 'x' }));
+    try {
+      expect((await get(`/flows/${key}`)).json.data).toMatchObject({
+        enabled: false,
+        awaiting_owner_total: 2,
+      });
+      expect((await call(d.port, 'POST', `/v1/supervisor/flows/${key}/enable`)).status).toBe(200);
+      expect((await get(`/flows/${key}`)).json.data.enabled).toBe(true);
+      expect((await call(d.port, 'POST', `/v1/supervisor/flows/${key}/disable`)).status).toBe(200);
+      expect((await get(`/flows/${key}`)).json.data.enabled).toBe(false);
+    } finally {
+      rmSync(dir, { recursive: true, force: true });
+    }
   });
 });
 
