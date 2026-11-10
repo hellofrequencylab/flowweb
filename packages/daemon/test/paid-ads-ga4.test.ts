@@ -9,6 +9,7 @@ import {
   assertion,
   type Ga4Config,
   ga4Of,
+  pullDue,
   pullGa4,
   readPullStatus,
   rowsToCsv,
@@ -163,5 +164,16 @@ describe('pullGa4', () => {
     );
     const status = readFileSync(join(h, 'flows', 'paid-ads', 'imports', '.ga4-status.json'), 'utf8');
     expect(status).not.toContain('PRIVATE KEY');
+  });
+});
+
+describe('pullDue', () => {
+  const t = Date.parse('2026-11-10T12:00:00Z');
+  test('pulls when nothing has run, retries a failed pull at once, and waits out a recent success', () => {
+    expect(pullDue(null, G, t)).toBe(true);
+    expect(pullDue({ ok: false, at: '2026-11-10T11:59:00Z', error: 'no key' }, G, t)).toBe(true);
+    expect(pullDue({ ok: true, at: '2026-11-10T11:00:00Z', days: 3 }, G, t)).toBe(false);
+    expect(pullDue({ ok: true, at: '2026-11-10T05:00:00Z', days: 3 }, G, t)).toBe(true);
+    expect(pullDue({ ok: true, at: 'garbage' }, G, t)).toBe(true);
   });
 });

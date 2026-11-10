@@ -95,6 +95,14 @@ export function readPullStatus(fwHome: string): PullStatus | null {
   }
 }
 
+/** A pull is due when none has run, the last one failed (retry on the next check), or the last success is
+ * older than pull_every_hours. A failed pull must not wait hours: the fix (a key, a grant) is usually minutes away. */
+export function pullDue(last: PullStatus | null, g: Ga4Config, now: number): boolean {
+  if (!last || !last.ok) return true;
+  const at = Date.parse(last.at);
+  return !Number.isFinite(at) || now - at >= g.pull_every_hours * 3_600_000 - 60_000;
+}
+
 function writeAtomic(path: string, text: string): void {
   writeFileSync(`${path}.tmp`, text);
   renameSync(`${path}.tmp`, path);
