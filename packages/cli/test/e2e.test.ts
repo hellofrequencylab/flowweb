@@ -158,10 +158,10 @@ describe('fw ledger', () => {
     }
   });
 
-  test('close on a row that is not verifying exits 1 with the refusal', () => {
+  test('close of a row built outside fwd still refuses without a checkout to run its probe in', () => {
     const r = fw('ledger', 'close', 'FW-C-005', '--merged-sha', 'a'.repeat(40));
     expect(r.code).toBe(1);
-    expect(r.err).toContain('illegal ledger_row transition: FW-C-005 open -> done');
+    expect(r.err).toContain('is not a git checkout');
   });
 });
 

@@ -16,6 +16,7 @@ export const MIGRATIONS_DIR = resolve(import.meta.dirname, '../../contracts/sql/
 /** Every released schema.core.sql a database may have been created from, with the version it set. */
 export const SCHEMA_HISTORY: ReadonlyArray<{ version: string; sha256: string }> = [
   { version: '1.0.0-core', sha256: '4bd8439572bddb346924f14e2e9d6c33852040c841a433ccc81ac869387b54f3' },
+  { version: '1.1.0-core', sha256: '2bc80cccb1c6d7b01e3e86e0da4d3de79d5e739f3bccac5a89d2d94d9aaa0831' },
 ];
 
 export interface Upgrade {
@@ -30,6 +31,7 @@ export interface Upgrade {
 /** In order. Each takes a database at `from` to `to`; never edited once released. */
 export const UPGRADES: readonly Upgrade[] = [
   { id: '0002', from: '1.0.0-core', to: '1.1.0-core', file: '0002-core-1.1.0.sql' },
+  { id: '0003', from: '1.1.0-core', to: '1.2.0-core', file: '0003-core-1.2.0.sql' },
 ];
 
 export const migrationKey = (id: string) => `migration_${id}_sha256`;

@@ -67,7 +67,7 @@ describe('migration 0001', () => {
     expect(w.get('PRAGMA foreign_keys')).toEqual({ foreign_keys: 1 });
     expect(store.reader().get('PRAGMA foreign_keys')).toEqual({ foreign_keys: 1 });
     expect(w.get('SELECT value FROM schema_meta WHERE key = ?', ['schema_version'])).toEqual({
-      value: '1.1.0-core',
+      value: '1.2.0-core',
     });
     store.close();
     withStore(path, (s) => expect(s.reader().get('PRAGMA foreign_keys')).toEqual({ foreign_keys: 1 }), true);

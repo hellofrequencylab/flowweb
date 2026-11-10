@@ -47,11 +47,23 @@ describe('state machine', () => {
     store.close();
   });
 
-  test('open -> done is illegal and changes nothing', () => {
+  test('open -> running is illegal and changes nothing', () => {
     const { store, w } = setup('illegal');
-    expect(isLegalTransition('open', 'done')).toBe(false);
+    expect(isLegalTransition('open', 'running')).toBe(false);
+    expect(() => transitionRow(w, 'FW-C-930', 'running')).toThrow(
+      /illegal ledger_row transition: FW-C-930 open -> running/,
+    );
+    expect(statusOf(store, 'FW-C-930')).toBe('open');
+    expect(eventsOf(store, 'ledger.row_status_changed')).toEqual([]);
+    store.close();
+  });
+
+  test('open -> done is legal (a row built outside fwd) but refused without proof', () => {
+    const { store, w } = setup('open-done');
+    expect(isLegalTransition('open', 'done')).toBe(true);
+    expect(isLegalTransition('parked', 'done')).toBe(true);
     expect(() => transitionRow(w, 'FW-C-930', 'done')).toThrow(
-      /illegal ledger_row transition: FW-C-930 open -> done/,
+      'ledger_rows: done requires last_probe_status=pass',
     );
     expect(statusOf(store, 'FW-C-930')).toBe('open');
     expect(eventsOf(store, 'ledger.row_status_changed')).toEqual([]);
@@ -210,13 +222,43 @@ describe('close', () => {
     s.store.close();
   });
 
-  test('close refuses a checkout that is not at the merged sha, or a row that is not verifying', async () => {
+  test('a row built outside fwd closes from open on a passing probe at the merged commit', async () => {
+    const s = setup('close-open');
+    writeFileSync(join(s.repo.dir, 'done.txt'), 'done\n');
+    const merged = s.repo.commit('the work, built by hand');
+    const c = await closeRow(s.w, 'FW-C-930', { mergedSha: merged, repoDir: s.repo.dir });
+    expect(c).toMatchObject({ status: 'done', merged_sha: merged, probe: { exit_code: 0 } });
+    expect(getDbRow(s.store.reader(), 'FW-C-930')).toMatchObject({
+      status: 'done',
+      merged_sha: merged,
+      evidence_bundle_id: c.bundle_id,
+    });
+    expect(eventsOf(s.store, 'ledger.row_status_changed').at(-1)).toMatchObject({ from: 'open', to: 'done' });
+    s.store.close();
+  });
+
+  test('a row built outside fwd stays open when its probe fails at the merged commit', async () => {
+    const s = setup('close-open-fail');
+    await expect(
+      closeRow(s.w, 'FW-C-930', { mergedSha: s.repo.base, repoDir: s.repo.dir }),
+    ).rejects.toMatchObject({
+      code: 'REFUSED_BY_DATABASE',
+      message: 'ledger_rows: done requires last_probe_status=pass',
+    });
+    expect(statusOf(s.store, 'FW-C-930')).toBe('open');
+    expect(s.store.reader().get('SELECT COUNT(*) AS n FROM evidence_bundles')).toEqual({ n: 0 });
+    s.store.close();
+  });
+
+  test('close refuses a row in a state with no step to done, and a checkout not at the merged sha', async () => {
     const s = setup('close-guards');
+    transitionRow(s.w, 'FW-C-930', 'blocked');
     await expect(
       closeRow(s.w, 'FW-C-930', { mergedSha: s.repo.base, repoDir: s.repo.dir }),
     ).rejects.toMatchObject({
       code: 'ILLEGAL_TRANSITION',
     });
+    transitionRow(s.w, 'FW-C-930', 'open');
     await toVerifying(s);
     await expect(
       closeRow(s.w, 'FW-C-930', { mergedSha: 'a'.repeat(40), repoDir: s.repo.dir }),

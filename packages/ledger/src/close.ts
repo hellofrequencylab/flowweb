@@ -2,7 +2,8 @@
 // The row's probe runs against the merged artifact: the checkout at repoDir must have HEAD equal to
 // merged_sha and no tracked changes. The run is recorded first (ledger.probe_executed). Then, in one
 // transaction: on a pass, an immutable kernel-captured evidence bundle bound to merged_sha is written
-// (evidence.bundle_created) and the row moves verifying -> done (ledger.row_status_changed). On a
+// (evidence.bundle_created) and the row moves to done (ledger.row_status_changed): from verifying, or
+// from open or parked for a row built outside fwd (schema 1.2.0-core). On a
 // fail the same move is attempted without a bundle, so the done-requires-proof trigger refuses it and
 // its message is surfaced. A refusal rolls the whole transaction back.
 import type { EvidenceBundle } from '@fw/contracts';
@@ -112,7 +113,7 @@ export async function closeRow(w: Writer, code: string, opts: CloseOptions): Pro
   if (!isLegalTransition(row.status, 'done'))
     throw new LedgerError(
       'ILLEGAL_TRANSITION',
-      `illegal ledger_row transition: ${rowCode} ${row.status} -> done (close needs a row in verifying)`,
+      `illegal ledger_row transition: ${rowCode} ${row.status} -> done (close needs a row in verifying, or one built outside fwd that is open or parked)`,
       { code: rowCode, from: row.status, to: 'done' },
     );
   // A merge the reconciler recorded queues this probe for that exact commit.
