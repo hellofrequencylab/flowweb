@@ -11,7 +11,7 @@ import { ApiError, sendError } from './api/http.ts';
 import { buildRouter, principalOf, type RunStartBody } from './api/routes.ts';
 import type { ChainStatus } from './api/status.ts';
 import { hostAllowed, PairingStore, writeOriginAllowed } from './auth.ts';
-import { setDial, setFlowEnabled, setPaused } from './overseer/index.ts';
+import { createSupervisorOnFire, setDial, setFlowEnabled, setPaused } from './overseer/index.ts';
 import { runStart } from './pipeline/run-start.ts';
 import { type ReconcileReport, reconcileOnStart } from './reconciler.ts';
 import { RunHost } from './run-host.ts';
@@ -315,7 +315,9 @@ export async function startDaemon(opts: DaemonOptions): Promise<Daemon> {
   const addr = server.address();
   port = typeof addr === 'object' && addr ? addr.port : opts.port;
 
-  const scheduler = createScheduler({ writer, log, ...(opts.onFire ? { onFire: opts.onFire } : {}) });
+  // FW-C-036: by default the Supervisor decides every fire of a flow (a hold names its gate).
+  const onFire = opts.onFire ?? createSupervisorOnFire({ reader: writer, repoRoot: REPO_ROOT, fwHome });
+  const scheduler = createScheduler({ writer, log, onFire });
 
   const stop = async (reason = 'stop requested'): Promise<void> => {
     if (stopped) return;
