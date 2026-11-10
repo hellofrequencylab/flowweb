@@ -1,6 +1,7 @@
 // FW-C-033: the Supervisor's gates (pure) and its Owner controls (settings plus one event each).
 
-import { resolve } from 'node:path';
+import { mkdirSync, writeFileSync } from 'node:fs';
+import { join, resolve } from 'node:path';
 import { describe, expect, test } from 'vitest';
 import {
   ASK_CAP,
@@ -168,6 +169,35 @@ describe('the Supervisor in fwd', () => {
         const f = v.flows.find((x) => x.key === 'local-saturation');
         expect(f?.gate).toBe('no_engine');
         expect(f?.reason).toMatch(/bad config/);
+      });
+    } finally {
+      home.cleanup();
+    }
+  });
+  test("neighborhood activation has an engine, and only this period's spend can use up its cap", () => {
+    const home = tempHome();
+    const key = 'neighborhood-activation';
+    const now = new Date('2026-11-10T12:00:00Z');
+    const spentAt = (iso: string) => {
+      const dir = join(home.path, 'flows', key);
+      mkdirSync(dir, { recursive: true });
+      writeFileSync(
+        join(dir, 'state.json'),
+        JSON.stringify({ spend: { period_start: iso, usd: 5, turns: 0 } }),
+      );
+    };
+    try {
+      withWriter(home.path, (w) => {
+        setFlowEnabled(w, repoRoot, key, true);
+        const gate = () =>
+          supervisorView({ reader: w, repoRoot, fwHome: home.path, now: () => now }).flows.find(
+            (f) => f.key === key,
+          )?.gate;
+        expect(gate()).toBe('not_due');
+        spentAt('2026-11-09T00:00:00Z');
+        expect(gate()).toBe('budget');
+        spentAt('2026-10-01T00:00:00Z');
+        expect(gate()).toBe('not_due');
       });
     } finally {
       home.cleanup();
