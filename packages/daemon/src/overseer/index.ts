@@ -8,8 +8,10 @@ import { join } from 'node:path';
 import type { ActorKind, Reader, Writer } from '@fw/eventlog';
 import { ownerActor } from '@fw/ledger';
 import { loadFlow as loadLocalSaturation } from '../flows/local-saturation.ts';
+import * as neighborhood from '../flows/neighborhood-activation.ts';
 import {
   type Caps,
+  capUsed,
   decide,
   type FlowFacts,
   GATES,
@@ -46,6 +48,16 @@ export const ENGINES: Record<string, Engine> = {
   'local-saturation': (repoRoot, fwHome, now) => {
     const f = loadLocalSaturation(repoRoot, fwHome, now);
     return f ? { caps: f.budget, spend: { usd: f.state.spend.usd, turns: f.state.spend.turns } } : null;
+  },
+  'neighborhood-activation': (repoRoot, fwHome, now) => {
+    const f = neighborhood.loadFlow(repoRoot, fwHome, now);
+    if (!f) return null;
+    const { usd, turns } = f.state.spend;
+    // The flow's own decide() knows when its spend period has rolled over. When it does not pause for
+    // budget, spend recorded in an old period no longer counts against this one.
+    const paused = neighborhood.decide(f.cfg, f.state, f.budget, now).kind === 'paused_budget';
+    const spend = paused || !capUsed(f.budget, { usd, turns }) ? { usd, turns } : { usd: 0, turns: 0 };
+    return { caps: f.budget, spend };
   },
 };
 
