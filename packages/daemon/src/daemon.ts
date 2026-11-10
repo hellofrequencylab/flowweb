@@ -12,6 +12,7 @@ import { buildRouter, principalOf, type RunStartBody } from './api/routes.ts';
 import type { ChainStatus } from './api/status.ts';
 import { hostAllowed, PairingStore, writeOriginAllowed } from './auth.ts';
 import { pullOutcomes } from './flows/outcomes.ts';
+import { runReview } from './flows/review.ts';
 import { reapOrphanCycles, runFlowCycle } from './overseer/cycle.ts';
 import { approveDraft, rejectDraft } from './overseer/drafts.ts';
 import {
@@ -216,6 +217,20 @@ export async function startDaemon(opts: DaemonOptions): Promise<Daemon> {
   firstPull.unref();
   const pullTimer = setInterval(pullNow, everyMs);
   pullTimer.unref();
+  // ---- weekly review (FW-C-056) ---------------------------------------------------------------
+  // Scores the flow's hunts and shifts effort toward what works, as far as the dial allows.
+  const reviewNow = (): void => {
+    try {
+      const r = runReview({ reader: writer, repoRoot: REPO_ROOT, fwHome });
+      log(
+        `review: ${r.shifts.length} shift(s), ${r.auto_apply ? 'applied at Autopilot' : 'waiting for the Owner'}`,
+      );
+    } catch (e) {
+      log(`review: failed: ${(e as Error)?.message ?? e}`);
+    }
+  };
+  const reviewTimer = setInterval(reviewNow, Number(process.env.FW_REVIEW_EVERY_MS) || 7 * 86_400_000);
+  reviewTimer.unref();
 
   // ---- auth --------------------------------------------------------------------------------
   const pairing = new PairingStore(join(fwHome, 'pairing'));
@@ -354,6 +369,7 @@ export async function startDaemon(opts: DaemonOptions): Promise<Daemon> {
     clearInterval(decisionTimer);
     clearInterval(pullTimer);
     clearTimeout(firstPull);
+    clearInterval(reviewTimer);
     try {
       writer.appendEvent({
         type: 'system.stopped',
@@ -427,6 +443,7 @@ export async function startDaemon(opts: DaemonOptions): Promise<Daemon> {
     clearInterval(decisionTimer);
     clearInterval(pullTimer);
     clearTimeout(firstPull);
+    clearInterval(reviewTimer);
     for (const end of [...streams]) end();
     await new Promise<void>((ok) => {
       server.close(() => ok());
