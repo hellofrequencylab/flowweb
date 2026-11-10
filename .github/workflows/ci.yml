@@ -35,6 +35,8 @@ jobs:
       - run: pnpm boundary
       - name: Tier 0 script self-tests
         run: node --test 'scripts/test/*.test.mjs'
+      - name: Live-site mirror and relay tests
+        run: node --test 'hosted/test/*.test.mjs'
       - name: Row definitions match the backlog
         run: node scripts/seed-rows.mjs --check
       - name: Bootstrap files agree (WS-P0-002)
