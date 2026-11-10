@@ -94,6 +94,7 @@ export interface DaemonCoreClient extends LocalCoreClient {
     edit: { subject?: string; body?: string },
   ): Promise<DraftView>;
   supervisorRewriteDraft(flow: string, id: string, instruction: string): Promise<RewriteProposal>;
+  supervisorMarkDraft(flow: string, id: string, outcome: string): Promise<DraftView>;
   spendRollup(opts: { by: string }): Promise<(SpendRow & { unknown_runs?: number })[]>;
   policyCheck(input: DecisionInput): Promise<Decision & { policy_path: string }>;
   policyApply(): Promise<ApplyReport & { policy_path: string }>;
@@ -422,6 +423,10 @@ export function createCoreClient(opts: LocalClientOptions): DaemonCoreClient {
     async supervisorEditDraft(flow, id, edit) {
       const path = `/v1/supervisor/flows/${encodeURIComponent(flow)}/drafts/${encodeURIComponent(id)}/edit`;
       return (await fwdData('POST', path, edit)) as DraftView;
+    },
+    async supervisorMarkDraft(flow, id, outcome) {
+      const path = `/v1/supervisor/flows/${encodeURIComponent(flow)}/drafts/${encodeURIComponent(id)}/mark`;
+      return (await fwdData('POST', path, { outcome })) as DraftView;
     },
     async supervisorRewriteDraft(flow, id, instruction) {
       const path = `/v1/supervisor/flows/${encodeURIComponent(flow)}/drafts/${encodeURIComponent(id)}/rewrite`;

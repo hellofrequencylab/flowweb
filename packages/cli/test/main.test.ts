@@ -164,6 +164,7 @@ function fakeClient(overrides: Partial<CoreClient> = {}): CoreClient {
       ...edit,
       edited_at: '2026-11-10T00:00:00.000Z',
     }),
+    supervisorMarkDraft: async () => ({ ...sampleDraft, sent_at: '2026-11-10T00:00:00.000Z' }),
     supervisorRewriteDraft: async (_flow: string, id: string, instruction: string) => ({
       id,
       subject: 'Rewritten',
@@ -332,6 +333,12 @@ describe('help', () => {
 
   test('the help names exit code 3 for a policy refusal', () => {
     expect(helpText()).toMatch(/3 refused by policy/);
+  });
+
+  test('--help after an option that takes a value still prints the help', async () => {
+    const r = await run(['hunt', 'add', '--name', '--help']);
+    expect(r.code).toBe(EXIT.OK);
+    expect(r.out).toContain('fw hunt add');
   });
 
   test('no command is a usage error', async () => {

@@ -23,7 +23,8 @@
 //   6. A flow the Owner has not enabled holds its items by flow_disabled.
 //   7. With the kill switch engaged, an item is held by kill_switch.
 //   8. Nothing in this probe wrote a run, an approval or any event other than notification.queued and the
-//      Owner's own system.config_changed events.
+//      Owner's own changes: system.config_changed, and the project and stream that turning the flow on
+//      registers (FW-C-038).
 import { createHash } from 'node:crypto';
 import { existsSync, mkdirSync, readdirSync, readFileSync, writeFileSync } from 'node:fs';
 import { join } from 'node:path';
@@ -152,7 +153,15 @@ describe('flows/handoff', () => {
     const runs = Number((db.prepare('SELECT count(*) AS n FROM runs').get() as { n: number }).n);
     const approvals = Number((db.prepare('SELECT count(*) AS n FROM approvals').get() as { n: number }).n);
     db.close();
-    expect(types, 'event types written during the probe').toEqual(['notification.queued', 'system.config_changed']);
+    // Turning the flow on registers its project and stream for dispatch (FW-C-038); that is the Owner's
+    // own change, not a run, an approval or a send.
+    expect(types, 'event types written during the probe').toEqual([
+      'notification.queued',
+      'project.created',
+      'project.updated',
+      'stream.created',
+      'system.config_changed',
+    ]);
     expect([runs, approvals], 'runs and approvals written during the probe').toEqual([0, 0]);
     ev = await queued();
     expect(ev.map((e) => e.item_id), 'items queued, in order').toEqual(['item-1', 'item-3']);
