@@ -425,7 +425,13 @@ export const api = {
     return { data_as_of: e.as_of, machines: e.data };
   },
   /** Hosted mirror only: a new relay token, shown once. */
-  addMachine: (label: string) => post<{ token: string }>('/hosted/machines', { label }),
+  async addMachine(label: string): Promise<{ token: string }> {
+    const r = await post<{ token?: string } | { data?: { token?: string } }>('/hosted/machines', { label });
+    // Older deploys answered `{ data: { token } }` without an as_of, which `post` does not unwrap.
+    const token = (r && 'token' in r ? r.token : (r as { data?: { token?: string } })?.data?.token) ?? '';
+    if (!token.startsWith('fwr_')) throw new Error('The site did not return a relay token. Try again.');
+    return { token };
+  },
   revokeMachine: (id: string) => post<unknown>(`/hosted/machines/${enc(id)}/revoke`, {}),
 
   async status(): Promise<V.Status> {

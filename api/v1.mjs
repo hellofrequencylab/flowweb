@@ -124,7 +124,9 @@ async function handle(request) {
       body: { p_label: String(body?.label ?? 'machine') },
     });
     if (!r.ok) return err(500, 'internal', 'Could not create a relay token.');
-    return json(201, { data: { token: r.data } });
+    if (typeof r.data !== 'string' || !r.data.startsWith('fwr_'))
+      return err(500, 'internal', 'The relay token was not created.');
+    return json(201, { data: { token: r.data }, as_of: new Date().toISOString(), head_seq: null, next_cursor: null });
   }
   const revoke = path.match(/^\/hosted\/machines\/([0-9a-f-]{36})\/revoke$/);
   if (revoke && method === 'POST') {

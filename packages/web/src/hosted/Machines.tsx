@@ -9,7 +9,9 @@ const QUIET_AFTER_MS = 5 * 60_000;
 
 /** Hosted mode: which machines feed this mirror, and how to add one. */
 export function MachinesPanel() {
-  const res = useResource('hosted-machines', api.machines);
+  const live = useResource('hosted-machines', api.machines);
+  // The machine list comes from this site, not from fwd, so a missing sync must not mark it stale.
+  const res = live.data && !live.error ? { ...live, honesty: 'current' as const } : live;
   const now = useNow(15_000);
   const [label, setLabel] = useState('');
   const [token, setToken] = useState<string | null>(null);
