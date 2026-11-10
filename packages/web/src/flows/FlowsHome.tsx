@@ -12,6 +12,7 @@ import { Figures, PageHead, SectionHead } from '../ui-kit/page';
 import { clock, useNow } from '../ui-kit/time';
 import { stateOf } from './drafts';
 import { DIAL, flowSpec } from './flowState';
+import { liveFlows } from './visible';
 import './flows-home.css';
 
 /** Every flow moves through the same five stages. Nothing is sent by FlowWeb: "Sent" is the Owner's send. */
@@ -25,7 +26,7 @@ export type DraftCounts = Envelope & { byFlow: Record<string, Counts | null> };
 
 /** Drafts per flow, counted by state. A flow whose drafts fwd did not answer for is null, never zero. */
 export async function draftCounts(): Promise<DraftCounts> {
-  const s = await api.supervisor();
+  const s = await api.supervisor().then((s) => ({ ...s, flows: liveFlows(s.flows) }));
   const byFlow: Record<string, Counts | null> = {};
   const asOf: string[] = [s.data_as_of];
   await Promise.all(
@@ -96,7 +97,11 @@ function supervisorWord(s: Supervisor | null): { word: string; tone: string } {
  * what waits on you, and where every flow stands. Anything fwd did not answer reads Unknown, never zero.
  */
 export function FlowsHome() {
-  const sup = useResource('supervisor', () => api.supervisor(), ['runs', 'cards']);
+  const sup = useResource(
+    'supervisor',
+    () => api.supervisor().then((s) => ({ ...s, flows: liveFlows(s.flows) })),
+    ['runs', 'cards'],
+  );
   const counts = useResource('home:drafts', draftCounts, ['runs', 'cards']);
   const act = useResource('flow:neighborhood-activation', () => api.activationFlow(), ['runs', 'cards']);
   const st = useStatusResource();

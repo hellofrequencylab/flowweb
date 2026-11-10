@@ -4,7 +4,8 @@ The first real flow in FlowWeb. It markets one offer (Frequency, for now) by sat
 area, then proposing to open the next ring of areas around it. It researches and drafts. It never
 posts or sends: every outward item waits for the Owner, who posts it by hand.
 
-Superseded by `flows/neighborhood-activation/`, which fwd also serves. This flow stays for its probe.
+Merged into the Frequency Saturation Engine (`flows/neighborhood-activation/`, FW-C-096): `config.json` says
+`merged_into`, so the site hides this flow. It still ships for the probes that use it.
 
 Row: FW-C-031. Probe: `pnpm probe flows/local-saturation`.
 

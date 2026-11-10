@@ -138,6 +138,8 @@ export interface FlowView {
    * config names it. null when neither names one (routing decides).
    */
   ai: (Partial<FlowAi> & { chosen: boolean }) | null;
+  /** FW-C-096: the flow this one was rolled into (its config.json merged_into), else null. */
+  merged_into: string | null;
 }
 
 export interface SupervisorView {
@@ -198,6 +200,18 @@ function killSwitch(r: Reader): boolean {
     parse(r.get<{ value: string }>("SELECT value FROM settings WHERE key = 'kill_switch'")?.value)
       ?.engaged === true
   );
+}
+
+/** FW-C-096: the key a shipped flow was merged into (flows/<key>/config.json merged_into), else null. */
+export function mergedInto(repoRoot: string, key: string): string | null {
+  try {
+    const cfg = JSON.parse(readFileSync(join(repoRoot, 'flows', key, 'config.json'), 'utf8')) as {
+      merged_into?: unknown;
+    };
+    return typeof cfg.merged_into === 'string' && KEY_RE.test(cfg.merged_into) ? cfg.merged_into : null;
+  } catch {
+    return null;
+  }
 }
 
 /** Every flow that ships a stream.json under flows/, sorted by key. */
@@ -306,6 +320,7 @@ function verdicts(d: SupervisorDeps) {
       schedule: streamSchedule(d.reader, key, stream),
       intensity: intensityView(set?.intensity, d.fwHome, key, now),
       ai: aiView(d.repoRoot, d.fwHome, key),
+      merged_into: mergedInto(d.repoRoot, key),
     };
     return { view, verdict };
   });

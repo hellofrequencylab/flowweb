@@ -791,6 +791,8 @@ export interface FlowIntensity extends FlowIntensitySetting {
 export interface SupervisorFlow {
   key: string;
   name: string;
+  /** FW-C-096: the flow this one was rolled into; the site hides it. */
+  merged_into?: string | null;
   enabled: boolean;
   dial: SupervisorDial;
   tier: string;

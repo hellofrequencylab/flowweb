@@ -1,4 +1,7 @@
-# Neighborhood activation flow
+# Frequency Saturation Engine
+
+The flow keyed `neighborhood-activation`, named Frequency Saturation Engine since FW-C-096, when the local
+saturation flow was rolled into it.
 
 Markets Frequency one large region at a time. It finds hosts, venues, builders and residents, routes
 each lead to the right Frequency funnel and send route, checks when the region is fully active, and
@@ -54,6 +57,13 @@ keeps at most `max_sends` per run inside the weekly `max_new_invites_per_week`. 
 the host funnel link (`src=hunt`) or the `{{claim_url}}` slot, the sign-off in `config.json` `hunts`,
 the source page and "Reply "no" and I won't write again". At Draft and Copilot drafts wait for the
 Owner; at confirmed Autopilot they go to the outbox on the `frequency` channel with the lead attached.
+
+## Who the hunts look for (FW-C-096)
+
+`config.json` `hunts.audience` has two lists. `focus` is the crowd Frequency wants first: breathwork, yoga, sound
+healing, transformative experiences, maker events, swaps, art, music, expression and ecstatic dance. `steer_away`
+is what hunts skip even when it matches `looking_for` (programs mainly for seniors, plain craft classes). Both go
+into a hunt cycle's brief. Edit them in `$FW_HOME/flows/neighborhood-activation/config.json` to retarget.
 
 ## Spend cap and engine
 
