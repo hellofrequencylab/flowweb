@@ -171,7 +171,7 @@ describe('plan and shipped definition', () => {
       for (const s of outward) expect(gate.gate_on).toContain(s.action_class);
       expect(f.budget).toEqual(budget);
       const v = na.flowView(f.cfg, f.state, f.budget, f.stream, now);
-      expect(v.placeholders).toEqual(['host_funnel']);
+      expect(v.placeholders).toEqual([]);
       expect(v.territories.map((t) => t.status)).toEqual(['active', 'waiting', 'waiting', 'waiting']);
       expect(v.steps.filter((s) => s.outward).map((s) => s.key)).toEqual(['send']);
     } finally {

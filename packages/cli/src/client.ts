@@ -361,6 +361,13 @@ export interface PolicyDecision {
   policy_path: string;
 }
 
+export interface ReconcileReport {
+  checked: number;
+  changes: number;
+  drift: { kind: string; external_ref: string; ledger_row_id: string | null }[];
+  duration_ms: number;
+}
+
 export interface PolicyApplyReport {
   rules_changed: string[];
   rules_unchanged: number;
@@ -406,6 +413,8 @@ export interface CoreClient {
   /** The policy engine: optional, served by the daemon package (the CLI never imports @fw/policy). */
   policyCheck?(input: PolicyCheckInput): Promise<PolicyDecision>;
   policyApply?(): Promise<PolicyApplyReport>;
+  /** One git host reconcile pass: optional, served by the daemon package. */
+  reconcile?(opts?: { host?: string }): Promise<ReconcileReport>;
   close(): void;
 }
 

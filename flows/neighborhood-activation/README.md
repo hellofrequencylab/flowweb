@@ -32,7 +32,7 @@ bordering an opened one, first in the Owner's order. Only the Owner opens it.
 In order: do-not-contact → blocked; resident → post only; fit below 0.6 → drop; region not active → watch;
 3 touches in 30 days → capped; host with timing below 0.5 → watch for 14 days; otherwise invite. Timing halves
 every 14 days. At most 50 new invites a week per region, best fit × timing first. Each lead gets a funnel
-link (host `/start/host`, a placeholder until Frequency builds it; venue `/start/partner`; builder
+link (host `/start/host`, live on Frequency since 2026-11-10; venue `/start/partner`; builder
 `/start/welcome`; resident `/start/event`) carrying persona, region, sub-area, Channel, source and utm tags.
 
 First invites to hosts, venues and builders go by **founder email** (one to one, honest subject, who you

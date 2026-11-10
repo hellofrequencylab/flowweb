@@ -9,6 +9,7 @@ import {
   type GitHost,
   GitHostError,
   type OpenPullRequestInput,
+  type PrListing,
   type PrState,
   type PrStatus,
   type PullRequestRef,
@@ -125,6 +126,13 @@ export class LocalBareHost implements GitHost {
       head_sha,
       merged_sha: pr.merged_sha,
     };
+  }
+
+  async listPullRequests(): Promise<PrListing[]> {
+    const out: PrListing[] = [];
+    for (const pr of this.readAll().sort((a, b) => b.number - a.number))
+      out.push({ ...(await this.getPrStatus(pr.number)), title: pr.title });
+    return out;
   }
 
   async getHeadSha(branch: string): Promise<string | null> {
