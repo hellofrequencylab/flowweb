@@ -70,6 +70,7 @@ export type StatusReport = Record<string, unknown> & {
 export type SupervisorAction = 'pause' | 'resume' | 'enable' | 'disable';
 /** GET /v1/supervisor with where it was read from: fwd, or the database read-only when fwd is down. */
 export type SupervisorReport = Record<string, unknown> & { source: 'daemon' | 'database' };
+export type SupervisorRunReport = { fire_id: string; outcome: string; reason?: string };
 
 export interface DaemonCoreClient extends LocalCoreClient {
   status(): Promise<StatusReport>;
@@ -79,6 +80,7 @@ export interface DaemonCoreClient extends LocalCoreClient {
   supervisorStatus(): Promise<SupervisorReport>;
   supervisorControl(action: SupervisorAction, flow?: string): Promise<SupervisorReport>;
   supervisorDial(flow: string, stop: string, confirm?: string): Promise<SupervisorReport>;
+  supervisorRun(flow: string): Promise<SupervisorRunReport>;
   spendRollup(opts: { by: string }): Promise<(SpendRow & { unknown_runs?: number })[]>;
   policyCheck(input: DecisionInput): Promise<Decision & { policy_path: string }>;
   policyApply(): Promise<ApplyReport & { policy_path: string }>;
@@ -326,6 +328,10 @@ export function createCoreClient(opts: LocalClientOptions): DaemonCoreClient {
     supervisorDial(flow, stop, confirm) {
       const path = `/v1/supervisor/flows/${encodeURIComponent(flow)}/dial`;
       return supervisorPost(path, confirm ? { stop, confirm } : { stop });
+    },
+    async supervisorRun(flow) {
+      const path = `/v1/supervisor/flows/${encodeURIComponent(flow)}/run`;
+      return (await supervisorPost(path, {})) as unknown as SupervisorRunReport;
     },
     close() {
       store?.close();

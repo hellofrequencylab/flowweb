@@ -134,6 +134,7 @@ function fakeClient(overrides: Partial<CoreClient> = {}): CoreClient {
     supervisorStatus: async () => supervisorReport,
     supervisorControl: async () => ({ ...supervisorReport, changed: true }),
     supervisorDial: async () => ({ ...supervisorReport, changed: true }),
+    supervisorRun: async () => ({ fire_id: 'stm_x:manual:t', outcome: 'fired' }),
     policyCheck: async () => ({
       effect: 'ask',
       rule_id: 'pol_0120',
