@@ -1,0 +1,29 @@
+{
+  "id": "FW-C-045",
+  "title": "A crash never leaves a flow cycle's vendor running",
+  "core_milestone": "C1",
+  "phase": 1,
+  "epic": "C1.5 First flow",
+  "priority": "P1",
+  "size": "S",
+  "lane": "workstreams",
+  "agent_suitability": "agent",
+  "gate": "owner-approval",
+  "depends_on": [
+    "FW-C-038"
+  ],
+  "description": "A clean fwd stop already kills a running flow cycle's vendor (FW-C-038), but a crash or a kill -9 leaves it running with nothing watching it, still spending the Owner's plan until its wall clock ends, and the cycle never gets a report. Cycles are not ledger runs, so the startup reconciler does not know them. When a cycle's vendor starts, fwd records its process group in the cycle folder ($FW_HOME/flows/<key>/cycles/<fire>/vendor.json with pgid and started_at) and removes that record once the cycle's report is written. On start, before the scheduler runs, fwd finds every cycle folder that still holds a vendor.json, kills that process group the same way the reconciler kills a crashed run's group (killOrphanGroup: only when a live member's working directory is inside that cycle folder, so a reused group id is never signalled), writes the cycle's run report with outcome failed and a reason that starts \"orphaned\", and removes the record, so a second start writes nothing more.",
+  "acceptance": [
+    "A cycle running when fwd is killed leaves its vendor behind (the premise)",
+    "When fwd starts again on the same home, every process of that cycle's vendor, grandchildren included, is gone within 15 seconds",
+    "The interrupted fire gets exactly one run report, outcome failed, reason starting \"orphaned\"; a second restart adds none"
+  ],
+  "verify_probe": "pnpm probe flows/cycle-reap",
+  "files_hint": [
+    "packages/daemon/src/overseer/",
+    "packages/daemon/src/daemon.ts",
+    "packages/daemon/src/reconciler.ts",
+    "packages/daemon/test/"
+  ],
+  "origin": "new Core row"
+}
