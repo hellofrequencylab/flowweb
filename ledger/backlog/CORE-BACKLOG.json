@@ -4,7 +4,7 @@
     "profile": "core",
     "schema": "ledger-row/1",
     "generated": "2026-11-09",
-    "row_count": 90,
+    "row_count": 91,
     "conventions": {
       "verify_probe": "Same convention as 04-build-plan/backlog.json: 'pnpm probe <path>' runs probes/<path>.probe.ts, a Tier 0 file written before the implementation row starts and never edited by the agent doing the row. Every probe fails today because its target does not exist (a missing probe file exits 2, a missing behaviour exits 1). The probe pack for a milestone is committed by the Owner or a pair session before the milestone's rows start.",
       "status": "All rows start as open. Status lives only in the ledger database (imported with fw ledger sync), never in prose.",
@@ -28,7 +28,7 @@
       }
     },
     "full_plan_rows_included": 37,
-    "new_core_rows": 52
+    "new_core_rows": 54
   },
   "rows": [
     {
@@ -3178,6 +3178,43 @@
         "packages/web/src/api/",
         "packages/web/mock/",
         "docs/api/LOCAL-API-V1.md"
+      ],
+      "origin": "new Core row"
+    },
+    {
+      "id": "FW-C-054",
+      "title": "Each draft link names its draft, and the Owner marks a draft sent, replied or declined",
+      "core_milestone": "C1",
+      "phase": 1,
+      "epic": "C1.5 First flow",
+      "priority": "P1",
+      "size": "M",
+      "lane": "workstreams",
+      "agent_suitability": "agent",
+      "gate": "owner-approval",
+      "depends_on": [
+        "FW-C-041",
+        "FW-C-046"
+      ],
+      "description": "On 10 Nov the Owner asked for flows that learn: every flow should track its results and shift toward what works. A flow cannot learn from its drafts today. A hunt draft's link names the hunt (utm_campaign) but not the draft, so a signup on Frequency cannot be traced to the message, wording or organizer that brought it. And the Owner sends drafts by hand, so fwd never learns which ones went out, which got a reply and who said no. Now every draft carries tag, its id in Frequency's slug form (lower case, a-z 0-9 _ -, at most 48 characters), and fwd adds utm_content=<tag> to every link in the draft to the offer's site that carries utm_source=flowweb, for cycle drafts and hunt drafts alike. Frequency stores utm_content with the lead and member (frequency-web LIVE-2255). The Owner marks a draft sent, replied or declined from the API or fw supervisor mark; each stamps sent_at, replied_at or declined_at on the draft file, and replied or declined stamp sent_at too when it is missing. declined is an opt-out: fwd puts the draft's address, or its contact page when it has none, on the flow's do-not-contact list. A mark never changes the draft's status, never sends anything, and a rejected draft cannot be marked sent. The drafts screens get their buttons in a separate row.",
+      "acceptance": [
+        "Every hunt draft has a tag in Frequency's slug form, and its Frequency link carries utm_source=flowweb, utm_campaign=<hunt id> and utm_content=<tag>",
+        "POST /v1/supervisor/flows/{key}/drafts/{id}/mark with outcome sent, replied or declined stamps the matching time on the draft and keeps its status; it needs the CLI token",
+        "Any other outcome answers 400 and an unknown draft 404, changing nothing; a rejected draft answers 409 rejected",
+        "declined puts the draft's address on the flow's do-not-contact list",
+        "fw supervisor mark <flow> <id> <outcome> --json marks a draft the same way",
+        "The hunts, hunt-reach, copilot and draft-edit probes still pass"
+      ],
+      "verify_probe": "pnpm probe flows/draft-outcome",
+      "files_hint": [
+        "packages/daemon/src/overseer/drafts.ts",
+        "packages/daemon/src/overseer/cycle.ts",
+        "packages/daemon/src/flows/hunts.ts",
+        "packages/daemon/src/flows/neighborhood-admin.ts",
+        "packages/daemon/src/api/routes.ts",
+        "packages/cli/src/",
+        "packages/daemon/test/",
+        "packages/cli/test/"
       ],
       "origin": "new Core row"
     }
