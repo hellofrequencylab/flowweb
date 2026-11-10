@@ -8,6 +8,7 @@ import { type CoreClient, type CoreClientFactory, loadCoreClientFactory } from '
 import { accountsCommands } from './commands/accounts.ts';
 import { auditCommands } from './commands/audit.ts';
 import { ledgerCommands } from './commands/ledger.ts';
+import { policyCommands } from './commands/policy.ts';
 import { projectCommands } from './commands/project.ts';
 import { runCommands } from './commands/run.ts';
 import { spendCommands } from './commands/spend.ts';
@@ -24,6 +25,7 @@ export const COMMANDS: Command[] = [
   ...woCommands,
   ...streamCommands,
   ...supervisorCommands,
+  ...policyCommands,
   ...projectCommands,
   ...runCommands,
   ...spendCommands,
