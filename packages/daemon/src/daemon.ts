@@ -6,6 +6,7 @@ import { createServer, type IncomingMessage, type Server, type ServerResponse } 
 import { hostname } from 'node:os';
 import { join, resolve } from 'node:path';
 import { openStore, type Store, type Writer } from '@fw/eventlog';
+import { expireDecisionItems } from '@fw/ledger';
 import { ApiError, sendError } from './api/http.ts';
 import { buildRouter, principalOf, type RunStartBody } from './api/routes.ts';
 import type { ChainStatus } from './api/status.ts';
@@ -47,6 +48,8 @@ export interface DaemonOptions {
   /** Print a fresh pairing code even when one was used before. */
   forcePairingCode?: boolean;
   chainVerifyIntervalMs?: number;
+  /** How often decision items past their deadline are expired (default 60 s; also once at start). */
+  decisionExpiryIntervalMs?: number;
   ssePollMs?: number;
   sseHeartbeatMs?: number;
   log?: (line: string) => void;
@@ -170,6 +173,19 @@ export async function startDaemon(opts: DaemonOptions): Promise<Daemon> {
   );
   chainTimer.unref();
 
+  // ---- decision items past their deadline -----------------------------------------------
+  const expireDecisions = (): void => {
+    try {
+      const expired = expireDecisionItems(writer);
+      if (expired.length > 0) log(`decisions: expired ${expired.length} item(s) past their deadline`);
+    } catch (e) {
+      log(`decision expiry error: ${(e as Error).message}`);
+    }
+  };
+  expireDecisions();
+  const decisionTimer = setInterval(expireDecisions, opts.decisionExpiryIntervalMs ?? 60_000);
+  decisionTimer.unref();
+
   // ---- auth --------------------------------------------------------------------------------
   const pairing = new PairingStore(join(fwHome, 'pairing'));
   const cliTokenPath = pairing.ensureCliToken();
@@ -281,6 +297,7 @@ export async function startDaemon(opts: DaemonOptions): Promise<Daemon> {
     });
   } catch (e) {
     clearInterval(chainTimer);
+    clearInterval(decisionTimer);
     try {
       writer.appendEvent({
         type: 'system.stopped',
@@ -315,6 +332,7 @@ export async function startDaemon(opts: DaemonOptions): Promise<Daemon> {
       );
     else if (drained.interrupted > 0) log(`stop: interrupted ${drained.interrupted} run(s)`);
     clearInterval(chainTimer);
+    clearInterval(decisionTimer);
     for (const end of [...streams]) end();
     await new Promise<void>((ok) => {
       server.close(() => ok());
