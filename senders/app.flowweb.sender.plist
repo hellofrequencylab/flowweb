@@ -1,0 +1,23 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<!-- FW-C-042: runs the email sender once every 20 minutes. Change the two paths, then see README.md. -->
+<plist version="1.0">
+<dict>
+  <key>Label</key><string>app.flowweb.sender</string>
+  <key>ProgramArguments</key>
+  <array>
+    <string>/usr/bin/env</string>
+    <string>node</string>
+    <string>/Users/YOU/flowweb/senders/email.mjs</string>
+    <string>--once</string>
+  </array>
+  <key>EnvironmentVariables</key>
+  <dict>
+    <key>FW_HOME</key><string>/Users/YOU/.flowweb</string>
+    <key>PATH</key><string>/opt/homebrew/bin:/usr/local/bin:/usr/bin:/bin</string>
+  </dict>
+  <key>StartInterval</key><integer>1200</integer>
+  <key>StandardOutPath</key><string>/tmp/flowweb-sender.log</string>
+  <key>StandardErrorPath</key><string>/tmp/flowweb-sender.log</string>
+</dict>
+</plist>
