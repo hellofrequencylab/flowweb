@@ -334,7 +334,7 @@ export function ActivationPage() {
 
             <section aria-labelledby="na-admin" className="panel">
               <h2 id="na-admin">Uploads and admin</h2>
-              <Fold label="Open uploads, targets and config" hint="leads, metrics, targets, raw config, log">
+              <Fold label="Upload leads or metrics, edit targets" hint="also raw config and the admin log">
                 <div className="stack">
                   <FlowAdmin flow={f} refresh={res.reload} />
                 </div>
