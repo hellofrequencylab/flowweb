@@ -1,0 +1,359 @@
+{
+  "key": "neighborhood-activation",
+  "name": "Neighborhood activation",
+  "enabled": false,
+  "tier": "T2",
+  "gate_on": ["publish_external", "outbound_email_external"],
+  "offer": {
+    "name": "Frequency",
+    "url": "https://frequencylocal.com",
+    "pitch": "Small local gatherings, hosted by neighbors.",
+    "call_to_action": "Host your first gathering"
+  },
+  "engine": {
+    "label": "ChatGPT sign-in through the Codex CLI on the Owner's Mac",
+    "fallback": "OpenAI API key, billed per token",
+    "runs_on": "local fwd only; the hosted mirror stores no subscription sign-in"
+  },
+  "sources": [
+    {
+      "key": "event_listings",
+      "label": "Event listings",
+      "finds": "people already hosting gatherings",
+      "reach": "public pages",
+      "action_class": "read_research"
+    },
+    {
+      "key": "business_listings",
+      "label": "Business listings",
+      "finds": "studios, cafes and halls with space",
+      "reach": "public pages",
+      "action_class": "read_research"
+    },
+    {
+      "key": "creator_profiles",
+      "label": "Creator profiles",
+      "finds": "teachers and organizers with a following",
+      "reach": "public profiles",
+      "action_class": "read_research"
+    },
+    {
+      "key": "local_groups",
+      "label": "Local groups",
+      "finds": "neighborhood boards and groups",
+      "reach": "public posts you make",
+      "action_class": "publish_external"
+    },
+    {
+      "key": "frequency_members",
+      "label": "Frequency members",
+      "finds": "members ready to host",
+      "reach": "Frequency messaging",
+      "action_class": "outbound_email_external"
+    },
+    {
+      "key": "host_referrals",
+      "label": "Host referrals",
+      "finds": "people current hosts recommend",
+      "reach": "your own email",
+      "action_class": "outbound_email_external"
+    }
+  ],
+  "funnels": {
+    "host": { "path": "/start/host", "persona": "practitioner", "placeholder": true },
+    "venue": { "path": "/start/partner", "persona": "partner" },
+    "builder": { "path": "/start/welcome", "persona": "builder" },
+    "resident": { "path": "/start/event", "persona": "visitor" }
+  },
+  "send_routes": {
+    "founder_email": {
+      "label": "Your own email, as the founder",
+      "one_to_one": true,
+      "needs": ["honest subject", "who you are", "one-line opt-out: reply no and I won't write again"]
+    },
+    "frequency": { "label": "Frequency messaging", "adds": ["unsubscribe link", "postal address"] }
+  },
+  "placeholders": ["host_funnel", "inland_north"],
+  "thresholds": {
+    "hosts_floor": 100,
+    "hosts_per_10k": 0.75,
+    "events_per_host_14d": 1,
+    "sub_area_share": 0.8,
+    "channels_per_sub_area": 4,
+    "wam_per_host": 10,
+    "hold_weeks": 4,
+    "upkeep_relapse_weeks": 2,
+    "fit_threshold": 0.6,
+    "timing_threshold": 0.5,
+    "timing_half_life_days": 14,
+    "watch_recheck_days": 14,
+    "max_touches_per_lead_30d": 3,
+    "max_new_invites_per_week": 50,
+    "max_active_sub_areas": 5
+  },
+  "opened": ["north-county-sd"],
+  "territories": [
+    {
+      "id": "north-county-sd",
+      "name": "North County San Diego",
+      "order": 1,
+      "status": "active",
+      "borders": ["orange-county", "inland-north", "san-diego"],
+      "population": 850000,
+      "sub_areas": [
+        { "id": "oceanside", "name": "Oceanside", "population": 172000 },
+        { "id": "carlsbad", "name": "Carlsbad", "population": 115000 },
+        { "id": "encinitas", "name": "Encinitas and Leucadia", "population": 62000 },
+        { "id": "solana-del-mar", "name": "Solana Beach and Del Mar", "population": 17000 },
+        { "id": "vista", "name": "Vista", "population": 101000 },
+        { "id": "san-marcos", "name": "San Marcos", "population": 94000 },
+        { "id": "escondido", "name": "Escondido", "population": 151000 },
+        { "id": "poway", "name": "Poway", "population": 48000 },
+        { "id": "fallbrook-bonsall", "name": "Fallbrook and Bonsall", "population": 36000 },
+        { "id": "valley-center-ramona", "name": "Valley Center and Ramona", "population": 54000 }
+      ],
+      "targets": { "hosts_active_28d": 100, "events_next_14d": 100, "sub_areas_covered_14d": 8, "wam": 1000 },
+      "measures": { "hosts_active_28d": 34, "events_next_14d": 41, "sub_areas_covered_14d": 5, "wam": 260 },
+      "progress": 0.26,
+      "qualifies": false,
+      "weeks_at_threshold": 0,
+      "weeks_below": 0,
+      "leads": { "host": 3, "venue": 2, "builder": 0, "resident": 1 }
+    },
+    {
+      "id": "orange-county",
+      "name": "Orange County",
+      "order": 2,
+      "status": "waiting",
+      "borders": ["north-county-sd", "inland-north"],
+      "population": 2965000,
+      "sub_areas": [
+        { "id": "south-coast", "name": "South Coast", "population": 150000 },
+        { "id": "laguna-aliso", "name": "Laguna and Aliso Viejo", "population": 75000 },
+        { "id": "saddleback", "name": "Saddleback Valley", "population": 330000 },
+        { "id": "irvine", "name": "Irvine", "population": 315000 },
+        { "id": "newport-costa-mesa", "name": "Newport and Costa Mesa", "population": 195000 },
+        { "id": "huntington", "name": "Huntington Beach", "population": 250000 },
+        { "id": "central-oc", "name": "Central OC", "population": 530000 },
+        { "id": "north-oc", "name": "North OC", "population": 650000 },
+        { "id": "west-oc", "name": "West OC", "population": 470000 }
+      ],
+      "targets": { "hosts_active_28d": 223, "events_next_14d": 223, "sub_areas_covered_14d": 8, "wam": 2230 },
+      "measures": null,
+      "progress": null,
+      "qualifies": null,
+      "weeks_at_threshold": 0,
+      "weeks_below": 0,
+      "leads": { "host": 0, "venue": 0, "builder": 1, "resident": 0 }
+    },
+    {
+      "id": "inland-north",
+      "name": "Inland North (Temecula Valley)",
+      "order": 3,
+      "status": "waiting",
+      "borders": ["north-county-sd", "orange-county"],
+      "population": 585000,
+      "sub_areas": [
+        { "id": "temecula", "name": "Temecula", "population": 110000 },
+        { "id": "murrieta", "name": "Murrieta", "population": 115000 },
+        { "id": "menifee", "name": "Menifee", "population": 110000 },
+        { "id": "lake-elsinore", "name": "Lake Elsinore and Wildomar", "population": 110000 },
+        { "id": "hemet", "name": "Hemet and San Jacinto", "population": 140000 }
+      ],
+      "targets": { "hosts_active_28d": 100, "events_next_14d": 100, "sub_areas_covered_14d": 4, "wam": 1000 },
+      "measures": null,
+      "progress": null,
+      "qualifies": null,
+      "weeks_at_threshold": 0,
+      "weeks_below": 0,
+      "leads": { "host": 1, "venue": 0, "builder": 0, "resident": 0 }
+    },
+    {
+      "id": "san-diego",
+      "name": "San Diego",
+      "order": 4,
+      "status": "waiting",
+      "borders": ["north-county-sd"],
+      "population": 1810000,
+      "sub_areas": [
+        { "id": "coastal-sd", "name": "Coastal", "population": 150000 },
+        { "id": "central-sd", "name": "Central", "population": 250000 },
+        { "id": "mid-city", "name": "Mid-City", "population": 200000 },
+        { "id": "clairemont", "name": "Clairemont and Mission Valley", "population": 200000 },
+        { "id": "northern-sd", "name": "Northern neighborhoods", "population": 300000 },
+        { "id": "east-county", "name": "East County", "population": 330000 },
+        { "id": "south-bay", "name": "South Bay", "population": 380000 }
+      ],
+      "targets": { "hosts_active_28d": 136, "events_next_14d": 136, "sub_areas_covered_14d": 6, "wam": 1360 },
+      "measures": null,
+      "progress": null,
+      "qualifies": null,
+      "weeks_at_threshold": 0,
+      "weeks_below": 0,
+      "leads": { "host": 0, "venue": 0, "builder": 0, "resident": 0 }
+    }
+  ],
+  "leads": [
+    {
+      "id": "ld_01",
+      "name": "Tide Pool Yoga",
+      "kind": "host",
+      "territory_id": "north-county-sd",
+      "sub_area": "oceanside",
+      "channel": "movement",
+      "source": "event_listings",
+      "url": "https://example.com/leads/ld_01",
+      "fit": 0.86,
+      "timing": 0.74,
+      "stage": "invite",
+      "reason": "Strong fit and hosting regularly now",
+      "send_via": "founder_email"
+    },
+    {
+      "id": "ld_02",
+      "name": "Carlsbad Makers Hall",
+      "kind": "venue",
+      "territory_id": "north-county-sd",
+      "sub_area": "carlsbad",
+      "channel": "craft",
+      "source": "business_listings",
+      "url": "https://example.com/leads/ld_02",
+      "fit": 0.78,
+      "timing": 0.62,
+      "stage": "invite",
+      "reason": "Good fit, with a free room on weekday evenings",
+      "send_via": "founder_email"
+    },
+    {
+      "id": "ld_03",
+      "name": "Escondido Sound Circle",
+      "kind": "host",
+      "territory_id": "north-county-sd",
+      "sub_area": "escondido",
+      "channel": "music",
+      "source": "creator_profiles",
+      "url": "https://example.com/leads/ld_03",
+      "fit": 0.81,
+      "timing": 0.31,
+      "stage": "watch",
+      "reason": "Good fit but timing is low; check again in 14 days",
+      "send_via": "founder_email"
+    },
+    {
+      "id": "ld_04",
+      "name": "Vista Neighbors Board",
+      "kind": "resident",
+      "territory_id": "north-county-sd",
+      "sub_area": "vista",
+      "channel": null,
+      "source": "local_groups",
+      "url": "https://example.com/leads/ld_04",
+      "fit": 0.7,
+      "timing": 0.55,
+      "stage": "post_only",
+      "reason": "Residents get a public post, never a personal message",
+      "send_via": "frequency"
+    },
+    {
+      "id": "ld_05",
+      "name": "Encinitas Run Club",
+      "kind": "host",
+      "territory_id": "north-county-sd",
+      "sub_area": "encinitas",
+      "channel": "movement",
+      "source": "host_referrals",
+      "url": "https://example.com/leads/ld_05",
+      "fit": 0.9,
+      "timing": 0.8,
+      "stage": "capped",
+      "reason": "Already contacted 3 times in 30 days",
+      "send_via": "founder_email"
+    },
+    {
+      "id": "ld_06",
+      "name": "Irvine Garden Collective",
+      "kind": "builder",
+      "territory_id": "orange-county",
+      "sub_area": "irvine",
+      "channel": "nature",
+      "source": "creator_profiles",
+      "url": "https://example.com/leads/ld_06",
+      "fit": 0.84,
+      "timing": 0.7,
+      "stage": "watch",
+      "reason": "Orange County is not active yet",
+      "send_via": "founder_email"
+    },
+    {
+      "id": "ld_07",
+      "name": "Temecula Wine Walks",
+      "kind": "host",
+      "territory_id": "inland-north",
+      "sub_area": "temecula",
+      "channel": "food",
+      "source": "event_listings",
+      "url": "https://example.com/leads/ld_07",
+      "fit": 0.45,
+      "timing": 0.6,
+      "stage": "drop",
+      "reason": "Fit 0.45 is under 0.6",
+      "send_via": null
+    },
+    {
+      "id": "ld_08",
+      "name": "Poway Pottery Studio",
+      "kind": "venue",
+      "territory_id": "north-county-sd",
+      "sub_area": "poway",
+      "channel": "craft",
+      "source": "business_listings",
+      "url": "https://example.com/leads/ld_08",
+      "fit": 0.72,
+      "timing": 0.66,
+      "stage": "blocked",
+      "reason": "On your do-not-contact list",
+      "send_via": null
+    }
+  ],
+  "pipeline": { "invite": 2, "watch": 2, "post_only": 1, "capped": 1, "blocked": 1, "drop": 1 },
+  "decision": {
+    "kind": "keep_working",
+    "summary": "Working North County San Diego. The weakest measure is weekly active members at 26%. The next region opens only after every measure hits its target for 4 weeks."
+  },
+  "plan": {
+    "sub_areas": [
+      {
+        "territory_id": "north-county-sd",
+        "sub_area": "fallbrook-bonsall",
+        "reason": "no events in the next 14 days"
+      },
+      {
+        "territory_id": "north-county-sd",
+        "sub_area": "valley-center-ramona",
+        "reason": "no events in the next 14 days"
+      },
+      { "territory_id": "north-county-sd", "sub_area": "poway", "reason": "covers 2 of 4 channels" },
+      { "territory_id": "north-county-sd", "sub_area": "san-marcos", "reason": "covers 3 of 4 channels" },
+      { "territory_id": "north-county-sd", "sub_area": "escondido", "reason": "covers 3 of 4 channels" }
+    ],
+    "invites": ["ld_01", "ld_02"]
+  },
+  "steps": [
+    { "key": "find", "label": "Find hosts, venues and builders in active sub-areas", "outward": false },
+    { "key": "score", "label": "Score each lead for fit and timing", "outward": false },
+    { "key": "route", "label": "Route each lead: invite, watch, post or drop", "outward": false },
+    { "key": "draft", "label": "Draft invites and posts with the right funnel link", "outward": false },
+    { "key": "owner_approval", "label": "You approve, edit or reject each draft", "outward": false },
+    { "key": "send", "label": "You send it from your own email or Frequency", "outward": true },
+    { "key": "measure", "label": "Read the region measures from Frequency", "outward": false }
+  ],
+  "budget": {
+    "period": "week",
+    "max_usd": 5,
+    "max_turns": 200,
+    "spent_usd": 1.84,
+    "used_turns": 52,
+    "since": "2026-11-09T15:00:00Z"
+  },
+  "awaiting_owner_total": 2
+}
