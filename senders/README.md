@@ -21,7 +21,11 @@ What it guarantees on every pass:
 - At most `per_pass` messages per pass (default 1), `daily_cap` per mailbox per day (default 15, at
   most 40), and only inside `hours`. With launchd running it every 20 minutes from 9 to 5 on weekdays,
   per_pass 1 means about 3 an hour at most, capped by the daily number.
-- Items that need a claim link (`build`) are held in `held/` until a builder exists.
+- Items that need a claim link (`build`) are held in `held/` unless `claim.url` is set in `email.json`
+  (Frequency's `https://frequencylocal.com/api/webhooks/flowweb-claim`). With it, the sender asks Frequency to
+  build the event page first, signed with the shared secret from `FW_CLAIM_SECRET` or the Keychain
+  (`security add-generic-password -s flowweb-claim -a frequency -w`). Built: the claim link fills the slot and
+  the message goes. Unsubscribed in Frequency: `skipped/`. Refused: `failed/`. Switched off or down: it waits.
 
 Where items go: `sent/`, `skipped/`, `held/`, `failed/` next to the outbox files, each with a `sender`
 note saying why.
