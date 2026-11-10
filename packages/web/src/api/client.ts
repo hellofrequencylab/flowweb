@@ -761,6 +761,12 @@ export const api = {
     return { data_as_of: e.as_of, ...e.data };
   },
 
+  /** FW-C-048: the paid ads flow, read only. */
+  async adsFlow(): Promise<V.AdsFlow> {
+    const e = await get<Omit<V.AdsFlow, 'data_as_of'>>('/flows/paid-ads');
+    return { data_as_of: e.as_of, ...e.data };
+  },
+
   async supervisor(): Promise<V.Supervisor> {
     const e = await get<Omit<V.Supervisor, 'data_as_of'>>('/supervisor');
     return { data_as_of: e.as_of, ...e.data };
