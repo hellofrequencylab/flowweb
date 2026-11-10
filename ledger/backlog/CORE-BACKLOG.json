@@ -4,7 +4,7 @@
     "profile": "core",
     "schema": "ledger-row/1",
     "generated": "2026-11-09",
-    "row_count": 99,
+    "row_count": 100,
     "conventions": {
       "verify_probe": "Same convention as 04-build-plan/backlog.json: 'pnpm probe <path>' runs probes/<path>.probe.ts, a Tier 0 file written before the implementation row starts and never edited by the agent doing the row. Every probe fails today because its target does not exist (a missing probe file exits 2, a missing behaviour exits 1). The probe pack for a milestone is committed by the Owner or a pair session before the milestone's rows start.",
       "status": "All rows start as open. Status lives only in the ledger database (imported with fw ledger sync), never in prose.",
@@ -28,7 +28,7 @@
       }
     },
     "full_plan_rows_included": 37,
-    "new_core_rows": 62
+    "new_core_rows": 63
   },
   "rows": [
     {
@@ -3509,6 +3509,44 @@
         "packages/web/src/api/types.ts",
         "packages/web/test/",
         "docs/api/LOCAL-API-V1.md"
+      ],
+      "origin": "new Core row"
+    },
+    {
+      "id": "FW-C-066",
+      "title": "The Owner works the flow's drafts in a two-pane inbox: every draft listed on the left, the open one read and edited on the right",
+      "core_milestone": "C1",
+      "phase": 1,
+      "epic": "C1.5 First flow",
+      "priority": "P1",
+      "size": "L",
+      "lane": "workstreams",
+      "agent_suitability": "agent",
+      "gate": "none",
+      "depends_on": [
+        "FW-C-062"
+      ],
+      "description": "On the Flows page and flowweb.app the drafts are a stack of fold-outs: each one opens in place as a long block of text, the groups (ready, with blanks, sent, handled) are separate folds, and finding the next message to send means scrolling past the one before. The Owner asked for an inbox: every drafted message listed on the left with who it is for, its state and its age, and the selected one shown in full on the right with the editor, the Rewrite with AI box, Approve, Reject and the after-you-send buttons. Add DraftsInbox to packages/web/src/flows and render it on the Flows page in place of the old drafts panel. The list is a listbox of every draft the flow has, whatever its status, each option naming its subject and a state word (Ready, Has blanks, Sent, Replied, Said no, Approved, Rejected); the newest ready draft is selected first; clicking an option or pressing the arrow keys selects another, and the viewer shows that draft's full text. The viewer keeps every action DraftEditor has today, and a rewrite asked there goes to the selected draft. Nothing here sends anything.",
+      "acceptance": [
+        "The Flows page renders DraftsInbox",
+        "The list shows one option per draft, sent and handled ones included, each with its subject and state word",
+        "The newest ready draft is selected first and its full body is in the viewer",
+        "Clicking another option, or pressing the down arrow, selects it and the viewer shows its body",
+        "Asking Rewrite with AI in the viewer posts the rewrite for the selected draft"
+      ],
+      "verify_probe": "pnpm probe flows/drafts-inbox",
+      "files_hint": [
+        "packages/web/src/flows/DraftsInbox.tsx",
+        "packages/web/src/flows/DraftEditor.tsx",
+        "packages/web/src/flows/drafts.ts",
+        "packages/web/src/flows/ActivationPage.tsx",
+        "packages/web/src/flows/FlowVisuals.tsx",
+        "packages/web/src/flows/index.ts",
+        "packages/web/src/ui-kit/flow.css",
+        "packages/web/src/ui-kit/base.css",
+        "packages/web/src/ui-kit/Icon.tsx",
+        "packages/web/test/",
+        "packages/web/mock/"
       ],
       "origin": "new Core row"
     }
