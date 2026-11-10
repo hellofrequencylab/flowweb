@@ -3,6 +3,14 @@
 // (from `git diff --name-status -M base...head`), the Tier 0 path list and the work order's allowed files.
 // Any internal error is a deny, never an allow.
 import { createHash } from 'node:crypto';
+import {
+  type DiffPolicyRules,
+  dependencyNames,
+  loadDiffPolicyRules,
+  type ManifestContent,
+  parsePatch,
+  type RowSize,
+} from './diff-rules.ts';
 
 /** The Tier 0 list, read from policy/tier0-paths.json (see tier0.ts). */
 export { CORE_TIER0_PATHS } from './tier0.ts';
@@ -18,6 +26,11 @@ export interface PathChange {
 export type DiffRule =
   | 'tier0_path'
   | 'outside_allowed_files'
+  | 'deleted_test'
+  | 'skipped_test'
+  | 'config_relaxation'
+  | 'size_over_cap'
+  | 'new_dependency'
   | 'invalid_path'
   | 'unknown_status'
   | 'policy_error';
@@ -44,6 +57,20 @@ export interface DiffPolicyInput {
   tier0Paths: readonly string[];
   /** Work order allowed-files globs. An empty list allows nothing (fail closed). */
   allowedFiles: readonly string[];
+  /**
+   * The unified diff of the same change (`git -c core.quotePath=false diff -M base...head`). With it the
+   * content rules run (deleted_test on lines, skipped_test, config_relaxation, size_over_cap,
+   * new_dependency); without it only the path rules do, which is what the artifact guard's re-check wants.
+   */
+  patch?: string;
+  /** The row's size, for size_over_cap. Unknown sizes get the rules file's unknown_size cap (S). */
+  rowSize?: RowSize | string;
+  /** Before and after content of every changed dependency manifest. A missing one is a violation. */
+  manifests?: readonly ManifestContent[];
+  /** The work order allows new dependencies (constraints.no_new_dependencies === false). Default false. */
+  allowNewDependencies?: boolean;
+  /** Rules to use instead of policy/rules/diff-policy.json (tests). */
+  rules?: DiffPolicyRules;
 }
 
 const KNOWN_STATUS = new Set(['A', 'M', 'D', 'R', 'C', 'T']);
@@ -144,7 +171,105 @@ function evaluate(input: DiffPolicyInput): DiffVerdict {
       }
     }
   }
+  if (input.patch !== undefined) {
+    const rules = input.rules ?? defaultRules();
+    violations.push(...testPathViolations(input.changes, rules), ...contentViolations(input, rules));
+  }
   return { allowed: violations.length === 0, violations, checked: input.changes.length, diff_hash: '' };
+}
+
+let cachedRules: DiffPolicyRules | null = null;
+function defaultRules(): DiffPolicyRules {
+  cachedRules ??= loadDiffPolicyRules((g) => globToRegExp(g, { caseInsensitive: true }));
+  return cachedRules;
+}
+
+const any = (res: readonly RegExp[], p: string) => res.some((re) => re.test(p));
+
+/** Whether the rules file names this path as a dependency manifest (false when the rules do not load). */
+export function isDependencyManifest(path: string, rules?: DiffPolicyRules): boolean {
+  try {
+    return (rules ?? defaultRules()).new_dependency.manifests.some((m) => m.glob.test(path));
+  } catch {
+    return false;
+  }
+}
+
+const statusOf = (c: PathChange) => String(c.status).charAt(0).toUpperCase();
+const clip = (l: string | undefined) => (l ?? '').trim().slice(0, 200);
+
+/** deleted_test from the change list: a test file deleted, or renamed to a path that is not a test. */
+function testPathViolations(changes: readonly PathChange[], rules: DiffPolicyRules): DiffViolation[] {
+  const tests = rules.deleted_test.test_paths;
+  const out: DiffViolation[] = [];
+  for (const c of changes) {
+    const status = statusOf(c);
+    if (status === 'D' && any(tests, c.path))
+      out.push({ path: c.path, rule: 'deleted_test', status, detail: 'test file deleted' });
+    if (status === 'R' && c.old_path && any(tests, c.old_path) && !any(tests, c.path))
+      out.push({ path: c.old_path, rule: 'deleted_test', status, detail: `test file renamed to ${c.path}` });
+  }
+  return out;
+}
+
+function contentViolations(input: DiffPolicyInput, rules: DiffPolicyRules): DiffViolation[] {
+  const out: DiffViolation[] = [];
+  const statuses = new Map(input.changes.map((c) => [c.path, statusOf(c)]));
+  const { deleted_test: dt, skipped_test: st, config_relaxation: cr, size_over_cap: sz } = rules;
+  let changedLines = 0;
+  for (const f of parsePatch(input.patch ?? '')) {
+    const status = statuses.get(f.path) ?? 'M';
+    const add = (rule: DiffRule, detail: string, path = f.path) => out.push({ path, rule, status, detail });
+    if (status !== 'D' && any(dt.test_paths, f.path)) {
+      const cases = (lines: string[]) => lines.filter((l) => dt.test_case.test(l)).length;
+      const lost = cases(f.removed) - cases(f.added);
+      if (lost > 0) add('deleted_test', `${lost} test case(s) removed`);
+    }
+    const skip = f.added.find((l) => st.added_line.test(l));
+    if (skip !== undefined && !any(st.exclude, f.path)) add('skipped_test', clip(skip));
+    const isConfig = any(cr.paths, f.path);
+    const wasConfig = f.old_path !== null && any(cr.paths, f.old_path);
+    if (status === 'D' || (wasConfig && !isConfig)) {
+      if (isConfig || wasConfig) add('config_relaxation', 'gate config file removed', f.old_path ?? f.path);
+    } else if (isConfig) {
+      const removed = f.removed.find((l) => l.trim() !== '');
+      const loosened = f.added.find((l) => cr.added_line.test(l));
+      if (removed !== undefined) add('config_relaxation', `line removed or changed: ${clip(removed)}`);
+      else if (loosened !== undefined) add('config_relaxation', `line added: ${clip(loosened)}`);
+    }
+    if (!f.binary && !any(sz.exclude, f.path)) changedLines += f.added.length + f.removed.length;
+  }
+  const size = (['S', 'M', 'L'] as const).find((s) => s === input.rowSize) ?? sz.unknown_size;
+  if (changedLines > sz.max[size])
+    out.push({
+      path: '*',
+      rule: 'size_over_cap',
+      detail: `${changedLines} changed lines, cap ${sz.max[size]} (${size})`,
+    });
+  return [...out, ...dependencyViolations(input, rules)];
+}
+
+function dependencyViolations(input: DiffPolicyInput, rules: DiffPolicyRules): DiffViolation[] {
+  if (input.allowNewDependencies === true) return [];
+  const out: DiffViolation[] = [];
+  for (const c of input.changes) {
+    const status = statusOf(c);
+    const spec = rules.new_dependency.manifests.find((m) => m.glob.test(c.path));
+    if (!spec || status === 'D') continue;
+    const m = input.manifests?.find((x) => x.path === c.path);
+    let detail = 'manifest content not supplied';
+    if (m) {
+      try {
+        const before = dependencyNames(m.before, spec.format);
+        const added = [...dependencyNames(m.after, spec.format)].filter((n) => !before.has(n));
+        detail = added.length ? `new: ${added.sort().join(', ')}` : '';
+      } catch (e) {
+        detail = `manifest does not parse: ${String(e)}`;
+      }
+    }
+    if (detail) out.push({ path: c.path, rule: 'new_dependency', status, detail });
+  }
+  return out;
 }
 
 /** Evaluates the diff policy. Deny wins; a thrown error inside the engine becomes a policy_error deny. */

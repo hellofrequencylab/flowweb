@@ -9,6 +9,18 @@ export {
   diffHash,
   evaluateDiffPolicy,
   globToRegExp,
+  isDependencyManifest,
   type PathChange,
   parseNameStatus,
 } from './diff-policy.ts';
+export {
+  DIFF_POLICY_RULES_PATH,
+  type DiffPolicyRules,
+  dependencyNames,
+  loadDiffPolicyRules,
+  type ManifestContent,
+  type PatchFile,
+  parseDiffPolicyRules,
+  parsePatch,
+  type RowSize,
+} from './diff-rules.ts';

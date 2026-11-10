@@ -91,7 +91,7 @@ proving that row.
 | `@fw/adapters` `createAdapter`, `createClaudeAdapter({ command, commandArgs, exec })`, `REQUIRED_FLAGS`, `FAKE_SCENARIOS`, `ADAPTER_NAMES`; `AdapterRun { events, result, meta, kill, pgid }` | adapter probes |
 | `packages/adapters/test/conformance.ts` `conformanceSuite(harness)` and the replay fixtures in `packages/adapters/test/fixtures/claude/` | adapter-contract, claude-conformance |
 | `@fw/daemon` `supervise`, `resolveCredential`, `WorktreeManager`, `prepareSandbox`, `spawnInSandbox`, `killProcessGroup`, `sandboxSelfTest`, `LocalBareHost`, `GhHost`, `buildEvidenceBundle`, `prComment` | runtime, security and kernel probes |
-| `@fw/policy` `evaluateDiffPolicy({ changes, tier0Paths, allowedFiles })`, `parseNameStatus`, `CORE_TIER0_PATHS` | diff-policy |
+| `@fw/policy` `evaluateDiffPolicy({ changes, patch, manifests, tier0Paths, allowedFiles })`, `parseNameStatus`, `CORE_TIER0_PATHS` | diff-policy |
 | `@fw/contracts` `validate($id, value)`; `packages/contracts/scripts/gen-types.mjs` | contracts, evidence-builder |
 | Row id in the database: `lr_` + the code without hyphens (`FW-C-005` -> `lr_FWC005`) | ledger and pipeline probes, probe-first-real-pr.sh |
 
@@ -169,7 +169,7 @@ authenticated, no network for vendors). 22 of 34 C0 probes pass (orphan-recovery
 | `c0/claude-conformance` | WS-P0-030 | PASS | |
 | `c0/worktree-manager` | WS-P0-032 | PASS | |
 | `c0/sandbox-selftest` | FW-C-008 | FAIL | env and self-test pass; `fw doctor` and `fw gc` exit 2 (no such commands) |
-| `c0/diff-policy` | WS-P0-035 | FAIL | clean and forbidden-path pass; the five content rules are not implemented; no rules file |
+| `c0/diff-policy` | WS-P0-035 | PASS | the engine now gets the patch and the package.json before/after text (decision 12) |
 | `c0/git-edge` | WS-P0-036 | PASS | |
 | `c0/evidence-builder` | WS-P0-038 | PASS | |
 | `c0/artifact-required` | WS-P0-039 | PASS | |
@@ -195,7 +195,6 @@ Each line below is a backlog acceptance line the code does not meet yet. The pro
 | WS-P0-025 | `fw spend --by agent` prints the rollup | `packages/cli`: add `fw spend --by agent` (and by run or row, with `--json`), the same numbers as `GET /v1/spend` |
 | WS-P0-026 | a no-op reference adapter compiles against the SDK | `packages/adapters`: add `noop` to `ADAPTER_NAMES` and `createAdapter` (implements the interface, returns a schema-valid result, spawns nothing) |
 | FW-C-008 | "fw doctor shows it"; "removable by fw gc" | `packages/cli`: `fw doctor --json` (runs `sandboxSelfTest` and prints each control's level) and `fw gc --json` (calls `removeRunDir` for finished runs, never touches branches) |
-| WS-P0-035 | six violation types named; rules are data in a Tier 0 file | `packages/policy`: content rules `deleted_test`, `skipped_test`, `config_relaxation`, `size_over_cap`, `new_dependency` (the engine needs the diff text or per-file contents, not only name-status), read from `policy/rules/diff-policy.json` (decision 12; the file is the Owner's) |
 | WS-P0-042 | asserts ... cost rollup | `e2e/walking-skeleton.test.ts`: assert the run's spend (for example `spend_entries` sum equals `fw run show` cost) |
 | (C1) orphan recovery | vendor process group gone after restart | `packages/daemon/src/reconciler.ts` `killOrphanGroup` verifies ownership only through `/proc/<pgid>/cwd` of the group leader. In the failing runs `groups_killed` was empty while a member of the group with its cwd in the run worktree was alive, which fits a leader that had already exited (readlink fails, outcome `unverified`). Fix: verify by any live member of the group (scan `/proc/*/stat` for the pgrp) before killing |
 
@@ -209,7 +208,6 @@ refuses to start. Reading `/proc/<pid>/stat` state `Z` as dead (as `sandbox.ts` 
 | Item | Row | Why only the Owner |
 |---|---|---|
 | `.gitleaks.toml`, `.husky/pre-commit`, gitleaks installed, the CI secret-scan job | WS-P0-005 | Tier 0 files and tooling |
-| `policy/rules/diff-policy.json` (six rule ids and their parameters) | WS-P0-035 | Tier 0 policy data |
 | `probes/MANIFEST.sha256` over the committed probe pack | WS-P0-019 | Tier 0; created when the Owner commits the probes |
 | Commit this probe pack (it is Tier 0), after review | all | AGENTS.md rules 2 and 3 |
 | `exactOptionalPropertyTypes` decision (turn on now, or amend FW-C-001) | FW-C-001 | acceptance change |
