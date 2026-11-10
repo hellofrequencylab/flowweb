@@ -93,6 +93,7 @@ export interface DaemonCoreClient extends LocalCoreClient {
     id: string,
     edit: { subject?: string; body?: string },
   ): Promise<DraftView>;
+  supervisorRewriteDraft(flow: string, id: string, instruction: string): Promise<RewriteProposal>;
   spendRollup(opts: { by: string }): Promise<(SpendRow & { unknown_runs?: number })[]>;
   policyCheck(input: DecisionInput): Promise<Decision & { policy_path: string }>;
   policyApply(): Promise<ApplyReport & { policy_path: string }>;
