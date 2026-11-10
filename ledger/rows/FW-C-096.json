@@ -1,0 +1,38 @@
+{
+  "id": "FW-C-096",
+  "title": "The Owner runs one Frequency Saturation Engine flow, and its event hunts aim at breathwork, yoga, sound healing, ecstatic dance, maker events, swaps, art and music",
+  "core_milestone": "C1",
+  "phase": 1,
+  "epic": "C1.5 First flow",
+  "priority": "P1",
+  "size": "M",
+  "lane": "workstreams",
+  "agent_suitability": "agent",
+  "gate": "none",
+  "depends_on": [
+    "FW-C-041"
+  ],
+  "description": "The site shows two flows for the same job (Local saturation marketing and Neighborhood activation), and the event hunts drift toward craft classes and programs for seniors, which is not the crowd Frequency wants first. The flow keyed neighborhood-activation is renamed Frequency Saturation Engine (key, files, drafts and leads unchanged). flows/local-saturation/config.json says merged_into \"neighborhood-activation\": it still ships for the probes that use it, GET /v1/supervisor reports merged_into on every flow (the target key, else null), and the site lists flows through liveFlows (packages/web/src/flows/visible.ts), which drops a merged flow, on the Flows home and Today; the footer names the engine. config.json hunts.audience = { focus, steer_away }: focus names breathwork, yoga, sound healing, transformative experiences, maker events, swaps, art, music, expression and ecstatic dance; steer_away names programs for seniors and plain craft classes. cycle.ts audienceOf(dir) reads it from the cycle folder's config.json, and brief() puts both lists in a hunt cycle's brief so the agent searches for the focus first, skips the rest, and asks organizers a question that fits their event instead of one about people who enjoy making things (the Owner's own quoted example stays). No em dashes.",
+  "acceptance": [
+    "The flow keyed neighborhood-activation is named Frequency Saturation Engine",
+    "flows/local-saturation/config.json has merged_into neighborhood-activation and GET /v1/supervisor reports merged_into for every flow",
+    "config.json hunts.audience names the Owner's focus and what to steer away from",
+    "A hunt cycle's brief carries every focus and steer_away item and no longer asks only about making things",
+    "The Flows home and Today hide the merged flow, and the footer names the engine"
+  ],
+  "verify_probe": "pnpm probe flows/saturation-engine",
+  "files_hint": [
+    "flows/neighborhood-activation/",
+    "flows/local-saturation/",
+    "packages/daemon/src/overseer/cycle.ts",
+    "packages/daemon/src/overseer/index.ts",
+    "packages/daemon/test/",
+    "packages/web/src/flows/visible.ts",
+    "packages/web/src/flows/FlowsHome.tsx",
+    "packages/web/src/dawn/Today.tsx",
+    "packages/web/src/shell/Footer.tsx",
+    "packages/web/src/api/types.ts",
+    "packages/web/mock/"
+  ],
+  "origin": "new Core row"
+}
