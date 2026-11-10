@@ -64,6 +64,9 @@ export function fwdRequest(
             ? {}
             : { 'content-type': 'application/json', 'content-length': Buffer.byteLength(text) }),
         },
+        // No shared agent: Node's global agent puts a 5 s idle timeout on its sockets, which would
+        // end a long call (a close running its probe, a hosted run) as if fwd never answered.
+        agent: false,
         ...(timeoutMs > 0 ? { timeout: timeoutMs } : {}),
       },
       (res) => {
@@ -89,7 +92,7 @@ export function fwdRequest(
         });
       },
     );
-    req.on('timeout', () => req.destroy(new Error(`no answer within ${timeoutMs} ms`)));
+    if (timeoutMs > 0) req.on('timeout', () => req.destroy(new Error(`no answer within ${timeoutMs} ms`)));
     req.on('error', (e) =>
       fail(new FwdUnreachableError(`fwd not reachable on ${LOOPBACK}:${ep.port}: ${e.message}`)),
     );
