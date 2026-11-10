@@ -52,8 +52,8 @@ export function helpText(): string {
     '  --help, -h      this help',
     '',
     'exit codes: 0 ok, 1 failed or refused, 2 usage, 3 refused by policy (XL size, self-verification,',
-    '            diff policy,',
-    '            stream tier without approval), 4 database writer lock held',
+    '            diff policy, stream tier without approval, kill switch engaged, budget exhausted),',
+    '            4 database writer lock held',
   ].join('\n');
 }
 

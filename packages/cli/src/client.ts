@@ -143,7 +143,7 @@ export interface RunStartReport {
   status: string;
   failure_class: string | null;
   reason: string | null;
-  /** The error code when a policy refused the run's change (for example DIFF_POLICY), else null. */
+  /** The error code when a policy refused the run (DIFF_POLICY, KILL_SWITCH, BUDGET_EXHAUSTED), else null. */
   policy_code: string | null;
   row_status: string;
   work_order_id: string | null;
