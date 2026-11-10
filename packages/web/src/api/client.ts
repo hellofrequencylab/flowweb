@@ -478,7 +478,9 @@ export const api = {
             id: r.id,
             produced_at: r.created_at,
             since: r.period_from,
-            self_check_ok: r.body.self_check?.passed ?? false,
+            // fwd stores a daily report only after it passed its recompute check (a failing one is
+            // recorded as digest.rejected instead), and status-report.json has no self_check field.
+            self_check_ok: r.body.self_check?.passed ?? true,
             failed_query_ids: r.body.self_check?.failed_query_ids ?? [],
             headline: r.body.headline,
           }
