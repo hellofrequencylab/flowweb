@@ -3,6 +3,7 @@
 // do-not-contact, for an organizer who replied "no". Every write goes through fwd, which does the checking.
 import { type FormEvent, useCallback, useEffect, useId, useState } from 'react';
 import { type LeadHunt, leadHunts } from '../api/client';
+import { HOSTED } from '../hosted/auth';
 import { Button } from '../ui-kit/Button';
 import { when } from '../ui-kit/time';
 
@@ -84,26 +85,41 @@ export function LeadHunts({ regions }: { regions: Region[] }) {
                   {` · last run ${h.last_run_at ? when(h.last_run_at) : 'never'}`}
                 </span>
               </div>
-              <div className="row">
-                <Button className="btn-small" onClick={() => void runNow(h)} aria-label={`Run ${h.name} now`}>
-                  Run now
-                </Button>
-                <Button
-                  className="btn-small"
-                  variant="quiet"
-                  onClick={() => remove(h)}
-                  aria-label={`Delete ${h.name}`}
-                >
-                  Delete
-                </Button>
-              </div>
+              {!HOSTED && (
+                <div className="row">
+                  <Button
+                    className="btn-small"
+                    onClick={() => void runNow(h)}
+                    aria-label={`Run ${h.name} now`}
+                  >
+                    Run now
+                  </Button>
+                  <Button
+                    className="btn-small"
+                    variant="quiet"
+                    onClick={() => remove(h)}
+                    aria-label={`Delete ${h.name}`}
+                  >
+                    Delete
+                  </Button>
+                </div>
+              )}
             </li>
           ))}
         </ul>
       )}
       <Outcome said={listSaid} />
-      <NewHunt regions={regions} saved={load} />
-      <Block />
+      {HOSTED ? (
+        // The live site is a read-only mirror: a save here would be refused, so offer the command instead.
+        <p className="muted small">
+          Add, run or remove a hunt, or block an address, on your Mac with <code>pnpm fw hunt</code>.
+        </p>
+      ) : (
+        <>
+          <NewHunt regions={regions} saved={load} />
+          <Block />
+        </>
+      )}
     </section>
   );
 }
