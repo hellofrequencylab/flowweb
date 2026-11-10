@@ -4,6 +4,7 @@
 // through fwd with the CLI token, and each change writes a system.config_changed event.
 // fw supervisor dial <flow> <draft|copilot|autopilot> [--confirm <hash>]: the Owner's dial (FW-C-035).
 // fw supervisor run <flow>: fire a flow by hand through the scheduler (FW-C-038).
+// fw supervisor drafts <flow>, approve|reject <flow> <id>: Copilot, the Owner's call on each cycle draft (FW-C-046).
 // Autopilot first answers with the hash of the flow's channels and caps; run it again with --confirm.
 import type { SupervisorAction, SupervisorReport } from '../client.ts';
 import { EXIT, table } from '../output.ts';
@@ -107,6 +108,60 @@ const run: Command = {
   },
 };
 
+const drafts: Command = {
+  path: ['supervisor', 'drafts'],
+  usage: 'fw supervisor drafts <flow>',
+  summary: "List a flow's cycle drafts, newest first, and whether each waits for you (Owner)",
+  args: ['flow'],
+  options: [],
+  async run(ctx) {
+    if (typeof ctx.client.supervisorDrafts !== 'function')
+      throw new UnsupportedError(
+        'the core client in use does not serve the Supervisor; the daemon package provides it',
+      );
+    const list = await ctx.client.supervisorDrafts(ctx.args[0] ?? '');
+    if (ctx.json) {
+      ctx.io.out(JSON.stringify({ data: list }, null, 2));
+      return EXIT.OK;
+    }
+    if (list.length === 0) {
+      ctx.io.out('no drafts yet');
+      return EXIT.OK;
+    }
+    const rows = list.map((d) => [
+      d.id,
+      d.status,
+      d.held ?? '-',
+      d.channel ?? '-',
+      d.lead_id ?? '-',
+      (d.subject ?? d.body).replace(/\s+/g, ' ').slice(0, 60),
+    ]);
+    ctx.io.out(table([['ID', 'STATUS', 'HELD', 'CHANNEL', 'LEAD', 'SUBJECT OR BODY'], ...rows]));
+    return EXIT.OK;
+  },
+};
+
+function draftAction(action: 'approve' | 'reject', summary: string): Command {
+  return {
+    path: ['supervisor', action],
+    usage: `fw supervisor ${action} <flow> <id>`,
+    summary,
+    args: ['flow', 'id'],
+    options: [],
+    async run(ctx) {
+      if (typeof ctx.client.supervisorDraft !== 'function')
+        throw new UnsupportedError(
+          'the core client in use does not serve the Supervisor; the daemon package provides it',
+        );
+      const [flow = '', id = ''] = ctx.args;
+      const d = await ctx.client.supervisorDraft(action, flow, id);
+      if (ctx.json) ctx.io.out(JSON.stringify(d, null, 2));
+      else ctx.io.out(`${d.id}: ${d.status}`);
+      return EXIT.OK;
+    },
+  };
+}
+
 export const supervisorCommands: Command[] = [
   status,
   control('pause', false, 'Pause the Supervisor: hold every flow until resumed (Owner)'),
@@ -115,4 +170,7 @@ export const supervisorCommands: Command[] = [
   control('disable', true, 'Turn a flow off (Owner)'),
   dial,
   run,
+  drafts,
+  draftAction('approve', 'Approve one draft: it goes to the outbox, as at Autopilot (Owner, Copilot)'),
+  draftAction('reject', 'Reject one draft: it is never handed off (Owner)'),
 ];

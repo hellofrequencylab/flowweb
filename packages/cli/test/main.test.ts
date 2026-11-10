@@ -152,6 +152,11 @@ function fakeClient(overrides: Partial<CoreClient> = {}): CoreClient {
         build: false,
       };
     },
+    supervisorDrafts: async () => [sampleDraft],
+    supervisorDraft: async (action: 'approve' | 'reject') => ({
+      ...sampleDraft,
+      status: action === 'approve' ? 'handed_off' : 'rejected',
+    }),
     policyCheck: async () => ({
       effect: 'ask',
       rule_id: 'pol_0120',
@@ -203,6 +208,10 @@ function without(client: CoreClient, method: keyof CoreClient): CoreClient {
 const control = (level: 'enforced' | 'best_effort' | 'absent', detail: string) => ({ level, detail });
 const doctorReport = {
   home: '/h',
+  checks: [
+    { name: 'core_policy', status: 'pass' as const, detail: 'loaded' },
+    { name: 'last_backup', status: 'warn' as const, detail: 'no backup yet' },
+  ],
   sandbox: {
     run_id: 'run_doctor-x',
     mode: 'userdir',
@@ -250,6 +259,16 @@ function run(argv: string[], client: CoreClient = fakeClient()) {
   return main(argv, io, factory).then((code) => ({ code, out: out.join('\n'), err: err.join('\n') }));
 }
 
+const sampleDraft = {
+  id: 'fire1-d1',
+  fire_id: 'fire1',
+  lead_id: 'lead-1',
+  channel: 'email',
+  subject: 'Hello',
+  body: 'Hi there',
+  status: 'waiting_for_owner',
+  created_at: '2026-11-10T00:00:00.000Z',
+};
 const supervisorReport = {
   source: 'daemon' as const,
   kill_switch: false,
@@ -384,7 +403,19 @@ describe('doctor and gc', () => {
 
   test('fw doctor --json is the report', async () => {
     const r = await run(['doctor', '--json']);
+    expect(r.code).toBe(EXIT.OK);
     expect(JSON.parse(r.out)).toEqual(doctorReport);
+  });
+
+  test('fw doctor prints each check and exits 1 when one failed, in --json mode too', async () => {
+    const bad = { ...doctorReport, checks: [{ name: 'disk', status: 'fail' as const, detail: 'full' }] };
+    const client = fakeClient({ doctor: async () => bad });
+    const text = await run(['doctor'], client);
+    expect(text.code).toBe(EXIT.FAILED);
+    expect(text.out).toMatch(/FAIL\s+disk\s+full/);
+    const json = await run(['doctor', '--json'], client);
+    expect(json.code).toBe(EXIT.FAILED);
+    expect(JSON.parse(json.out).checks[0].status).toBe('fail');
   });
 
   test('fw gc reports what it removed and what it kept', async () => {

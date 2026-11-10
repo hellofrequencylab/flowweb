@@ -1,13 +1,13 @@
-// fw doctor | gc: the sandbox self-test of this home, and removal of finished runs' directories.
+// fw gc: removal of finished runs' directories. (fw doctor lives in doctor.ts.)
 import type { CoreClient } from '../client.ts';
-import { EXIT, table } from '../output.ts';
+import { EXIT } from '../output.ts';
 import type { Command } from './types.ts';
 
-class UnsupportedError extends Error {
+export class UnsupportedError extends Error {
   readonly code = 'CLIENT_UNAVAILABLE';
 }
 
-function need<K extends 'doctor' | 'gc'>(client: CoreClient, m: K): NonNullable<CoreClient[K]> {
+export function need<K extends 'doctor' | 'gc'>(client: CoreClient, m: K): NonNullable<CoreClient[K]> {
   const fn = client[m];
   if (typeof fn !== 'function')
     throw new UnsupportedError(
@@ -15,30 +15,6 @@ function need<K extends 'doctor' | 'gc'>(client: CoreClient, m: K): NonNullable<
     );
   return fn.bind(client) as NonNullable<CoreClient[K]>;
 }
-
-const doctor: Command = {
-  path: ['doctor'],
-  usage: 'fw doctor',
-  summary: 'Run the sandbox self-test and show each control as enforced, best_effort or absent',
-  args: [],
-  options: [],
-  async run(ctx) {
-    const r = await need(ctx.client, 'doctor')();
-    if (ctx.json) {
-      ctx.io.out(JSON.stringify(r, null, 2));
-      return EXIT.OK;
-    }
-    const s = r.sandbox;
-    ctx.io.out(
-      [
-        `doctor: sandbox ${s.mode} on ${s.platform}, overall ${s.level} (home ${r.home})`,
-        table(Object.entries(s.controls).map(([name, c]) => [`  ${name}`, c.level, c.detail])),
-        ...s.notes.map((n) => `note: ${n}`),
-      ].join('\n'),
-    );
-    return EXIT.OK;
-  },
-};
 
 const gc: Command = {
   path: ['gc'],
@@ -63,4 +39,4 @@ const gc: Command = {
   },
 };
 
-export const systemCommands: Command[] = [doctor, gc];
+export const systemCommands: Command[] = [gc];
