@@ -235,6 +235,13 @@ async function handle(request) {
     });
   }
 
+  // FW-C-085: the setup assistant. Nothing is stored or logged; a key-shaped question is refused unsent.
+  // Before the business check: someone with no business yet is the person most likely to need it.
+  if (path === '/assistant/setup' && method === 'POST') {
+    const r = await answerSetupQuestion(await request.json().catch(() => ({})), { env: process.env });
+    return json(r.status, r.body);
+  }
+
   // Everything below is about one business. A new login has none yet: the screens offer to make one.
   if (!account) return err(404, 'no_account', 'Make a business first, or open an invite link.');
 
@@ -263,12 +270,6 @@ async function handle(request) {
     const r = await supa('/rest/v1/rpc/fw_revoke_runner', { token, method: 'POST', body: { p_id: revoke[1] } });
     if (!r.ok) return denied(r, 'remove machines');
     return new Response(null, { status: 204 });
-  }
-
-  // FW-C-085: the setup assistant. Nothing is stored or logged; a key-shaped question is refused unsent.
-  if (path === '/assistant/setup' && method === 'POST') {
-    const r = await answerSetupQuestion(await request.json().catch(() => ({})), { env: process.env });
-    return json(r.status, r.body);
   }
 
   // A draft change or a flow control (FW-C-062): queued here, applied on the Owner's machine by the relay.
