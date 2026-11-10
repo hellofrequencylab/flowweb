@@ -8,6 +8,7 @@
 // the Owner's machine applies them through fwd; the answer says it is queued, not done.
 import { resolveRead, routeOfUrl } from '../hosted/server/mirror.mjs';
 import { answerSetupQuestion } from '../hosted/server/assistant.mjs';
+import { answerConsole } from '../hosted/server/console.mjs';
 import { requestOf } from '../hosted/server/requests.mjs';
 
 const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/;
@@ -244,6 +245,23 @@ async function handle(request) {
 
   // Everything below is about one business. A new login has none yet: the screens offer to make one.
   if (!account) return err(404, 'no_account', 'Make a business first, or open an invite link.');
+
+  // FW-C-092: the AI console on every page. It reads the mirror for this business and only proposes; a change is
+  // made when the person confirms, through the same queued request the page's own control sends.
+  if (path === '/assistant/console' && method === 'POST') {
+    const store = mirrorStore(token, account.id);
+    const read = async (p) => {
+      const r = await resolveRead(p, new URLSearchParams(), store);
+      return r.status === 200 ? r.body : null;
+    };
+    const r = await answerConsole(await request.json().catch(() => ({})), {
+      env: process.env,
+      role: account.role,
+      flows: account.flows,
+      read,
+    });
+    return json(r.status, r.body);
+  }
 
   if (path === '/hosted/machines' && method === 'GET') {
     const r = await supa(
