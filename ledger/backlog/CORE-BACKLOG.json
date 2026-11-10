@@ -2634,6 +2634,7 @@
         "packages/cli/src/commands/project.ts",
         "packages/cli/src/main.ts",
         "packages/cli/src/client.ts",
+        "packages/cli/test/",
         "packages/ledger/src/projects/",
         "packages/ledger/src/local-client.ts",
         "packages/daemon/src/setup/",
