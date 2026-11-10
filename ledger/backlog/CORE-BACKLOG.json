@@ -4,7 +4,7 @@
     "profile": "core",
     "schema": "ledger-row/1",
     "generated": "2026-11-09",
-    "row_count": 121,
+    "row_count": 122,
     "conventions": {
       "verify_probe": "Same convention as 04-build-plan/backlog.json: 'pnpm probe <path>' runs probes/<path>.probe.ts, a Tier 0 file written before the implementation row starts and never edited by the agent doing the row. Every probe fails today because its target does not exist (a missing probe file exits 2, a missing behaviour exits 1). The probe pack for a milestone is committed by the Owner or a pair session before the milestone's rows start.",
       "status": "All rows start as open. Status lives only in the ledger database (imported with fw ledger sync), never in prose.",
@@ -28,7 +28,7 @@
       }
     },
     "full_plan_rows_included": 37,
-    "new_core_rows": 83
+    "new_core_rows": 84
   },
   "rows": [
     {
@@ -4266,6 +4266,41 @@
         "packages/web/src/settings/",
         "packages/web/src/api/client.ts",
         "packages/web/src/api/types.ts"
+      ],
+      "origin": "new Core row"
+    },
+    {
+      "id": "FW-C-087",
+      "title": "Anyone who may change settings writes each project's brief and sets its brand and category from Settings, instead of fw commands on the Mac",
+      "core_milestone": "C1",
+      "phase": 1,
+      "epic": "C1.5 First flow",
+      "priority": "P1",
+      "size": "M",
+      "lane": "workstreams",
+      "agent_suitability": "agent",
+      "gate": "none",
+      "depends_on": [
+        "FW-C-062"
+      ],
+      "description": "The Owner wants every person using FlowWeb to have a page and a setting for every function. A project's brief (the five answers every agent reads: what it is, who it is for, how it sounds, what agents must never do, what done looks like) and its brand and category are set today only on the Owner's Mac with fw project brief and fw project label. fwd lets a paired browser session call POST /v1/projects/{id}/brief and POST /v1/projects/{id}/labels (adding a project stays CLI-only), and GET /v1/projects returns each project's brief. The site queues them as kinds project.brief and project.labels (hosted/server/requests.mjs; migration 0007 allows the kinds) and the relay applies them. Settings gets a Projects section (packages/web/src/settings/ProjectSettings.tsx): each project with Edit, the five brief questions, Save brief only once all five are answered, brand and category with Save labels, and read-only fields for people who may not change them.",
+      "acceptance": [
+        "POST /v1/projects/{id}/brief and /labels work from a paired browser session; POST /v1/projects stays CLI-only",
+        "GET /v1/projects returns each project's brief",
+        "The site queues project.brief with all five answers and project.labels with brand and category only, and the relay calls the same routes",
+        "Settings saves a brief only once all five questions are answered, saves brand and category, and is read-only for people who may not change it"
+      ],
+      "verify_probe": "pnpm probe settings/project-settings",
+      "files_hint": [
+        "packages/daemon/src/api/routes.ts",
+        "packages/daemon/src/api/rows.ts",
+        "hosted/server/requests.mjs",
+        "hosted/supabase/migrations/0007_flowweb_flow_ai.sql",
+        "packages/web/src/settings/",
+        "packages/web/src/api/client.ts",
+        "packages/web/src/api/types.ts",
+        "packages/web/src/api/wire.ts",
+        "packages/web/src/ui-kit/flow.css"
       ],
       "origin": "new Core row"
     }
