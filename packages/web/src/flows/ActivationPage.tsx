@@ -19,6 +19,7 @@ import { usd } from '../ui-kit/time';
 import { DraftEditor } from './DraftEditor';
 import { groupDrafts, outcomeOf } from './drafts';
 import { FlowAdmin } from './FlowAdmin';
+import { FlowControls } from './FlowControls';
 import { FlowPulse, MeasureDials, PipelineBar, type PulseState, RegionPath } from './FlowVisuals';
 import { LeadHunts } from './LeadHunts';
 import { PaidAdsPanel } from './PaidAdsPanel';
@@ -199,6 +200,7 @@ export function ActivationPage() {
           </span>
         </li>
       </ul>
+      <FlowControls />
       <ResourceView res={res} what="this flow">
         {(f) => (
           <div className="stack flows-page">
