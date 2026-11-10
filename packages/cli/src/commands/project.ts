@@ -3,6 +3,10 @@
 // fw project label <project> [--brand <b>] [--category <c>]: set a project's brand and category (by
 // id or slug). An empty value clears one ("--brand ''"). Writes one project.updated event when
 // something changed; with neither option it only prints the current labels.
+// fw project add <slug> [--name] [--kind] [--brand] [--category]: a project with no repository
+// (FW-C-039); a repository project still comes from `fw ledger sync`.
+// fw project brief <project> [--what --who --voice --never --done]: the Owner's brief, five plain
+// answers saved word for word (all five or nothing). With no answers it prints the saved brief.
 import type { ProjectView } from '../client.ts';
 import { EXIT, table } from '../output.ts';
 import type { Command } from './types.ts';
@@ -107,4 +111,82 @@ const label: Command = {
   },
 };
 
-export const projectCommands: Command[] = [list, label];
+const add: Command = {
+  path: ['project', 'add'],
+  usage: 'fw project add <slug> [--name <n>] [--kind <k>] [--brand <b>] [--category <c>]',
+  summary: 'Make a project that is not a code repository (a campaign, an inbox, ops work)',
+  args: ['slug'],
+  options: ['name', 'kind', 'brand', 'category'],
+  async run(ctx) {
+    if (typeof ctx.client.projectAdd !== 'function') unsupported();
+    const { name, kind, brand, category } = ctx.opts;
+    const r = await ctx.client.projectAdd({
+      slug: ctx.args[0]!,
+      ...(name !== undefined ? { name } : {}),
+      ...(kind !== undefined ? { kind } : {}),
+      ...(brand !== undefined ? { brand } : {}),
+      ...(category !== undefined ? { category } : {}),
+    });
+    if (ctx.json) ctx.io.out(JSON.stringify(r, null, 2));
+    else {
+      const p = r.project;
+      ctx.io.out(
+        `${p.slug}: made "${p.name}" (${p.kind}), brand ${p.brand ?? 'none'}, category ${p.category ?? 'none'} (event #${r.event_seq})`,
+      );
+      if (!p.brand || !p.category)
+        ctx.io.out(`Next: pnpm fw project label ${p.slug} --brand <brand> --category <category>`);
+      else ctx.io.out(`Next: pnpm fw project brief ${p.slug}`);
+    }
+    return EXIT.OK;
+  },
+};
+
+/** The brief questions, in order (the same list as the ledger's BRIEF_QUESTIONS). */
+export const BRIEF_QUESTIONS = [
+  { key: 'what', question: 'What is this project, in one or two sentences?' },
+  { key: 'who', question: 'Who is it for?' },
+  { key: 'voice', question: 'How should it sound? Name the voice in a few words.' },
+  { key: 'never', question: 'What must the agents never do on it?' },
+  { key: 'done', question: 'What does done look like? Something you could check.' },
+] as const;
+
+const brief: Command = {
+  path: ['project', 'brief'],
+  usage: 'fw project brief <project> [--what <a>] [--who <a>] [--voice <a>] [--never <a>] [--done <a>]',
+  summary: "Save the Owner's brief for a project (five plain answers, all or nothing), or show it",
+  args: ['project'],
+  options: BRIEF_QUESTIONS.map((q) => q.key),
+  async run(ctx) {
+    if (typeof ctx.client.projectBrief !== 'function') unsupported();
+    const given = BRIEF_QUESTIONS.filter((q) => ctx.opts[q.key] !== undefined);
+    if (given.length > 0 && given.length < BRIEF_QUESTIONS.length) {
+      const missing = BRIEF_QUESTIONS.filter((q) => ctx.opts[q.key] === undefined).map((q) => `--${q.key}`);
+      throw fail('USAGE', `a brief needs all five answers; missing ${missing.join(', ')}`);
+    }
+    const answers = given.length ? Object.fromEntries(given.map((q) => [q.key, ctx.opts[q.key]])) : undefined;
+    const r = await ctx.client.projectBrief(ctx.args[0]!, answers);
+    if (ctx.json) {
+      ctx.io.out(JSON.stringify(r, null, 2));
+      return EXIT.OK;
+    }
+    const slug = r.project.slug;
+    if (!r.brief) {
+      ctx.io.out(`${slug} has no brief yet. The agents read it, so answer in your own words:`);
+      for (const q of BRIEF_QUESTIONS) ctx.io.out(`  --${q.key.padEnd(5)}  ${q.question}`);
+      ctx.io.out(
+        `Then: pnpm fw project brief ${slug} --what "..." --who "..." --voice "..." --never "..." --done "..."`,
+      );
+      return EXIT.OK;
+    }
+    const b = r.brief;
+    ctx.io.out(
+      [
+        `${slug} brief${answers ? (r.event_seq ? ` saved (event #${r.event_seq})` : ' (no change)') : ''}:`,
+        ...BRIEF_QUESTIONS.map((q) => `  ${q.question}\n    ${b[q.key]}`),
+      ].join('\n'),
+    );
+    return EXIT.OK;
+  },
+};
+
+export const projectCommands: Command[] = [list, label, add, brief];

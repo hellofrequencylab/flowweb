@@ -6,7 +6,7 @@ import { createServer, type IncomingMessage, type Server, type ServerResponse } 
 import { hostname } from 'node:os';
 import { join, resolve } from 'node:path';
 import { openStore, type Store, type Writer } from '@fw/eventlog';
-import { expireDecisionItems } from '@fw/ledger';
+import { addProject, briefProject, expireDecisionItems, labelProject, type ProjectAdd } from '@fw/ledger';
 import { ApiError, sendError } from './api/http.ts';
 import { buildRouter, principalOf, type RunStartBody } from './api/routes.ts';
 import type { ChainStatus } from './api/status.ts';
@@ -246,6 +246,11 @@ export async function startDaemon(opts: DaemonOptions): Promise<Daemon> {
         const rec = await scheduler.fireNow(s.id);
         return { fire_id: rec.fire_id, outcome: rec.outcome, ...(rec.reason ? { reason: rec.reason } : {}) };
       },
+    },
+    projects: {
+      add: (input) => addProject(writer, input as unknown as ProjectAdd),
+      label: (ref, change) => labelProject(writer, ref, change),
+      brief: (ref, answers) => briefProject(writer, ref, answers),
     },
   });
 

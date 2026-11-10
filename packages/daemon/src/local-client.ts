@@ -44,6 +44,7 @@ import {
 } from './relay/src/index.ts';
 import { type DoctorReport, runDoctor } from './runtime/doctor.ts';
 import { type GcReport, gcRunDirs } from './runtime/gc.ts';
+import { type SetupReport, setupReport } from './setup/index.ts';
 import { SPEND_GROUP_NAMES, type SpendGroup, type SpendRow, spendRollup } from './spend.ts';
 
 export interface RunStartRequest {
@@ -90,6 +91,8 @@ export interface DaemonCoreClient extends LocalCoreClient {
   relayResult(runId: string, text: string): Promise<RelayResult>;
   doctor(): Promise<DoctorReport>;
   gc(): Promise<GcReport>;
+  /** FW-C-039: GET /v1/setup from fwd, or the same report read here when fwd is down. */
+  setup(): Promise<SetupReport>;
 }
 
 class OwnerOnlyError extends Error {
@@ -196,10 +199,51 @@ export function createCoreClient(opts: LocalClientOptions): DaemonCoreClient {
         ro.close();
       }
     },
+    async setup() {
+      const ep = fwdEndpoint(home);
+      if (ep.token || process.env.FW_DEV_NO_AUTH === '1') {
+        try {
+          const res = await fwdRequest(ep, 'GET', '/v1/setup', undefined, 5000);
+          if (res.status === 200) return { ...(res.body.data as SetupReport), fwd: 'up' as const };
+        } catch (e) {
+          if (!(e instanceof FwdUnreachableError)) throw e;
+        }
+      }
+      // fwd is down (or this home never ran it): the same report, read-only, with the machine step open.
+      store?.close();
+      store = undefined;
+      ledger.close();
+      const deps = { fwHome: home, repoRoot: REPO_ROOT, fwdUp: false, port: ep.port };
+      if (!existsSync(path)) return setupReport({ ...deps, reader: null });
+      const ro = openStore({ path, readonly: true, lockPath: join(home, 'fwd.lock') });
+      try {
+        return setupReport({ ...deps, reader: ro.reader() });
+      } finally {
+        ro.close();
+      }
+    },
     streamAdd: viaLedger(ledger.streamAdd),
     streamList: viaLedger(ledger.streamList),
     projectList: viaLedger(ledger.projectList),
-    projectLabel: viaLedger(ledger.projectLabel),
+    // FW-C-039: project writes work while fwd runs. fwd holds the writer, so they go to it.
+    projectLabel: (ref, change) =>
+      viaFwdWhenLocked(
+        () => viaLedger(ledger.projectLabel)(ref, change),
+        'POST',
+        `/v1/projects/${encodeURIComponent(ref)}/labels`,
+        change,
+      ),
+    projectAdd: (input) =>
+      viaFwdWhenLocked(() => viaLedger(ledger.projectAdd)(input), 'POST', '/v1/projects', input),
+    projectBrief: (ref, answers) =>
+      answers
+        ? viaFwdWhenLocked(
+            () => viaLedger(ledger.projectBrief)(ref, answers),
+            'POST',
+            `/v1/projects/${encodeURIComponent(ref)}/brief`,
+            answers,
+          )
+        : viaLedger(ledger.projectBrief)(ref),
     async runStart(code, o = {}) {
       let writer: Writer;
       try {
@@ -337,6 +381,33 @@ export function createCoreClient(opts: LocalClientOptions): DaemonCoreClient {
     }
     if (res.status !== 200) throw fwdError(res);
     return { ...((res.body.data ?? {}) as object), source: 'daemon' } as SupervisorReport;
+  }
+
+  /** Runs a ledger write here; when fwd holds the writer lock, sends the same write to fwd instead. */
+  async function viaFwdWhenLocked<R>(
+    local: () => Promise<R>,
+    method: 'GET' | 'POST',
+    path: string,
+    body: unknown,
+  ): Promise<R> {
+    try {
+      return await local();
+    } catch (e) {
+      if (!(e instanceof WriterLockError)) throw e;
+      const ep = fwdEndpoint(home);
+      let res: Awaited<ReturnType<typeof fwdRequest>>;
+      try {
+        res = await fwdRequest(ep, method, path, body);
+      } catch (f) {
+        if (f instanceof FwdUnreachableError) {
+          e.message = `${e.message} (and no fwd answered on 127.0.0.1:${ep.port}; set FW_PORT to the port fwd listens on)`;
+          throw e;
+        }
+        throw f;
+      }
+      if (res.status !== 200) throw fwdError(res);
+      return res.body.data as R;
+    }
   }
 
   async function runStartViaFwd(

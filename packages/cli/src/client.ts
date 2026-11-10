@@ -316,6 +316,54 @@ export interface ProjectLabelReport {
   event_seq: number | null;
 }
 
+/** FW-C-039: `fw project add`. */
+export interface ProjectAddInput {
+  slug: string;
+  name?: string;
+  kind?: string;
+  brand?: string | null;
+  category?: string | null;
+}
+
+export interface ProjectAddReport {
+  project: ProjectView;
+  event_seq: number;
+}
+
+/** FW-C-039: the Owner's answers to the five brief questions, word for word. */
+export interface ProjectBrief {
+  what: string;
+  who: string;
+  voice: string;
+  never: string;
+  done: string;
+  updated_at: string;
+}
+
+export interface ProjectBriefReport {
+  project: ProjectView;
+  brief: ProjectBrief | null;
+  event_seq: number | null;
+}
+
+/** FW-C-039: `fw setup` / GET /v1/setup. Every step is read from real state. */
+export interface SetupStep {
+  id: 'machine' | 'sign_ins' | 'project' | 'brief' | 'flow' | 'live_site';
+  title: string;
+  required: boolean;
+  done: boolean;
+  detail: string;
+  fix: string | null;
+}
+
+export interface SetupReport {
+  ready: boolean;
+  next: SetupStep['id'] | null;
+  fwd: 'up' | 'down';
+  steps: SetupStep[];
+  checked_at: string;
+}
+
 export type SupervisorAction = 'pause' | 'resume' | 'enable' | 'disable';
 
 /** GET /v1/supervisor, plus where it was read from (FW-C-033). */
@@ -430,6 +478,9 @@ export interface CoreClient {
     ref: string,
     change: { brand?: string | null; category?: string | null },
   ): Promise<ProjectLabelReport>;
+  projectAdd?(input: ProjectAddInput): Promise<ProjectAddReport>;
+  /** With answers: save the brief (all five or nothing). Without: read it. */
+  projectBrief?(ref: string, answers?: Record<string, string | undefined>): Promise<ProjectBriefReport>;
   /** Run commands: optional, because only a provider with the runtime (the daemon) serves them. */
   runStart?(code: string, opts?: RunStartOptions): Promise<RunStartReport>;
   runList?(opts?: { status?: string; limit?: number }): Promise<RunSummary[]>;
@@ -446,6 +497,8 @@ export interface CoreClient {
   supervisorDial?(flow: string, stop: string, confirm?: string): Promise<SupervisorReport>;
   /** FW-C-038: fire a flow by hand; the Supervisor decides it like any fire. */
   supervisorRun?(flow: string): Promise<SupervisorRunReport>;
+  /** FW-C-039: where setup stands; served by the daemon package. */
+  setup?(): Promise<SetupReport>;
   /** The policy engine: optional, served by the daemon package (the CLI never imports @fw/policy). */
   policyCheck?(input: PolicyCheckInput): Promise<PolicyDecision>;
   policyApply?(): Promise<PolicyApplyReport>;
