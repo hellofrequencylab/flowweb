@@ -289,7 +289,12 @@ export async function runFlowCycle(d: CycleDeps, fire: CycleFire): Promise<void>
     };
     const scenario = adapterName === 'fake' ? d.env.FW_FAKE_SCENARIO : undefined;
     if (d.signal?.aborted) throw new Error(`interrupted before start: ${String(d.signal.reason ?? 'stop')}`);
-    const run = adapter.start(input, { credentialEnv: creds.env, ...(scenario ? { scenario } : {}) });
+    // FW-C-043: only a cycle with a hunt due may search and read the web.
+    const run = adapter.start(input, {
+      credentialEnv: creds.env,
+      ...(scenario ? { scenario } : {}),
+      ...(hunts.length > 0 ? { web: true } : {}),
+    });
     const onAbort = () => void run.kill(`interrupted: ${String(d.signal?.reason ?? 'stop')}`);
     d.signal?.addEventListener('abort', onAbort, { once: true });
     run.result.finally(() => d.signal?.removeEventListener('abort', onAbort));

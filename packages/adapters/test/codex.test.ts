@@ -92,6 +92,15 @@ describe('codex argv', () => {
       '-',
     ]);
   });
+  test('web turns on network access and live web search, fresh or resumed (FW-C-043)', () => {
+    for (const resumeSessionId of [null, TID]) {
+      const argv = buildCodexArgv({ verified, resumeSessionId, schemaPath: '/s.json', web: true });
+      expect(argv).toEqual(
+        expect.arrayContaining(['sandbox_workspace_write.network_access=true', 'web_search="live"']),
+      );
+      expect(argv.at(-1)).toBe('-');
+    }
+  });
   test('unsafe resume ids and unverified flags are refused', () => {
     expect(() => buildCodexArgv({ verified, resumeSessionId: 'x;rm -rf /', schemaPath: '/s' })).toThrow(
       /unsafe/,
