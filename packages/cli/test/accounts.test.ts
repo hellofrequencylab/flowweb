@@ -1,4 +1,4 @@
-// fw accounts check on a fake machine: the calls made, the report, and that a secret never reaches
+// fw accounts connect | check on a fake machine: the calls made, the report, and that a secret never reaches
 // argv, output or the saved report.
 import { afterEach, describe, expect, test } from 'vitest';
 import type { System } from '../src/accounts/system.ts';
@@ -90,5 +90,40 @@ describe('fw accounts check', () => {
     expect(code).toBe(EXIT.OK); // the optional API key is skipped, not failed
     expect(f.calls.some((c) => c.cmd === 'codex')).toBe(false);
     expect((await fw(['accounts', 'check', '--only', 'gemini'], f.sys)).code).toBe(EXIT.USAGE);
+  });
+});
+
+describe('fw accounts connect', () => {
+  test('runs setup-token and codex login, stores what is pasted, then tests', async () => {
+    const f = fakeSystem({
+      secrets: {},
+      claude: true,
+      codex: true,
+      codexSignedIn: false,
+      answers: [TOKEN, '', OKEY],
+    });
+    const { code, text } = await fw(['accounts', 'connect'], f.sys);
+    expect(f.calls.find((c) => c.args[0] === 'setup-token')?.opts.interactive).toBe(true);
+    expect(
+      f.calls.find((c) => c.cmd === 'codex' && c.args.length === 1 && c.args[0] === 'login')?.opts
+        .interactive,
+    ).toBe(true);
+    expect(f.stored).toEqual({ crd_claude0002: TOKEN, crd_codex0001: OKEY });
+    expect(text).toContain('Stored as crd_claude0002 in your keychain');
+    expect(text).toContain('== Testing ==');
+    noLeak(text);
+    expect(code).toBe(EXIT.OK);
+  });
+
+  test('--json prints the steps and asks nothing', async () => {
+    const f = fakeSystem({ secrets: {} });
+    const { code, text } = await fw(['accounts', 'connect', '--json', '--only', 'claude'], f.sys);
+    expect(code).toBe(EXIT.OK);
+    expect(JSON.parse(text).steps.map((s: { account: string }) => s.account)).toEqual([
+      'claude_signin',
+      'claude_api_key',
+    ]);
+    expect(f.asked).toHaveLength(0);
+    expect(f.calls).toHaveLength(0);
   });
 });
