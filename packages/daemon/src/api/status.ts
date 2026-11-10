@@ -1,6 +1,7 @@
 // GET /v1/status: the status strip. Every figure comes from a table or the event log; a figure
 // C0 cannot know is null, never a guess.
 import type { Reader } from '@fw/eventlog';
+import { senderStatus } from '../overseer/sender.ts';
 
 export interface ChainStatus {
   ok: boolean | null;
@@ -16,6 +17,8 @@ export interface StatusDeps {
   /** null when fwd is down (fw status reading the database directly). */
   startedAt: string | null;
   chain: () => ChainStatus;
+  /** FW-C-071: where the sender's heartbeat lives. Without it the sender is reported as not installed. */
+  fwHome?: string;
 }
 
 type Json = Record<string, unknown>;
@@ -153,5 +156,6 @@ export function statusOf(deps: StatusDeps): Json {
         "SELECT MIN(created_at) AS at FROM decision_cards WHERE status = 'open'",
       )?.at ?? null,
     running_runs: count("SELECT COUNT(*) AS n FROM runs WHERE status IN ('starting','running','validating')"),
+    sender: deps.fwHome ? senderStatus(deps.fwHome) : { installed: false, last_pass_at: null },
   };
 }

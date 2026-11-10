@@ -51,6 +51,8 @@ export interface WStatus {
   paused_by_budget?: boolean;
   /** Served from c0/08. */
   oldest_open_card_at?: string | null;
+  /** FW-C-071: missing from an older fwd. */
+  sender?: { installed: boolean; last_pass_at: string | null };
 }
 
 export interface WProject {

@@ -198,6 +198,7 @@ export function mapStatus(s: W.WStatus, asOf: string): V.Status {
       failed_at_seq: s.chain.failed_seq,
     },
     last_seq: s.chain.head_seq,
+    sender: s.sender,
   };
 }
 

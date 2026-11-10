@@ -60,6 +60,17 @@ export interface Status extends Envelope {
   /** Last event sequence number fwd has written. */
   last_seq: number;
   version: string;
+  /** FW-C-071: undefined from an older fwd; treated as no sender. */
+  sender?: SenderStatus;
+}
+
+/**
+ * FW-C-071: whether a sender on the Owner's Mac reads the outbox. installed means it ran in the last 24
+ * hours; last_pass_at is when it last ran, or null if it never has.
+ */
+export interface SenderStatus {
+  installed: boolean;
+  last_pass_at: Iso | null;
 }
 
 export interface SpendToday {
@@ -771,6 +782,8 @@ export interface Supervisor extends Envelope {
   gates: SupervisorGate[];
   flows: SupervisorFlow[];
   next: string[];
+  /** FW-C-071: undefined from an older fwd; treated as no sender. */
+  sender?: SenderStatus;
 }
 
 /** FW-C-039: GET /v1/setup. Every step is read from real state; a step not done names its fix. */

@@ -161,6 +161,19 @@ export function requestOf(method, path, body) {
   return null;
 }
 
+/**
+ * FW-C-071: a site move of the dial to Copilot or Autopilot needs a sender on the Owner's Mac to read the
+ * outbox. sender is fwd's { installed, last_pass_at } from GET /v1/status. Answers why the relay holds the
+ * request, or null when it may go on. An unknown sender holds it too.
+ */
+export function senderHold(req, sender) {
+  if (String(req?.kind ?? '') !== 'flow.dial') return null;
+  const stop = req?.payload && typeof req.payload === 'object' ? req.payload.stop : undefined;
+  if (stop !== 'copilot' && stop !== 'autopilot') return null;
+  if (sender?.installed === true) return null;
+  return 'Needs a sender on your Mac: Copilot and Autopilot hand drafts to it, and none has run in the last day. Set one up from senders/README.md, or stay on Draft and copy each draft.';
+}
+
 /** The fwd call ({ method, path, body }) for a request the relay took, or null for anything not on the list. */
 export function fwdCallFor(req) {
   const kind = String(req?.kind ?? '');

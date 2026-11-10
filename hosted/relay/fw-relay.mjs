@@ -20,7 +20,7 @@ import { readFileSync, writeFileSync } from 'node:fs';
 import { homedir, hostname } from 'node:os';
 import { join } from 'node:path';
 import { mirrorKey } from '../server/mirror.mjs';
-import { fwdCallFor } from '../server/requests.mjs';
+import { fwdCallFor, senderHold } from '../server/requests.mjs';
 
 const VERSION = '0.1.0';
 const FW_HOME = process.env.FW_HOME ?? join(homedir(), '.flowweb');
@@ -330,7 +330,13 @@ async function applyRequests() {
     let ok = false;
     let result = null;
     let error = null;
+    // FW-C-071: Copilot and Autopilot only when a sender here reads the outbox.
+    const hold =
+      call && req.kind === 'flow.dial'
+        ? senderHold(req, await fwd('/status').then((s) => s?.data?.sender, () => undefined))
+        : null;
     if (!call) error = `not a change the site may ask for: ${String(req.kind)}`;
+    else if (hold) error = hold;
     else {
       try {
         const r = await fwdCall(call.method, call.path, call.body);
