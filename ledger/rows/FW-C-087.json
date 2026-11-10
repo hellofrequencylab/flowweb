@@ -5,7 +5,7 @@
   "phase": 4,
   "epic": "C2.4 Accounts",
   "priority": "P1",
-  "size": "M",
+  "size": "L",
   "lane": "ui",
   "agent_suitability": "agent",
   "gate": "none",
