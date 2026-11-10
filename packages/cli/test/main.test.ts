@@ -124,6 +124,8 @@ function fakeClient(overrides: Partial<CoreClient> = {}): CoreClient {
     }),
     spendRollup: async ({ by }) => (by === 'agent' ? spendByAgent : []),
     doctor: async () => doctorReport,
+    backup: async (out) => ({ path: out, db_hash: 'd'.repeat(64), bytes: 1024, event_seq: 9 }),
+    restore: async () => ({ home: '/h', db_hash: 'd'.repeat(64), events: 9, dirs: ['config'] }),
     status: async () => statusUp,
     streamAdd: async () => ({ stream: {} as never, approval_id: null, event_seq: 1 }),
     streamList: async () => [],
@@ -136,10 +138,31 @@ function fakeClient(overrides: Partial<CoreClient> = {}): CoreClient {
     supervisorControl: async () => ({ ...supervisorReport, changed: true }),
     supervisorDial: async () => ({ ...supervisorReport, changed: true }),
     supervisorRun: async () => ({ fire_id: 'stm_x:manual:t', outcome: 'fired' }),
+    flowApi: async (method, path) => {
+      if (path.endsWith('/do-not-contact')) return { blocked: 'a@example.com', already: false };
+      if (path.endsWith('/run')) return { hunt_id: 'hnt_1', fire_id: 'stm_x:manual:t', outcome: 'fired' };
+      if (method === 'DELETE') return { deleted: 'hnt_1' };
+      if (method === 'GET') return [];
+      return {
+        id: 'hnt_1',
+        name: 'x',
+        region: 'r',
+        areas: [],
+        links: [],
+        every_days: 1,
+        max_sends: 10,
+        build: false,
+      };
+    },
     supervisorDrafts: async () => [sampleDraft],
     supervisorDraft: async (action: 'approve' | 'reject') => ({
       ...sampleDraft,
       status: action === 'approve' ? 'handed_off' : 'rejected',
+    }),
+    supervisorEditDraft: async (_flow: string, _id: string, edit: { subject?: string; body?: string }) => ({
+      ...sampleDraft,
+      ...edit,
+      edited_at: '2026-11-10T00:00:00.000Z',
     }),
     policyCheck: async () => ({
       effect: 'ask',

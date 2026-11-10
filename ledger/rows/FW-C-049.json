@@ -1,0 +1,31 @@
+{
+  "id": "FW-C-049",
+  "title": "The Owner saves, runs and deletes lead hunts, and blocks an address, on the local flow page",
+  "core_milestone": "C1",
+  "phase": 1,
+  "epic": "C1.5 First flow",
+  "priority": "P1",
+  "size": "M",
+  "lane": "workstreams",
+  "agent_suitability": "agent",
+  "gate": "owner-approval",
+  "depends_on": [
+    "FW-C-041"
+  ],
+  "description": "On 10 Nov the Owner chose to add hunts, and the pages they search first, on the local FlowWeb page as well as from fw. The flow page has no hunts section today, and an organizer who replies \"no\" can only be blocked by lead or url, not by address. packages/web gains a LeadHunts section on the flow page (/flows): the saved hunts with a run and a delete button each, a form for a new hunt (name, what to look for, region, pages to search first one per line, every how many days, most messages per run, and whether to build a page they can claim), and a form that adds an address or an @domain to do-not-contact with a reason. Everything goes through fwd's existing hunt and do-not-contact routes; fwd's refusal is shown as it came.",
+  "acceptance": [
+    "The flow page renders the Lead hunts section with the flow's regions",
+    "Saved hunts are listed with Run and Delete; Delete asks first",
+    "Saving posts name, looking_for, region, links (one per line, blanks dropped), every_days, max_sends and build, and reloads the list",
+    "fwd's refusal shows in an alert and the form keeps what was typed",
+    "An address or @domain with a reason goes to do-not-contact"
+  ],
+  "verify_probe": "pnpm probe ui/hunts",
+  "files_hint": [
+    "packages/web/src/flows/",
+    "packages/web/src/api/client.ts",
+    "packages/web/src/styles.css",
+    "packages/web/test/"
+  ],
+  "origin": "new Core row"
+}

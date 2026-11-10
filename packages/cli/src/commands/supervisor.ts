@@ -6,6 +6,7 @@
 // fw supervisor run <flow>: fire a flow by hand through the scheduler (FW-C-038).
 // fw supervisor drafts <flow>, approve|reject <flow> <id>: Copilot, the Owner's call on each cycle draft (FW-C-046).
 // Autopilot first answers with the hash of the flow's channels and caps; run it again with --confirm.
+import { readFileSync } from 'node:fs';
 import type { SupervisorAction, SupervisorReport } from '../client.ts';
 import { EXIT, table } from '../output.ts';
 import type { Command, CommandContext } from './types.ts';
@@ -162,6 +163,30 @@ function draftAction(action: 'approve' | 'reject', summary: string): Command {
   };
 }
 
+const edit: Command = {
+  path: ['supervisor', 'edit'],
+  usage: 'fw supervisor edit <flow> <id> [--subject <text>] [--body <text> | --body-file <path>]',
+  summary: "Change a draft's subject or text before it goes out (Owner)",
+  args: ['flow', 'id'],
+  options: ['subject', 'body', 'body-file'],
+  async run(ctx) {
+    if (typeof ctx.client.supervisorEditDraft !== 'function')
+      throw new UnsupportedError(
+        'the core client in use does not serve the Supervisor; the daemon package provides it',
+      );
+    const [flow = '', id = ''] = ctx.args;
+    const file = ctx.opts['body-file'];
+    const change: { subject?: string; body?: string } = {};
+    if (ctx.opts.subject !== undefined && ctx.opts.subject !== '') change.subject = ctx.opts.subject;
+    if (file) change.body = readFileSync(file, 'utf8');
+    else if (ctx.opts.body !== undefined && ctx.opts.body !== '') change.body = ctx.opts.body;
+    const d = await ctx.client.supervisorEditDraft(flow, id, change);
+    if (ctx.json) ctx.io.out(JSON.stringify(d, null, 2));
+    else ctx.io.out(`${d.id}: edited (${d.status})`);
+    return EXIT.OK;
+  },
+};
+
 export const supervisorCommands: Command[] = [
   status,
   control('pause', false, 'Pause the Supervisor: hold every flow until resumed (Owner)'),
@@ -173,4 +198,5 @@ export const supervisorCommands: Command[] = [
   drafts,
   draftAction('approve', 'Approve one draft: it goes to the outbox, as at Autopilot (Owner, Copilot)'),
   draftAction('reject', 'Reject one draft: it is never handed off (Owner)'),
+  edit,
 ];

@@ -12,15 +12,17 @@ export interface StatusSpec {
 
 /** A status is always a shape and a word. Colour only reinforces. */
 export function StatusLabel({
-  spec,
+  spec: given,
   detail,
   plain = false,
 }: {
-  spec: StatusSpec;
+  /** Undefined when the server sent a value this UI has no word for; shown as unknown, never a crash. */
+  spec: StatusSpec | undefined;
   detail?: string;
   /** Icon and word only, without the tinted pill (for dense rows). */
   plain?: boolean;
 }) {
+  const spec = given ?? UNKNOWN_STATUS;
   return (
     <span className={`status status-${spec.tone}${plain ? ' status-plain' : ''}`}>
       <span className="status-icon">
@@ -31,6 +33,9 @@ export function StatusLabel({
     </span>
   );
 }
+
+/** What StatusLabel shows for a value it has no word for. */
+export const UNKNOWN_STATUS: StatusSpec = { word: 'Unknown status', tone: 'unknown', icon: 'notverified' };
 
 export const ROW_STATUS: Record<RowStatus, StatusSpec> = {
   open: { word: 'Open', tone: 'neutral', icon: 'open' },
@@ -122,8 +127,10 @@ export const VERDICT: Record<'concur' | 'concerns' | 'reject', StatusSpec> = {
   reject: { word: 'Rejects', tone: 'fail', icon: 'fail' },
 };
 
-export const SANDBOX: Record<'enforced' | 'best_effort' | 'none', StatusSpec> = {
+// fwd reports "absent" when a run had no sandbox at all: that is no egress control either.
+export const SANDBOX: Record<'enforced' | 'best_effort' | 'none' | 'absent', StatusSpec> = {
   enforced: { word: 'Egress enforced', tone: 'ok', icon: 'verified' },
   best_effort: { word: 'Egress best effort', tone: 'warn', icon: 'warn' },
   none: { word: 'No sandbox egress control', tone: 'fail', icon: 'fail' },
+  absent: { word: 'No sandbox egress control', tone: 'fail', icon: 'fail' },
 };

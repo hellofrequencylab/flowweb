@@ -240,6 +240,22 @@ export interface DoctorReport {
   };
 }
 
+/** `fw backup`: where the tar file went, and the hash of the database copy inside it. */
+export interface BackupReport {
+  path: string;
+  db_hash: string;
+  bytes: number;
+  event_seq: number;
+}
+
+/** `fw restore`: the home restored into, with how many events its re-verified chain holds. */
+export interface RestoreReport {
+  home: string;
+  db_hash: string;
+  events: number;
+  dirs: string[];
+}
+
 export interface GcEntry {
   run_id: string;
   path: string;
@@ -470,6 +486,7 @@ export interface SupervisorDraft {
   status: string;
   held?: string;
   created_at: string | null;
+  edited_at?: string;
 }
 
 /** What `fw supervisor run` prints. */
@@ -510,6 +527,8 @@ export interface CoreClient {
   spendRollup?(opts: { by: SpendGroup }): Promise<SpendGroupRow[]>;
   /** Maintenance commands: optional for the same reason (the sandbox lives in the daemon). */
   doctor?(): Promise<DoctorReport>;
+  backup?(out: string): Promise<BackupReport>;
+  restore?(file: string): Promise<RestoreReport>;
   gc?(): Promise<GcReport>;
   /** The Supervisor: optional, served by the daemon package. Controls need fwd up (CLI token). */
   supervisorStatus?(): Promise<SupervisorReport>;
@@ -518,9 +537,17 @@ export interface CoreClient {
   supervisorDial?(flow: string, stop: string, confirm?: string): Promise<SupervisorReport>;
   /** FW-C-038: fire a flow by hand; the Supervisor decides it like any fire. */
   supervisorRun?(flow: string): Promise<SupervisorRunReport>;
+  /** FW-C-048: one call to a flow route on fwd (CLI token); the data fwd answers. Needs fwd up. */
+  flowApi?(method: 'GET' | 'POST' | 'DELETE', path: string, body?: unknown): Promise<unknown>;
   /** FW-C-046: Copilot. A flow's cycle drafts, and the Owner's approve or reject of one. */
   supervisorDrafts?(flow: string): Promise<SupervisorDraft[]>;
   supervisorDraft?(action: 'approve' | 'reject', flow: string, id: string): Promise<SupervisorDraft>;
+  /** FW-C-050: change a draft's subject and text before it goes out. */
+  supervisorEditDraft?(
+    flow: string,
+    id: string,
+    edit: { subject?: string; body?: string },
+  ): Promise<SupervisorDraft>;
   /** FW-C-039: where setup stands; served by the daemon package. */
   setup?(): Promise<SetupReport>;
   /** The policy engine: optional, served by the daemon package (the CLI never imports @fw/policy). */

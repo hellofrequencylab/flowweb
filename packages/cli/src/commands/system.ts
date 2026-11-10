@@ -7,7 +7,10 @@ export class UnsupportedError extends Error {
   readonly code = 'CLIENT_UNAVAILABLE';
 }
 
-export function need<K extends 'doctor' | 'gc'>(client: CoreClient, m: K): NonNullable<CoreClient[K]> {
+export function need<K extends 'doctor' | 'gc' | 'backup' | 'restore'>(
+  client: CoreClient,
+  m: K,
+): NonNullable<CoreClient[K]> {
   const fn = client[m];
   if (typeof fn !== 'function')
     throw new UnsupportedError(
