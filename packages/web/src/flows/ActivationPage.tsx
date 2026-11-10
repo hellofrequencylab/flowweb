@@ -16,6 +16,7 @@ import { StatusLabel, type StatusSpec } from '../ui-kit/status';
 import { usd } from '../ui-kit/time';
 import { FlowAdmin } from './FlowAdmin';
 import { MeasureDials, PipelineBar, RegionPath } from './FlowVisuals';
+import { LeadHunts } from './LeadHunts';
 import { SupervisorPanel } from './SupervisorPanel';
 
 const pct = (x: number) => `${Math.round(x * 100)}%`;
@@ -331,6 +332,8 @@ export function ActivationPage() {
                 </dl>
               </Fold>
             </section>
+
+            <LeadHunts regions={f.territories.map((t) => ({ id: t.id, name: t.name }))} />
 
             <section aria-labelledby="na-admin" className="panel">
               <h2 id="na-admin">Uploads and admin</h2>
