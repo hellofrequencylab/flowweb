@@ -1,0 +1,34 @@
+{
+  "id": "FW-C-087",
+  "title": "An owner sees who shares their business on flowweb.app, invites people by link, changes roles and removes people, and anyone in two businesses can switch between them",
+  "core_milestone": "C2",
+  "phase": 4,
+  "epic": "C2.4 Accounts",
+  "priority": "P1",
+  "size": "M",
+  "lane": "ui",
+  "agent_suitability": "agent",
+  "gate": "none",
+  "depends_on": [
+    "FW-C-083"
+  ],
+  "description": "FW-C-083 gave the hosted /v1 businesses, members, roles and invite links, but nothing on the site shows them, so the Owner cannot add a friend without SQL. Settings on the site gains a People panel after Machines: the members of the chosen business with their roles; for owners and admins a role select and a Remove button (asks first) on everyone else, the open invites with Cancel, and an invite form (role, optional email, whole business or one flow) that answers a /join/ link to copy. Helpers and viewers see the people but no controls, and can leave. A login with no business can make one there. With more than one business a Business select picks one, and every later hosted /v1 call carries it as x-fw-account. hosted/roles.ts is the screens' copy of the server's role table and must agree with it.",
+  "acceptance": [
+    "Settings on the site shows a People panel after Machines and before Session, listing members and open invites",
+    "An owner or admin makes an invite link (role, optional email, whole business or one flow; admins whole business only) and can copy it",
+    "An owner or admin changes another member's role, removes them only after confirming, and cancels an invite",
+    "A helper or viewer sees no invite, role or remove controls and can leave the business",
+    "A login with no business can make one from the panel",
+    "With two businesses, the chosen one is sent as x-fw-account on every later hosted /v1 call",
+    "hosted/roles.ts can(role, action) agrees with hosted/server/accounts.mjs for every role and action"
+  ],
+  "verify_probe": "pnpm probe ui/people",
+  "files_hint": [
+    "packages/web/src/hosted/People.tsx",
+    "packages/web/src/hosted/roles.ts",
+    "packages/web/src/hosted/auth.ts",
+    "packages/web/src/api/client.ts",
+    "packages/web/src/settings/SettingsPage.tsx"
+  ],
+  "origin": "new Core row"
+}
