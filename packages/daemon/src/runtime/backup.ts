@@ -37,11 +37,10 @@ export interface RestoreResult {
 }
 
 export class BackupError extends Error {
-  constructor(
-    readonly code: 'BACKUP_FAILED' | 'RESTORE_REFUSED' | 'RESTORE_FAILED',
-    message: string,
-  ) {
+  readonly code: 'BACKUP_FAILED' | 'RESTORE_REFUSED' | 'RESTORE_FAILED';
+  constructor(code: BackupError['code'], message: string) {
     super(message);
+    this.code = code;
   }
 }
 
