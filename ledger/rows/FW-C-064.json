@@ -1,0 +1,32 @@
+{
+  "id": "FW-C-064",
+  "title": "The Flows page shows a flow as on when the Supervisor has it on, and counts the drafts waiting for the Owner",
+  "core_milestone": "C1",
+  "phase": 1,
+  "epic": "C1.5 First flow",
+  "priority": "P1",
+  "size": "S",
+  "lane": "workstreams",
+  "agent_suitability": "agent",
+  "gate": "none",
+  "depends_on": [
+    "FW-C-033",
+    "FW-C-046"
+  ],
+  "description": "GET /v1/flows/{key} reads enabled from the shipped stream.json, which is always false, so the Flows page says the live flow is off even while the Supervisor runs it. It reads awaiting_owner_total from a state.json counter nothing writes, so it says 0 while drafts wait. The Owner's on/off switch lives in settings('supervisor') and the drafts live in $FW_HOME/flows/<key>/drafts/. Make GET /v1/flows/{key} answer enabled from the Supervisor's switch for that flow (false when it has never been turned on), and, for a flow that keeps cycle drafts, awaiting_owner_total as the number of drafts whose status is waiting_for_owner. Rejected and handed-off drafts do not count. Turning the flow off answers enabled false again.",
+  "acceptance": [
+    "A fresh fwd answers enabled false and awaiting_owner_total 0 for neighborhood-activation",
+    "After POST /v1/supervisor/flows/neighborhood-activation/enable, GET /v1/flows/neighborhood-activation answers enabled true and agrees with GET /v1/supervisor",
+    "awaiting_owner_total equals the number of drafts waiting for the Owner; rejected and handed-off drafts are not counted",
+    "After disable, enabled is false again"
+  ],
+  "verify_probe": "pnpm probe flows/flow-live-state",
+  "files_hint": [
+    "packages/daemon/src/api/routes.ts",
+    "packages/daemon/src/flows/neighborhood-activation.ts",
+    "packages/daemon/test/",
+    "packages/web/mock/",
+    "docs/api/LOCAL-API-V1.md"
+  ],
+  "origin": "new Core row"
+}
