@@ -2341,3 +2341,109 @@ a.flow-line:hover .flow-line-name {
 .project-setting textarea {
   width: 100%;
 }
+
+/* FW-C-092: the AI console, bottom right on every page (above the phone tab bar). */
+.console-dock {
+  position: fixed;
+  right: var(--space-6);
+  bottom: var(--space-6);
+  z-index: 60;
+  display: grid;
+  justify-items: end;
+  gap: var(--space-4);
+  pointer-events: none;
+}
+.console-dock > * {
+  pointer-events: auto;
+}
+.console-fab {
+  display: inline-grid;
+  place-items: center;
+  width: 52px;
+  height: 52px;
+  border: 0;
+  border-radius: var(--radius-full);
+  background: var(--action-primary-bg);
+  color: var(--action-primary-fg);
+  box-shadow: var(--shadow-raised);
+  cursor: pointer;
+}
+.console-fab:hover {
+  background: var(--action-primary-bg-hover);
+}
+.console-fab[aria-expanded="true"] {
+  background: var(--surface-inverse);
+  color: var(--text-inverse);
+}
+.console-panel {
+  display: grid;
+  gap: var(--space-4);
+  width: min(400px, calc(100vw - 2 * var(--space-6)));
+  max-height: min(640px, calc(100vh - 140px));
+  overflow-y: auto;
+  padding: var(--space-6);
+  border-radius: var(--radius-lg);
+  background: var(--surface-page);
+  box-shadow: var(--shadow-overlay);
+}
+.console-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+}
+.console-title {
+  margin: 0;
+  font: var(--type-heading);
+}
+.console-where,
+.console-note,
+.console-hint,
+.console-answer {
+  margin: 0;
+}
+.console-hint {
+  font: var(--type-label);
+}
+.console-answer {
+  white-space: pre-wrap;
+}
+.console-log {
+  max-height: 340px;
+}
+.console-failed {
+  color: var(--fail-fg);
+}
+.console-proposal {
+  display: grid;
+  min-width: 0;
+  margin: 0;
+  border: 0;
+  gap: var(--space-3);
+  width: 100%;
+  padding: var(--space-4);
+  border-radius: var(--radius-md);
+  background: var(--active-bg);
+  box-shadow: 0 0 0 1px var(--active-border);
+}
+.console-proposal-what {
+  float: left;
+  width: 100%;
+  margin: 0;
+  padding: 0;
+  font-weight: 500;
+}
+@media (max-width: 767px) {
+  .console-dock {
+    right: var(--space-5);
+    bottom: calc(64px + var(--space-5));
+  }
+  .console-panel {
+    width: calc(100vw - 2 * var(--space-5));
+    max-height: calc(100vh - 64px - 120px);
+  }
+}
+@media print {
+  .console-dock {
+    display: none;
+  }
+}

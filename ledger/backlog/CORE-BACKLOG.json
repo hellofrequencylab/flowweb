@@ -4,7 +4,7 @@
     "profile": "core",
     "schema": "ledger-row/1",
     "generated": "2026-11-09",
-    "row_count": 127,
+    "row_count": 128,
     "conventions": {
       "verify_probe": "Same convention as 04-build-plan/backlog.json: 'pnpm probe <path>' runs probes/<path>.probe.ts, a Tier 0 file written before the implementation row starts and never edited by the agent doing the row. Every probe fails today because its target does not exist (a missing probe file exits 2, a missing behaviour exits 1). The probe pack for a milestone is committed by the Owner or a pair session before the milestone's rows start.",
       "status": "All rows start as open. Status lives only in the ledger database (imported with fw ledger sync), never in prose.",
@@ -28,7 +28,7 @@
       }
     },
     "full_plan_rows_included": 37,
-    "new_core_rows": 89
+    "new_core_rows": 90
   },
   "rows": [
     {
@@ -4439,6 +4439,45 @@
         "packages/web/src/shell/Footer.tsx",
         "packages/web/src/dawn/Today.tsx",
         "packages/web/src/ui-kit/flow.tsx",
+        "packages/web/test/"
+      ],
+      "origin": "new Core row"
+    },
+    {
+      "id": "FW-C-092",
+      "title": "An AI console sits at the bottom right of every flowweb.app page: it knows the page and flow you are on, answers questions, and changes a flow only after you confirm",
+      "core_milestone": "C2",
+      "phase": 4,
+      "epic": "C2.2 Daily screens",
+      "priority": "P1",
+      "size": "L",
+      "lane": "web",
+      "agent_suitability": "agent",
+      "gate": "none",
+      "depends_on": [
+        "FW-C-085",
+        "FW-C-062",
+        "FW-C-072"
+      ],
+      "description": "The Owner wants flows that learn on their own but are easy to direct, through an AI built into a console at the bottom right of the site that knows which page he is on, answers any question and can change flows. Today the only AI on the site is the setup assistant on Get started (FW-C-085) and the rewrite helper inside one draft; changing a flow means finding the right control on the right page. Add packages/web/src/console/Console.tsx, mounted once from App.tsx for a signed-in session so it shows on every page: a button named Open AI console, fixed at the bottom right (above the phone tab bar), that opens a panel named AI console. The panel says which page and flow it is looking at (the flow from /flows/<key> or ?flow=), keeps a log named Console conversation in sessionStorage, and sends each question to POST /v1/assistant/console with the page (path, page name, heading, a trimmed copy of the page's visible text with key-shaped strings hidden), the flow and the last few turns. hosted/server/console.mjs answers with Claude on the site's own key (FW_ASSISTANT_ANTHROPIC_KEY, 503 not_configured without it, nothing stored or logged) and gives the model what the relay mirrored: the Supervisor's flows, and for the selected flow its view, hunts and the learning loop's review summary (what is working), so a suggestion rests on results. The model may propose changes with one tool; the server keeps a proposal only when hosted/server/requests.mjs requestOf accepts its method, path and body (dial Draft or Copilot, on, off, run now, schedule, leads a day, AI account, hunts, do-not-contact, project brief and labels, Supervisor pause and resume), so it can never set Autopilot, send, release the kill switch, or touch a budget or policy. A viewer gets answers and no proposals, and a helper limited to some flows gets none for other flows. Each proposal shows as a card with what will change and two buttons, Make this change and Not now; nothing is written until the person presses Make this change, which sends the same request the page's own control sends (ownerWrite, queued for the Owner's machine on the site, role-checked by the database), then says whether it is done or queued. A key-shaped question is refused unsent, on the page and on the server. Escape closes the panel. No em dashes.",
+      "acceptance": [
+        "App.tsx renders <Console for a signed-in session, and api/v1.mjs serves POST /v1/assistant/console from hosted/server/console.mjs",
+        "The server refuses a key-shaped question before any call, answers 503 not_configured without FW_ASSISTANT_ANTHROPIC_KEY and sends that key only as a header",
+        "The model is given the page, the selected flow and that flow's review summary from the mirror",
+        "A proposal survives only when requestOf accepts it: an Autopilot dial or an unknown path is dropped; a viewer gets no proposals and a helper none outside their flows",
+        "The panel names the page and flow, sends the question with them, and shows the answer in the Console conversation log",
+        "A proposal shows Make this change and Not now; nothing is written until Make this change, which posts the same request as the page control; Not now writes nothing",
+        "A key-shaped question is refused unsent on the page; Escape closes the panel"
+      ],
+      "verify_probe": "pnpm probe ui/ai-console",
+      "files_hint": [
+        "packages/web/src/console/",
+        "packages/web/src/shell/App.tsx",
+        "packages/web/src/api/client.ts",
+        "packages/web/src/ui-kit/flow.css",
+        "hosted/server/console.mjs",
+        "api/v1.mjs",
+        "hosted/README.md",
         "packages/web/test/"
       ],
       "origin": "new Core row"
