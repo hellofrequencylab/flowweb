@@ -10,8 +10,11 @@ import { Icon, type IconName } from '../ui-kit/Icon';
 import { age, clock } from '../ui-kit/time';
 import './today.css';
 
-/** Where each ask is worked. Both move to /inbox when the Inbox lands. */
-export const TODAY_LINKS = { drafts: '/flows#drafts', decisions: '/table', flows: '/flows' } as const;
+/**
+ * Where each ask is worked. Drafts still live on Growth (its /flows address, the "Waiting on you"
+ * chapter) until the Inbox lists them; then point drafts at /inbox too.
+ */
+export const TODAY_LINKS = { drafts: '/flows#na-yours', decisions: '/inbox', flows: '/growth' } as const;
 
 const num = (n: number) => n.toLocaleString('en-US');
 const pct = (x: number) => `${Math.round(Math.max(0, Math.min(1, x)) * 100)}%`;

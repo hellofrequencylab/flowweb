@@ -1,0 +1,30 @@
+{
+  "id": "FW-C-070",
+  "title": "The Owner reads the Flows page as a daily growth view: one controls table, Paid ads as its own chapter, admin on its own page",
+  "core_milestone": "C1",
+  "phase": 1,
+  "epic": "C1.5 First flow",
+  "priority": "P1",
+  "size": "L",
+  "lane": "workstreams",
+  "agent_suitability": "agent",
+  "gate": "none",
+  "depends_on": [
+    "FW-C-062",
+    "FW-C-066"
+  ],
+  "description": "The Flows page asks one question twice and mixes the daily view with admin. Flow controls and the Supervisor table both list every flow with whether it runs and why; Paid ads, its own flow, sits inside the activation flow's Reach chapter; and CSV uploads, opening a region, activation targets, raw JSON config and the admin log sit at the bottom of the page the Owner reads every morning. Merge the Supervisor table into FlowControls: one row per flow, a group named after the flow, holding its on/off button, Run now, the dial and the one gate word that says why it is or is not running, and delete SupervisorPanel. Move FlowAdmin off the Flows page into a new AdminPage exported from packages/web/src/flows, reached by a link to /growth/admin. Give Paid ads its own chapter. Delete the unrouted FlowPage. Nothing here changes what fwd does.",
+  "acceptance": [
+    "SupervisorPanel is gone and the Flows page does not render it",
+    "Each flow's row in FlowControls is a group named after the flow with its gate word, on/off, Run now and dial; the kill switch shows in the row as its gate word; an unknown spend reads Unknown, never zero",
+    "The Flows page does not render FlowAdmin and links to /growth/admin; packages/web/src/flows exports AdminPage, which shows the uploads, Open the next region, Activation targets, Edit raw config and Admin log panels",
+    "Paid ads is its own chapter on the Flows page, not inside Reach",
+    "FlowPage.tsx is deleted"
+  ],
+  "verify_probe": "pnpm probe flows/growth-page",
+  "files_hint": [
+    "packages/web/src/flows/",
+    "packages/web/test/supervisor.test.tsx"
+  ],
+  "origin": "new Core row"
+}
