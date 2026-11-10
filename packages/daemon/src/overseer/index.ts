@@ -10,6 +10,7 @@ import type { ActorKind, Reader, Writer } from '@fw/eventlog';
 import { ownerActor } from '@fw/ledger';
 import { loadFlow as loadLocalSaturation } from '../flows/local-saturation.ts';
 import * as neighborhood from '../flows/neighborhood-activation.ts';
+import { registerFlowProjects } from '../flows/projects.ts';
 import type { OnFire } from '../scheduler/index.ts';
 import {
   type Caps,
@@ -340,6 +341,8 @@ function change(
 export function setFlowEnabled(w: Writer, repoRoot: string, key: string, enabled: boolean) {
   if (!shippedFlows(repoRoot).some((f) => f.key === key))
     throw new SupervisorError('NOT_FOUND', `no flow named ${key}`);
+  // Turning a flow on also files it under its project and brand (flows/<key>/project.json).
+  if (enabled) registerFlowProjects(w, repoRoot, () => {}, key);
   return change(w, { flow: key, enabled }, (s) => {
     if ((s.flows[key]?.enabled === true) === enabled) return false;
     s.flows[key] = { ...(s.flows[key] ?? { dial: 'draft' }), enabled };
