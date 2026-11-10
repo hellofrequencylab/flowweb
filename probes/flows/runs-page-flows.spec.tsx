@@ -107,7 +107,7 @@ describe('Runs page with flow runs', () => {
     await screen.findByRole('region', { name: 'Flow runs' });
     const day = screen.getByRole('region', { name: 'Last 24 hours' });
     expect(day.textContent).not.toMatch(/No runs started/);
-    expect(day.textContent).toMatch(/\b3 runs\b/);
+    expect(day.textContent).toMatch(/(^|\D)3 runs\b/);
   });
 
   it('lists each flow cycle and the digest with what it did', async () => {
