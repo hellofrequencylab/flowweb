@@ -767,6 +767,12 @@ export const api = {
     return { data_as_of: e.as_of, ...e.data };
   },
 
+  /** The drafts a flow's cycles wrote, newest first. fwd answers these to the CLI token only. */
+  async flowDrafts(key: string): Promise<V.FlowDrafts> {
+    const e = await get<V.FlowDraft[]>(`/supervisor/flows/${encodeURIComponent(key)}/drafts`);
+    return { data_as_of: e.as_of, drafts: Array.isArray(e.data) ? e.data : [] };
+  },
+
   async supervisor(): Promise<V.Supervisor> {
     const e = await get<Omit<V.Supervisor, 'data_as_of'>>('/supervisor');
     return { data_as_of: e.as_of, ...e.data };

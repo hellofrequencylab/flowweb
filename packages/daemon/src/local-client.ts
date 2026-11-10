@@ -30,6 +30,7 @@ import {
 import { type ChainStatus, statusOf } from './api/status.ts';
 import { REPO_ROOT, VERSION } from './daemon.ts';
 import { FwdUnreachableError, fwdEndpoint, fwdError, fwdRequest } from './fwd-client.ts';
+import type { DraftView } from './overseer/drafts.ts';
 import { supervisorView } from './overseer/index.ts';
 import { listRuns, type RunDetail, type RunSummary, showRun } from './pipeline/queries.ts';
 import { type RunStartReport, resolveGitHost, runStart } from './pipeline/run-start.ts';
@@ -82,6 +83,8 @@ export interface DaemonCoreClient extends LocalCoreClient {
   supervisorControl(action: SupervisorAction, flow?: string): Promise<SupervisorReport>;
   supervisorDial(flow: string, stop: string, confirm?: string): Promise<SupervisorReport>;
   supervisorRun(flow: string): Promise<SupervisorRunReport>;
+  supervisorDrafts(flow: string): Promise<DraftView[]>;
+  supervisorDraft(action: 'approve' | 'reject', flow: string, id: string): Promise<DraftView>;
   spendRollup(opts: { by: string }): Promise<(SpendRow & { unknown_runs?: number })[]>;
   policyCheck(input: DecisionInput): Promise<Decision & { policy_path: string }>;
   policyApply(): Promise<ApplyReport & { policy_path: string }>;
@@ -302,7 +305,17 @@ export function createCoreClient(opts: LocalClientOptions): DaemonCoreClient {
       return relayResult(open(true).writer!, runId, text);
     },
     async doctor() {
-      return runDoctor(home);
+      // The last backup is read from the event log; no database yet means no backup either.
+      let lastBackupAt: string | null = null;
+      if (existsSync(path)) {
+        const row = open(false)
+          .reader()
+          .get<{ ts: string }>(
+            "SELECT ts FROM events WHERE type = 'system.backup_completed' ORDER BY seq DESC LIMIT 1",
+          );
+        lastBackupAt = row?.ts ?? null;
+      }
+      return runDoctor(home, { repoDir, lastBackupAt });
     },
     async gc() {
       // No database means no run was ever started in this home, so no directory has a live run.
@@ -359,12 +372,36 @@ export function createCoreClient(opts: LocalClientOptions): DaemonCoreClient {
       const path = `/v1/supervisor/flows/${encodeURIComponent(flow)}/run`;
       return (await supervisorPost(path, {})) as unknown as SupervisorRunReport;
     },
+    // FW-C-046: Copilot. fwd holds the drafts' writer, so these always go through it.
+    async supervisorDrafts(flow) {
+      return (await fwdData('GET', `/v1/supervisor/flows/${encodeURIComponent(flow)}/drafts`)) as DraftView[];
+    },
+    async supervisorDraft(action, flow, id) {
+      const path = `/v1/supervisor/flows/${encodeURIComponent(flow)}/drafts/${encodeURIComponent(id)}/${action}`;
+      return (await fwdData('POST', path, {})) as DraftView;
+    },
     close() {
       store?.close();
       store = undefined;
       ledger.close();
     },
   };
+
+  async function fwdData(method: 'GET' | 'POST', path: string, body?: unknown): Promise<unknown> {
+    let res: Awaited<ReturnType<typeof fwdRequest>>;
+    try {
+      res = await fwdRequest(fwdEndpoint(home), method, path, body, 10000);
+    } catch (e) {
+      if (e instanceof FwdUnreachableError)
+        throw Object.assign(
+          new Error(`the Supervisor is controlled through fwd, and fwd is not running: ${e.message}`),
+          { code: 'UNAVAILABLE' },
+        );
+      throw e;
+    }
+    if (res.status !== 200) throw fwdError(res);
+    return res.body.data;
+  }
 
   async function supervisorPost(path: string, body: Record<string, unknown>): Promise<SupervisorReport> {
     const ep = fwdEndpoint(home);

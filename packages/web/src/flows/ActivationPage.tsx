@@ -1,5 +1,5 @@
 import type { ReactNode } from 'react';
-import { api } from '../api/client';
+import { ApiError, api } from '../api/client';
 import { useResource } from '../api/resource';
 import type {
   ActivationDecision,
@@ -221,6 +221,8 @@ export function ActivationPage() {
               </div>
             </section>
 
+            <DraftsPanel />
+
             <section className="panel" aria-labelledby="na-leads">
               <div className="panel-head">
                 <h2 id="na-leads">Lead pipeline</h2>
@@ -385,6 +387,60 @@ function Region({ t, holdWeeks }: { t: ActivationTerritory; holdWeeks: number })
           ))}
         </ul>
       </Fold>
+    </section>
+  );
+}
+
+const DRAFT_STATUS: Record<string, string> = {
+  waiting_for_owner: 'Waiting for you',
+  approved: 'Approved',
+  rejected: 'Rejected',
+};
+
+/** The messages the flow's cycles drafted. FlowWeb never sends them; you copy and send. */
+function DraftsPanel() {
+  const res = useResource(
+    'flow-drafts:neighborhood-activation',
+    () => api.flowDrafts('neighborhood-activation'),
+    ['runs'],
+  );
+  const drafts = res.data?.drafts ?? [];
+  const waiting = drafts.filter((x) => x.status === 'waiting_for_owner').length;
+  const cliOnly = res.error instanceof ApiError && res.error.status === 403;
+  return (
+    <section className="panel" aria-labelledby="na-drafts">
+      <div className="panel-head">
+        <h2 id="na-drafts">Drafts</h2>
+        <span className="asof">{res.data ? `${waiting} waiting for you` : <AsOf res={res} />}</span>
+      </div>
+      {cliOnly ? (
+        <p className="muted">
+          On this machine, list drafts with <code>pnpm fw supervisor drafts neighborhood-activation</code>.
+          flowweb.app shows them here.
+        </p>
+      ) : (
+        <ResourceView res={res} what="the drafts">
+          {(d) =>
+            d.drafts.length === 0 ? (
+              <p className="muted">No drafts yet. They appear here after the flow runs.</p>
+            ) : (
+              <ul className="stack drafts-list" aria-label="Drafts">
+                {d.drafts.map((x) => (
+                  <li key={x.id}>
+                    <Fold
+                      label={x.subject ?? 'Untitled draft'}
+                      hint={`${DRAFT_STATUS[x.status] ?? x.status}${x.created_at ? ` · ${x.created_at.slice(0, 10)}` : ''}`}
+                      open={d.drafts.length <= 3}
+                    >
+                      <pre className="draft-body">{x.body}</pre>
+                    </Fold>
+                  </li>
+                ))}
+              </ul>
+            )
+          }
+        </ResourceView>
+      )}
     </section>
   );
 }

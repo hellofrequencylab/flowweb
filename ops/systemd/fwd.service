@@ -1,0 +1,22 @@
+# FW-C-029: keeps fwd running for your user and starts it again if it stops or crashes.
+# See ops/README.md. Change the two paths (the FlowWeb folder and a Node 22 binary), keep
+# FW_CLAUDE_AUTH / FW_CODEX_AUTH only for the sign-ins `pnpm fw accounts check` says work, then:
+#   cp ops/systemd/fwd.service ~/.config/systemd/user/fwd.service
+#   systemctl --user daemon-reload && systemctl --user enable --now fwd
+# Never put a key or token here: fwd reads credentials from FW_HOME/creds.
+[Unit]
+Description=FlowWeb daemon (fwd)
+After=network-online.target
+
+[Service]
+Type=simple
+WorkingDirectory=%h/flowweb
+Environment=FW_HOME=%h/.flowweb
+Environment=FW_CLAUDE_AUTH=signin
+Environment=FW_CODEX_AUTH=signin
+ExecStart=/usr/bin/node --import tsx packages/daemon/src/bin.ts
+Restart=always
+RestartSec=5
+
+[Install]
+WantedBy=default.target

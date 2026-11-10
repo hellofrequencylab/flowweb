@@ -33,6 +33,23 @@ describe('runDoctor', () => {
     expect(r.sandbox.controls.env_scrub.level).not.toBe('absent');
     expect(runDirs()).toEqual([]);
   }, 30_000);
+
+  test('FW-C-029: lists named checks, fails on a broken policy and never prints a credential', async () => {
+    mkdirSync(join(fwHome, 'creds'), { recursive: true });
+    writeFileSync(join(fwHome, 'creds', 'crd_fake0001'), 'fake-secret-value-123');
+    const env = { PATH: process.env.PATH ?? '/usr/bin:/bin' };
+    const ok = await runDoctor(fwHome, { parentEnv: env, lastBackupAt: null });
+    const names = ok.checks.map((c) => c.name);
+    for (const n of ['node', 'home', 'core_policy', 'credentials', 'sandbox', 'disk', 'clock', 'last_backup'])
+      expect(names).toContain(n);
+    expect(ok.checks.find((c) => c.name === 'last_backup')?.status).toBe('warn');
+    expect(JSON.stringify(ok)).not.toContain('fake-secret-value-123');
+
+    mkdirSync(join(fwHome, 'config'), { recursive: true });
+    writeFileSync(join(fwHome, 'config', 'core-policy.yaml'), 'rules: [unclosed\n  : : :\n');
+    const bad = await runDoctor(fwHome, { parentEnv: env });
+    expect(bad.checks.find((c) => c.name === 'core_policy')?.status).toBe('fail');
+  }, 30_000);
 });
 
 describe('gcRunDirs', () => {

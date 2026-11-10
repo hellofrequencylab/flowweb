@@ -631,6 +631,25 @@ export interface ActivationFlow extends Envelope {
   awaiting_owner_total: number;
 }
 
+/** A cycle's draft waiting in $FW_HOME/flows/<key>/drafts/ (GET /v1/supervisor/flows/{key}/drafts). */
+export interface FlowDraft {
+  id: string;
+  fire_id: string | null;
+  lead_id: string | null;
+  channel: string | null;
+  subject: string | null;
+  body: string;
+  status: string;
+  held?: string;
+  created_at: string | null;
+  approved_at?: string;
+  rejected_at?: string;
+}
+
+export interface FlowDrafts extends Envelope {
+  drafts: FlowDraft[];
+}
+
 /* ---------- Settings / policy ---------- */
 
 export interface PolicyFile extends Envelope {
