@@ -59,3 +59,12 @@ people a day, with an "Adjust from replies" switch that lets the last 14 days of
 the min and max. From the site these queue `flow.schedule` and `flow.intensity`, which the relay applies
 through fwd. Apply `supabase/migrations/0005_flowweb_morning_intensity.sql` once in the Supabase SQL
 editor first; until then the database refuses the two kinds.
+
+## Setup assistant (FW-C-085)
+
+Get started has a setup assistant that walks a new person through putting FlowWeb on their machine and
+connecting their own AI account there (`pnpm fw accounts connect`). Keys stay in that machine's keychain;
+the site never receives one, and anything typed that looks like a key is refused before it is sent.
+To let it answer free questions with Claude, add `FW_ASSISTANT_ANTHROPIC_KEY` to the Vercel project's
+environment (Production), using an Anthropic API key made for this site. Without it the assistant still
+guides every step and answers common questions from what it knows. Questions and answers are not stored.

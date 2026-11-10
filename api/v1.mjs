@@ -7,6 +7,7 @@
 // draft changes and flow controls in hosted/server/requests.mjs: the site queues them and the relay on
 // the Owner's machine applies them through fwd; the answer says it is queued, not done.
 import { resolveRead, routeOfUrl } from '../hosted/server/mirror.mjs';
+import { answerSetupQuestion } from '../hosted/server/assistant.mjs';
 import { requestOf } from '../hosted/server/requests.mjs';
 
 const SUPABASE_URL = (process.env.SUPABASE_URL ?? process.env.VITE_SUPABASE_URL ?? '').replace(/\/$/, '');
@@ -132,6 +133,12 @@ async function handle(request) {
     const r = await supa('/rest/v1/rpc/fw_revoke_runner', { token, method: 'POST', body: { p_id: revoke[1] } });
     if (!r.ok) return err(500, 'internal', 'Could not revoke that machine.');
     return new Response(null, { status: 204 });
+  }
+
+  // FW-C-085: the setup assistant. Nothing is stored or logged; a key-shaped question is refused unsent.
+  if (path === '/assistant/setup' && method === 'POST') {
+    const r = await answerSetupQuestion(await request.json().catch(() => ({})), { env: process.env });
+    return json(r.status, r.body);
   }
 
   // A draft change or a flow control (FW-C-062): queued here, applied on the Owner's machine by the relay.
