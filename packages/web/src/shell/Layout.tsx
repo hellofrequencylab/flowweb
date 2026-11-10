@@ -1,5 +1,4 @@
 import { type ReactNode, useEffect, useState } from 'react';
-import { useLive } from '../api/live';
 import { BuildOverview } from '../dawn/BuildOverview';
 import { DawnLog } from '../dawn/DawnLog';
 import { EvidencePage } from '../evidence/EvidencePage';
@@ -14,6 +13,7 @@ import { SettingsPage } from '../settings/SettingsPage';
 import { SetupNudge, SetupPage } from '../setup/SetupPage';
 import { SpendPage } from '../spend/SpendPage';
 import { TablePage } from '../table/TablePage';
+import { useWaiting } from '../table/waiting';
 import { PageHead } from '../ui-kit/page';
 import { Footer } from './Footer';
 import { GlobalBanner } from './GlobalBanner';
@@ -39,15 +39,14 @@ function hood(page: ReactNode) {
 export function Layout({ pairedAt, onSignedOut }: { pairedAt: string; onSignedOut: () => void }) {
   const { loc, go } = useRouter();
   const { prefs, set } = usePrefs();
-  const { status } = useLive();
   const [sheet, setSheet] = useState(false);
   const [killOpen, setKillOpen] = useState(false);
 
   // Title tells the Owner when something needs them, without nagging.
+  const waiting = useWaiting().total ?? 0;
   useEffect(() => {
-    const n = status?.cards_open ?? 0;
-    document.title = n > 0 ? `(${n}) FlowWeb` : 'FlowWeb';
-  }, [status?.cards_open]);
+    document.title = waiting > 0 ? `(${waiting}) FlowWeb` : 'FlowWeb';
+  }, [waiting]);
 
   const nav = (to: string) => {
     if (!chordPending()) return;

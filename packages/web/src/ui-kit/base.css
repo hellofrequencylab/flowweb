@@ -2419,3 +2419,7 @@ dialog .kill-card {
 .hood-tabs-title {
   margin: 0;
 }
+/* The Inbox: messages to send, then decisions, each its own section with room between. */
+.inbox-section + .inbox-section {
+  margin-top: var(--space-10);
+}

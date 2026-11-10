@@ -1,5 +1,6 @@
 import { type Connection, useLive } from '../api/live';
 import { HOSTED } from '../hosted/auth';
+import { useWaiting } from '../table/waiting';
 import { Icon, type IconName } from '../ui-kit/Icon';
 import { Logo } from '../ui-kit/Logo';
 import { age, clock, usd, useNow } from '../ui-kit/time';
@@ -28,6 +29,7 @@ export function StatusStrip({ onStop }: { onStop: () => void }) {
   const now = useNow(10_000);
   const current = connection === 'live' || connection === 'delayed';
   const s = status;
+  const waiting = useWaiting();
   const last = statusAt ? new Date(statusAt).toISOString() : null;
   const asof = last
     ? connection === 'live'
@@ -89,9 +91,9 @@ export function StatusStrip({ onStop }: { onStop: () => void }) {
           <span className="hide-narrow">{CONN[connection].word}</span>
         </span>
 
-        {s && current && s.cards_open > 0 && (
+        {s && current && waiting.total !== null && waiting.total > 0 && (
           <Link to="/inbox" className="needs-pill">
-            {s.cards_open} need{s.cards_open === 1 ? 's' : ''} you
+            {waiting.total} need{waiting.total === 1 ? 's' : ''} you
           </Link>
         )}
         {(!s || !current) && <span className="topbar-meta hide-tablet">Needs you: Unknown</span>}
