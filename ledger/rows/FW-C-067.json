@@ -29,6 +29,8 @@
     "packages/web/src/shell/Footer.tsx",
     "packages/web/src/hood/",
     "packages/web/src/table/TablePage.tsx",
+    "packages/web/src/table/CardView.tsx",
+    "packages/web/src/shell/ShortcutSheet.tsx",
     "packages/web/src/ui-kit/base.css",
     "packages/web/test/"
   ],
