@@ -1,0 +1,39 @@
+{
+  "id": "FW-C-051",
+  "title": "AI rewrites a flow draft from the Owner's instruction, for the Owner to review",
+  "core_milestone": "C1",
+  "phase": 1,
+  "epic": "C1.5 First flow",
+  "priority": "P1",
+  "size": "M",
+  "lane": "workstreams",
+  "agent_suitability": "agent",
+  "gate": "owner-approval",
+  "depends_on": [
+    "FW-C-050"
+  ],
+  "description": "The Owner can edit a draft (FW-C-050) but has no help rewriting it. Add POST /v1/supervisor/flows/{key}/drafts/{id}/rewrite with { instruction, subject?, body? }, CLI token only. fwd runs the flow's own engine (the same adapter, sign-in lane and credentials as its cycles) once in $FW_HOME/flows/<key>/rewrites/<id>-<time>/, with draft.json (the passed subject and body, else the draft's) and the instruction; the agent writes rewrite.json { subject, body }. fwd answers { id, subject, body, instruction } as a proposal and never changes the draft: the Owner saves it with an edit. The model spend is recorded in spend_entries (idempotency key flow_rewrite:<flow>:<id>:<time>) and counts toward the flow's weekly budget. It answers 400 for a missing or empty instruction (max 2,000 characters) and 409 with a reason when the draft is handed_off, the kill switch is on (kill_switch), the Supervisor is paused (paused), the flow's budget is spent (budget), or the engine fails or writes no body (engine_failed). The fake vendor gains a draft_rewrite scenario. The CLI gains fw supervisor rewrite <flow> <id> --how <text> [--json].",
+  "acceptance": [
+    "Rewriting needs the CLI token (401 without); a missing or empty instruction answers 400",
+    "A rewrite answers a proposed subject and body from the flow's engine and leaves the draft unchanged",
+    "A subject and body passed in are what gets rewritten",
+    "Each rewrite records model spend for the flow (spend_entries flow_rewrite:...)",
+    "A handed-off draft answers 409 handed_off; while the Supervisor is paused a rewrite answers 409 paused",
+    "fw supervisor rewrite <flow> <id> --how <text> --json answers a proposal"
+  ],
+  "verify_probe": "pnpm probe flows/draft-rewrite",
+  "files_hint": [
+    "packages/daemon/src/overseer/",
+    "packages/daemon/src/daemon.ts",
+    "packages/daemon/src/api/routes.ts",
+    "packages/daemon/src/local-client.ts",
+    "packages/daemon/test/",
+    "packages/adapters/src/fake/",
+    "packages/adapters/test/",
+    "packages/cli/src/client.ts",
+    "packages/cli/src/commands/supervisor.ts",
+    "packages/cli/test/",
+    "docs/api/LOCAL-API-V1.md"
+  ],
+  "origin": "new Core row"
+}
