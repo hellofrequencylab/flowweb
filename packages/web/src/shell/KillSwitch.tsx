@@ -1,6 +1,7 @@
 import { type KeyboardEvent, type PointerEvent, type ReactNode, useEffect, useRef, useState } from 'react';
 import { api, UnreachableError } from '../api/client';
 import { useLive } from '../api/live';
+import { Button, macOnlyReason } from '../ui-kit/Button';
 import { focusOnMount } from '../ui-kit/focus';
 import { Copy } from '../ui-kit/honest';
 import { Icon } from '../ui-kit/Icon';
@@ -176,7 +177,8 @@ export function KillPill({ onOpen }: { onOpen: () => void }) {
       </button>
     );
   }
-  if (prefs.killMode === 'arm') {
+  // On flowweb.app only the Mac can stop anything: never start a hold there, just open the kill switch.
+  if (prefs.killMode === 'arm' || macOnlyReason()) {
     return (
       <button {...common} className="kill-pill" onClick={onOpen}>
         <Icon name="stopped" /> Stop
@@ -249,6 +251,7 @@ export function KillControl() {
     );
   }
   if (k === 'stopped') return <StoppedSummary />;
+  if (macOnlyReason()) return <MacOnlyKill />;
 
   const hint =
     phase === 'holding'
@@ -319,6 +322,38 @@ export function KillControl() {
   );
 }
 
+/**
+ * The kill switch on flowweb.app. The site is a mirror; only fwd on the Owner's Mac can stop work,
+ * so the button is locked with that reason and the terminal command is right there.
+ */
+function MacOnlyKill() {
+  return (
+    <section className="kill-card" aria-label="Kill switch">
+      <div className="kill-head">
+        <span className="icon-tile">
+          <Icon name="stopped" size={20} />
+        </span>
+        <span>
+          <strong className="kill-title">Stop everything</strong>
+          <span className="kill-body">
+            Revokes agent access and halts every run. FlowWeb runs on your Mac, so the stop is sent from
+            there.
+          </span>
+        </span>
+      </div>
+      <div>
+        <Button macOnly variant="stop">
+          <Icon name="stopped" size={20} /> Stop everything
+        </Button>
+      </div>
+      <p className="row kill-hint">
+        In a terminal on your Mac: <code className="command">fw kill</code>{' '}
+        <Copy text="fw kill" label="the command fw kill" />
+      </p>
+    </section>
+  );
+}
+
 function StoppedSummary() {
   const { status } = useLive();
   const [release, setRelease] = useState(false);
@@ -337,9 +372,9 @@ function StoppedSummary() {
         </span>
       </div>
       <div>
-        <button type="button" className="btn" onClick={() => setRelease(true)}>
+        <Button macOnly onClick={() => setRelease(true)}>
           <Icon name="retry" /> Release…
-        </button>
+        </Button>
       </div>
       {release && <ReleaseDialog onClose={() => setRelease(false)} />}
     </section>
@@ -370,9 +405,9 @@ export function ReleaseDialog({ onClose }: { onClose: () => void }) {
       <p>Runs stay paused until you start them. This is recorded.</p>
       {err && <p className="callout callout-warn">{err}</p>}
       <div className="row dialog-actions">
-        <button
-          type="button"
-          className="btn btn-primary"
+        <Button
+          macOnly
+          variant="primary"
           disabled={busy}
           onClick={async () => {
             setBusy(true);
@@ -391,7 +426,7 @@ export function ReleaseDialog({ onClose }: { onClose: () => void }) {
           }}
         >
           Release
-        </button>
+        </Button>
         <button type="button" className="btn" onClick={onClose}>
           Keep stopped
         </button>
