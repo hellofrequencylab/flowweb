@@ -1,0 +1,33 @@
+{
+  "id": "FW-C-065",
+  "title": "Every email lead a flow drafts to can be followed in Frequency's CRM, from draft to signed up or said no",
+  "core_milestone": "C1",
+  "phase": 1,
+  "epic": "C1.5 First flow",
+  "priority": "P1",
+  "size": "M",
+  "lane": "workstreams",
+  "agent_suitability": "agent",
+  "gate": "none",
+  "depends_on": [
+    "FW-C-054",
+    "FW-C-055"
+  ],
+  "description": "The Owner sends hunt drafts by hand and marks them sent, replied or said no, but Frequency only learns counts per draft (FW-C-055), so a lead cannot be opened in Frequency's CRM to see what was said and where it stands. Frequency now takes one draft's state at /api/webhooks/flowweb-crm (frequency-web LIVE-2256), signed like the outcomes pull, and keeps one contact and one conversation per lead. Make fwd post each email draft's state there: soon after start and daily with the outcomes pull, right after each mark, and on POST /v1/flows/neighborhood-activation/crm/sync. Only drafts to an email address are posted, never a form or social draft and never a draft rejected without being sent; a draft whose marks have not changed since its last good sync is not posted again the same day. Write Frequency's answer onto the draft as crm { status, at, lead_status, signed_up, conversation_url, error } and show it in GET /v1/supervisor/flows/{key}/drafts. A Frequency that is down never fails a mark. Nothing is sent to the lead.",
+  "acceptance": [
+    "Soon after start fwd posts each email draft, signed with crd_frequencyoutcomes, and records crm synced with Frequency's lead_status and conversation_url",
+    "Form and social drafts, and drafts rejected without being sent, are never posted",
+    "A sync with nothing changed posts nothing; a mark posts the draft again with the new mark",
+    "GET .../drafts shows crm on each draft",
+    "With Frequency down a mark still answers 200 and the draft records crm failed"
+  ],
+  "verify_probe": "pnpm probe flows/crm-sync",
+  "files_hint": [
+    "packages/daemon/src/flows/crm.ts",
+    "packages/daemon/src/api/routes.ts",
+    "packages/daemon/src/daemon.ts",
+    "packages/daemon/src/overseer/drafts.ts",
+    "packages/daemon/test/"
+  ],
+  "origin": "new Core row"
+}
