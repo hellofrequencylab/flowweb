@@ -2,6 +2,7 @@ import { useState } from 'react';
 import { api } from '../api/client';
 import { useResource } from '../api/resource';
 import type { SpendToday } from '../api/types';
+import { Donut, Gauge, hueAt, IconTile, Legend, type Slice } from '../ui-kit/flow';
 import { AsOf, ResourceView } from '../ui-kit/honest';
 import { Figures, PageHead } from '../ui-kit/page';
 import { StatusLabel } from '../ui-kit/status';
@@ -58,9 +59,30 @@ export function SpendPage() {
             <section className="panel">
               <h2>Today</h2>
               {d.today ? (
-                <Meter t={d.today} />
+                <div className="dash-hero">
+                  <Gauge
+                    size={220}
+                    label="Spend today against the daily cap"
+                    valueText={`${usd(d.today.usd, d.today.estimated)} of ${usd(d.today.cap_usd)}`}
+                    value={d.today.usd}
+                    cap={d.today.cap_usd}
+                    forecast={d.today.forecast_usd}
+                    center={usd(d.today.usd)}
+                    sub={`${d.today.estimated ? 'est., ' : ''}of ${usd(d.today.cap_usd)}`}
+                  />
+                  <Meter t={d.today} />
+                </div>
               ) : (
-                <p className="fact-unknown">Unknown. fwd does not report today's spend yet.</p>
+                <div className="dash-hero">
+                  <Gauge
+                    size={220}
+                    label="Spend today"
+                    value={null}
+                    cap={1}
+                    center={<span className="fact-unknown">Unknown</span>}
+                  />
+                  <p className="fact-unknown">Unknown. fwd does not report today's spend yet.</p>
+                </div>
               )}
             </section>
 
@@ -99,14 +121,14 @@ export function SpendPage() {
               )}
             </section>
 
-            <div className="grid-2">
+            <div className="dash-grid">
               <section className="panel">
                 <h2>By project</h2>
-                <Groups groups={d.by_project} />
+                <Groups groups={d.by_project} what="project" />
               </section>
               <section className="panel">
                 <h2>By vendor</h2>
-                <Groups groups={d.by_vendor} />
+                <Groups groups={d.by_vendor} what="vendor" />
               </section>
             </div>
 
@@ -131,31 +153,38 @@ export function SpendPage() {
             <section className="panel">
               <h2>Budget breaker</h2>
               {d.breaker ? (
-                <>
-                  <p>
-                    {d.breaker.tripped ? (
-                      <StatusLabel
-                        spec={{
-                          word: `Tripped: ${d.breaker.reason ?? 'no reason given'}`,
-                          tone: 'warn',
-                          icon: 'paused',
-                        }}
-                      />
-                    ) : (
-                      <StatusLabel spec={{ word: 'Not tripped', tone: 'neutral', icon: 'open' }} />
-                    )}
-                  </p>
-                  <p className="small muted">
-                    Trips at{' '}
-                    {d.breaker.daily_usd != null
-                      ? `${usd(d.breaker.daily_usd)} a day`
-                      : 'an unknown daily amount'}
-                    {d.breaker.velocity_usd_per_hour != null
-                      ? ` or ${usd(d.breaker.velocity_usd_per_hour)} an hour`
-                      : ''}
-                    .
-                  </p>
-                </>
+                <div className="breaker-row">
+                  <IconTile
+                    name={d.breaker.tripped ? 'paused' : 'gauge'}
+                    tone={d.breaker.tripped ? 'caution' : 'neutral'}
+                    size="lg"
+                  />
+                  <div>
+                    <p>
+                      {d.breaker.tripped ? (
+                        <StatusLabel
+                          spec={{
+                            word: `Tripped: ${d.breaker.reason ?? 'no reason given'}`,
+                            tone: 'warn',
+                            icon: 'paused',
+                          }}
+                        />
+                      ) : (
+                        <StatusLabel spec={{ word: 'Not tripped', tone: 'neutral', icon: 'open' }} />
+                      )}
+                    </p>
+                    <p className="small muted">
+                      Trips at{' '}
+                      {d.breaker.daily_usd != null
+                        ? `${usd(d.breaker.daily_usd)} a day`
+                        : 'an unknown daily amount'}
+                      {d.breaker.velocity_usd_per_hour != null
+                        ? ` or ${usd(d.breaker.velocity_usd_per_hour)} an hour`
+                        : ''}
+                      .
+                    </p>
+                  </div>
+                </div>
               ) : (
                 <p className="fact-unknown">Unknown</p>
               )}
@@ -171,22 +200,18 @@ export function SpendPage() {
 }
 
 function Meter({ t }: { t: SpendToday }) {
-  const pct = Math.min(100, (t.usd / t.cap_usd) * 100);
-  const fpct = t.forecast_usd ? Math.min(100, (t.forecast_usd / t.cap_usd) * 100) : null;
   const partial = t.vendors_configured && t.vendors_reporting.length < t.vendors_configured.length;
   return (
     <div className="stack">
       <p className="spend-now">
         {usd(t.usd, t.estimated)} <span className="muted">of {usd(t.cap_usd)} daily cap</span>
       </p>
-      {/* Decorative: the sentence above states spend and cap in words. */}
-      <div className="meter" aria-hidden="true">
-        <span className="meter-fill" style={{ width: `${pct}%` }} />
-        {fpct !== null && <span className="meter-cap" title="Forecast" style={{ left: `${fpct}%` }} />}
-      </div>
       <p className="small muted">
-        Cap marked at the right edge.
-        {t.forecast_usd ? ` Forecast for today: ${usd(t.forecast_usd, true)}.` : ' No forecast.'}
+        The dial's tick marks the cap.
+        {t.forecast_usd
+          ? ` The dotted arc is today's forecast: ${usd(t.forecast_usd, true)}.`
+          : ' No forecast.'}
+        {` ${Math.round((t.usd / t.cap_usd) * 100)}% of the cap is used.`}
       </p>
       {partial ? (
         <p className="callout callout-warn small">
@@ -201,70 +226,61 @@ function Meter({ t }: { t: SpendToday }) {
 }
 
 function DayBars({ days, cap }: { days: { day: string; usd: number }[]; cap?: number }) {
-  const max = Math.max(cap ?? 0, ...days.map((d) => d.usd), 1);
-  const H = 120;
-  const T = 16; // room for the cap label
+  const max = Math.max(cap ?? 0, ...days.map((d) => d.usd), 1) * 1.05;
+  const pct = (v: number) => `${(v / max) * 100}%`;
   return (
-    <figure className="bars-figure">
-      <svg
-        className="bars"
-        viewBox={`0 ${-T} ${days.length * 48} ${H + 36 + T}`}
-        role="img"
-        aria-label="Spend per day for the last 7 days"
-      >
+    <figure className="day-bars" aria-label="Spend per day for the last 7 days">
+      <div className="day-bars-plot">
         {cap !== undefined && (
-          <>
-            <line
-              x1="0"
-              x2={days.length * 48}
-              y1={H - (cap / max) * H}
-              y2={H - (cap / max) * H}
-              className="cap-line"
-              strokeDasharray="4 3"
-            />
-            <text x="2" y={H - (cap / max) * H - 4} fontSize="10">
-              cap {usd(cap)}
-            </text>
-          </>
+          <span className="day-bars-cap" style={{ bottom: pct(cap) }} aria-hidden="true">
+            <span>cap {usd(cap)}</span>
+          </span>
         )}
-        {days.map((d, i) => {
-          const h = (d.usd / max) * H;
-          return (
-            <g key={d.day}>
-              <rect
-                x={i * 48 + 10}
-                y={H - h}
-                width="28"
-                height={h}
-                rx="8"
-                className={i === days.length - 1 ? 'bar bar-today' : 'bar'}
-              />
-              <text x={i * 48 + 24} y={H + 14} fontSize="10" textAnchor="middle" className="bar-day">
-                {d.day.slice(5)}
-              </text>
-              <text x={i * 48 + 24} y={H + 28} fontSize="10" textAnchor="middle">
-                {usd(d.usd)}
-              </text>
-            </g>
-          );
-        })}
-      </svg>
+        {days.map((d, i) => (
+          <div key={d.day} className="day-bar-col">
+            <span className="day-bar-value">{usd(d.usd)}</span>
+            <span
+              className={`day-bar${i === days.length - 1 ? ' is-today' : ''}`}
+              style={{ height: pct(d.usd) }}
+              role="img"
+              aria-label={`${d.day}: ${usd(d.usd)}`}
+            />
+          </div>
+        ))}
+      </div>
+      <div className="day-bars-axis" aria-hidden="true">
+        {days.map((d, i) => (
+          <span key={d.day}>
+            {i === days.length - 1
+              ? 'Today'
+              : new Date(`${d.day}T12:00:00`).toLocaleDateString(undefined, { weekday: 'short' })}
+          </span>
+        ))}
+      </div>
     </figure>
   );
 }
 
-function Groups({ groups }: { groups: { key: string; label: string; usd: number }[] }) {
+function Groups({ groups, what }: { groups: { key: string; label: string; usd: number }[]; what: string }) {
   if (groups.length === 0) return <p className="muted">No spend recorded.</p>;
+  const total = groups.reduce((a, g) => a + g.usd, 0);
+  const slices: Slice[] = groups.map((g, i) => ({
+    key: g.key,
+    label: g.label,
+    value: g.usd,
+    display: usd(g.usd),
+    tone: 'neutral',
+    hue: hueAt(i),
+  }));
   return (
-    <table className="data">
-      <tbody>
-        {groups.map((g) => (
-          <tr key={g.key}>
-            <td>{g.label}</td>
-            <td className="num">{usd(g.usd)}</td>
-          </tr>
-        ))}
-      </tbody>
-    </table>
+    <div className="dash-tile-body">
+      <Donut
+        slices={slices}
+        center={usd(total)}
+        sub={`${groups.length} ${what}${groups.length === 1 ? '' : 's'}`}
+        label={`Spend by ${what}: ${groups.map((g) => `${g.label} ${usd(g.usd)}`).join(', ')}`}
+      />
+      <Legend slices={slices} />
+    </div>
   );
 }
