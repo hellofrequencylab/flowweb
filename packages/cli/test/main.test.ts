@@ -334,6 +334,12 @@ describe('help', () => {
     expect(helpText()).toMatch(/3 refused by policy/);
   });
 
+  test('--help after an option that takes a value still prints the help', async () => {
+    const r = await run(['hunt', 'add', '--name', '--help']);
+    expect(r.code).toBe(EXIT.OK);
+    expect(r.out).toContain('fw hunt add');
+  });
+
   test('no command is a usage error', async () => {
     expect((await run([])).code).toBe(EXIT.USAGE);
   });
