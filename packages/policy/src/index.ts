@@ -25,6 +25,8 @@ export {
   type RowSize,
 } from './diff-rules.ts';
 export {
+  type ApplyReport,
+  applyPolicy,
   type Decision,
   type DecisionInput,
   decide,

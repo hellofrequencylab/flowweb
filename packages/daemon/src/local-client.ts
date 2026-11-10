@@ -15,8 +15,18 @@ import {
   LedgerError,
   type LocalClientOptions,
   type LocalCoreClient,
+  ownerId,
   resolveHome,
 } from '@fw/ledger';
+import {
+  type ApplyReport,
+  applyPolicy,
+  type Decision,
+  type DecisionInput,
+  decide,
+  findPolicy,
+  loadPolicy,
+} from '@fw/policy';
 import { type ChainStatus, statusOf } from './api/status.ts';
 import { REPO_ROOT, VERSION } from './daemon.ts';
 import { FwdUnreachableError, fwdEndpoint, fwdError, fwdRequest } from './fwd-client.ts';
@@ -60,8 +70,14 @@ export interface DaemonCoreClient extends LocalCoreClient {
   supervisorStatus(): Promise<SupervisorReport>;
   supervisorControl(action: SupervisorAction, flow?: string): Promise<SupervisorReport>;
   spendRollup(opts: { by: string }): Promise<(SpendRow & { unknown_runs?: number })[]>;
+  policyCheck(input: DecisionInput): Promise<Decision & { policy_path: string }>;
+  policyApply(): Promise<ApplyReport & { policy_path: string }>;
   doctor(): Promise<DoctorReport>;
   gc(): Promise<GcReport>;
+}
+
+class OwnerOnlyError extends Error {
+  readonly code = 'OWNER_ONLY';
 }
 
 export function createCoreClient(opts: LocalClientOptions): DaemonCoreClient {
@@ -197,6 +213,20 @@ export function createCoreClient(opts: LocalClientOptions): DaemonCoreClient {
       if (!SPEND_GROUP_NAMES.includes(by as SpendGroup))
         throw new LedgerError('BAD_ARGUMENT', `--by must be one of ${SPEND_GROUP_NAMES.join(', ')}`);
       return spendRollup(open(false).reader(), { by: by as SpendGroup, unknown: true });
+    },
+    async policyCheck(input) {
+      // A dry run: reads the policy file, never the database.
+      const policyPath = findPolicy(repoDir, home);
+      return { ...decide(loadPolicy(policyPath), input), policy_path: policyPath };
+    },
+    async policyApply() {
+      // Only the Owner compiles the policy. Inside an agent run the sandbox sets FW_RUN_ID.
+      if (process.env.FW_RUN_ID)
+        throw new OwnerOnlyError('fw policy apply is Owner-only and refuses to run inside an agent run');
+      const policyPath = findPolicy(repoDir, home);
+      const policy = loadPolicy(policyPath);
+      const w = open(true).writer!;
+      return { ...applyPolicy(w, policy, ownerId(w)), policy_path: policyPath };
     },
     async doctor() {
       return runDoctor(home);

@@ -341,6 +341,32 @@ export interface SupervisorReport {
   changed?: boolean;
 }
 
+export interface PolicyCheckInput {
+  action: string;
+  environment: string;
+  role?: string;
+  context?: Record<string, unknown>;
+}
+
+export interface PolicyDecision {
+  effect: string;
+  rule_id: string | null;
+  rule_version: number | null;
+  tier: string | null;
+  reason: string;
+  source: string;
+  trail: string[];
+  policy_path: string;
+}
+
+export interface PolicyApplyReport {
+  rules_changed: string[];
+  rules_unchanged: number;
+  budgets_set: string[];
+  budgets_unchanged: number;
+  policy_path: string;
+}
+
 export interface CoreClient {
   /** fwd's status, or a read-only database read when fwd is down: optional, served by the daemon package. */
   status?(): Promise<StatusReport>;
@@ -373,6 +399,9 @@ export interface CoreClient {
   /** The Supervisor: optional, served by the daemon package. Controls need fwd up (CLI token). */
   supervisorStatus?(): Promise<SupervisorReport>;
   supervisorControl?(action: SupervisorAction, flow?: string): Promise<SupervisorReport>;
+  /** The policy engine: optional, served by the daemon package (the CLI never imports @fw/policy). */
+  policyCheck?(input: PolicyCheckInput): Promise<PolicyDecision>;
+  policyApply?(): Promise<PolicyApplyReport>;
   close(): void;
 }
 

@@ -38,6 +38,7 @@ const USAGE_CODES = new Set(['BAD_ARGUMENT', 'USAGE']);
  *   APPROVAL_REQUIRED      a stream tier above L2 named no recorded Owner approval
  *   KILL_SWITCH            dispatch refused because the kill switch is engaged
  *   BUDGET_EXHAUSTED       dispatch refused because a fleet, project, stream or agent budget is spent
+ *   OWNER_ONLY             an Owner-only command (fw policy apply) was run inside an agent run
  * A row that is not ready, a held lease or an expired order is not a policy refusal and stays 1.
  */
 export const POLICY_CODES: ReadonlySet<string> = new Set([
@@ -47,6 +48,7 @@ export const POLICY_CODES: ReadonlySet<string> = new Set([
   'APPROVAL_REQUIRED',
   'KILL_SWITCH',
   'BUDGET_EXHAUSTED',
+  'OWNER_ONLY',
 ]);
 
 export interface CliError {
