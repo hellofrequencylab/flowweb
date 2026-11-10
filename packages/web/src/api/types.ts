@@ -807,7 +807,12 @@ export interface SupervisorFlow {
   schedule?: FlowSchedule | null;
   /** FW-C-063: new people a day, and today's number after Adjust from replies. */
   intensity?: FlowIntensity;
+  /** FW-C-086: the AI account the flow's runs use; chosen when picked in Settings. Missing from an older fwd. */
+  ai?: { adapter: 'claude' | 'codex'; auth?: 'signin' | 'api_key'; chosen: boolean } | null;
 }
+
+/** FW-C-086: the four AI accounts a flow can use. */
+export type FlowAiAccount = 'claude_plan' | 'anthropic_key' | 'chatgpt_plan' | 'openai_key';
 
 export interface Supervisor extends Envelope {
   kill_switch: boolean;

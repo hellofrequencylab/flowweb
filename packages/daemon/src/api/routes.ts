@@ -123,6 +123,8 @@ export interface SupervisorControls {
   /** FW-C-063: when the flow runs each morning, and how many new people it reaches a day. */
   setSchedule?(key: string, time: string, days: string): { changed: boolean };
   setIntensity?(key: string, body: Record<string, unknown>): { changed: boolean };
+  /** FW-C-086: which AI account the flow uses: { account: claude_plan|anthropic_key|chatgpt_plan|openai_key }. */
+  setFlowAi?(key: string, body: Record<string, unknown>): { changed: boolean };
   /** FW-C-038: fire the flow's stream by hand; the Supervisor decides it like any fire. */
   runFlow?(key: string): Promise<{ fire_id: string; outcome: string; reason?: string }>;
   /** FW-C-046: the Owner approves or rejects one cycle draft. */
@@ -619,6 +621,16 @@ export function buildRouter(deps: ApiDeps): Router {
       if (!c.setIntensity)
         throw new ApiError(501, 'not_implemented', 'this fwd cannot change a flow intensity');
       return c.setIntensity(params.key ?? '', body);
+    });
+  });
+
+  // FW-C-086: which AI account the flow's runs use. The key stays in the keychain; this only picks one.
+  r.post('/v1/supervisor/flows/{key}/ai', async ({ req, params }) => {
+    const body = await readJsonBody(req);
+    return ownerControl(req, (c) => {
+      if (!c.setFlowAi)
+        throw new ApiError(501, 'not_implemented', 'this fwd cannot change a flow AI account');
+      return c.setFlowAi(params.key ?? '', body);
     });
   });
 

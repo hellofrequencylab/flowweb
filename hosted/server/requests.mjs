@@ -24,6 +24,8 @@ const HUNT_FIELDS = ['name', 'looking_for', 'region', 'areas', 'links', 'every_d
 /** The stops the site may set. Autopilot binds to a confirm hash and is set on the Owner's machine. */
 const SITE_STOPS = ['draft', 'copilot'];
 const OUTCOMES = ['sent', 'replied', 'declined'];
+/** FW-C-086: the AI accounts a flow may use. Only which one; the key stays on the Owner's machine. */
+const AI_ACCOUNTS = ['claude_plan', 'anthropic_key', 'chatgpt_plan', 'openai_key'];
 
 /**
  * The request a site call asks for, or null when the path is not a draft change.
@@ -113,6 +115,13 @@ export function requestOf(method, path, body) {
     const t = tuningPayload(tune[2], b);
     return t.error ? t : { kind: `flow.${tune[2]}`, flow: tune[1], draft_id: null, payload: t.payload };
   }
+  const ai = /^\/supervisor\/flows\/([^/]+)\/ai$/.exec(path);
+  if (ai) {
+    if (method !== 'POST') return null;
+    if (!FLOW.test(ai[1])) return { error: 'unknown flow' };
+    if (!AI_ACCOUNTS.includes(b.account)) return { error: `account must be one of ${AI_ACCOUNTS.join(', ')}` };
+    return { kind: 'flow.ai', flow: ai[1], draft_id: null, payload: { account: b.account } };
+  }
   const ctl = /^\/supervisor\/flows\/([^/]+)\/(enable|disable|run|dial)$/.exec(path);
   if (ctl) {
     const [, flow, action] = ctl;
@@ -195,6 +204,10 @@ export function fwdCallFor(req) {
     const t = tuningPayload(action, p);
     return t.error ? null : { method: 'POST', path: `/supervisor/flows/${f}/${action}`, body: t.payload };
   }
+  if (kind === 'flow.ai')
+    return AI_ACCOUNTS.includes(p.account)
+      ? { method: 'POST', path: `/supervisor/flows/${f}/ai`, body: { account: p.account } }
+      : null;
   if (kind === 'hunt.save') {
     const h = huntPayload(p);
     return h.error ? null : { method: 'POST', path: `/flows/${f}/hunts`, body: h.payload };

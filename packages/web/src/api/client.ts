@@ -900,6 +900,9 @@ export const api = {
       { per_day: i.per_day, auto: i.auto, min: i.min, max: i.max },
       onQueued,
     ),
+  /** FW-C-086: which AI account the flow's runs use. Only names one; the key stays on the machine. */
+  setFlowAi: (flow: string, account: V.FlowAiAccount, onQueued?: () => void) =>
+    ownerWrite<unknown>('POST', `/supervisor/flows/${enc(flow)}/ai`, { account }, onQueued),
   /** FW-C-062: pause or resume every flow. */
   setSupervisorPaused: (paused: boolean, onQueued?: () => void) =>
     ownerWrite<unknown>('POST', `/supervisor/${paused ? 'pause' : 'resume'}`, {}, onQueued),

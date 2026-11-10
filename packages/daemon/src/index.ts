@@ -60,6 +60,7 @@ export {
   perDayFor,
   SupervisorError,
   setDial,
+  setFlowAi,
   setFlowEnabled,
   setIntensity,
   setPaused,
