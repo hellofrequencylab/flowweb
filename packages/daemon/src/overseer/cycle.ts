@@ -155,6 +155,7 @@ function brief(key: string, stream: Record<string, unknown>, hunts: Hunt[]): str
     "Read README.md and config.json in the current folder (the flow's description and its settings on this machine) for the offer, territories, sources, funnels and send routes.",
     'Find leads, score fit and timing, route each one, and draft invites and posts for the Owner to review.',
     'Write your drafts to drafts.json in the current folder as {"drafts":[{"id","lead_id","send_via","subject","body"}]}.',
+    'Commit nothing. In your final report, list drafts.json as a file artifact.',
     'Never send, post or email anything: every draft waits for the Owner.',
   ];
   if (hunts.length > 0)
@@ -230,7 +231,11 @@ export async function runFlowCycle(d: CycleDeps, fire: CycleFire): Promise<void>
       base_commit: '0'.repeat(40),
       goal: brief(fire.flow, stream, hunts),
       context_links: ['README.md', 'config.json'],
-      scope: { touches: ['drafts.json'], forbidden: ['**/*'] },
+      // The agent writes its own outputs only; the files fwd put there for it are read-only.
+      scope: {
+        touches: ['drafts.json', 'leads.json'],
+        forbidden: ['README.md', 'config.json', 'hunts.json', '.git/**'],
+      },
       constraints: {
         max_diff_lines: 0,
         ...(ownerBrief.style ? { style: ownerBrief.style } : {}),
@@ -310,7 +315,13 @@ export async function runFlowCycle(d: CycleDeps, fire: CycleFire): Promise<void>
         ],
       );
     addFlowSpend(d, fire.flow, usd, Number(result.turns ?? 0));
-    if (result.status !== 'completed') {
+    // A cycle commits nothing, so a vendor that wrote drafts.json but named no artifact still finished
+    // its work: the engine's no_artifact rule is for ledger runs, which must land a commit.
+    const draftsOnly =
+      result.status === 'failed' &&
+      (await run.meta)?.failure_class === 'no_artifact' &&
+      existsSync(join(dir, 'drafts.json'));
+    if (result.status !== 'completed' && !draftsOnly) {
       reason = redactLiterals(`adapter ended ${result.status}: ${result.summary ?? ''}`, creds.literals);
     } else {
       const p = join(dir, 'drafts.json');
