@@ -30,6 +30,7 @@
     "packages/web/src/flows/index.ts",
     "packages/web/src/ui-kit/flow.css",
     "packages/web/src/ui-kit/base.css",
+    "packages/web/src/ui-kit/Icon.tsx",
     "packages/web/test/",
     "packages/web/mock/"
   ],
