@@ -1,12 +1,13 @@
 // FW-C-038: turning a flow on registers its stream once, and one cycle on the fake adapter writes
 // drafts that wait for the Owner, the flow's spend and one run report. Nothing is sent.
-import { existsSync, mkdirSync, readdirSync, readFileSync, writeFileSync } from 'node:fs';
+import { existsSync, mkdirSync, readdirSync, readFileSync, rmSync, writeFileSync } from 'node:fs';
 import { join } from 'node:path';
 import { openStore } from '@fw/eventlog';
+import { briefProject } from '@fw/ledger';
 import { afterEach, expect, test } from 'vitest';
 import { ensureFwHome, REPO_ROOT } from '../src/daemon.ts';
-import { flowEngine, flowStream, runFlowCycle } from '../src/overseer/cycle.ts';
-import { setFlowEnabled } from '../src/overseer/index.ts';
+import { addFlowSpend, flowEngine, flowStream, runFlowCycle } from '../src/overseer/cycle.ts';
+import { handOff, setDial, setFlowEnabled } from '../src/overseer/index.ts';
 import { tempHome, withWriter } from './api-fixtures.ts';
 
 const KEY = 'neighborhood-activation';
@@ -151,4 +152,78 @@ test('a cycle loads the sign-in token the same way a ledger run does', async () 
   expect((r.seen.input as { credentials_handle: { handle_id: string } }).credentials_handle.handle_id).toBe(
     'crd_claude0002',
   );
+});
+
+test('the agent gets the flow files and the Owner brief in its own folder', async () => {
+  const { home, w, streamId } = cycleHome();
+  const projectId = String(flowStream(REPO_ROOT, KEY)?.project_id);
+  briefProject(w, projectId, {
+    what: 'Local Circles',
+    who: 'Neighbors',
+    voice: 'Warm and plain',
+    never: 'Never send anything',
+    done: 'A host per area',
+  });
+  mkdirSync(join(home, 'flows', KEY), { recursive: true });
+  writeFileSync(join(home, 'flows', KEY, 'config.json'), '{"override":true}\n');
+  const r = recorder();
+  await runFlowCycle(
+    { writer: w, repoRoot: REPO_ROOT, fwHome: home, env: {}, keychain: false, adapterFactory: r.factory },
+    { flow: KEY, streamId, fireId: 'fire5' },
+  );
+  const dir = join(home, 'flows', KEY, 'cycles', 'fire5');
+  expect(existsSync(join(dir, 'README.md'))).toBe(true);
+  expect(readFileSync(join(dir, 'config.json'), 'utf8')).toBe('{"override":true}\n');
+  const order = (r.seen.input as { work_order: { constraints: { style?: string[]; notes: string[] } } })
+    .work_order;
+  expect(order.constraints.style).toEqual(["Voice, from the Owner's project brief: Warm and plain"]);
+  expect(order.constraints.notes).toContain('What the agents must never do on it: Never send anything');
+});
+
+test('spend adds up within a period and starts again when the period ends', () => {
+  const h = tempHome();
+  cleanups.push(h.cleanup);
+  const d = { fwHome: h.path, repoRoot: REPO_ROOT };
+  const state = () => JSON.parse(readFileSync(join(h.path, 'flows', KEY, 'state.json'), 'utf8')).spend;
+  const t0 = new Date('2026-11-01T00:00:00Z');
+  addFlowSpend(d, KEY, 1, 10, t0);
+  addFlowSpend(d, KEY, 2, 5, new Date('2026-11-03T00:00:00Z'));
+  expect(state()).toEqual({ period_start: t0.toISOString(), usd: 3, turns: 15 });
+  const t1 = new Date('2026-11-09T00:00:00Z');
+  addFlowSpend(d, KEY, 0.5, 1, t1);
+  expect(state()).toEqual({ period_start: t1.toISOString(), usd: 0.5, turns: 1 });
+});
+
+test('at confirmed Autopilot a cycle hands its drafts to the outbox, once', async () => {
+  const { home, w, streamId } = cycleHome();
+  let hash: string | undefined;
+  try {
+    setDial(w, REPO_ROOT, home, KEY, 'autopilot');
+  } catch (e) {
+    hash = (e as { details?: { confirm_hash?: string } }).details?.confirm_hash;
+  }
+  setDial(w, REPO_ROOT, home, KEY, 'autopilot', hash);
+  const env = { FW_VENDOR: 'fake', FW_FAKE_SCENARIO: 'flow_drafts' };
+  await runFlowCycle(
+    { writer: w, repoRoot: REPO_ROOT, fwHome: home, env },
+    { flow: KEY, streamId, fireId: 'fire6' },
+  );
+  const outbox = join(home, 'outbox', KEY);
+  const files = readdirSync(outbox).filter((f) => f.endsWith('.json'));
+  expect(files.length).toBeGreaterThan(0);
+  const drafts = join(home, 'flows', KEY, 'drafts');
+  for (const f of readdirSync(drafts))
+    expect(JSON.parse(readFileSync(join(drafts, f), 'utf8')).status).toBe('handed_off');
+  // A sending app takes a file; handing the same item off again must not write it back.
+  rmSync(join(outbox, files[0]!));
+  const id = files[0]!.replace(/\.json$/, '');
+  const again = handOff({
+    writer: w,
+    repoRoot: REPO_ROOT,
+    fwHome: home,
+    flow: KEY,
+    item: { id, channel: 'founder_email', body: 'x' },
+  });
+  expect(again.outcome).toBe('queued');
+  expect(existsSync(join(outbox, files[0]!))).toBe(false);
 });
