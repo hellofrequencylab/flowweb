@@ -842,6 +842,17 @@ export const api = {
       confirm ? { stop, confirm } : { stop },
       onQueued,
     ),
+  /** FW-C-063: when the flow runs each morning. */
+  setSchedule: (flow: string, time: string, days: 'daily' | 'weekdays', onQueued?: () => void) =>
+    ownerWrite<unknown>('POST', `/supervisor/flows/${enc(flow)}/schedule`, { time, days }, onQueued),
+  /** FW-C-063: how many new people a day, and whether reply rates may move it within min..max. */
+  setIntensity: (flow: string, i: V.FlowIntensitySetting, onQueued?: () => void) =>
+    ownerWrite<unknown>(
+      'POST',
+      `/supervisor/flows/${enc(flow)}/intensity`,
+      { per_day: i.per_day, auto: i.auto, min: i.min, max: i.max },
+      onQueued,
+    ),
   /** FW-C-062: pause or resume every flow. */
   setSupervisorPaused: (paused: boolean, onQueued?: () => void) =>
     ownerWrite<unknown>('POST', `/supervisor/${paused ? 'pause' : 'resume'}`, {}, onQueued),

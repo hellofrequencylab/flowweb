@@ -57,12 +57,16 @@ export {
 export {
   createSupervisorOnFire,
   handOff,
+  perDayFor,
   SupervisorError,
   setDial,
   setFlowEnabled,
+  setIntensity,
   setPaused,
+  setSchedule,
   supervisorView,
 } from './overseer/index.ts';
+export { effectivePerDay, type Intensity, recentResults, scheduleCron } from './overseer/intensity.ts';
 export {
   buildEvidenceBundle,
   type EvidenceInput,
