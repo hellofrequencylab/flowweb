@@ -184,7 +184,7 @@ export function createFakeAdapter(options: FakeAdapterOptions = {}): VendorAdapt
       return {
         command: node,
         args: [VENDOR_SCRIPT],
-        stdin: JSON.stringify({ scenario, run_id: input.run_id }),
+        stdin: JSON.stringify({ scenario, run_id: input.run_id, web: opts.web === true }),
         credentialEnv: { ...(opts.credentialEnv ?? {}) },
         fingerprint: report.fingerprint,
         model: 'fake-scripted',

@@ -251,7 +251,12 @@ export async function runFlowCycle(d: CycleDeps, fire: CycleFire): Promise<void>
       planner_text_is_data: true,
     };
     const scenario = adapterName === 'fake' ? d.env.FW_FAKE_SCENARIO : undefined;
-    const run = adapter.start(input, { credentialEnv: creds.env, ...(scenario ? { scenario } : {}) });
+    // FW-C-043: only a cycle with a hunt due may search and read the web.
+    const run = adapter.start(input, {
+      credentialEnv: creds.env,
+      ...(scenario ? { scenario } : {}),
+      ...(hunts.length > 0 ? { web: true } : {}),
+    });
     for await (const _ of run.events) {
       // drain: the result settles after the events end
     }

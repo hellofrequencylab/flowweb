@@ -152,6 +152,8 @@ const scenarios = {
   // whose address is on the probe's do-not-contact list, one with no source page, one repeating a.
   async hunt_leads() {
     session();
+    // FW-C-043: say whether the run was started with web access, so a probe can see it.
+    writeFileSync(join(process.cwd(), 'web.json'), `${JSON.stringify({ web: req.web === true })}\n`);
     out({
       t: 'turn',
       id: 'msg_1',

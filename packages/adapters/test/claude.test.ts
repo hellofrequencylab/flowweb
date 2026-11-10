@@ -121,6 +121,13 @@ describe('claude preflight', () => {
 describe('claude argv and credentials', () => {
   const verified = new Set(verifyFlags(HELP));
 
+  test('web allows WebSearch and WebFetch next to tools already allowed (FW-C-043)', () => {
+    const base = { verified, sessionId: null, resumeSessionId: null, permissionMode: 'acceptEdits' };
+    expect(buildClaudeArgv(base)).not.toContain('--allowed-tools');
+    const argv = buildClaudeArgv({ ...base, allowedTools: ['Read'], web: true });
+    expect(argv[argv.indexOf('--allowed-tools') + 1]).toBe('Read,WebSearch,WebFetch');
+  });
+
   test('argv uses only verified flags and never carries the credential', () => {
     const argv = buildClaudeArgv({
       verified,
