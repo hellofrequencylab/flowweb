@@ -48,7 +48,7 @@
   "max_active_sub_areas": 5,
   "leads": {"fit_threshold": 0.6, "timing_threshold": 0.5, "timing_half_life_days": 14, "max_touches_per_lead_30d": 3, "watch_recheck_days": 14, "max_new_invites_per_week": 50},
   "funnels": {
-    "host": {"path": "/start/host", "persona": "practitioner", "placeholder": true},
+    "host": {"path": "/start/host", "persona": "practitioner"},
     "venue": {"path": "/start/partner", "persona": "partner"},
     "builder": {"path": "/start/welcome", "persona": "builder"},
     "resident": {"path": "/start/event", "persona": "visitor"}
