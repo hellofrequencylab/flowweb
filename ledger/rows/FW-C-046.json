@@ -1,0 +1,38 @@
+{
+  "id": "FW-C-046",
+  "title": "Copilot: the Owner sees each cycle draft and approves or rejects it",
+  "core_milestone": "C1",
+  "phase": 1,
+  "epic": "C1.5 First flow",
+  "priority": "P1",
+  "size": "M",
+  "lane": "workstreams",
+  "agent_suitability": "agent",
+  "gate": "owner-approval",
+  "depends_on": [
+    "FW-C-037",
+    "FW-C-038"
+  ],
+  "description": "Copilot acts only after the Owner approves each item (FW-C-035), but nothing lists a cycle's drafts or approves one, so today Copilot behaves exactly like Draft. Add three routes under /v1/supervisor, CLI token only: GET /v1/supervisor/flows/{key}/drafts lists the flow's draft files ($FW_HOME/flows/<key>/drafts/), newest first, with id, fire_id, lead_id, channel, subject, body, status and held. POST .../drafts/{id}/approve hands that one draft off exactly as Autopilot does (the same outbox file and one notification.queued event, deduplicated on the same key, so approving twice changes nothing) and marks it handed_off with approved_at. It is refused with 409 and a reason when the flow is at Draft (needs_copilot: at Draft the Owner sends by hand), when the draft was rejected, when it is a template or has no lead, when its channel is not one of the flow's, or when the kill switch or the Supervisor pause is on. POST .../drafts/{id}/reject marks it rejected; a rejected draft is never handed off. The CLI gains fw supervisor drafts <flow>, fw supervisor approve <flow> <id> and fw supervisor reject <flow> <id>, each with --json. Showing these drafts on the web Flows page is a later row.",
+  "acceptance": [
+    "At Copilot a cycle's drafts are listed waiting_for_owner and the outbox stays empty; listing needs the CLI token (401 without)",
+    "Approving a draft writes one outbox file and one notification.queued event for it and lists it handed_off; approving it again adds nothing",
+    "Rejecting a draft lists it rejected; approving a rejected draft answers 409 and hands nothing off",
+    "At Draft approving answers 409 with a reason naming needs_copilot, and nothing is handed off",
+    "fw supervisor drafts <flow> --json lists the same drafts with the same statuses"
+  ],
+  "verify_probe": "pnpm probe flows/copilot",
+  "files_hint": [
+    "packages/daemon/src/overseer/",
+    "packages/daemon/src/daemon.ts",
+    "packages/daemon/src/api/routes.ts",
+    "packages/daemon/src/local-client.ts",
+    "packages/daemon/src/index.ts",
+    "packages/daemon/test/",
+    "packages/cli/src/client.ts",
+    "packages/cli/src/commands/supervisor.ts",
+    "packages/cli/test/",
+    "docs/api/LOCAL-API-V1.md"
+  ],
+  "origin": "new Core row"
+}
