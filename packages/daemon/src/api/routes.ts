@@ -12,7 +12,7 @@ import * as hunts from '../flows/hunts.ts';
 import * as localSaturation from '../flows/local-saturation.ts';
 import * as neighborhoodActivation from '../flows/neighborhood-activation.ts';
 import * as naAdmin from '../flows/neighborhood-admin.ts';
-import { type DraftView, editDraft, listDrafts } from '../overseer/drafts.ts';
+import { type DraftView, editDraft, listDrafts, markDraft } from '../overseer/drafts.ts';
 import { SupervisorError, supervisorView } from '../overseer/index.ts';
 import type { RewriteProposal } from '../overseer/rewrite.ts';
 import { type RunHost, RunHostStoppingError } from '../run-host.ts';
@@ -567,6 +567,23 @@ export function buildRouter(deps: ApiDeps): Router {
         id: params.id ?? '',
         subject: body.subject,
         body: body.body,
+      });
+      return env(() => ({ data }));
+    } catch (e) {
+      throw draftError(e);
+    }
+  });
+  // FW-C-054: the Owner says what happened to a draft sent by hand; declined is an opt-out.
+  r.post('/v1/supervisor/flows/{key}/drafts/{id}/mark', async ({ req, params }) => {
+    ownerOnly(req);
+    const body = await readJsonBody(req);
+    try {
+      const data = markDraft({
+        repoRoot: deps.repoRoot,
+        fwHome: deps.fwHome,
+        flow: params.key ?? '',
+        id: params.id ?? '',
+        outcome: body.outcome,
       });
       return env(() => ({ data }));
     } catch (e) {
