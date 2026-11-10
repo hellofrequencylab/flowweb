@@ -1,0 +1,31 @@
+{
+  "id": "FW-C-036",
+  "title": "Supervisor decides every scheduled fire of a flow",
+  "core_milestone": "C1",
+  "phase": 1,
+  "epic": "C1.5 First flow",
+  "priority": "P1",
+  "size": "S",
+  "lane": "workstreams",
+  "agent_suitability": "agent",
+  "gate": "owner-approval",
+  "depends_on": [
+    "FW-C-035"
+  ],
+  "description": "Connect the Supervisor to the scheduler. fwd's default onFire asks the Supervisor about every fire of a stream whose key names a flow shipped under flows/. The fire is admitted only when the Supervisor would let that flow run now; the fire itself makes the flow due, so not_due never holds it. Otherwise the fire is recorded as held, and its reason starts with the gate that holds it (for example \"flow_disabled: The Owner has not turned this flow on.\"). Streams that are not flows are decided as before. A failure while deciding holds the fire, as the scheduler already does. Admitting a fire only records it as fired: starting the flow's cycle from a fired stream, and handing finished items to a sending app, are later rows. Nothing here changes a gate, a cap, the dial or the core policy.",
+  "acceptance": [
+    "A fire of a flow that the Owner has not enabled is recorded as held, and its reason starts with flow_disabled",
+    "Once the Owner enables the flow, its fire is recorded as fired, not held by not_due",
+    "A paused Supervisor, an Autopilot flow whose channels changed since the Owner confirmed, a flow whose logic fails, and the kill switch each hold the fire, and the reason names supervisor_paused, dial_unapproved, no_engine or kill_switch",
+    "A fire of a stream that is not a flow is still fired",
+    "fwd uses the Supervisor as its scheduler's onFire by default"
+  ],
+  "verify_probe": "pnpm probe flows/fire",
+  "files_hint": [
+    "packages/daemon/src/overseer/",
+    "packages/daemon/src/daemon.ts",
+    "packages/daemon/src/index.ts",
+    "packages/daemon/test/"
+  ],
+  "origin": "new Core row"
+}
