@@ -10,6 +10,7 @@ import { auditCommands } from './commands/audit.ts';
 import { ledgerCommands } from './commands/ledger.ts';
 import { policyCommands } from './commands/policy.ts';
 import { projectCommands } from './commands/project.ts';
+import { reconcileCommands } from './commands/reconcile.ts';
 import { runCommands } from './commands/run.ts';
 import { spendCommands } from './commands/spend.ts';
 import { statusCommands } from './commands/status.ts';
@@ -26,6 +27,7 @@ export const COMMANDS: Command[] = [
   ...streamCommands,
   ...supervisorCommands,
   ...policyCommands,
+  ...reconcileCommands,
   ...projectCommands,
   ...runCommands,
   ...spendCommands,

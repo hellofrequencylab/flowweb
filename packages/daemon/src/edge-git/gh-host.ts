@@ -6,6 +6,7 @@ import {
   type GitHost,
   GitHostError,
   type OpenPullRequestInput,
+  type PrListing,
   type PrState,
   type PrStatus,
   type PullRequestRef,
@@ -170,6 +171,46 @@ export class GhHost implements GitHost {
       head_sha: j.headRefOid,
       merged_sha: state === 'merged' ? (j.mergeCommit?.oid ?? null) : null,
     };
+  }
+
+  async listPullRequests(): Promise<PrListing[]> {
+    const out = await this.call('gh', [
+      'pr',
+      'list',
+      '--repo',
+      this.repo,
+      '--state',
+      'all',
+      '--limit',
+      '200',
+      '--json',
+      'number,url,state,title,headRefName,baseRefName,headRefOid,mergeCommit',
+    ]);
+    const rows = JSON.parse(out) as {
+      number: number;
+      url: string;
+      state: string;
+      title: string;
+      headRefName: string;
+      baseRefName: string;
+      headRefOid: string;
+      mergeCommit: { oid: string } | null;
+    }[];
+    return rows.map((j) => {
+      const state = j.state.toLowerCase();
+      if (state !== 'open' && state !== 'merged' && state !== 'closed')
+        throw new GitHostError(`unexpected PR state ${j.state}`);
+      return {
+        number: j.number,
+        url: j.url,
+        title: j.title,
+        state: state as PrState,
+        head: j.headRefName,
+        base: j.baseRefName,
+        head_sha: j.headRefOid,
+        merged_sha: state === 'merged' ? (j.mergeCommit?.oid ?? null) : null,
+      };
+    });
   }
 
   async getHeadSha(branch: string): Promise<string | null> {

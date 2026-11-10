@@ -142,6 +142,7 @@ function fakeClient(overrides: Partial<CoreClient> = {}): CoreClient {
       trail: ['pol_0120'],
       policy_path: '/p/core-policy.yaml',
     }),
+    reconcile: async () => ({ checked: 2, changes: 0, drift: [], duration_ms: 3 }),
     policyApply: async () => ({
       rules_changed: [],
       rules_unchanged: 12,
