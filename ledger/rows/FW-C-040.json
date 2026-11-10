@@ -1,0 +1,30 @@
+{
+  "id": "FW-C-040",
+  "title": "The agents read the project brief before they work",
+  "core_milestone": "C1",
+  "phase": 1,
+  "epic": "C1.6 Onboarding",
+  "priority": "P1",
+  "size": "S",
+  "lane": "devex",
+  "agent_suitability": "agent",
+  "gate": "owner-approval",
+  "depends_on": [
+    "FW-C-039"
+  ],
+  "description": "Make the brief do its job. FW-C-039 lets the Owner answer five plain questions about a project (what it is, who it is for, its voice, what the agents must never do, and what done looks like), but no agent reads the answers yet. With this row, fw wo issue copies a project's complete brief into each new work order word for word: the voice into constraints.style and the other four answers into constraints.notes. Both prompt builders already print those fields, so the adapters and the paste-ready relay prompt carry the brief, and the work order's content hash covers the exact brief the agent was given. A project with no complete brief gets the same work order as before. A brief saved later changes only the next order, never one already issued. Fields come from the existing work-order schema, so there is no contract change. Giving flow cycles the brief comes with their prompt, after dispatch (FW-C-038).",
+  "acceptance": [
+    "A work order issued for a project with no brief carries no brief text and is otherwise unchanged",
+    "After fw project brief, the next work order carries all five answers word for word: voice in constraints.style, the other four in constraints.notes",
+    "The briefed work order validates against work-order.json",
+    "An order issued before the brief keeps its content hash and its body",
+    "fw relay prompt for the briefed order prints all five answers"
+  ],
+  "verify_probe": "pnpm probe onboarding/brief-in-prompt",
+  "files_hint": [
+    "packages/ledger/src/workorder/",
+    "packages/ledger/test/",
+    "packages/daemon/src/setup/"
+  ],
+  "origin": "new Core row"
+}
