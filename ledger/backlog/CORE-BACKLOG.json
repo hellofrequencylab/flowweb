@@ -4,7 +4,7 @@
     "profile": "core",
     "schema": "ledger-row/1",
     "generated": "2026-11-09",
-    "row_count": 73,
+    "row_count": 74,
     "conventions": {
       "verify_probe": "Same convention as 04-build-plan/backlog.json: 'pnpm probe <path>' runs probes/<path>.probe.ts, a Tier 0 file written before the implementation row starts and never edited by the agent doing the row. Every probe fails today because its target does not exist (a missing probe file exits 2, a missing behaviour exits 1). The probe pack for a milestone is committed by the Owner or a pair session before the milestone's rows start.",
       "status": "All rows start as open. Status lives only in the ledger database (imported with fw ledger sync), never in prose.",
@@ -28,7 +28,7 @@
       }
     },
     "full_plan_rows_included": 37,
-    "new_core_rows": 36
+    "new_core_rows": 37
   },
   "rows": [
     {
@@ -2603,6 +2603,47 @@
         "packages/daemon/src/daemon.ts",
         "packages/daemon/src/index.ts",
         "packages/daemon/test/"
+      ],
+      "origin": "new Core row"
+    },
+    {
+      "id": "FW-C-038",
+      "title": "A new Owner gets set up with one guided command",
+      "core_milestone": "C1",
+      "phase": 1,
+      "epic": "C1.6 Onboarding",
+      "priority": "P1",
+      "size": "L",
+      "lane": "devex",
+      "agent_suitability": "agent",
+      "gate": "owner-approval",
+      "depends_on": [],
+      "description": "Today a new Owner has to know which of a dozen commands to run, in what order, and some of them fail while fwd is running (fw project label answers LOCKED). There is also no way to make a project that is not a code repository, and nothing tells the agents what a project is for. `fw setup` walks the Owner through six steps in order: machine (fwd answering on this home), sign-ins (a passing `fw accounts check`), a project with a brand and category, a project brief, the first flow turned on, and the live site (optional). Each step is checked from real state, never from a click or a flag the Owner set by hand, and a step that is not done names the exact command or place that does it, so setup resumes wherever the Owner stopped. `fw project add` makes a project with no repository. `fw project brief` stores the Owner's own answers to five plain questions (what the project is, who it is for, its voice, what agents must never do, what done looks like) word for word; a blank answer saves nothing. Project writes go through fwd when fwd holds the database. GET /v1/setup answers the same report for the web UI and the relay. Putting the brief into every agent prompt is a later row; this row stores it and shows it. Nothing here changes a gate, a cap, the dial or the core policy.",
+      "acceptance": [
+        "fw setup --json lists machine, sign_ins, project, brief, flow and live_site in that order; next is the first required step not done; it exits 0 only when every required step is done",
+        "Every step that is not done names the command or place that does it",
+        "sign_ins is done only when the last account check has a passing test call; live_site only when the relay's last accepted push is recent",
+        "fw project add creates a project with no repository and refuses a slug that is taken",
+        "fw project brief saves all five answers word for word, refuses a missing or blank one and saves nothing then",
+        "fw project add, label and brief work while fwd is running",
+        "GET /v1/setup answers the same steps as fw setup, and no secret from the home appears in either"
+      ],
+      "verify_probe": "pnpm probe onboarding/setup",
+      "files_hint": [
+        "packages/cli/src/commands/setup.ts",
+        "packages/cli/src/commands/project.ts",
+        "packages/cli/src/main.ts",
+        "packages/cli/src/client.ts",
+        "packages/ledger/src/projects/",
+        "packages/ledger/src/local-client.ts",
+        "packages/daemon/src/setup/",
+        "packages/daemon/src/api/routes.ts",
+        "packages/daemon/src/local-client.ts",
+        "packages/daemon/test/",
+        "hosted/relay/fw-relay.mjs",
+        "packages/web/src/setup/",
+        "packages/web/src/api/",
+        "packages/web/src/shell/"
       ],
       "origin": "new Core row"
     }
