@@ -1,7 +1,7 @@
 // node --test hosted/test
 import assert from 'node:assert/strict';
 import { test } from 'node:test';
-import { filterList, mirrorKey, resolveRead, sumSpend } from '../server/mirror.mjs';
+import { filterList, mirrorKey, resolveRead, routeOfUrl, sumSpend } from '../server/mirror.mjs';
 
 const env = (data, as_of = '2026-11-09T10:00:00.000Z') => ({ data, as_of, head_seq: 7, next_cursor: null });
 
@@ -86,4 +86,14 @@ test('detail routes are served exactly as copied', async () => {
   const r = await resolveRead('/runs/run_1', new URLSearchParams(), s);
   assert.equal(r.status, 200);
   assert.equal(r.body.data.id, 'run_1');
+});
+
+test('the rewrite copy of the path is not part of the query', () => {
+  const r = routeOfUrl('https://x.test/api/v1?__p=policy&path=policy');
+  assert.equal(r.path, '/policy');
+  assert.equal(mirrorKey(r.path, r.params), '/policy');
+  const d = routeOfUrl('https://x.test/api/v1?__p=runs%2Frun_1&path=runs%2Frun_1');
+  assert.equal(mirrorKey(d.path, d.params), '/runs/run_1');
+  const q = routeOfUrl('https://x.test/api/v1?__p=runs&path=runs&status=open');
+  assert.equal(mirrorKey(q.path, q.params), '/runs?status=open');
 });
