@@ -116,8 +116,24 @@ export function LeadHunts({ regions }: { regions: Region[] }) {
         </p>
       ) : (
         <>
-          <NewHunt regions={regions} saved={load} />
-          <Block />
+          <details className="fold">
+            <summary>
+              <span className="fold-label">New hunt</span>
+              <span className="fold-hint">what to look for, where, and how often</span>
+            </summary>
+            <div className="fold-body">
+              <NewHunt regions={regions} saved={load} />
+            </div>
+          </details>
+          <details className="fold">
+            <summary>
+              <span className="fold-label">Someone replied "no"</span>
+              <span className="fold-hint">add them to do-not-contact</span>
+            </summary>
+            <div className="fold-body">
+              <Block />
+            </div>
+          </details>
         </>
       )}
     </section>
@@ -167,7 +183,6 @@ function NewHunt({ regions, saved }: { regions: Region[]; saved: () => Promise<v
   };
   return (
     <form className="stack" onSubmit={submit}>
-      <h3>New hunt</h3>
       <label className="field">
         <span className="field-label">Name</span>
         <input type="text" value={v.name} onChange={set('name')} required />
@@ -239,7 +254,6 @@ function Block() {
   };
   return (
     <form className="stack" onSubmit={submit}>
-      <h3>Someone replied "no"</h3>
       <div className="row">
         <label className="field">
           <span className="field-label">Address or @domain</span>

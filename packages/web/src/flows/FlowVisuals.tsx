@@ -13,8 +13,20 @@ const REGION_WORD: Record<ActivationTerritory['status'], string> = {
   waiting: 'Not opened',
 };
 
-/** Regions in the order the flow opens them, as one line: done regions filled, the active one marked. */
-export function RegionPath({ territories, hue = 'teal' }: { territories: ActivationTerritory[]; hue?: Hue }) {
+/**
+ * Regions in the order the flow opens them, as one line: done regions filled, the active one marked.
+ * `live` means a cycle is running right now: only then do sparks travel the line and the active region
+ * breathe. Idle stays still, so motion always means work is happening.
+ */
+export function RegionPath({
+  territories,
+  hue = 'teal',
+  live = false,
+}: {
+  territories: ActivationTerritory[];
+  hue?: Hue;
+  live?: boolean;
+}) {
   const ts = [...territories].sort((a, b) => a.order - b.order);
   const n = ts.length;
   const at = ts.findIndex((t) => t.status === 'active');
@@ -22,8 +34,13 @@ export function RegionPath({ territories, hue = 'teal' }: { territories: Activat
   const reach = Math.max(at, lastDone);
   const mid = (i: number) => `${((i + 0.5) / n) * 100}%`;
   const cols = { gridTemplateColumns: `repeat(${n}, minmax(0, 1fr))` };
+  // Sparks run from the start to the region being worked, or toward the next one when it is the first.
+  const laneEnd = at < 0 ? -1 : Math.min(Math.max(at, 1), n - 1);
   return (
-    <div className="region-path" style={{ '--c': `var(--flow-${hue})` } as CSSProperties}>
+    <div
+      className={`region-path${live ? ' is-live' : ''}`}
+      style={{ '--c': `var(--flow-${hue})` } as CSSProperties}
+    >
       <div className="flow-track" aria-hidden="true" style={cols}>
         <span className="flow-track-base" style={{ left: mid(0), right: `calc(100% - ${mid(n - 1)})` }} />
         {reach > 0 && (
@@ -32,10 +49,20 @@ export function RegionPath({ territories, hue = 'teal' }: { territories: Activat
             style={{ left: mid(0), width: `calc(${mid(reach)} - ${mid(0)})` }}
           />
         )}
+        {live && laneEnd > 0 && (
+          <span
+            className="flow-travel-lane"
+            style={{ left: mid(0), width: `calc(${mid(laneEnd)} - ${mid(0)})` }}
+          >
+            <span className="flow-travel" />
+            <span className="flow-travel" />
+            <span className="flow-travel" />
+          </span>
+        )}
         {ts.map((t) => (
           <span
             key={t.id}
-            className={`flow-node${t.status === 'active' ? ' is-here' : t.status === 'upkeep' ? ' is-passed' : ''}`}
+            className={`flow-node${t.status === 'active' ? ` is-here${live ? ' is-live' : ''}` : t.status === 'upkeep' ? ' is-passed' : ''}`}
           />
         ))}
       </div>
@@ -51,6 +78,23 @@ export function RegionPath({ territories, hue = 'teal' }: { territories: Activat
         ))}
       </ol>
     </div>
+  );
+}
+
+/* --------------------------------------------------------------- FlowPulse */
+
+export type PulseState = 'running' | 'ready' | 'held' | 'unknown';
+
+/**
+ * The flow's heartbeat as one chip. Running pulses; ready, held and unknown stay still, so the
+ * page's one rule holds: moving means a cycle is working now. The word always says it too.
+ */
+export function FlowPulse({ state, word }: { state: PulseState; word: string }) {
+  return (
+    <span className={`flow-pulse is-${state}`}>
+      <span className="flow-pulse-dot" aria-hidden="true" />
+      {word}
+    </span>
   );
 }
 
