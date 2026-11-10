@@ -10,6 +10,8 @@ import { FLOW_KEY, type FlowConfig, type FlowState } from './neighborhood-activa
 import { AdminError, adminDir, writeJsonAtomic } from './neighborhood-admin.ts';
 
 const DAY = 86_400_000;
+/** FW-C-063: the window a day's intensity counts, short of a day so the next morning's run starts fresh. */
+const TODAY_MS = 20 * 3_600_000;
 export const MAX_SENDS = 25;
 export const MAX_LINKS = 20;
 const DEFAULT_SIGN_OFF = 'Daniel Tyack\nFounder, Frequency (frequencylocal.com)';
@@ -262,8 +264,8 @@ export type Kept = {
 /**
  * Decides who gets a message. In order: not one of the due hunts, no address (or public contact page)
  * or no public source page (not_public), in the EU or EEA, the UK or Canada (restricted, FW-C-052), on
- * do-not-contact (blocked), drafted for before (duplicate), over the hunt's cap or the flow's weekly cap
- * (capped). Pure: the caller records the kept ones as contacts.
+ * do-not-contact (blocked), drafted for before (duplicate), over the hunt's cap, the flow's weekly cap or
+ * the Owner's people a day (capped). Pure: the caller records the kept ones as contacts.
  */
 export function screenLeads(o: {
   cfg: FlowConfig;
@@ -271,10 +273,14 @@ export function screenLeads(o: {
   hunts: Hunt[];
   leads: HuntLead[];
   now: Date;
+  /** FW-C-063: new people a day, counted over the last 20 hours so each morning starts fresh. */
+  perDay?: number;
 }): { kept: Kept[]; counts: Record<string, HuntCounts> } {
   const contacts = { ...(o.state.hunt_contacts ?? {}) };
   const t = o.now.getTime();
   let week = Object.values(contacts).filter((c) => t - Date.parse(c.at) < 7 * DAY).length;
+  let today = Object.values(contacts).filter((c) => t - Date.parse(c.at) < TODAY_MS).length;
+  const daily = o.perDay ?? Number.POSITIVE_INFINITY;
   const weekly = o.cfg.leads.max_new_invites_per_week;
   const counts: Record<string, HuntCounts> = {};
   for (const h of o.hunts)
@@ -304,10 +310,11 @@ export function screenLeads(o: {
     else if (restrictedLead(lead)) c.restricted++;
     else if (onDoNotContact(o.state.do_not_contact, email, pages)) c.blocked++;
     else if (contacts[key] || (email && contacts[email])) c.duplicate++;
-    else if (c.drafted >= h.max_sends || week >= weekly) c.capped++;
+    else if (c.drafted >= h.max_sends || week >= weekly || today >= daily) c.capped++;
     else {
       c.drafted++;
       week++;
+      today++;
       contacts[key] = { at: o.now.toISOString(), hunt_id: h.id, event_url: lead.event.url };
       const id = `${h.id}-${createHash('sha256').update(key).digest('hex').slice(0, 12)}`;
       const send_via = SEND_VIA[contact_via];
