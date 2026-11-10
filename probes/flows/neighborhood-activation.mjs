@@ -151,7 +151,7 @@ await probe(NAME, async () => {
     const base = {
       opened: [seed],
       metrics: { [seed]: met },
-      weeks_at_threshold: { [seed]: a.hold_weeks },
+      weeks_at_threshold: { [seed]: cfg.activation.hold_weeks },
       weeks_below: {},
       awaiting_owner: {},
       do_not_contact: ['lead-dnc'],
