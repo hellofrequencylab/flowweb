@@ -146,6 +146,11 @@
   --ws-mauve: #9c4089;
   --focus-light: #1f6feb;
   --focus-dark: #79b4ff;
+  /* Google's own mark on "Continue with Google": brand colours, the same in both themes. */
+  --brand-google-blue: #4285f4;
+  --brand-google-green: #34a853;
+  --brand-google-yellow: #fbbc05;
+  --brand-google-red: #ea4335;
   --texture-grain: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='160' height='160'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='.9' numOctaves='3' stitchTiles='stitch'/%3E%3CfeColorMatrix values='0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 .055 0'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)'/%3E%3C/svg%3E");
   --texture-dots: radial-gradient(rgba(26, 25, 23, 0.09) 1px, transparent 1.2px) 0 0 / 14px 14px;
   --surface-page: #f3f1ec;

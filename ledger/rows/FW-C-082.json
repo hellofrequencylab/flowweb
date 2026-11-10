@@ -1,0 +1,32 @@
+{
+  "id": "FW-C-082",
+  "title": "Someone new to flowweb.app names their business on first sign-in, and someone with an invite link joins the right account after signing in or up",
+  "core_milestone": "C2",
+  "phase": 4,
+  "epic": "C2.2 Daily screens",
+  "priority": "P1",
+  "size": "M",
+  "lane": "web",
+  "agent_suitability": "agent",
+  "gate": "none",
+  "depends_on": [
+    "FW-C-081"
+  ],
+  "description": "The Owner wants to hand FlowWeb to friends and add people to a business or a flow. With open sign-up (FW-C-081) a brand-new person signs in to nothing, and an invite link (/join/<token>, made by the accounts work) has no page. Add packages/web/src/home/firstRun.tsx: NameBusiness asks for the business name (autocomplete organization), calls createAccount(name) from hosted/auth.ts and hands back the new account; JoinInvite calls acceptInvite(token) once and says the person is in, or shows our own sentence when the link is used up or wrong. inviteFromPath reads the token from /join/<token>, and rememberInvite / pendingInvite / clearInvite keep it in sessionStorage across the sign-in or Google round trip. A signed-out visitor on an invite link sees the homepage with a line saying they were invited. App.tsx, once signed in, accepts a pending invite first, then shows NameBusiness when listAccounts() is empty. No backend here: the auth and account calls come from hosted/auth.ts. No em dashes in the copy.",
+  "acceptance": [
+    "NameBusiness shows a heading Name your business and a field with autocomplete organization; submitting calls createAccount with the trimmed name and then onDone with the result; a blank name calls nothing",
+    "A createAccount error shows in an alert",
+    "JoinInvite calls acceptInvite(token) exactly once, then says you are in and calls onJoined with the account id; a failure shows in an alert with a way on to FlowWeb",
+    "inviteFromPath('/join/<token>') returns the token and returns null for other paths; rememberInvite, pendingInvite and clearInvite keep it across a reload in sessionStorage",
+    "HomePage with an invite shows that the visitor was invited",
+    "App.tsx renders NameBusiness and JoinInvite"
+  ],
+  "verify_probe": "pnpm probe ui/first-run",
+  "files_hint": [
+    "packages/web/src/home/",
+    "packages/web/src/shell/App.tsx",
+    "packages/web/src/shell/routes.ts",
+    "packages/web/test/"
+  ],
+  "origin": "new Core row"
+}
