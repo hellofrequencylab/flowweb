@@ -1,8 +1,8 @@
-// @fw/adapters: the vendor adapter SDK, the scripted fake vendor, the no-op reference adapter and the
-// Claude headless adapter.
+// @fw/adapters: the vendor adapter SDK, the scripted fake vendor, the no-op reference adapter, the
+// Claude headless adapter and the Codex exec adapter.
 // Vendor names may appear in this package and nowhere else in the kernel.
 import { CLAUDE_API_KEY_ENV, type ClaudeAdapterOptions, createClaudeAdapter } from './claude/index.ts';
-import { createCodexAdapter } from './codex/index.ts';
+import { CODEX_API_KEY_ENV, type CodexAdapterOptions, createCodexAdapter } from './codex/index.ts';
 import { createFakeAdapter, type FakeAdapterOptions } from './fake/index.ts';
 import { createNoopAdapter } from './noop/index.ts';
 import type { VendorAdapter } from './sdk/types.ts';
@@ -24,7 +24,17 @@ export {
   REQUIRED_FLAGS,
   verifyFlags,
 } from './claude/index.ts';
-export { createCodexAdapter } from './codex/index.ts';
+export type { CodexAdapterOptions, CodexArgvContext, CodexAuth, CodexExec } from './codex/index.ts';
+export {
+  buildCodexArgv,
+  CODEX_API_KEY_ENV,
+  CODEX_REQUIRED_FLAGS,
+  codexUsage,
+  createCodexAdapter,
+  createCodexParser,
+  strictSchema,
+  verifyCodexFlags,
+} from './codex/index.ts';
 export type { FakeAdapterOptions, FakeScenario } from './fake/index.ts';
 export {
   createFakeAdapter,
@@ -68,7 +78,8 @@ export const ADAPTER_CREDENTIALS: Readonly<Record<AdapterName, readonly AdapterC
   // The noop adapter runs nothing, so it is given nothing.
   noop: [],
   claude: [{ handle: 'crd_claude0001', env: CLAUDE_API_KEY_ENV, required: true, scopes: ['vendor.api'] }],
-  codex: [],
+  // Not required: the sign-in lane (FW_CODEX_AUTH=signin) runs on the Codex CLI's own login instead.
+  codex: [{ handle: 'crd_codex0001', env: CODEX_API_KEY_ENV, required: false, scopes: ['vendor.api'] }],
 };
 
 /** The adapter `fw run start` uses when neither --adapter nor $FW_VENDOR names one. */
@@ -81,9 +92,10 @@ export function isAdapterName(name: string): name is AdapterName {
 export interface CreateAdapterOptions {
   fake?: FakeAdapterOptions;
   claude?: ClaudeAdapterOptions;
+  codex?: CodexAdapterOptions;
 }
 
-/** Adapter registry. `codex` is registered but throws until milestone C1. */
+/** Adapter registry. */
 export function createAdapter(name: AdapterName, options: CreateAdapterOptions = {}): VendorAdapter {
   switch (name) {
     case 'fake':
@@ -93,7 +105,7 @@ export function createAdapter(name: AdapterName, options: CreateAdapterOptions =
     case 'claude':
       return createClaudeAdapter(options.claude);
     case 'codex':
-      return createCodexAdapter();
+      return createCodexAdapter(options.codex);
     default:
       throw new Error(`unknown adapter: ${String(name)}`);
   }
