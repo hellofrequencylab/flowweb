@@ -17,7 +17,7 @@ import * as paidAds from '../flows/paid-ads.ts';
 import * as adsPull from '../flows/paid-ads-ga4.ts';
 import * as review from '../flows/review.ts';
 import { type DraftView, editDraft, listDrafts, markDraft } from '../overseer/drafts.ts';
-import { SupervisorError, supervisorView } from '../overseer/index.ts';
+import { readSettings, SupervisorError, supervisorView } from '../overseer/index.ts';
 import type { RewriteProposal } from '../overseer/rewrite.ts';
 import { type RunHost, RunHostStoppingError } from '../run-host.ts';
 import { isInside, RUN_ID_RE } from '../runtime/paths.ts';
@@ -501,9 +501,16 @@ export function buildRouter(deps: ApiDeps): Router {
   // ---- flows (read-only) ----------------------------------------------------------------
   r.get('/v1/flows/{key}', ({ params }) =>
     env(() => {
-      const view = FLOWS[params.key ?? '']?.(deps.repoRoot, deps.fwHome, new Date());
+      const key = params.key ?? '';
+      const view = FLOWS[key]?.(deps.repoRoot, deps.fwHome, new Date()) as Record<string, unknown> | null;
       if (!view) throw notFound('flow', params.key);
-      return { data: view };
+      // FW-C-064: on/off is the Owner's Supervisor switch, not the shipped stream.json (always off),
+      // and the waiting count is the drafts that wait for the Owner, not a counter nothing writes.
+      const enabled = readSettings(reader).flows[key]?.enabled === true;
+      const waiting = () =>
+        listDrafts(deps.repoRoot, deps.fwHome, key).filter((x) => x.status === 'waiting_for_owner').length;
+      const live = 'awaiting_owner_total' in view ? { awaiting_owner_total: waiting() } : {};
+      return { data: { ...view, enabled, ...live } };
     }),
   );
   addFlowAdminRoutes(r, deps);
