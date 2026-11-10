@@ -780,4 +780,10 @@ export interface AdsFlow extends Envelope {
   totals: AdsFigures;
   last_7_days: AdsFigures;
   next_move: AdsNextMove;
+  /** FW-C-058: the automatic Google Analytics pull, null when the config names none. */
+  pull: {
+    property_id: string;
+    every_hours: number;
+    last: { ok: boolean; at: string; days?: number; error?: string } | null;
+  } | null;
 }

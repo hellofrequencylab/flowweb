@@ -6,13 +6,13 @@
     "name": "Find your people locally",
     "platform": "Google Ads",
     "goal": "subscriptions",
-    "landing_url": "https://frequencylocal.com/start"
+    "landing_url": "https://frequencylocal.com/"
   },
   "source": {
     "kind": "csv_import",
     "how": "In Google Ads open Campaigns, set the date range, click Download and choose .csv with Day as a segment. Drop the file in $FW_HOME/flows/paid-ads/imports/."
   },
-  "target_cost_per_subscription_usd": 30,
+  "target_cost_per_subscription_usd": 10,
   "target_is_placeholder": true,
   "learning_days": 14,
   "first_day": "2026-11-04",
@@ -41,5 +41,14 @@
     "kind": "learning",
     "why": "6 of 14 days of data. Google is still learning; hold changes until then.",
     "days_left": 8
+  },
+  "pull": {
+    "property_id": "539919559",
+    "every_hours": 6,
+    "last": {
+      "ok": true,
+      "at": "2026-11-10T06:00:00.000Z",
+      "days": 6
+    }
   }
 }
