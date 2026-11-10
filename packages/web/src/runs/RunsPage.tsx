@@ -1,12 +1,13 @@
 import { api } from '../api/client';
 import { useResource } from '../api/resource';
-import type { RunStatus, RunSummary } from '../api/types';
+import type { FlowRun, RunList, RunStatus, RunSummary } from '../api/types';
 import { Link, useRouter } from '../shell/router';
 import { Donut, Legend, type Slice } from '../ui-kit/flow';
 import { AsOf, Empty, ResourceView } from '../ui-kit/honest';
 import { PageHead } from '../ui-kit/page';
 import { runStatusSpec, SANDBOX, StatusLabel } from '../ui-kit/status';
 import { duration, usd, useNow, when } from '../ui-kit/time';
+import { FlowRunsTable, flowFilterKey } from './FlowRuns';
 import { RunsTimeline } from './RunsTimeline';
 
 /** UI filter words → which run statuses they include. */
@@ -70,13 +71,21 @@ export function RunsTable({ runs, compact = false }: { runs: RunSummary[]; compa
   );
 }
 
+/** Agent runs and flow runs (FW-C-075), read together; the older of the two reads is the page's age. */
+async function loadRuns(): Promise<RunList & { flow_runs: FlowRun[] }> {
+  const [a, f] = await Promise.all([api.runs(), api.flowRuns()]);
+  return { runs: a.runs, flow_runs: f.flow_runs, data_as_of: [a.data_as_of, f.data_as_of].sort()[0] };
+}
+
 export function RunsPage() {
   const { loc, go } = useRouter();
   const status = loc.query.get('status') ?? '';
   const vendor = loc.query.get('vendor') ?? '';
-  const res = useResource('runs', () => api.runs(), ['runs']);
+  const res = useResource('runs', loadRuns, ['runs', 'dawn']);
   const now = useNow(30_000);
   const all = res.data?.runs ?? [];
+  const flows = res.data?.flow_runs ?? [];
+  const total = all.length + flows.length;
   const TONES: Record<string, Slice['tone']> = {
     active: 'active',
     succeeded: 'ok',
@@ -87,7 +96,7 @@ export function RunsPage() {
   const slices: Slice[] = Object.entries(FILTERS).map(([k, f]) => ({
     key: k,
     label: f.label,
-    value: all.filter((r) => f.match(r.status)).length,
+    value: all.filter((r) => f.match(r.status)).length + flows.filter((r) => flowFilterKey(r) === k).length,
     tone: TONES[k],
   }));
   const set = (k: string, v: string) => {
@@ -102,7 +111,7 @@ export function RunsPage() {
         title={<>Runs</>}
         lede={
           <>
-            Every agent run, live and finished.
+            Every agent run and flow run, live and finished.
             <span className="page-meta">
               <AsOf res={res} />
             </span>
@@ -113,9 +122,9 @@ export function RunsPage() {
             <div className="dash-tile-body runs-aside">
               <Donut
                 slices={slices}
-                center={all.length}
+                center={total}
                 sub="runs"
-                label={`${all.length} runs: ${slices.map((x) => `${x.value} ${x.label.toLowerCase()}`).join(', ')}`}
+                label={`${total} runs: ${slices.map((x) => `${x.value} ${x.label.toLowerCase()}`).join(', ')}`}
               />
               <Legend slices={slices} hrefFor={(x) => `/runs?status=${x.key}`} />
             </div>
@@ -128,9 +137,10 @@ export function RunsPage() {
           const runs = d.runs.filter(
             (r) => (!status || FILTERS[status]?.match(r.status)) && (!vendor || r.vendor === vendor),
           );
+          const flowRuns = d.flow_runs.filter((r) => !status || flowFilterKey(r) === status);
           return (
             <>
-              <RunsTimeline runs={d.runs} now={now} />
+              <RunsTimeline runs={d.runs} flows={d.flow_runs} now={now} />
               <fieldset className="filters section">
                 <legend className="visually-hidden">Filters</legend>
                 <label>
@@ -154,11 +164,31 @@ export function RunsPage() {
                   </select>
                 </label>
               </fieldset>
-              {runs.length === 0 ? (
-                <Empty title="No runs match">Checked {d.runs.length} runs against these filters.</Empty>
-              ) : (
-                <RunsTable runs={runs} />
-              )}
+              <section className="section" aria-labelledby="flow-runs-h">
+                <div className="panel-head">
+                  <h2 id="flow-runs-h">Flow runs</h2>
+                  <span className="asof">{flowRuns.length} shown</span>
+                </div>
+                {flowRuns.length === 0 ? (
+                  <p className="small muted">No flow cycles or digests match.</p>
+                ) : (
+                  <FlowRunsTable runs={flowRuns} />
+                )}
+              </section>
+              <section className="section" aria-labelledby="agent-runs-h">
+                <div className="panel-head">
+                  <h2 id="agent-runs-h">Agent runs</h2>
+                </div>
+                {d.runs.length === 0 ? (
+                  <p className="small muted">
+                    No agent runs yet. They show here when an agent works a ledger row.
+                  </p>
+                ) : runs.length === 0 ? (
+                  <Empty title="No runs match">Checked {d.runs.length} runs against these filters.</Empty>
+                ) : (
+                  <RunsTable runs={runs} />
+                )}
+              </section>
             </>
           );
         }}

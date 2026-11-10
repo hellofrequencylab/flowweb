@@ -393,6 +393,23 @@ export interface WStatusReport {
   };
 }
 
+/** GET /status-reports?kind=run: one flow cycle, written by fwd when the cycle ends (FW-C-038). */
+export interface WFlowCycleReport {
+  id: string;
+  kind: 'run';
+  period_from: string;
+  period_to: string;
+  created_at: string;
+  body: {
+    flow?: string;
+    adapter?: string;
+    outcome?: 'drafted' | 'dry' | 'failed';
+    drafts?: number;
+    hunts?: { id: string; found?: number }[];
+    reason?: string;
+  };
+}
+
 /** GET /session (agreed, C2 with pairing). 401 when not paired. */
 export interface WSession {
   paired_at: string;
