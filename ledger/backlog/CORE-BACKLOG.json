@@ -4,7 +4,7 @@
     "profile": "core",
     "schema": "ledger-row/1",
     "generated": "2026-11-09",
-    "row_count": 79,
+    "row_count": 80,
     "conventions": {
       "verify_probe": "Same convention as 04-build-plan/backlog.json: 'pnpm probe <path>' runs probes/<path>.probe.ts, a Tier 0 file written before the implementation row starts and never edited by the agent doing the row. Every probe fails today because its target does not exist (a missing probe file exits 2, a missing behaviour exits 1). The probe pack for a milestone is committed by the Owner or a pair session before the milestone's rows start.",
       "status": "All rows start as open. Status lives only in the ledger database (imported with fw ledger sync), never in prose.",
@@ -28,7 +28,7 @@
       }
     },
     "full_plan_rows_included": 37,
-    "new_core_rows": 42
+    "new_core_rows": 43
   },
   "rows": [
     {
@@ -2820,6 +2820,37 @@
       "verify_probe": "pnpm probe flows/sender",
       "files_hint": [
         "senders/"
+      ],
+      "origin": "new Core row"
+    },
+    {
+      "id": "FW-C-043",
+      "title": "Hunt cycles can search and read the public web",
+      "core_milestone": "C1",
+      "phase": 1,
+      "epic": "C1.5 First flow",
+      "priority": "P1",
+      "size": "S",
+      "lane": "workstreams",
+      "agent_suitability": "agent",
+      "gate": "owner-approval",
+      "depends_on": [
+        "FW-C-041"
+      ],
+      "description": "Saved hunts find nothing today: a cycle runs Codex with workspace-write, which turns network access and web search off, and headless Claude refuses WebSearch and WebFetch unless they are allowed. Add StartOptions.web (default false). With it, the Codex adapter adds --config sandbox_workspace_write.network_access=true and --config web_search=\"live\", and the Claude adapter adds WebSearch and WebFetch to --allowed-tools next to any tools already allowed. A flow cycle starts its adapter with web on only when a hunt is due in it, so other cycles and every ledger run stay offline. The fake vendor writes web.json in its folder so the probe can see what a cycle was started with.",
+      "acceptance": [
+        "Codex argv has no network access or web search by default, and both with web on",
+        "Claude argv allows WebSearch and WebFetch only with web on, keeping tools already allowed",
+        "A cycle that runs a hunt starts its adapter with web on; a cycle with no hunt due keeps it off"
+      ],
+      "verify_probe": "pnpm probe flows/hunt-web",
+      "files_hint": [
+        "packages/adapters/src/sdk/types.ts",
+        "packages/adapters/src/codex/",
+        "packages/adapters/src/claude/",
+        "packages/adapters/src/fake/",
+        "packages/adapters/test/",
+        "packages/daemon/src/overseer/cycle.ts"
       ],
       "origin": "new Core row"
     }
