@@ -96,4 +96,7 @@ test('the rewrite copy of the path is not part of the query', () => {
   assert.equal(mirrorKey(d.path, d.params), '/runs/run_1');
   const q = routeOfUrl('https://x.test/api/v1?__p=runs&path=runs&status=open');
   assert.equal(mirrorKey(q.path, q.params), '/runs?status=open');
+  // A real filter that happens to equal the path is kept.
+  const same = routeOfUrl('https://x.test/api/v1?__p=runs&path=runs&status=runs');
+  assert.equal(mirrorKey(same.path, same.params), '/runs?status=runs');
 });
