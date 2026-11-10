@@ -11,9 +11,20 @@
 //     reason is readable without a stack trace. MISSING means the surface does not exist yet.
 import { spawn, spawnSync } from 'node:child_process';
 import { createHash } from 'node:crypto';
-import { cpSync, existsSync, mkdirSync, mkdtempSync, readdirSync, readFileSync, statSync, writeFileSync } from 'node:fs';
+import {
+  cpSync,
+  existsSync,
+  mkdirSync,
+  mkdtempSync,
+  readdirSync,
+  readFileSync,
+  readlinkSync,
+  realpathSync,
+  statSync,
+  writeFileSync,
+} from 'node:fs';
 import { tmpdir } from 'node:os';
-import { dirname, join, relative, resolve } from 'node:path';
+import { dirname, join, relative, resolve, sep } from 'node:path';
 import { pathToFileURL } from 'node:url';
 
 export const root = resolve(process.env.FW_REPO_ROOT ?? join(import.meta.dirname, '../..'));
@@ -21,6 +32,8 @@ export const TSX = join(root, 'node_modules/.bin/tsx');
 export const CLI_BIN = join(root, 'packages/cli/src/bin.ts');
 export const DAEMON_BIN = join(root, 'packages/daemon/src/bin.ts');
 export const ZERO_HASH = '0'.repeat(64);
+/** Linux /proc is there; elsewhere (macOS) the process helpers read `ps` and `lsof`. */
+const HAS_PROC = process.platform === 'linux' && existsSync('/proc/self/stat');
 
 export class ProbeFailure extends Error {
   constructor(kind, message) {
@@ -450,16 +463,28 @@ export function pidAlive(pid) {
   }
 }
 
-/** PIDs of processes whose command line contains marker (Linux /proc). */
+/**
+ * PIDs of processes whose command line or environment contains marker. Linux reads /proc; other
+ * systems read `ps -E`, which shows the environment of this user's processes (the ones a probe starts).
+ */
 export function pidsWithMarker(marker) {
   const out = [];
-  for (const d of readdirSync('/proc')) {
-    if (!/^\d+$/.test(d) || Number(d) === process.pid) continue;
-    try {
-      const cmd = readFileSync(`/proc/${d}/cmdline`, 'utf8');
-      const env = readFileSync(`/proc/${d}/environ`, 'utf8');
-      if (cmd.includes(marker) || env.includes(marker)) out.push(Number(d));
-    } catch {}
+  if (HAS_PROC) {
+    for (const d of readdirSync('/proc')) {
+      if (!/^\d+$/.test(d) || Number(d) === process.pid) continue;
+      try {
+        const cmd = readFileSync(`/proc/${d}/cmdline`, 'utf8');
+        const env = readFileSync(`/proc/${d}/environ`, 'utf8');
+        if (cmd.includes(marker) || env.includes(marker)) out.push(Number(d));
+      } catch {}
+    }
+    return out;
+  }
+  const r = tool('ps', ['-axEww', '-o', 'pid=,command=']);
+  check(r.status === 0, `ps exited ${r.status}: ${r.stderr.trim().slice(0, 200)}`);
+  for (const line of r.stdout.split('\n')) {
+    const m = /^\s*(\d+)\s(.*)$/.exec(line);
+    if (m && Number(m[1]) !== process.pid && m[2].includes(marker)) out.push(Number(m[1]));
   }
   return out;
 }
@@ -547,8 +572,8 @@ export async function drain(adapter, input, { timeoutMs = 60000, opts = {} } = {
 }
 
 /**
- * True while any process of the group is alive. Zombies (state Z in /proc/<pid>/stat) do not count:
- * an orphaned vendor is reparented to an init that may never reap it, and a zombie runs nothing.
+ * True while any process of the group is alive. Zombies do not count: an orphaned vendor is
+ * reparented to an init that may never reap it, and a zombie runs nothing.
  */
 export function groupAlive(pgid) {
   if (!pgid) return false;
@@ -557,20 +582,8 @@ export function groupAlive(pgid) {
   } catch (e) {
     return e.code !== 'ESRCH';
   }
-  for (const name of readdirSync('/proc')) {
-    if (!/^\d+$/.test(name)) continue;
-    let stat;
-    try {
-      stat = readFileSync(`/proc/${name}/stat`, 'utf8');
-    } catch {
-      continue;
-    }
-    const rest = stat.slice(stat.lastIndexOf(')') + 2).split(' ');
-    if (Number(rest[2]) === pgid && rest[0] !== 'Z') return true;
-  }
-  return false;
+  return processTable().some((p) => p.pgid === pgid && !p.zombie);
 }
-
 
 export const RUN_RESULT_STATUSES = [
   'completed',
@@ -581,3 +594,166 @@ export const RUN_RESULT_STATUSES = [
   'refused',
   'stopped',
 ];
+
+// ---------------------------------------------------------------------------------------------
+// Process table, portable. Linux reads /proc. Other systems (macOS) read `ps` and `lsof`, which
+// see the same facts: pid, process group, zombie state, argv, environment (own processes), cwd
+// and listening TCP sockets. A helper that cannot read the table fails the probe; it never
+// reports "nothing found" for a table it could not read.
+// ---------------------------------------------------------------------------------------------
+
+
+function tool(cmd, args) {
+  const r = spawnSync(cmd, args, { encoding: 'utf8', maxBuffer: 64 * 1024 * 1024 });
+  if (r.error) {
+    if (r.error.code === 'ENOENT') missing(`this probe needs \`${cmd}\` to read the process table`);
+    fail(`${cmd} ${args.join(' ')}: ${r.error.message}`);
+  }
+  return r;
+}
+
+/** Every process: [{ pid, pgid, zombie, cmd }]. cmd is argv joined by spaces. */
+export function processTable() {
+  const out = [];
+  if (HAS_PROC) {
+    for (const name of readdirSync('/proc')) {
+      if (!/^\d+$/.test(name)) continue;
+      try {
+        const stat = readFileSync(`/proc/${name}/stat`, 'utf8');
+        const rest = stat.slice(stat.lastIndexOf(')') + 2).split(' ');
+        let cmd = '';
+        try {
+          cmd = readFileSync(`/proc/${name}/cmdline`, 'utf8').replaceAll('\0', ' ').trim();
+        } catch {}
+        out.push({ pid: Number(name), pgid: Number(rest[2]), zombie: rest[0] === 'Z', cmd });
+      } catch {}
+    }
+    return out;
+  }
+  const r = tool('ps', ['-axww', '-o', 'pid=,pgid=,stat=,command=']);
+  check(r.status === 0, `ps exited ${r.status}: ${r.stderr.trim().slice(0, 200)}`);
+  for (const line of r.stdout.split('\n')) {
+    const m = /^\s*(\d+)\s+(\d+)\s+(\S+)\s?(.*)$/.exec(line);
+    if (m) out.push({ pid: Number(m[1]), pgid: Number(m[2]), zombie: m[3].startsWith('Z'), cmd: m[4].trim() });
+  }
+  check(out.length > 0, 'ps listed no processes');
+  return out;
+}
+
+/** True when pid is a live process (a zombie waiting to be reaped is not alive). */
+export function liveProcess(pid) {
+  if (HAS_PROC) {
+    try {
+      const stat = readFileSync(`/proc/${pid}/stat`, 'utf8');
+      return !stat.slice(stat.lastIndexOf(')') + 2).startsWith('Z');
+    } catch {
+      return false;
+    }
+  }
+  const p = processTable().find((x) => x.pid === pid);
+  return Boolean(p && !p.zombie);
+}
+
+/** argv of pid joined by spaces ('' when it is gone). */
+export function processArgv(pid) {
+  if (HAS_PROC) {
+    try {
+      return readFileSync(`/proc/${pid}/cmdline`, 'utf8').replaceAll('\0', ' ').trim();
+    } catch {
+      return '';
+    }
+  }
+  return processTable().find((x) => x.pid === pid)?.cmd ?? '';
+}
+
+/** Map pid -> cwd for processes this user can see (macOS: lsof). */
+export function processCwds() {
+  const out = new Map();
+  if (HAS_PROC) {
+    for (const name of readdirSync('/proc')) {
+      if (!/^\d+$/.test(name)) continue;
+      try {
+        out.set(Number(name), readlinkSync(`/proc/${name}/cwd`));
+      } catch {}
+    }
+    return out;
+  }
+  const uid = typeof process.getuid === 'function' ? String(process.getuid()) : '';
+  const r = tool('lsof', ['-nP', '-w', ...(uid ? ['-u', uid, '-a'] : []), '-d', 'cwd', '-F', 'pn']);
+  // lsof exits 1 when it finds nothing; any listing at all means it ran.
+  check(r.status === 0 || (r.status === 1 && r.stderr.trim() === ''), `lsof exited ${r.status}: ${r.stderr.trim().slice(0, 200)}`);
+  let pid = 0;
+  for (const line of r.stdout.split('\n')) {
+    if (line.startsWith('p')) pid = Number(line.slice(1));
+    else if (line.startsWith('n') && pid) out.set(pid, line.slice(1));
+  }
+  return out;
+}
+
+/** Live (not zombie) pids, other than this one, whose working directory is dir or inside it. */
+export function pidsInDir(dir) {
+  const roots = new Set([resolve(dir)]);
+  try {
+    roots.add(realpathSync(dir)); // macOS: /var/folders/... is /private/var/folders/...
+  } catch {}
+  const inside = (cwd) => [...roots].some((d) => cwd === d || cwd.startsWith(d + sep));
+  const zombies = new Set(processTable().filter((p) => p.zombie).map((p) => p.pid));
+  const out = [];
+  for (const [pid, cwd] of processCwds()) {
+    if (pid !== process.pid && !zombies.has(pid) && inside(cwd)) out.push(pid);
+  }
+  return out.sort((a, b) => a - b);
+}
+
+/** Listening TCP sockets owned by pid: [{ address, port }] (address as text, IPv6 without brackets). */
+export function listeningTcp(pid) {
+  const out = [];
+  if (HAS_PROC) {
+    const inodes = new Set();
+    for (const fd of readdirSync(`/proc/${pid}/fd`)) {
+      try {
+        const m = /^socket:\[(\d+)\]$/.exec(readlinkSync(`/proc/${pid}/fd/${fd}`));
+        if (m) inodes.add(m[1]);
+      } catch {}
+    }
+    for (const family of ['tcp', 'tcp6']) {
+      let text = '';
+      try {
+        text = readFileSync(`/proc/${pid}/net/${family}`, 'utf8');
+      } catch {
+        continue;
+      }
+      for (const line of text.trim().split('\n').slice(1)) {
+        const f = line.trim().split(/\s+/);
+        const [addrHex, portHex] = f[1].split(':');
+        if (f[3] === '0A' && inodes.has(f[9])) out.push({ address: procNetAddress(addrHex), port: Number.parseInt(portHex, 16) });
+      }
+    }
+    return out;
+  }
+  const r = tool('lsof', ['-nP', '-w', '-a', '-p', String(pid), '-iTCP', '-sTCP:LISTEN', '-F', 'n']);
+  check(r.status === 0 || (r.status === 1 && r.stderr.trim() === ''), `lsof exited ${r.status}: ${r.stderr.trim().slice(0, 200)}`);
+  for (const line of r.stdout.split('\n')) {
+    const m = /^n(?:\[([^\]]+)\]|([^:]+)):(\d+)$/.exec(line);
+    if (m) out.push({ address: m[1] ?? m[2], port: Number(m[3]) });
+  }
+  return out;
+}
+
+/** /proc/net/tcp{,6} hex (32-bit words in host byte order, little-endian here) as an address. */
+function procNetAddress(hex) {
+  const words = hex.match(/.{8}/g).map((w) => w.match(/../g).reverse().join(''));
+  if (words.length === 1) return words[0].match(/../g).map((b) => Number.parseInt(b, 16)).join('.');
+  const groups = words.join('').match(/.{4}/g).map((g) => Number.parseInt(g, 16).toString(16));
+  return groups.join(':');
+}
+
+/** True for 127.0.0.0/8, ::1 and ::ffff:127.x.x.x, in any of their text forms. "*" is not loopback. */
+export function isLoopbackAddress(address) {
+  const a = address.toLowerCase();
+  if (/^127\.\d+\.\d+\.\d+$/.test(a)) return true;
+  if (/^::ffff:127\.\d+\.\d+\.\d+$/.test(a)) return true;
+  if (a === '::1' || /^(0+:){7}0*1$/.test(a)) return true;
+  const m = /^(?:0+:){5}ffff:([0-9a-f]{1,4}):[0-9a-f]{1,4}$/.exec(a);
+  return Boolean(m && Number.parseInt(m[1], 16) >> 8 === 127);
+}

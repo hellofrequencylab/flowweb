@@ -15,25 +15,14 @@
 //   - a secret-shaped string emitted by the fake never appears in any emitted event or the result
 //   - injection text is kept as data and flagged (run-result injection_suspected)
 //   - killing a hung run leaves no child process (no process has its cwd in the workspace)
-import { existsSync, readdirSync, readlinkSync } from 'node:fs';
+import { existsSync } from 'node:fs';
 import { join } from 'node:path';
 import { beforeAll, describe, expect, test } from 'vitest';
-import { adapterInput, drain, git, gitWorkspace, requireExport, RUN_RESULT_STATUSES, sleep } from './_lib.mjs';
+import { adapterInput, drain, git, gitWorkspace, pidsInDir, requireExport, RUN_RESULT_STATUSES, sleep } from './_lib.mjs';
 
 type Ev = Record<string, unknown>;
 type Out = { events: Ev[]; result: Record<string, any>; meta: Record<string, any>; ms: number };
 let createAdapter: (name: string) => unknown;
-
-function pidsInDir(dir: string) {
-  const out: number[] = [];
-  for (const d of readdirSync('/proc')) {
-    if (!/^\d+$/.test(d) || Number(d) === process.pid) continue;
-    try {
-      if (readlinkSync(`/proc/${d}/cwd`).startsWith(dir)) out.push(Number(d));
-    } catch {}
-  }
-  return out;
-}
 
 async function run(scenario: string, opts: Record<string, unknown> = {}) {
   const ws = gitWorkspace(`fake-${scenario}`);

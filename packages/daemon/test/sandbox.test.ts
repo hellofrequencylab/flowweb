@@ -43,6 +43,7 @@ describe('environment', () => {
       home: '/h',
       tmp: '/t',
       runId: 'run_a',
+      platform: 'linux',
     });
     expect(Object.keys(env).sort()).toEqual(
       [
@@ -61,6 +62,23 @@ describe('environment', () => {
     );
     expect(env.HOME).toBe('/h');
     expect(env.VENDOR_API_KEY).toBe('fake-injected');
+  });
+
+  test('on macOS the sandbox sets __CF_USER_TEXT_ENCODING itself, so CoreFoundation adds nothing', () => {
+    const base = { home: '/h', tmp: '/t', runId: 'run_a', platform: 'darwin' as const };
+    const kept = buildSandboxEnv({
+      ...base,
+      parentEnv: { ...parentEnv, __CF_USER_TEXT_ENCODING: '0x1F5:0x0:0x0' },
+    });
+    expect(kept.__CF_USER_TEXT_ENCODING).toBe('0x1F5:0x0:0x0');
+    const made = buildSandboxEnv({ ...base, parentEnv });
+    expect(made.__CF_USER_TEXT_ENCODING).toMatch(/^0x[0-9A-F]+:0x0:0x0$/);
+    expect(() =>
+      buildSandboxEnv({ ...base, parentEnv, credentials: { __CF_USER_TEXT_ENCODING: 'x' } }),
+    ).toThrow(/override/);
+    expect(
+      buildSandboxEnv({ ...base, parentEnv, platform: 'linux' }).__CF_USER_TEXT_ENCODING,
+    ).toBeUndefined();
   });
 
   test('credentials cannot override controlled keys or use odd names', () => {

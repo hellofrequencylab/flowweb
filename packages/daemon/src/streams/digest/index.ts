@@ -11,3 +11,11 @@ export {
   type PublishResult,
   publishDigest,
 } from './digest.ts';
+export {
+  DIGEST_CRON,
+  DIGEST_STREAM_KEY,
+  digestDue,
+  digestStreams,
+  publishForStream,
+  registerDigestStreams,
+} from './stream.ts';

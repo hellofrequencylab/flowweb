@@ -36,7 +36,8 @@ export interface WStatus {
     verified_at: string;
     failed_seq?: number | null;
   };
-  sandbox_level: 'enforced' | 'best_effort' | 'none';
+  /** null until a run has recorded a sandbox level (fresh install, no runs yet). */
+  sandbox_level: 'enforced' | 'best_effort' | 'none' | null;
   open_cards: number;
   running_runs: number;
   spend?: {
