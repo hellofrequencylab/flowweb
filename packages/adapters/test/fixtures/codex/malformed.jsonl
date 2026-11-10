@@ -1,0 +1,5 @@
+{"type":"thread.started","thread_id":"{{THREAD_ID}}"}
+not json at all
+{"type":"item.completed","item":{"id":"item_0","type":"command_execution"}}
+{"type":"item.completed","item":"nope"}
+{"type":"future.event","detail":{"x":1}}
