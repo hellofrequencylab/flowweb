@@ -912,6 +912,14 @@ export const api = {
     return { data_as_of: e.as_of, ...e.data };
   },
 
+  /**
+   * FW-C-085: ask the setup assistant a question. Only the live site answers it (with its own AI);
+   * the caller falls back to built-in answers when this fails. Never send a secret here.
+   */
+  async askSetupAssistant(question: string, stage: string): Promise<{ answer: string }> {
+    return post<{ answer: string }>('/assistant/setup', { question, stage });
+  },
+
   /** FW-C-039: where setup stands. */
   async setup(): Promise<V.Setup> {
     const e = await get<Omit<V.Setup, 'data_as_of'>>('/setup');
