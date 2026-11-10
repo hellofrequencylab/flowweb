@@ -30,7 +30,9 @@ import {
   SupervisorError,
   setDial,
   setFlowEnabled,
+  setIntensity,
   setPaused,
+  setSchedule,
   shippedFlows,
 } from './overseer/index.ts';
 import { rewriteDraft } from './overseer/rewrite.ts';
@@ -326,6 +328,13 @@ export async function startDaemon(opts: DaemonOptions): Promise<Daemon> {
       setFlowEnabled: (key, enabled) => setFlowEnabled(writer, REPO_ROOT, key, enabled),
       setPaused: (paused) => setPaused(writer, paused),
       setDial: (key, stop, confirm) => setDial(writer, REPO_ROOT, fwHome, key, stop, confirm),
+      // FW-C-063: a moved cron reloads the scheduler, so the next fire is at the new time.
+      setSchedule: (key, time, days) => {
+        const out = setSchedule(writer, REPO_ROOT, key, time, days);
+        if (out.rescheduled) reloadScheduler();
+        return out;
+      },
+      setIntensity: (key, body) => setIntensity(writer, REPO_ROOT, key, body),
       approveDraft: (key, id) => approveDraft({ writer, repoRoot: REPO_ROOT, fwHome, flow: key, id }),
       rejectDraft: (key, id) => rejectDraft({ repoRoot: REPO_ROOT, fwHome, flow: key, id }),
       rewriteDraft: (key, id, body) =>
@@ -475,6 +484,15 @@ export async function startDaemon(opts: DaemonOptions): Promise<Daemon> {
       return v;
     });
   const scheduler = createScheduler({ writer, log, onFire });
+  /** FW-C-063: re-reads every stream's cron. A failed reload is logged, never swallowed. */
+  const reloadScheduler = (): void => {
+    if (stopped) return;
+    void scheduler
+      .stop()
+      .then(() => (stopped ? undefined : scheduler.start()))
+      .then(() => log('scheduler: reloaded after a schedule change'))
+      .catch((e) => log(`scheduler: reload failed: ${(e as Error)?.message ?? e}`));
+  };
   /** Flow cycles in flight: a stop kills each one and waits for its report before closing the store. */
   const cycles = new Set<{ ac: AbortController; done: Promise<void> }>();
 

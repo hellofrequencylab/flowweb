@@ -119,6 +119,9 @@ export interface SupervisorControls {
   setPaused(paused: boolean): { changed: boolean };
   /** FW-C-035: autopilot needs the flow's current confirm hash. */
   setDial(key: string, stop: string, confirm?: string): { changed: boolean };
+  /** FW-C-063: when the flow runs each morning, and how many new people it reaches a day. */
+  setSchedule?(key: string, time: string, days: string): { changed: boolean };
+  setIntensity?(key: string, body: Record<string, unknown>): { changed: boolean };
   /** FW-C-038: fire the flow's stream by hand; the Supervisor decides it like any fire. */
   runFlow?(key: string): Promise<{ fire_id: string; outcome: string; reason?: string }>;
   /** FW-C-046: the Owner approves or rejects one cycle draft. */
@@ -589,6 +592,25 @@ export function buildRouter(deps: ApiDeps): Router {
     const stop = typeof body.stop === 'string' ? body.stop : '';
     const confirm = typeof body.confirm === 'string' ? body.confirm : undefined;
     return ownerControl(req, (c) => c.setDial(params.key ?? '', stop, confirm));
+  });
+
+  // FW-C-063: the morning run time { time: 'HH:MM', days: daily|weekdays } and the people a day
+  // { per_day, auto, min, max }.
+  r.post('/v1/supervisor/flows/{key}/schedule', async ({ req, params }) => {
+    const body = await readJsonBody(req);
+    return ownerControl(req, (c) => {
+      if (!c.setSchedule)
+        throw new ApiError(501, 'not_implemented', 'this fwd cannot change a flow schedule');
+      return c.setSchedule(params.key ?? '', String(body.time ?? ''), String(body.days ?? ''));
+    });
+  });
+  r.post('/v1/supervisor/flows/{key}/intensity', async ({ req, params }) => {
+    const body = await readJsonBody(req);
+    return ownerControl(req, (c) => {
+      if (!c.setIntensity)
+        throw new ApiError(501, 'not_implemented', 'this fwd cannot change a flow intensity');
+      return c.setIntensity(params.key ?? '', body);
+    });
   });
 
   // FW-C-046: Copilot. The Owner lists a flow's cycle drafts and approves or rejects each one

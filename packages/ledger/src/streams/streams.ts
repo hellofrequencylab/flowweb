@@ -171,3 +171,59 @@ export function addStream(
     return { stream: toView(stored!), approval_id: opts.approvalId ?? null, event_seq: ev.seq };
   });
 }
+
+/**
+ * FW-C-063: moves a stream's cron. The stored definition gets the new cron and timezone, version + 1 and
+ * a new definition_hash, and one stream.updated event names the change. A cron already set changes
+ * nothing. The caller reloads the scheduler.
+ */
+export function setStreamCron(
+  w: Writer,
+  streamId: string,
+  cron: string,
+  opts: { timezone?: string; actor?: Actor } = {},
+): { changed: boolean; version: number } {
+  return w.transaction((tx) => {
+    const row = tx.get<{ definition: string; version: number; project_id: string }>(
+      'SELECT definition, version, project_id FROM streams WHERE id = ?',
+      [streamId],
+    );
+    if (!row) throw new LedgerError('NOT_FOUND', `stream ${streamId} is not in the ledger`);
+    const def = JSON.parse(row.definition) as StreamDefinition & { trigger: Record<string, unknown> };
+    if (def.trigger.type !== 'cron')
+      throw new LedgerError('INVALID_DEFINITION', `stream ${streamId} is not fired by a cron`);
+    const timezone = opts.timezone ?? (def.trigger.timezone as string | undefined);
+    if (def.trigger.cron === cron && def.trigger.timezone === timezone)
+      return { changed: false, version: row.version };
+    const version = row.version + 1;
+    const next = {
+      ...def,
+      version,
+      trigger: { ...def.trigger, cron, ...(timezone ? { timezone } : {}) },
+    } as StreamDefinition;
+    const check = validate('stream-definition', next);
+    if (!check.ok)
+      throw new LedgerError(
+        'INVALID_DEFINITION',
+        `not a valid stream definition: ${check.errors.map((e) => `${e.path} ${e.message}`).join('; ')}`,
+      );
+    const text = canonicalJson(next);
+    const hash = sha256Hex(text);
+    const actor = opts.actor ?? ownerActor(tx);
+    tx.run(
+      `UPDATE streams SET definition = ?, definition_hash = ?, version = ?,
+         updated_at = strftime('%Y-%m-%dT%H:%M:%fZ','now') WHERE id = ?`,
+      [text, hash, version, streamId],
+    );
+    tx.appendEvent({
+      type: 'stream.updated',
+      actor_kind: actor.kind,
+      actor_id: actor.id,
+      project_id: row.project_id,
+      stream_id: streamId,
+      idempotency_key: `${streamId}:${version}`,
+      payload: { stream_id: streamId, version, definition_hash: hash, changed_by: actor.id },
+    });
+    return { changed: true, version };
+  });
+}

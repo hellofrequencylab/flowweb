@@ -7,7 +7,7 @@ import { createHash } from 'node:crypto';
 import { existsSync, mkdirSync, readdirSync, readFileSync, renameSync, writeFileSync } from 'node:fs';
 import { join } from 'node:path';
 import type { ActorKind, Reader, Writer } from '@fw/eventlog';
-import { ownerActor } from '@fw/ledger';
+import { ownerActor, setStreamCron } from '@fw/ledger';
 import { loadFlow as loadLocalSaturation } from '../flows/local-saturation.ts';
 import * as neighborhood from '../flows/neighborhood-activation.ts';
 import { registerFlowProjects } from '../flows/projects.ts';
@@ -26,6 +26,17 @@ import {
   type SupervisorFacts,
   type Verdict,
 } from './gates.ts';
+import {
+  cronSchedule,
+  type Days,
+  effectivePerDay,
+  type Intensity,
+  IntensityError,
+  parseIntensity,
+  readIntensity,
+  recentResults,
+  scheduleCron,
+} from './intensity.ts';
 
 export * from './gates.ts';
 
@@ -40,7 +51,16 @@ export interface SupervisorSettings {
   version: 1;
   paused: boolean;
   /** dial_hash: the confirm hash the Owner accepted when turning on Autopilot (FW-C-035). */
-  flows: Record<string, { enabled: boolean; dial: Dial; dial_hash?: string }>;
+  flows: Record<string, FlowSettings>;
+}
+
+/** One flow's Owner settings. schedule and intensity are FW-C-063. */
+export interface FlowSettings {
+  enabled: boolean;
+  dial: Dial;
+  dial_hash?: string;
+  schedule?: { time: string; days: Days };
+  intensity?: Intensity;
 }
 
 /** What an engine (a module under src/flows/) tells the Supervisor about its flow. */
@@ -106,6 +126,10 @@ export interface FlowView {
   reason: string;
   budget: (Caps & { spent_usd: number | null; used_turns: number | null }) | null;
   open_asks: number;
+  /** FW-C-063: when the flow's stream fires, read from the stream (time and days null for other crons). */
+  schedule: { time: string | null; days: Days | null; cron: string; timezone: string } | null;
+  /** FW-C-063: new people a day, and today's number after auto. */
+  intensity: Intensity & { today: { per_day: number; why: string } };
 }
 
 export interface SupervisorView {
@@ -136,12 +160,25 @@ export function readSettings(r: Reader): SupervisorSettings {
     r.get<{ value: string }>('SELECT value FROM settings WHERE key = ?', [SETTINGS_KEY])?.value,
   );
   const flows: SupervisorSettings['flows'] = {};
-  const raw = (o?.flows ?? {}) as Record<string, { enabled?: unknown; dial?: unknown; dial_hash?: unknown }>;
+  const raw = (o?.flows ?? {}) as Record<
+    string,
+    { enabled?: unknown; dial?: unknown; dial_hash?: unknown; schedule?: unknown; intensity?: unknown }
+  >;
   for (const [k, v] of Object.entries(raw)) {
     if (!KEY_RE.test(k)) continue;
     const dial = DIALS.find((d) => d === v?.dial) ?? 'draft';
     flows[k] = { enabled: v?.enabled === true, dial };
     if (dial === 'autopilot' && typeof v?.dial_hash === 'string') flows[k].dial_hash = v.dial_hash;
+    const sch = v?.schedule as { time?: unknown; days?: unknown } | undefined;
+    if (typeof sch?.time === 'string' && typeof sch.days === 'string') {
+      try {
+        scheduleCron(sch.time, sch.days);
+        flows[k].schedule = { time: sch.time, days: sch.days as Days };
+      } catch {
+        // A broken stored schedule is dropped; the stream keeps the cron it has.
+      }
+    }
+    if (v?.intensity && typeof v.intensity === 'object') flows[k].intensity = readIntensity(v.intensity);
   }
   return { version: 1, paused: o?.paused === true, flows };
 }
@@ -255,6 +292,8 @@ function verdicts(d: SupervisorDeps) {
         ? { ...f.caps, spent_usd: f.spend?.usd ?? null, used_turns: f.spend?.turns ?? null }
         : null,
       open_asks: f.open_asks,
+      schedule: streamSchedule(d.reader, key, stream),
+      intensity: intensityView(set?.intensity, d.fwHome, key, now),
     };
     return { view, verdict };
   });
@@ -276,6 +315,50 @@ export function createSupervisorOnFire(d: SupervisorDeps): OnFire {
     if (verdict.state === 'ready') return { outcome: 'admit' };
     return { outcome: 'hold', reason: `${verdict.gate ?? verdict.state}: ${verdict.reason}` };
   };
+}
+
+/** FW-C-063: the flow's cron as the scheduler sees it: the registered stream's, else the shipped one. */
+function streamSchedule(r: Reader, key: string, shipped: Record<string, unknown>): FlowView['schedule'] {
+  let def: Record<string, unknown> = shipped;
+  const row = r.get<{ definition: string }>(
+    'SELECT definition FROM streams WHERE key = ? ORDER BY version DESC',
+    [key],
+  );
+  if (row) def = parse(row.definition) ?? shipped;
+  const t = def.trigger as { type?: unknown; cron?: unknown; timezone?: unknown } | undefined;
+  if (t?.type !== 'cron' || typeof t.cron !== 'string') return null;
+  const simple = cronSchedule(t.cron);
+  return {
+    time: simple?.time ?? null,
+    days: simple?.days ?? null,
+    cron: t.cron,
+    timezone: typeof t.timezone === 'string' ? t.timezone : 'UTC',
+  };
+}
+
+function intensityView(
+  set: Intensity | undefined,
+  fwHome: string,
+  key: string,
+  now: Date,
+): FlowView['intensity'] {
+  const i = readIntensity(set);
+  let today: { per_day: number; why: string };
+  try {
+    today = effectivePerDay(i, recentResults(fwHome, key, now));
+  } catch (e) {
+    // Unreadable drafts: keep the Owner's number and say why, never a silent change.
+    today = {
+      per_day: i.per_day,
+      why: `Could not read recent results (${(e as Error).message}), so ${i.per_day}.`,
+    };
+  }
+  return { ...i, today };
+}
+
+/** FW-C-063: today's number of new people for a flow, as a cycle uses it. */
+export function perDayFor(r: Reader, fwHome: string, key: string, now: Date = new Date()): number {
+  return intensityView(readSettings(r).flows[key]?.intensity, fwHome, key, now).today.per_day;
 }
 
 export class SupervisorError extends Error {
@@ -347,10 +430,62 @@ export function setFlowEnabled(w: Writer, repoRoot: string, key: string, enabled
     registerFlowProjects(w, repoRoot, () => {}, key);
     // FW-C-038: and registers its stream, so the scheduler fires it.
     registerFlowStream(w, repoRoot, key);
+    // FW-C-063: at the Owner's time, when one is set.
+    applySchedule(w, key);
   }
   return change(w, { flow: key, enabled }, (s) => {
     if ((s.flows[key]?.enabled === true) === enabled) return false;
     s.flows[key] = { ...(s.flows[key] ?? { dial: 'draft' }), enabled };
+    return true;
+  });
+}
+
+/** Writes the flow's stored schedule onto its registered stream, if both exist. True when the cron moved. */
+function applySchedule(w: Writer, key: string): boolean {
+  const sch = readSettings(w).flows[key]?.schedule;
+  const row = w.get<{ id: string }>('SELECT id FROM streams WHERE key = ? ORDER BY version DESC', [key]);
+  if (!sch || !row) return false;
+  return setStreamCron(w, row.id, scheduleCron(sch.time, sch.days)).changed;
+}
+
+/**
+ * FW-C-063: when the flow runs. Stored in the Supervisor settings and written onto the flow's stream
+ * (a new version and a stream.updated event); a stream registered later gets it when the flow is turned
+ * on. rescheduled says whether the scheduler has to reload.
+ */
+export function setSchedule(w: Writer, repoRoot: string, key: string, time: string, days: string) {
+  if (!shippedFlows(repoRoot).some((f) => f.key === key))
+    throw new SupervisorError('NOT_FOUND', `no flow named ${key}`);
+  try {
+    scheduleCron(time, days);
+  } catch (e) {
+    throw new SupervisorError('INVALID', (e as Error).message);
+  }
+  const out = change(w, { flow: key, schedule: { time, days } }, (s) => {
+    const cur = s.flows[key] ?? { enabled: false, dial: 'draft' as Dial };
+    if (cur.schedule?.time === time && cur.schedule.days === days) return false;
+    s.flows[key] = { ...cur, schedule: { time, days: days as Days } };
+    return true;
+  });
+  const rescheduled = applySchedule(w, key);
+  return { changed: out.changed || rescheduled, rescheduled };
+}
+
+/** FW-C-063: how many new people a day, and whether reply rates may move it within min..max. */
+export function setIntensity(w: Writer, repoRoot: string, key: string, body: Record<string, unknown>) {
+  if (!shippedFlows(repoRoot).some((f) => f.key === key))
+    throw new SupervisorError('NOT_FOUND', `no flow named ${key}`);
+  let next: Intensity;
+  try {
+    next = parseIntensity(body);
+  } catch (e) {
+    if (e instanceof IntensityError) throw new SupervisorError('INVALID', e.message);
+    throw e;
+  }
+  return change(w, { flow: key, intensity: next }, (s) => {
+    const cur = s.flows[key] ?? { enabled: false, dial: 'draft' as Dial };
+    if (JSON.stringify(cur.intensity) === JSON.stringify(next)) return false;
+    s.flows[key] = { ...cur, intensity: next };
     return true;
   });
 }
@@ -398,7 +533,8 @@ export function setDial(
   return change(w, { flow: key, dial, ...(hash ? { confirm_hash: hash } : {}) }, (s) => {
     const cur = s.flows[key] ?? { enabled: false, dial: 'draft' as Dial };
     if (cur.dial === dial && cur.dial_hash === hash) return false;
-    const next: SupervisorSettings['flows'][string] = { enabled: cur.enabled, dial };
+    const { dial_hash: _old, ...keep } = cur;
+    const next: FlowSettings = { ...keep, dial };
     if (hash) next.dial_hash = hash;
     s.flows[key] = next;
     return true;

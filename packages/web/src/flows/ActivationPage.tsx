@@ -1,12 +1,11 @@
 import type { ReactNode } from 'react';
-import { ApiError, api } from '../api/client';
+import { api } from '../api/client';
 import { useResource } from '../api/resource';
 import type {
   ActivationDecision,
   ActivationFlow,
   ActivationMeasures,
   ActivationTerritory,
-  FlowDraft,
   LeadStage,
   SendVia,
   Supervisor,
@@ -16,8 +15,7 @@ import { AsOf, ResourceView } from '../ui-kit/honest';
 import { PageHead } from '../ui-kit/page';
 import { StatusLabel, type StatusSpec } from '../ui-kit/status';
 import { usd } from '../ui-kit/time';
-import { DraftEditor } from './DraftEditor';
-import { groupDrafts, outcomeOf } from './drafts';
+import { DraftsInbox } from './DraftsInbox';
 import { FlowAdmin } from './FlowAdmin';
 import { FlowControls } from './FlowControls';
 import { FlowPulse, MeasureDials, PipelineBar, type PulseState, RegionPath } from './FlowVisuals';
@@ -200,7 +198,9 @@ export function ActivationPage() {
           </span>
         </li>
       </ul>
-      <FlowControls />
+      <div className="flow-ctl">
+        <FlowControls />
+      </div>
       <ResourceView res={res} what="this flow">
         {(f) => (
           <div className="stack flows-page">
@@ -273,7 +273,7 @@ export function ActivationPage() {
               title="Waiting on you"
               lede="Messages to check and send, and the hunts that find more people."
             />
-            <DraftsPanel />
+            <DraftsInbox flow={KEY} />
             <LeadHunts regions={f.territories.map((t) => ({ id: t.id, name: t.name }))} />
 
             <ChapterHead
@@ -455,136 +455,5 @@ function Region({ t, holdWeeks, live }: { t: ActivationTerritory; holdWeeks: num
         </ul>
       </Fold>
     </section>
-  );
-}
-
-const DRAFT_STATUS: Record<string, string> = {
-  waiting_for_owner: 'Waiting for you',
-  approved: 'Approved',
-  rejected: 'Rejected',
-};
-
-const OUTCOME_LABEL = { sent: 'Sent, no answer yet', replied: 'They replied', declined: 'They said no' };
-
-function draftHint(x: FlowDraft): string {
-  const o = outcomeOf(x);
-  if (o) return `${OUTCOME_LABEL[o]} · sent ${(x.sent_at ?? '').slice(0, 10)}`;
-  return `${DRAFT_STATUS[x.status] ?? x.status}${x.created_at ? ` · ${x.created_at.slice(0, 10)}` : ''}`;
-}
-
-/** The messages the flow's cycles drafted. FlowWeb never sends them; you copy and send. */
-function DraftsPanel() {
-  const res = useResource(
-    'flow-drafts:neighborhood-activation',
-    () => api.flowDrafts('neighborhood-activation'),
-    ['runs'],
-  );
-  const groups = groupDrafts(res.data?.drafts ?? []);
-  const cliOnly = res.error instanceof ApiError && res.error.status === 403;
-  return (
-    <section className="panel" aria-labelledby="na-drafts">
-      <div className="panel-head">
-        <h2 id="na-drafts">Drafts</h2>
-        <span className="asof">{res.data ? `${groups.ready.length} ready for you` : <AsOf res={res} />}</span>
-      </div>
-      {cliOnly ? (
-        <p className="muted">
-          On this machine, list drafts with <code>pnpm fw supervisor drafts neighborhood-activation</code>.
-          flowweb.app shows them here.
-        </p>
-      ) : (
-        <ResourceView res={res} what="the drafts">
-          {(d) =>
-            d.drafts.length === 0 ? (
-              <p className="muted">No drafts yet. They appear here after the flow runs.</p>
-            ) : (
-              <div className="stack">
-                <DraftGroup
-                  title="Ready for you"
-                  hint="Real people and events. Copy, check and send."
-                  drafts={groups.ready}
-                  openFirst
-                  onChanged={res.reload}
-                  empty="None yet. The next search adds them here."
-                />
-                {groups.templates.length > 0 && (
-                  <Fold
-                    label={`Templates with blanks (${groups.templates.length})`}
-                    hint="The flow could not fill names or places in these"
-                  >
-                    <DraftList drafts={groups.templates} onChanged={res.reload} />
-                  </Fold>
-                )}
-                {groups.sent.length > 0 && (
-                  <Fold
-                    label={`Sent (${groups.sent.length})`}
-                    hint={`${groups.sent.filter((x) => x.replied_at).length} replied`}
-                  >
-                    <DraftList drafts={groups.sent} onChanged={res.reload} />
-                  </Fold>
-                )}
-                {groups.done.length > 0 && (
-                  <Fold label={`Approved or rejected (${groups.done.length})`}>
-                    <DraftList drafts={groups.done} onChanged={res.reload} />
-                  </Fold>
-                )}
-              </div>
-            )
-          }
-        </ResourceView>
-      )}
-    </section>
-  );
-}
-
-function DraftGroup({
-  title,
-  hint,
-  drafts,
-  openFirst = false,
-  onChanged,
-  empty,
-}: {
-  title: string;
-  hint: string;
-  drafts: FlowDraft[];
-  openFirst?: boolean;
-  onChanged: () => void;
-  empty: string;
-}) {
-  return (
-    <div className="draft-group">
-      <h3 className="draft-group-title">
-        {title} <span className="muted">({drafts.length})</span>
-      </h3>
-      <p className="muted draft-group-hint">{hint}</p>
-      {drafts.length === 0 ? (
-        <p className="muted">{empty}</p>
-      ) : (
-        <DraftList drafts={drafts} openFirst={openFirst} onChanged={onChanged} />
-      )}
-    </div>
-  );
-}
-
-function DraftList({
-  drafts,
-  openFirst = false,
-  onChanged,
-}: {
-  drafts: FlowDraft[];
-  openFirst?: boolean;
-  onChanged: () => void;
-}) {
-  return (
-    <ul className="stack drafts-list" aria-label="Drafts">
-      {drafts.map((x, i) => (
-        <li key={x.id}>
-          <Fold label={x.subject ?? 'Untitled draft'} hint={draftHint(x)} open={openFirst && i === 0}>
-            <DraftEditor flow="neighborhood-activation" draft={x} onChanged={onChanged} />
-          </Fold>
-        </li>
-      ))}
-    </ul>
   );
 }

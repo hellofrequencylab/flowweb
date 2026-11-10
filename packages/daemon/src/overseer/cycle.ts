@@ -37,7 +37,7 @@ import { runCredentials } from '../pipeline/credentials.ts';
 import { chooseAdapter } from '../pipeline/route.ts';
 import { killOrphanGroup } from '../reconciler.ts';
 import { draftTag, tagLinks } from './drafts.ts';
-import { handOff } from './index.ts';
+import { handOff, perDayFor } from './index.ts';
 
 const SAFE = /[^A-Za-z0-9_-]/g;
 /** The record of a running cycle's vendor process group (FW-C-045). */
@@ -673,7 +673,9 @@ function runHunts(d: CycleDeps, fire: CycleFire, dir: string, hunts: Hunt[], out
   const p = join(dir, 'leads.json');
   const leads = existsSync(p) ? parseLeads(JSON.parse(readFileSync(p, 'utf8'))) : [];
   const state = f.state as typeof f.state & { hunt_contacts?: HuntContacts };
-  const { kept, counts } = screenLeads({ cfg: f.cfg, state, hunts, leads, now });
+  // FW-C-063: no more new people today than the Owner's intensity (after auto) allows.
+  const perDay = perDayFor(d.writer, d.fwHome, fire.flow, now);
+  const { kept, counts } = screenLeads({ cfg: f.cfg, state, hunts, leads, now, perDay });
   const contacts = { ...(state.hunt_contacts ?? {}) };
   for (const k of kept) {
     const lead = {

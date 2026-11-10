@@ -689,6 +689,44 @@ export const api = {
     return { data_as_of: e.as_of, events: e.data.map(mapEvent) };
   },
 
+  /** FW-C-075: flow cycles and daily digests, which fwd keeps as status reports, not runs. */
+  async flowRuns(): Promise<V.FlowRunList> {
+    const [cycles, digests] = await Promise.all([
+      get<W.WFlowCycleReport[]>(`/status-reports${qs({ kind: 'run', limit: 200 })}`),
+      get<W.WStatusReport[]>(`/status-reports${qs({ kind: 'daily', limit: 30 })}`),
+    ]);
+    const flowRuns: V.FlowRun[] = [
+      ...cycles.data.map((r): V.FlowRun => {
+        const b = r.body ?? {};
+        return {
+          id: r.id,
+          kind: 'cycle',
+          flow: b.flow ?? 'flow',
+          outcome: b.outcome ?? 'unknown',
+          drafts: b.drafts ?? 0,
+          found: (b.hunts ?? []).reduce((n, h) => n + (h.found ?? 0), 0),
+          engine: b.adapter,
+          reason: b.reason,
+          started_at: r.period_from,
+          ended_at: r.period_to,
+        };
+      }),
+      ...digests.data.map(
+        (r): V.FlowRun => ({
+          id: r.id,
+          kind: 'digest',
+          flow: 'digest',
+          outcome: 'published',
+          drafts: 0,
+          found: 0,
+          started_at: r.created_at,
+          ended_at: r.created_at,
+        }),
+      ),
+    ].sort((a, b) => b.started_at.localeCompare(a.started_at));
+    return { data_as_of: [cycles.as_of, digests.as_of].sort()[0], flow_runs: flowRuns };
+  },
+
   async runs(f: { status?: string; row_id?: string } = {}): Promise<V.RunList> {
     const e = await get<W.WRun[]>(`/runs${qs({ status: f.status, row_id: f.row_id, limit: 200 })}`);
     return { data_as_of: e.as_of, runs: e.data.map(mapRun) };
@@ -840,6 +878,17 @@ export const api = {
       'POST',
       `/supervisor/flows/${enc(flow)}/dial`,
       confirm ? { stop, confirm } : { stop },
+      onQueued,
+    ),
+  /** FW-C-063: when the flow runs each morning. */
+  setSchedule: (flow: string, time: string, days: 'daily' | 'weekdays', onQueued?: () => void) =>
+    ownerWrite<unknown>('POST', `/supervisor/flows/${enc(flow)}/schedule`, { time, days }, onQueued),
+  /** FW-C-063: how many new people a day, and whether reply rates may move it within min..max. */
+  setIntensity: (flow: string, i: V.FlowIntensitySetting, onQueued?: () => void) =>
+    ownerWrite<unknown>(
+      'POST',
+      `/supervisor/flows/${enc(flow)}/intensity`,
+      { per_day: i.per_day, auto: i.auto, min: i.min, max: i.max },
       onQueued,
     ),
   /** FW-C-062: pause or resume every flow. */

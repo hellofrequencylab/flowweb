@@ -439,6 +439,29 @@ export interface RunList extends Envelope {
   runs: RunSummary[];
 }
 
+/**
+ * FW-C-075: work a flow did, which fwd records as a status report rather than a run: one flow cycle
+ * (kind run) or one daily digest (kind daily).
+ */
+export interface FlowRun {
+  id: string;
+  kind: 'cycle' | 'digest';
+  /** The flow's key, for example neighborhood-activation; "digest" for the digest. */
+  flow: string;
+  outcome: 'drafted' | 'dry' | 'failed' | 'published' | 'unknown';
+  drafts: number;
+  /** Leads found by the hunts that ran inside this cycle. */
+  found: number;
+  engine?: string;
+  reason?: string;
+  started_at: Iso;
+  ended_at: Iso;
+}
+
+export interface FlowRunList extends Envelope {
+  flow_runs: FlowRun[];
+}
+
 export interface RunDetail extends Envelope {
   run: RunSummary & {
     exit_code?: number | null;
@@ -698,6 +721,25 @@ export type SupervisorGate =
 /** FW-C-035: Draft only drafts; Copilot acts after your OK; Autopilot hands off to a sender outside Core. */
 export type SupervisorDial = 'draft' | 'copilot' | 'autopilot';
 
+/** FW-C-063: a flow's morning run. time and days are null when the cron is not a simple daily one. */
+export interface FlowSchedule {
+  time: string | null;
+  days: 'daily' | 'weekdays' | null;
+  cron: string;
+  timezone: string;
+}
+
+/** FW-C-063: how many new people a flow reaches a day. */
+export interface FlowIntensitySetting {
+  per_day: number;
+  auto: boolean;
+  min: number;
+  max: number;
+}
+export interface FlowIntensity extends FlowIntensitySetting {
+  today: { per_day: number; why: string };
+}
+
 export interface SupervisorFlow {
   key: string;
   name: string;
@@ -715,6 +757,10 @@ export interface SupervisorFlow {
     spent_usd: number | null;
     used_turns: number | null;
   } | null;
+  /** FW-C-063: when the flow's stream fires. Missing from a fwd older than FW-C-063. */
+  schedule?: FlowSchedule | null;
+  /** FW-C-063: new people a day, and today's number after Adjust from replies. */
+  intensity?: FlowIntensity;
 }
 
 export interface Supervisor extends Envelope {

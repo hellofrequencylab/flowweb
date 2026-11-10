@@ -1,6 +1,8 @@
 import type { CSSProperties, ReactNode } from 'react';
-import type { ActivationMeasures, ActivationTerritory } from '../api/types';
+import type { ActivationMeasures, ActivationTerritory, FlowDraft } from '../api/types';
 import { Gauge, type Hue, hueAt, Legend, ShareBar, type Slice } from '../ui-kit/flow';
+import { Icon } from '../ui-kit/Icon';
+import { type DraftState, draftsPerDay } from './drafts';
 
 const pct = (x: number) => `${Math.round(x * 100)}%`;
 const num = (n: number) => n.toLocaleString('en-US');
@@ -170,6 +172,74 @@ export function PipelineBar({
         label={`${label}: ${slices.map((s) => `${s.label} ${s.value}`).join(', ')}. ${total} in all.`}
       />
       <Legend slices={slices} />
+    </div>
+  );
+}
+
+/* -------------------------------------------------------------- Drafts (FW-C-066) */
+
+/** The tone class for each draft state word. Saffron (waiting) only for drafts that wait on the Owner. */
+export const TONE: Record<DraftState, string> = {
+  Ready: 'waiting',
+  'Has blanks': 'caution',
+  Sent: 'sent',
+  Replied: 'replied',
+  'Said no': 'quiet',
+  Approved: 'approved',
+  Rejected: 'quiet',
+};
+
+export function StatePill({ s }: { s: DraftState }) {
+  return (
+    <span className={`draft-state is-${TONE[s]}`}>
+      <span className="draft-state-dot" aria-hidden="true" />
+      {s}
+    </span>
+  );
+}
+
+/** Drafts written each day for two weeks, as small bars. Still: it shows what happened, not a live process. */
+export function DraftBars({ drafts }: { drafts: FlowDraft[] }) {
+  const days = draftsPerDay(drafts);
+  const max = Math.max(1, ...days);
+  const total = days.reduce((a, b) => a + b, 0);
+  return (
+    <figure className="draft-bars" aria-label={`${total} drafts written in the last 14 days`}>
+      <svg viewBox="0 0 140 32" preserveAspectRatio="none" aria-hidden="true">
+        {days
+          .map((n, i) => ({ n, x: i * 10 + 1, h: n === 0 ? 2 : 4 + (n / max) * 28 }))
+          .map((bar) => (
+            <rect
+              key={`x${bar.x}`}
+              className={bar.n === 0 ? 'is-empty' : undefined}
+              x={bar.x}
+              y={32 - bar.h}
+              width="7"
+              height={bar.h}
+              rx="2"
+            />
+          ))}
+      </svg>
+      <figcaption>
+        <strong>{total}</strong> written in 14 days
+      </figcaption>
+    </figure>
+  );
+}
+
+/** How the sent ones are doing: a soft meter of replies against sends. */
+export function ReplyMeter({ drafts }: { drafts: FlowDraft[] }) {
+  const sent = drafts.filter((d) => d.sent_at).length;
+  const replied = drafts.filter((d) => d.replied_at).length;
+  const share = sent ? replied / sent : 0;
+  return (
+    <div className="reply-meter" role="img" aria-label={`${replied} of ${sent} sent drafts got a reply`}>
+      <span className="reply-meter-track" aria-hidden="true">
+        <span className="reply-meter-fill" style={{ width: `${Math.round(share * 100)}%` }} />
+      </span>
+      <span className="reply-meter-text">
+        <Icon name="send" size={13} /> {sent} sent <Icon name="reply" size={13} /> {replied} replied
+      </span>
     </div>
   );
 }

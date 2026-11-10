@@ -51,3 +51,11 @@ Each one is queued in `fw_requests` and applied on the Owner's machine by the re
 exactly like draft edits. Autopilot, the kill switch, budgets and policy are never queued. Apply
 `supabase/migrations/0004_flowweb_flow_controls.sql` once in the Supabase SQL editor first; until then
 the database refuses the new kinds and the site says it could not queue the change.
+
+## Morning run time and people a day (FW-C-063)
+
+Under Controls on the Flows page, each flow has a run time (Every day or Weekdays) and a number of new
+people a day, with an "Adjust from replies" switch that lets the last 14 days of results move it within
+the min and max. From the site these queue `flow.schedule` and `flow.intensity`, which the relay applies
+through fwd. Apply `supabase/migrations/0005_flowweb_morning_intensity.sql` once in the Supabase SQL
+editor first; until then the database refuses the two kinds.
