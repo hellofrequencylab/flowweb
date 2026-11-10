@@ -4,7 +4,7 @@
     "profile": "core",
     "schema": "ledger-row/1",
     "generated": "2026-11-09",
-    "row_count": 101,
+    "row_count": 110,
     "conventions": {
       "verify_probe": "Same convention as 04-build-plan/backlog.json: 'pnpm probe <path>' runs probes/<path>.probe.ts, a Tier 0 file written before the implementation row starts and never edited by the agent doing the row. Every probe fails today because its target does not exist (a missing probe file exits 2, a missing behaviour exits 1). The probe pack for a milestone is committed by the Owner or a pair session before the milestone's rows start.",
       "status": "All rows start as open. Status lives only in the ledger database (imported with fw ledger sync), never in prose.",
@@ -28,7 +28,7 @@
       }
     },
     "full_plan_rows_included": 37,
-    "new_core_rows": 64
+    "new_core_rows": 73
   },
   "rows": [
     {
@@ -566,7 +566,7 @@
       "description": "Chain each event to the hash of the previous one and add fw audit verify that walks the chain and reports the first broken link.",
       "acceptance": [
         "Flipping one byte in a stored payload makes verify fail naming the sequence number",
-        "Verify of 100k events completes in under 5 s",
+        "Verify of 100k events completes in under 8 s",
         "Chain head can be exported for external anchoring"
       ],
       "verify_probe": "pnpm probe security/audit-chain",
@@ -3547,6 +3547,331 @@
         "packages/web/src/ui-kit/Icon.tsx",
         "packages/web/test/",
         "packages/web/mock/"
+      ],
+      "origin": "new Core row"
+    },
+    {
+      "id": "FW-C-075",
+      "title": "The Runs page shows the flow runs that actually happen: each flow cycle and the daily digest, counted in the last 24 hours",
+      "core_milestone": "C1",
+      "phase": 1,
+      "epic": "C1.5 First flow",
+      "priority": "P1",
+      "size": "M",
+      "lane": "workstreams",
+      "agent_suitability": "agent",
+      "gate": "none",
+      "depends_on": [
+        "FW-C-038"
+      ],
+      "description": "On the Owner's machine the Runs page and flowweb.app/runs say 0 runs and 'No runs started in the last 24 hours' while the neighborhood activation flow ran ten cycles that day, its lead hunt ran inside one, and the daily digest published. The Runs page only reads GET /v1/runs, which lists ledger-row agent runs (work orders); a flow cycle is recorded by fwd as a status report of kind 'run' (body: stream_id, flow, fire_id, adapter, outcome drafted | dry | failed, drafts, hunts, reason) and the digest as a status report of kind 'daily', so neither ever reaches the page. Both are already served by GET /v1/status-reports?kind= and copied to the hosted mirror. The Runs page also reads those two kinds and shows them as flow runs: a 'Flow runs' section listing each one with its flow, what it did (Drafted with the number of drafts, Nothing drafted, Failed with the reason, Published for the digest), leads found by any hunt, the engine, when it started and how long it took. The 'Last 24 hours' panel and the summary count include them, so the page never says no runs happened when flows ran. Agent runs are shown as before. No fwd, schema or mirror change.",
+      "acceptance": [
+        "With no agent runs and three flow reports in the last 24 hours, the Last 24 hours panel counts 3 runs and does not say no runs started",
+        "A 'Flow runs' section lists every flow cycle and digest report with Drafted and the number of drafts, Nothing drafted, Failed with its reason, Published, and leads found by a hunt",
+        "The summary count includes flow runs",
+        "Agent runs from GET /v1/runs still show in the runs table"
+      ],
+      "verify_probe": "pnpm probe flows/runs-page-flows",
+      "files_hint": [
+        "packages/web/src/runs/RunsPage.tsx",
+        "packages/web/src/runs/RunsTimeline.tsx",
+        "packages/web/src/runs/FlowRuns.tsx",
+        "packages/web/src/api/client.ts",
+        "packages/web/src/api/types.ts",
+        "packages/web/src/api/wire.ts",
+        "packages/web/src/ui-kit/base.css",
+        "packages/web/test/"
+      ],
+      "origin": "new Core row"
+    },
+    {
+      "id": "FW-C-069",
+      "title": "The home page answers what to do now: drafts ready, decisions waiting, the open region's progress and each flow's state, problems first",
+      "core_milestone": "C2",
+      "phase": 4,
+      "epic": "C2.2 Daily screens",
+      "priority": "P1",
+      "size": "M",
+      "lane": "ui",
+      "agent_suitability": "agent",
+      "gate": "none",
+      "depends_on": [
+        "FW-C-024",
+        "FW-C-062"
+      ],
+      "description": "The home page (/, the Console) is a build tracker: lanes, every change in flight, rows landed, rows watching, integrity and a run outcomes donut. The Owner opens it to learn what to do next and has to read it all to find out. Make it a Today summary that answers that in about five seconds. First any problem (fwd unreachable, kill switch, budget pause or breaker). Then a Today block: how many drafts are ready to send across the flows (from each flow's drafts) and how many decisions are waiting (open cards), each a link to where the Owner acts on them; the open region's progress toward each of its targets, from GET /v1/flows/neighborhood-activation; and each flow from GET /v1/supervisor with its state word (Running, Ready, Held) and, when held, its one reason. Today's digest headline stays as one line. Anything fwd did not answer reads Unknown, never zero. Move the build-tracker sections into an exported dawn/BuildOverview.tsx so another page can mount it. api.dawn() keeps its shape.",
+      "acceptance": [
+        "The home page shows the number of drafts ready to send and of decisions waiting, each as a link to where they are worked",
+        "The home page shows the open region's name and each of its measures as a value of its target, and Unknown when fwd has no measures",
+        "The home page lists every flow with Running, Ready or Held and, when held, its reason",
+        "With the kill switch engaged or the budget pause on, the problem shows before the Today summary",
+        "With fwd unreachable the page says so and the counts read Unknown, not zero",
+        "The build-tracker sections are not on the home page; dawn/BuildOverview.tsx exports BuildOverview, which shows them; the digest headline shows once"
+      ],
+      "verify_probe": "pnpm probe ui/today",
+      "files_hint": [
+        "packages/web/src/dawn/",
+        "packages/web/src/ui-kit/base.css",
+        "packages/web/test/",
+        "packages/web/mock/"
+      ],
+      "origin": "new Core row"
+    },
+    {
+      "id": "FW-C-065",
+      "title": "Every email lead a flow drafts to can be followed in Frequency's CRM, from draft to signed up or said no",
+      "core_milestone": "C1",
+      "phase": 1,
+      "epic": "C1.5 First flow",
+      "priority": "P1",
+      "size": "M",
+      "lane": "workstreams",
+      "agent_suitability": "agent",
+      "gate": "none",
+      "depends_on": [
+        "FW-C-054",
+        "FW-C-055"
+      ],
+      "description": "The Owner sends hunt drafts by hand and marks them sent, replied or said no, but Frequency only learns counts per draft (FW-C-055), so a lead cannot be opened in Frequency's CRM to see what was said and where it stands. Frequency now takes one draft's state at /api/webhooks/flowweb-crm (frequency-web LIVE-2256), signed like the outcomes pull, and keeps one contact and one conversation per lead. Make fwd post each email draft's state there: soon after start and daily with the outcomes pull, right after each mark, and on POST /v1/flows/neighborhood-activation/crm/sync. Only drafts to an email address are posted, never a form or social draft and never a draft rejected without being sent; a draft whose marks have not changed since its last good sync is not posted again the same day. Write Frequency's answer onto the draft as crm { status, at, lead_status, signed_up, conversation_url, error } and show it in GET /v1/supervisor/flows/{key}/drafts. A Frequency that is down never fails a mark. Nothing is sent to the lead.",
+      "acceptance": [
+        "Soon after start fwd posts each email draft, signed with crd_frequencyoutcomes, and records crm synced with Frequency's lead_status and conversation_url",
+        "Form and social drafts, and drafts rejected without being sent, are never posted",
+        "A sync with nothing changed posts nothing; a mark posts the draft again with the new mark",
+        "GET .../drafts shows crm on each draft",
+        "With Frequency down a mark still answers 200 and the draft records crm failed"
+      ],
+      "verify_probe": "pnpm probe flows/crm-sync",
+      "files_hint": [
+        "packages/daemon/src/flows/crm.ts",
+        "packages/daemon/src/api/routes.ts",
+        "packages/daemon/src/daemon.ts",
+        "packages/daemon/src/overseer/drafts.ts",
+        "packages/daemon/test/"
+      ],
+      "origin": "new Core row"
+    },
+    {
+      "id": "FW-C-073",
+      "title": "On flowweb.app a button that only works on the Owner's Mac says so before it is pressed, instead of failing after",
+      "core_milestone": "C2",
+      "phase": 4,
+      "epic": "C2.2 Daily screens",
+      "priority": "P1",
+      "size": "M",
+      "lane": "ui",
+      "agent_suitability": "agent",
+      "gate": "none",
+      "depends_on": [
+        "FW-C-062"
+      ],
+      "description": "The hosted site (flowweb.app) is a mirror of fwd. Some writes there are queued to the Owner's Mac (draft changes, flow controls, hunts), but the rest answer 501 from api/v1.mjs because only fwd on the Mac can make them: the kill switch and its release, approving, denying or answering a card. Today those buttons look live on the site; the Owner presses one and only then reads 'fwd does not support this yet'. The kill switch is worse: holding Stop for 1.5 seconds ends in a refusal, and Settings on the site hides the kill switch entirely. The diff of an evidence bundle never leaves the Mac either, so the site asks for it, gets a 404 and offers a Retry that can never work. Add a macOnly prop to the Button in packages/web/src/ui-kit/Button.tsx: on the hosted site (HOSTED from packages/web/src/hosted/auth.ts) the button is disabled and its reason, 'Only on your Mac', is shown next to it and linked with aria-describedby; on the Mac it is an ordinary button. Use it for the kill switch (the big Stop everything button, Release and the release dialog), so the site never starts a hold or sends a stop, and the top-bar Stop only opens the kill switch dialog there. Settings on the site shows the kill switch too, locked the same way. The evidence view on the site says the diff is only on your Mac and does not request it. Approve, deny and answer on cards are table/CardView.tsx and are a separate change that uses this same prop. On the Mac nothing changes.",
+      "acceptance": [
+        "On the site, a Button with macOnly is disabled and described by 'Only on your Mac'; pressing it does nothing",
+        "On the Mac, a Button with macOnly is an ordinary enabled button",
+        "On the site the kill switch's Stop everything is locked with that reason and holding the top-bar Stop never sends a stop",
+        "On the site, Release on a stopped kill switch is locked with that reason",
+        "Settings on the site shows the kill switch, locked with that reason",
+        "On the site the evidence view says the diff is only on your Mac and never requests it",
+        "On the Mac the kill switch still stops everything"
+      ],
+      "verify_probe": "pnpm probe ui/mac-only",
+      "files_hint": [
+        "packages/web/src/ui-kit/Button.tsx",
+        "packages/web/src/ui-kit/base.css",
+        "packages/web/src/shell/KillSwitch.tsx",
+        "packages/web/src/settings/SettingsPage.tsx",
+        "packages/web/src/evidence/EvidenceView.tsx",
+        "packages/web/src/evidence/EvidencePage.tsx",
+        "packages/web/test/"
+      ],
+      "origin": "new Core row"
+    },
+    {
+      "id": "FW-C-067",
+      "title": "The Owner finds everything in four pages with plain names: Today, Inbox, Growth and Under the hood",
+      "core_milestone": "C2",
+      "phase": 4,
+      "epic": "C2.1 API and shell",
+      "priority": "P1",
+      "size": "M",
+      "lane": "web",
+      "agent_suitability": "agent",
+      "gate": "none",
+      "depends_on": [
+        "FW-C-019"
+      ],
+      "description": "The nav names six pages (Console, Sign-offs, Logs, Runs, Spend, Flows) that mix two jobs: growing Frequency and tracking agent code work. The Owner asked for something stupid simple. Rename the nav to four pages: Today (/), Inbox (/inbox, the decision cards), Growth (/growth, the flows) and Under the hood (/hood, with tabs for Logs, Runs, Projects and Spend). Settings stays behind the gear. On phones the tab bar is Today, Inbox, Growth and More, and More links Under the hood, Get started and Settings. Old addresses (/table, /flows, /ledger, /runs, /spend, /projects) keep rendering their pages and light the new tab, because links and probes use them. One routeOf(path) names the page each address shows, and Layout uses it. Pages keep their content; only names, routes and the Under the hood tabs change.",
+      "acceptance": [
+        "The top nav links Today, Inbox, Growth and Under the hood, in that order, with none of the old names",
+        "Old addresses render their pages and light the new tab",
+        "The phone tab bar is Today, Inbox, Growth and More; More links Under the hood, Get started and Settings",
+        "Under the hood shows tabs for Logs, Runs, Projects and Spend, the current one marked",
+        "routeOf names one page per address and Layout picks its page with it"
+      ],
+      "verify_probe": "pnpm probe ui/clear-nav",
+      "files_hint": [
+        "packages/web/src/shell/Nav.tsx",
+        "packages/web/src/shell/Layout.tsx",
+        "packages/web/src/shell/routes.ts",
+        "packages/web/src/shell/StatusStrip.tsx",
+        "packages/web/src/shell/Footer.tsx",
+        "packages/web/src/hood/",
+        "packages/web/src/table/TablePage.tsx",
+        "packages/web/src/table/CardView.tsx",
+        "packages/web/src/shell/ShortcutSheet.tsx",
+        "packages/web/src/ui-kit/base.css",
+        "packages/web/test/"
+      ],
+      "origin": "new Core row"
+    },
+    {
+      "id": "FW-C-070",
+      "title": "The Owner reads the Flows page as a daily growth view: one controls table, Paid ads as its own chapter, admin on its own page",
+      "core_milestone": "C1",
+      "phase": 1,
+      "epic": "C1.5 First flow",
+      "priority": "P1",
+      "size": "L",
+      "lane": "workstreams",
+      "agent_suitability": "agent",
+      "gate": "none",
+      "depends_on": [
+        "FW-C-062",
+        "FW-C-066"
+      ],
+      "description": "The Flows page asks one question twice and mixes the daily view with admin. Flow controls and the Supervisor table both list every flow with whether it runs and why; Paid ads, its own flow, sits inside the activation flow's Reach chapter; and CSV uploads, opening a region, activation targets, raw JSON config and the admin log sit at the bottom of the page the Owner reads every morning. Merge the Supervisor table into FlowControls: one row per flow, a group named after the flow, holding its on/off button, Run now, the dial and the one gate word that says why it is or is not running, and delete SupervisorPanel. Move FlowAdmin off the Flows page into a new AdminPage exported from packages/web/src/flows, reached by a link to /growth/admin. Give Paid ads its own chapter. Delete the unrouted FlowPage. Nothing here changes what fwd does.",
+      "acceptance": [
+        "SupervisorPanel is gone and the Flows page does not render it",
+        "Each flow's row in FlowControls is a group named after the flow with its gate word, on/off, Run now and dial; the kill switch shows in the row as its gate word; an unknown spend reads Unknown, never zero",
+        "The Flows page does not render FlowAdmin and links to /growth/admin; packages/web/src/flows exports AdminPage, which shows the uploads, Open the next region, Activation targets, Edit raw config and Admin log panels",
+        "Paid ads is its own chapter on the Flows page, not inside Reach",
+        "FlowPage.tsx is deleted"
+      ],
+      "verify_probe": "pnpm probe flows/growth-page",
+      "files_hint": [
+        "packages/web/src/flows/",
+        "packages/web/test/supervisor.test.tsx"
+      ],
+      "origin": "new Core row"
+    },
+    {
+      "id": "FW-C-071",
+      "title": "Copilot and Autopilot are only offered when a sender on the Owner's Mac reads the outbox; without one, approving becomes Copy and send",
+      "core_milestone": "C1",
+      "phase": 1,
+      "epic": "C1.5 First flow",
+      "priority": "P1",
+      "size": "L",
+      "lane": "workstreams",
+      "agent_suitability": "agent",
+      "gate": "owner-approval",
+      "depends_on": [
+        "FW-C-062",
+        "FW-C-066"
+      ],
+      "description": "Copilot says approved drafts go to your sending app and Autopilot hands finished drafts to it, but the Owner chose drafts only and has no sender installed (senders/email.mjs), so Approve drops a draft into an outbox that nothing reads and the dial promises something that does not happen. The sender writes a heartbeat at the end of every pass that loaded its settings: $FW_HOME/senders/email/last-pass.json { at, ok, sent }. A pass that cannot load its settings writes none. fwd reads it and reports sender { installed, last_pass_at } on GET /v1/status and at the top of GET /v1/supervisor; installed is true only when the last pass was in the last 24 hours, and last_pass_at is shown even when it is older. The hosted relay copies both answers as they are, so flowweb.app sees the same. A move to Copilot or Autopilot queued from flowweb.app with no installed sender is refused by the relay on the Owner's Mac (senderHold in hosted/server/requests.mjs gives the reason, which names the sender) and never reaches fwd; Draft is always allowed. fw supervisor dial in the Owner's terminal still works, because that is a deliberate choice at the Mac and several earlier probes set the dial that way. On the Flows page, with no installed sender, the Copilot and Autopilot stops are disabled with the reason 'Needs a sender on your Mac' and a link to the steps in senders/README.md, and a ready draft shows Copy and send instead of Approve: it copies the subject and text so the Owner sends it from his own mail, then marks it sent. With a sender installed everything is as before. Nothing here sends anything, adds a sender or widens what one may send; Resend is never used for outreach.",
+      "acceptance": [
+        "A sender pass that loads its settings writes $FW_HOME/senders/email/last-pass.json with the time of the pass; a pass with no settings writes none",
+        "GET /v1/status and GET /v1/supervisor report sender { installed, last_pass_at }: not installed with no heartbeat or one older than 24 hours, installed with a fresh one",
+        "A site request to move the dial to Copilot or Autopilot with no installed sender is held with a reason naming the sender, and the relay never calls fwd for it; Draft and other requests are not held",
+        "On the Flows page with no installed sender the Copilot and Autopilot stops are disabled and say Needs a sender on your Mac with a link to the sender steps; with one they are enabled",
+        "With no installed sender a ready draft shows Copy and send, which copies its subject and text and approves nothing; with one it shows Approve"
+      ],
+      "verify_probe": "pnpm probe flows/sender-honest",
+      "files_hint": [
+        "senders/email.mjs",
+        "senders/README.md",
+        "packages/daemon/src/overseer/sender.ts",
+        "packages/daemon/src/overseer/index.ts",
+        "packages/daemon/src/api/status.ts",
+        "packages/daemon/src/api/routes.ts",
+        "packages/daemon/src/local-client.ts",
+        "packages/daemon/test/",
+        "packages/web/src/api/types.ts",
+        "packages/web/src/api/wire.ts",
+        "packages/web/src/api/client.ts",
+        "packages/web/src/flows/FlowControls.tsx",
+        "packages/web/src/flows/DraftEditor.tsx",
+        "packages/web/src/flows/DraftsInbox.tsx",
+        "packages/web/test/",
+        "hosted/README.md",
+        "docs/api/LOCAL-API-V1.md",
+        "hosted/server/requests.mjs",
+        "hosted/relay/fw-relay.mjs",
+        "hosted/test/"
+      ],
+      "origin": "new Core row"
+    },
+    {
+      "id": "FW-C-072",
+      "title": "The Owner sees what's working from the flow's weekly review: the best and worst source, hunt, funnel, sub-area and message angle, in a few plain lines",
+      "core_milestone": "C1",
+      "phase": 1,
+      "epic": "C1.5 First flow",
+      "priority": "P1",
+      "size": "L",
+      "lane": "workstreams",
+      "agent_suitability": "agent",
+      "gate": "none",
+      "depends_on": [
+        "FW-C-056"
+      ],
+      "description": "The weekly review (FW-C-056) writes review.json with a scorecard per hunt and a few learnings lines, but no page shows it: the Owner cannot see which hunts, sources or funnels draw replies without reading files. The review also scores only hunts, while the Owner asked which source, funnel, sub-area and message angle work too. The review now also scores its sent drafts by source (the draft's source, or the host of its source_url), hunt, funnel (the draft's funnel, its template:<funnel> lead, or for a hunt draft host or claim page), sub-area (the draft's sub_area, or the hunt's one area) and message angle (the draft's angle): sent, replied and signed up (a member or host on the draft's tag) per value. fwd answers GET /v1/flows/{key}/review/summary with the latest review's week, the reply and signup rates with their sample sizes across the flow, and per dimension the best and worst value among those with at least 8 sent, whether any value met that minimum sample, and whether the dimension is tracked at all; plus the review's learnings. It answers state none before any review and thin when no value has 8 sent. The hosted relay copies it so flowweb.app shows it. A WhatsWorking component in packages/web/src/flows shows it as three or four plain lines, such as \"Best hunt: Sound baths, 6 of 12 replied\", and says so honestly when there is no review yet, when the sample is too small, and which dimensions are not tracked yet. The Growth page mounts it (another row). Nothing here changes a hunt, a cap or the dial.",
+      "acceptance": [
+        "GET /v1/flows/{key}/review/summary answers state none before the first review, and 404 for a flow that does not exist",
+        "With fewer than 8 sent for every value it answers state thin, sample_ok false and no best value",
+        "After a review with enough sent it answers state ready, the review's at and ISO week, flow totals with reply and signup rates, and per dimension (source, hunt, funnel, sub_area, angle) the best and worst value with sent, replied and signups",
+        "The hosted relay snapshot carries each flow's review summary",
+        "WhatsWorking shows the best lines with counts, and says when there is no review yet, when the sample is too small, and which dimensions are not tracked yet"
+      ],
+      "verify_probe": "pnpm probe flows/whats-working",
+      "files_hint": [
+        "packages/daemon/src/flows/review.ts",
+        "packages/daemon/src/flows/review-summary.ts",
+        "packages/daemon/src/api/routes.ts",
+        "packages/daemon/test/",
+        "packages/web/src/flows/WhatsWorking.tsx",
+        "packages/web/src/flows/index.ts",
+        "packages/web/src/api/client.ts",
+        "packages/web/src/api/types.ts",
+        "packages/web/src/ui-kit/flow.css",
+        "packages/web/test/",
+        "packages/web/mock/",
+        "hosted/relay/fw-relay.mjs"
+      ],
+      "origin": "new Core row"
+    },
+    {
+      "id": "FW-C-068",
+      "title": "The Owner sees everything waiting on them in one Inbox: the messages to send and the decisions, with one count",
+      "core_milestone": "C2",
+      "phase": 4,
+      "epic": "C2.2 Daily screens",
+      "priority": "P1",
+      "size": "M",
+      "lane": "web",
+      "agent_suitability": "agent",
+      "gate": "none",
+      "depends_on": [
+        "FW-C-066"
+      ],
+      "description": "What needs the Owner is split in two. The decision cards (merges, open the next region) are on Sign-offs with a saffron count, and the drafted messages they actually send every day sit on the Flows page and are not in that count. Make the Inbox the one place: a 'Messages to send' section with the flow's DraftsInbox, and a 'Decisions' section with the card queue, which says 'No decisions waiting' when there are none. The page says how many of each wait ('2 messages to send and 1 decision waiting on you'); a ready message is a draft with no blanks left that is not sent or handled. The nav's Inbox count, the top bar's 'needs you' pill and the tab title count open decisions plus ready messages. Unknown counts are left out, never shown as zero. Nothing here sends anything.",
+      "acceptance": [
+        "The Inbox page has a Messages to send section with the flow's drafts and a Decisions section with the open cards",
+        "The page says how many messages and decisions are waiting",
+        "With no open cards the Decisions section says No decisions waiting and the messages still show",
+        "The nav's Inbox count is open decisions plus ready messages"
+      ],
+      "verify_probe": "pnpm probe ui/inbox",
+      "files_hint": [
+        "packages/web/src/table/TablePage.tsx",
+        "packages/web/src/table/waiting.ts",
+        "packages/web/src/table/CardView.tsx",
+        "packages/web/src/shell/Nav.tsx",
+        "packages/web/src/shell/StatusStrip.tsx",
+        "packages/web/src/shell/Layout.tsx",
+        "packages/web/src/ui-kit/base.css",
+        "packages/web/test/"
       ],
       "origin": "new Core row"
     },

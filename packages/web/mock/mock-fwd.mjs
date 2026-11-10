@@ -30,6 +30,28 @@ const PAIR_CODE = '424242';
 const backlog = JSON.parse(readFileSync(join(here, 'fixtures/backlog.json'), 'utf8'));
 const flowFixture = JSON.parse(readFileSync(join(here, 'fixtures/flow-local-saturation.json'), 'utf8'));
 const adsFixture = JSON.parse(readFileSync(join(here, 'fixtures/flow-paid-ads.json'), 'utf8'));
+/** FW-C-069: drafts for the home page's "ready to send" count: two ready, one with a blank, one sent. */
+function mockDrafts(flow) {
+  if (flow !== 'neighborhood-activation') return [];
+  const d = (id, subject, body, over = {}) => ({
+    id,
+    fire_id: 'fire_mock',
+    lead_id: `lead:${id}`,
+    channel: 'founder_email',
+    subject,
+    body,
+    status: 'waiting_for_owner',
+    created_at: new Date(Date.now() - 3600_000).toISOString(),
+    ...over,
+  });
+  return [
+    d('dr_1', 'Host a night at Front Porch Gallery?', 'Hi Front Porch Gallery team, ...'),
+    d('dr_2', 'A Frequency circle in Carlsbad', 'Hi Carlsbad Makers, ...'),
+    d('dr_3', 'A note for {{venue_name}}', 'Hi {{venue_name}}, ...'),
+    d('dr_4', 'Following up', 'Hi Old Town Garden Club, ...', { sent_at: new Date().toISOString() }),
+  ];
+}
+
 const supervisorFixture = JSON.parse(readFileSync(join(here, 'fixtures/supervisor.json'), 'utf8'));
 const activationFixture = withFunnels(
   JSON.parse(readFileSync(join(here, 'fixtures/flow-neighborhood-activation.json'), 'utf8')),
@@ -1127,6 +1149,8 @@ const server = createServer(async (req, res) => {
     if (route === '/flows/local-saturation') return send(res, 200, envelope(flowFixture));
     if (route === '/flows/neighborhood-activation') return send(res, 200, envelope(activationFixture));
     if (route === '/flows/paid-ads') return send(res, 200, envelope(adsFixture));
+    // FW-C-069: a few drafts per flow so the home page can count the ones ready to send.
+    if (at(/^\/supervisor\/flows\/([^/]+)\/drafts$/)) return send(res, 200, envelope(mockDrafts(m[1])));
     if (route === '/policy')
       return send(
         res,

@@ -1,8 +1,10 @@
 import { type ReactNode, useEffect, useState } from 'react';
 import { useLive } from '../api/live';
+import { BuildOverview } from '../dawn/BuildOverview';
 import { DawnLog } from '../dawn/DawnLog';
 import { EvidencePage } from '../evidence/EvidencePage';
 import { ActivationPage } from '../flows/ActivationPage';
+import { HoodTabs } from '../hood';
 import { LedgerPage } from '../ledger/LedgerPage';
 import { RowPage } from '../ledger/RowPage';
 import { ProjectsPage } from '../projects/ProjectsPage';
@@ -12,15 +14,27 @@ import { SettingsPage } from '../settings/SettingsPage';
 import { SetupNudge, SetupPage } from '../setup/SetupPage';
 import { SpendPage } from '../spend/SpendPage';
 import { TablePage } from '../table/TablePage';
+import { PageHead } from '../ui-kit/page';
 import { Footer } from './Footer';
 import { GlobalBanner } from './GlobalBanner';
 import { KillDialog } from './KillSwitch';
 import { chord, chordPending, useKeys } from './keys';
 import { BottomNav, MorePage } from './Nav';
 import { usePrefs } from './prefs';
-import { match, useRouter } from './router';
+import { useRouter } from './router';
+import { paramOf, routeOf } from './routes';
 import { ShortcutSheet } from './ShortcutSheet';
 import { StatusStrip } from './StatusStrip';
+
+/** A page under the hood, with the tabs that move between Logs, Runs, Projects and Spend. */
+function hood(page: ReactNode) {
+  return (
+    <>
+      <HoodTabs />
+      {page}
+    </>
+  );
+}
 
 export function Layout({ pairedAt, onSignedOut }: { pairedAt: string; onSignedOut: () => void }) {
   const { loc, go } = useRouter();
@@ -51,7 +65,7 @@ export function Layout({ pairedAt, onSignedOut }: { pairedAt: string; onSignedOu
         chord.gAt = Date.now();
       },
       h: () => nav('/'),
-      t: () => nav('/table'),
+      t: () => nav('/inbox'),
       l: () => nav('/ledger'),
       r: () => nav('/runs'),
       s: () => nav('/spend'),
@@ -64,39 +78,64 @@ export function Layout({ pairedAt, onSignedOut }: { pairedAt: string; onSignedOu
   const page = pageFor(loc.path);
 
   function pageFor(p: string): ReactNode {
-    if (p === '/')
-      return (
-        <>
-          <SetupNudge />
-          <DawnLog />
-        </>
-      );
-    if (p === '/setup') return <SetupPage />;
-    if (p === '/table') return <TablePage />;
-    const card = match('/table/:card', p);
-    if (card) return <TablePage cardId={card.card} />;
-    const evidence = match('/evidence/:id', p);
-    if (evidence) return <EvidencePage id={evidence.id} />;
-    if (p === '/projects') return <ProjectsPage />;
-    if (p === '/ledger') return <LedgerPage />;
-    const row = match('/ledger/:id', p);
-    if (row) return <RowPage id={row.id} />;
-    if (p === '/runs') return <RunsPage />;
-    const run = match('/runs/:id', p);
-    if (run) return <RunPage id={run.id} />;
-    if (p === '/spend') return <SpendPage />;
-    if (p === '/flows') return <ActivationPage />;
-    if (p === '/settings')
-      return (
-        <SettingsPage pairedAt={pairedAt} onSignedOut={onSignedOut} onOpenKill={() => setKillOpen(true)} />
-      );
-    if (p === '/more') return <MorePage />;
-    return (
-      <header className="page-head">
-        <h1 tabIndex={-1}>Not found</h1>
-        <p className="lede">There is no page at {p}.</p>
-      </header>
-    );
+    const id = paramOf(p);
+    switch (routeOf(p)) {
+      case 'today':
+        return (
+          <>
+            <SetupNudge />
+            <DawnLog />
+          </>
+        );
+      case 'setup':
+        return <SetupPage />;
+      case 'inbox':
+        return <TablePage />;
+      case 'card':
+        return <TablePage cardId={id} />;
+      case 'evidence':
+        return <EvidencePage id={id} />;
+      case 'growth':
+        return <ActivationPage />;
+      case 'logs':
+        // /hood opens on the build overview (lanes, what landed, integrity); /ledger is every row.
+        return hood(
+          p === '/hood' ? (
+            <>
+              <PageHead
+                title="Under the hood"
+                lede="The agent work behind the growth: what is building, what landed, and whether the record is intact."
+              />
+              <BuildOverview />
+            </>
+          ) : (
+            <LedgerPage />
+          ),
+        );
+      case 'row':
+        return hood(<RowPage id={id} />);
+      case 'runs':
+        return hood(<RunsPage />);
+      case 'run':
+        return hood(<RunPage id={id} />);
+      case 'projects':
+        return hood(<ProjectsPage />);
+      case 'spend':
+        return hood(<SpendPage />);
+      case 'settings':
+        return (
+          <SettingsPage pairedAt={pairedAt} onSignedOut={onSignedOut} onOpenKill={() => setKillOpen(true)} />
+        );
+      case 'more':
+        return <MorePage />;
+      default:
+        return (
+          <header className="page-head">
+            <h1 tabIndex={-1}>Not found</h1>
+            <p className="lede">There is no page at {p}.</p>
+          </header>
+        );
+    }
   }
 
   return (

@@ -4,7 +4,8 @@
 // on a break) and openStore to append events.
 // Acceptance:
 //   - flipping one byte in a stored payload makes verify fail naming the sequence number
-//   - verify of 100k events completes in under 5 s (wall clock of the fw command)
+//   - verify of 100k events completes in under 8 s (wall clock of the fw command; the Owner set 8 s on
+//     2026-11-10 because the x86_64 Mac takes about 6.3 s; Linux takes about 2 s)
 //   - the chain head can be exported for external anchoring: `fw audit verify --json` prints the
 //     head hash and the event count, equal to the hash and seq of the last event (the chain is
 //     gapless, so count is the head seq). The draft assumed a separate `fw audit head`; the code
@@ -48,7 +49,7 @@ describe('c0/audit-chain', () => {
 
     const ok = fwJson(['audit', 'verify'], { home, timeoutMs: 60000 });
     expect(ok.status, `fw audit verify on a clean chain: ${ok.stderr}`).toBe(0);
-    expect(ok.ms, 'fw audit verify of 100k events (whole command)').toBeLessThan(5000);
+    expect(ok.ms, 'fw audit verify of 100k events (whole command)').toBeLessThan(8000);
 
     const db = new DatabaseSync(path, { readOnly: true });
     const last = db.prepare('SELECT seq, hash FROM events ORDER BY seq DESC LIMIT 1').get() as { seq: number; hash: string };

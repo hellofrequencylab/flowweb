@@ -517,12 +517,12 @@ function StaleChange({ card }: { card: ApproveCard }) {
         {shortHash(card.current_head_sha ?? '')}.
       </p>
       {card.replacement_card_id ? (
-        <Link to={`/table/${card.replacement_card_id}`} className="btn">
+        <Link to={`/inbox/${card.replacement_card_id}`} className="btn">
           Open the new request
         </Link>
       ) : (
         <p className="small">
-          A new request will appear in Sign-offs when fwd has collected evidence for the new code.
+          A new request will appear in the Inbox when fwd has collected evidence for the new code.
         </p>
       )}
     </div>

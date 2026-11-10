@@ -1,8 +1,10 @@
 import { api } from '../api/client';
 import { type Resource, useResource } from '../api/resource';
 import type { CheckStatus, Evidence, ParsedDiff } from '../api/types';
+import { MAC_ONLY, macOnlyReason } from '../ui-kit/Button';
 import { Donut, RunTrace, type Slice, type TraceStatus } from '../ui-kit/flow';
 import { Copy, LoadError, Loading } from '../ui-kit/honest';
+import { Icon } from '../ui-kit/Icon';
 import { CHECK_STATUS, SANDBOX, StatusLabel, VERDICT } from '../ui-kit/status';
 import { clock, shortHash, usd } from '../ui-kit/time';
 
@@ -15,7 +17,12 @@ export function useEvidence(id: string | undefined) {
 }
 export function useDiff(id: string | undefined) {
   return useResource(`diff:${id}`, () =>
-    id ? api.evidenceDiff(id) : Promise.reject(new Error('No evidence bundle')),
+    // Diffs never leave the Owner's Mac, so the site does not ask for one.
+    macOnlyReason()
+      ? Promise.reject(new Error(MAC_ONLY))
+      : id
+        ? api.evidenceDiff(id)
+        : Promise.reject(new Error('No evidence bundle')),
   );
 }
 
@@ -295,6 +302,13 @@ function DiffSection({
   expectedHash?: string;
   payloadHash?: string;
 }) {
+  if (macOnlyReason())
+    return (
+      <p className="disabled-reason">
+        <Icon name="lock" size={13} />
+        {MAC_ONLY}. Diffs stay on your Mac; open this bundle in FlowWeb there to read the exact lines.
+      </p>
+    );
   if (diff.honesty === 'loading') return <Loading what="the diff" />;
   if (!diff.data) return <LoadError what="the diff" error={diff.error} onRetry={diff.reload} />;
   const d = diff.data;
