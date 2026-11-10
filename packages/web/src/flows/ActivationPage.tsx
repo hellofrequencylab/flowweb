@@ -13,6 +13,7 @@ import { Figures, PageHead } from '../ui-kit/page';
 import { StatusLabel, type StatusSpec } from '../ui-kit/status';
 import { usd } from '../ui-kit/time';
 import { FlowAdmin } from './FlowAdmin';
+import { MeasureDials, PipelineBar, RegionPath } from './FlowVisuals';
 import { SupervisorPanel } from './SupervisorPanel';
 
 const pct = (x: number) => `${Math.round(x * 100)}%`;
@@ -132,6 +133,11 @@ export function ActivationPage() {
               )}
             </section>
 
+            <section className="panel" aria-labelledby="na-path">
+              <h2 id="na-path">Regions, in the order they open</h2>
+              <RegionPath territories={f.territories} />
+            </section>
+
             {f.placeholders.length > 0 && (
               <section className="panel" aria-labelledby="na-ph">
                 <h2 id="na-ph">Waiting on your answers</h2>
@@ -155,14 +161,7 @@ export function ActivationPage() {
 
             <section className="panel" aria-labelledby="na-leads">
               <h2 id="na-leads">Lead pipeline</h2>
-              <p>
-                {STAGES.map((s, i) => (
-                  <span key={s.key}>
-                    {i > 0 && ' · '}
-                    {s.label} <strong>{f.pipeline[s.key]}</strong>
-                  </span>
-                ))}
-              </p>
+              <PipelineBar stages={STAGES} counts={f.pipeline} label="Leads by stage" />
               <div className="table-wrap">
                 <table className="data">
                   <thead>
@@ -288,7 +287,6 @@ function subAreaName(f: ActivationFlow, id: string) {
 }
 
 function Region({ t, holdWeeks }: { t: ActivationTerritory; holdWeeks: number }) {
-  const m = t.measures;
   return (
     <section className="panel" aria-labelledby={`na-r-${t.id}`}>
       <div className="panel-head">
@@ -298,44 +296,7 @@ function Region({ t, holdWeeks }: { t: ActivationTerritory; holdWeeks: number })
         <span className="spacer" />
         <StatusLabel spec={STATUS[t.status]} />
       </div>
-      <table className="data">
-        <thead>
-          <tr>
-            <th>Measure</th>
-            <th className="num">Now</th>
-            <th>Toward target</th>
-          </tr>
-        </thead>
-        <tbody>
-          {MEASURES.map(({ key, label }) => {
-            const target = t.targets[key];
-            const ratio = m ? Math.min(1, m[key] / target) : null;
-            return (
-              <tr key={key}>
-                <td>{label}</td>
-                <td className="num">
-                  {m ? num(m[key]) : <span className="fact-unknown">Unknown</span>}
-                  {'\u00a0of\u00a0'}
-                  {num(target)}
-                </td>
-                <td>
-                  {ratio == null ? (
-                    <span className="muted">No data yet</span>
-                  ) : (
-                    <span className="flow-sat">
-                      {/* Decorative: the percentage beside it states the value. */}
-                      <span className="meter" aria-hidden="true">
-                        <span className="meter-fill" style={{ width: pct(ratio) }} />
-                      </span>
-                      {pct(ratio)}
-                    </span>
-                  )}
-                </td>
-              </tr>
-            );
-          })}
-        </tbody>
-      </table>
+      <MeasureDials t={t} measures={MEASURES} />
       <p className="muted">
         Held at target {t.weeks_at_threshold} of {holdWeeks} weeks. {num(t.population)} people.
       </p>

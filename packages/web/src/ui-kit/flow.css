@@ -1231,3 +1231,66 @@ a.flow-line:hover .flow-line-name {
   align-items: center;
   gap: var(--space-7);
 }
+
+/* ---------------------------------------------------------------- Flows: region path, dials, pipeline */
+.region-path .flow-track {
+  height: 36px;
+}
+.region-path-labels {
+  display: grid;
+  margin: var(--space-2) 0 0;
+  padding: 0;
+  list-style: none;
+  text-align: center;
+}
+.region-path-labels li {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  padding-inline: var(--space-2);
+  min-width: 0;
+}
+.region-path-name {
+  font: var(--weight-medium) var(--text-sm) / 1.3 var(--font-sans);
+  color: var(--text-primary);
+  overflow-wrap: anywhere;
+}
+.region-path-word {
+  font: var(--type-small);
+  color: var(--text-tertiary);
+}
+.region-path-labels li.is-here .region-path-word {
+  color: var(--text-secondary);
+}
+.dials {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(132px, 1fr));
+  gap: var(--space-6);
+  margin: 0 0 var(--space-6);
+  padding: 0;
+  list-style: none;
+}
+.dial {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: var(--space-2);
+  text-align: center;
+}
+.dial-unknown {
+  font: var(--weight-medium) var(--text-sm) / 1.2 var(--font-sans);
+  color: var(--text-secondary);
+}
+.dial-caption {
+  font: var(--type-small);
+  color: var(--text-secondary);
+}
+.pipeline {
+  display: grid;
+  gap: var(--space-5);
+  margin-bottom: var(--space-6);
+}
+.pipeline .legend {
+  grid-template-columns: repeat(auto-fill, minmax(170px, 1fr));
+  column-gap: var(--space-8);
+}
