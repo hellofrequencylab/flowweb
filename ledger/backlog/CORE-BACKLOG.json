@@ -4,7 +4,7 @@
     "profile": "core",
     "schema": "ledger-row/1",
     "generated": "2026-11-09",
-    "row_count": 115,
+    "row_count": 116,
     "conventions": {
       "verify_probe": "Same convention as 04-build-plan/backlog.json: 'pnpm probe <path>' runs probes/<path>.probe.ts, a Tier 0 file written before the implementation row starts and never edited by the agent doing the row. Every probe fails today because its target does not exist (a missing probe file exits 2, a missing behaviour exits 1). The probe pack for a milestone is committed by the Owner or a pair session before the milestone's rows start.",
       "status": "All rows start as open. Status lives only in the ledger database (imported with fw ledger sync), never in prose.",
@@ -28,7 +28,7 @@
       }
     },
     "full_plan_rows_included": 37,
-    "new_core_rows": 77
+    "new_core_rows": 78
   },
   "rows": [
     {
@@ -4061,6 +4061,38 @@
         "packages/web/src/ui-kit/base.css",
         "packages/web/src/ui-kit/tokens.css",
         "packages/web/test/"
+      ],
+      "origin": "new Core row"
+    },
+    {
+      "id": "FW-C-082",
+      "title": "The Owner's outreach drafts read like a person wrote them: Frequency short links, the event named loosely, and no em dashes",
+      "core_milestone": "C2",
+      "phase": 4,
+      "epic": "C2.3 Flows",
+      "priority": "P1",
+      "size": "M",
+      "lane": "daemon",
+      "agent_suitability": "agent",
+      "gate": "none",
+      "depends_on": [
+        "FW-C-065"
+      ],
+      "description": "On 10 Nov the Owner asked to redo every draft email: use the Frequency link shortener for the links, stop naming event details literally (\"your Pages in Bloom workshop on November 23 caught my eye, the idea of turning an old book into art with dried flowers...\" should read \"your Pages in Bloom workshop caught my eye and I love what you are up to\"), and never use em dashes. Today a hunt draft ends with a long frequencylocal.com/start/host link carrying persona, region and five utm params, and carries whatever dashes and dates the model wrote. Now, when the outcomes secret is set, fwd asks Frequency for a short link (frequency-web LIVE-2257: POST /api/webhooks/flowweb-link, signed like the outcomes pull) for every link in a draft that carries utm_source=flowweb and puts the /q/<slug> link in the draft; the short link redirects to the full one, so utm_campaign and utm_content still trace signups. Without the secret, or when Frequency does not answer, the long link stays and the draft is still written. fwd turns every em or en dash in a draft's subject and body into a comma, for cycle drafts, hunt drafts and AI rewrites. The hunt brief asks for a short, warm note that names the event loosely and says the Owner loves what they are up to, with no date, time, price or venue and no dashes, with the Owner's example. Drafts only: nothing is sent.",
+      "acceptance": [
+        "With the outcomes secret set, a hunt draft's Frequency link is the /q/ short link Frequency answered, after a signed post to /api/webhooks/flowweb-link naming the long link with its utm_content",
+        "No draft subject or body holds an em dash or an en dash, even when the model wrote one",
+        "With Frequency down, the draft is still written with its long link",
+        "The hunt brief asks for loose, warm event mentions without dates and without dashes"
+      ],
+      "verify_probe": "pnpm probe flows/draft-links",
+      "files_hint": [
+        "packages/daemon/src/flows/short-links.ts",
+        "packages/daemon/src/flows/hunts.ts",
+        "packages/daemon/src/overseer/cycle.ts",
+        "packages/daemon/src/overseer/rewrite.ts",
+        "packages/daemon/test/short-links.test.ts",
+        "packages/adapters/src/fake/vendor.mjs"
       ],
       "origin": "new Core row"
     }

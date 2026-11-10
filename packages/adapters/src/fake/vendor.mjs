@@ -212,7 +212,8 @@ const scenarios = {
         ...(source ? { source_url: `https://example.com/o/${h.id}/${k}` } : {}),
       },
       subject: `Your event ${k}`,
-      body: `Hi Organizer ${k}, I saw your event ${k} and loved it.`,
+      // FW-C-082: a model that writes an em dash; fwd takes it out.
+      body: `Hi Organizer ${k}, I saw your event ${k}\u2014and loved it.`,
     });
     const leads = hunts.flatMap((h) => [
       lead(h, 'a', `a-${h.id}@example.com`, true),
@@ -259,7 +260,8 @@ const scenarios = {
       },
       organizer: { name: `Organizer ${k}`, source_url: `https://example.com/o/${h.id}/${k}`, ...org },
       subject: `Your event ${k}`,
-      body: `Hi Organizer ${k}, I saw your event ${k} and loved it.`,
+      // FW-C-082: a model that writes an em dash; fwd takes it out.
+      body: `Hi Organizer ${k}, I saw your event ${k}\u2014and loved it.`,
     });
     const leads = hunts.flatMap((h) => [
       lead(

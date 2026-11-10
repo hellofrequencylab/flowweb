@@ -8,6 +8,7 @@ import { existsSync, readFileSync } from 'node:fs';
 import { join } from 'node:path';
 import { FLOW_KEY, type FlowConfig, type FlowState } from './neighborhood-activation.ts';
 import { AdminError, adminDir, writeJsonAtomic } from './neighborhood-admin.ts';
+import { noDashes } from './short-links.ts';
 
 const DAY = 86_400_000;
 /** FW-C-063: the window a day's intensity counts, short of a day so the next morning's run starts fresh. */
@@ -240,8 +241,9 @@ export function composeBody(cfg: FlowConfig, h: Hunt, lead: HuntLead): string {
   const link = h.build
     ? `I set up a page for your event on Frequency. It is yours to claim: {{claim_url}}`
     : `If you'd like to host on Frequency, start here: ${funnelLink(cfg, h)}`;
+  // FW-C-082: no em or en dash survives the model's words.
   return [
-    lead.body,
+    noDashes(lead.body),
     '',
     link,
     '',
