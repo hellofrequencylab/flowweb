@@ -25,10 +25,14 @@ const DRAFTS = [
   draft('d_new', 'Newest ready note', 'Hi Front Porch Gallery, the newest note.', '2026-11-10T10:00:00Z'),
 ];
 
+// A sender on the Mac reads the outbox (FW-C-071), so a ready draft offers Approve.
+const SUPERVISOR = { flows: [], sender: { installed: true, last_pass_at: new Date().toISOString() } };
+
 function stubFwd() {
   vi.stubGlobal('fetch', async (url: string, init: RequestInit = {}) => {
     const method = init.method ?? 'GET';
-    const data: unknown = method === 'GET' && url === D ? DRAFTS : {};
+    const data: unknown =
+      method === 'GET' && url === D ? DRAFTS : method === 'GET' && url === '/v1/supervisor' ? SUPERVISOR : {};
     return new Response(JSON.stringify({ data, as_of: new Date().toISOString(), head_seq: 1 }), {
       status: 200,
       headers: { 'content-type': 'application/json' },
