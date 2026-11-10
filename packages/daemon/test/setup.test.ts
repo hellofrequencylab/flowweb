@@ -1,5 +1,6 @@
 // FW-C-039: the setup report reads real state only, and names a fix for every step not done.
-import { writeFileSync } from 'node:fs';
+import { existsSync, mkdirSync, mkdtempSync, readdirSync, rmSync, writeFileSync } from 'node:fs';
+import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { openStore } from '@fw/eventlog';
 import { addProject, briefProject } from '@fw/ledger';
@@ -98,5 +99,51 @@ describe('setup report', () => {
     expect(step(report(), 'live_site').done).toBe(true);
     pushed(60);
     expect(step(report(), 'live_site').done).toBe(false);
+  });
+
+  test('a flow that is on but has no project does not tick the step', () => {
+    const repo = mkdtempSync(join(tmpdir(), 'fw-setup-flows-'));
+    try {
+      mkdirSync(join(repo, 'flows', 'orphan-flow'), { recursive: true });
+      writeFileSync(
+        join(repo, 'flows', 'orphan-flow', 'stream.json'),
+        JSON.stringify({
+          id: 'str_orphanflow1',
+          key: 'orphan-flow',
+          name: 'Orphan',
+          project_id: 'prj_nowhere001',
+        }),
+      );
+      withWriter(home.path, (w) => setFlowEnabled(w, repo, 'orphan-flow', true));
+      const store = openStore({
+        path: join(home.path, 'db', 'fw.sqlite'),
+        readonly: true,
+        lockPath: join(home.path, 'fwd.lock'),
+      });
+      try {
+        const r = setupReport({
+          reader: store.reader(),
+          fwHome: home.path,
+          repoRoot: repo,
+          fwdUp: true,
+          now: NOW,
+          nodeVersion: '22.1.0',
+        });
+        expect(step(r, 'flow').done).toBe(false);
+        expect(step(r, 'flow').detail).toMatch(/orphan-flow is on but cannot run yet/);
+      } finally {
+        store.close();
+      }
+    } finally {
+      rmSync(repo, { recursive: true, force: true });
+    }
+  });
+
+  test('every shipped flow names its project, so turning it on registers its stream', () => {
+    const dir = join(REPO_ROOT, 'flows');
+    for (const key of readdirSync(dir)) {
+      if (!existsSync(join(dir, key, 'stream.json'))) continue;
+      expect(existsSync(join(dir, key, 'project.json')), `flows/${key}/project.json`).toBe(true);
+    }
   });
 });
