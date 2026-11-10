@@ -12,6 +12,7 @@ import * as hunts from '../flows/hunts.ts';
 import * as localSaturation from '../flows/local-saturation.ts';
 import * as neighborhoodActivation from '../flows/neighborhood-activation.ts';
 import * as naAdmin from '../flows/neighborhood-admin.ts';
+import * as paidAds from '../flows/paid-ads.ts';
 import { type DraftView, editDraft, listDrafts, markDraft } from '../overseer/drafts.ts';
 import { SupervisorError, supervisorView } from '../overseer/index.ts';
 import type { RewriteProposal } from '../overseer/rewrite.ts';
@@ -62,6 +63,10 @@ const FLOWS: Record<string, (repoRoot: string, fwHome: string, now: Date) => unk
     const f = neighborhoodActivation.loadFlow(repo, home, now);
     const view = f && neighborhoodActivation.flowView(f.cfg, f.state, f.budget, f.stream, now);
     return view && { ...view, admin_log: naAdmin.readAdminLog(home) };
+  },
+  [paidAds.FLOW_KEY]: (repo, home, now) => {
+    const f = paidAds.loadFlow(repo, home);
+    return f && paidAds.flowView(f.cfg, f.stream, f.days, now);
   },
 };
 

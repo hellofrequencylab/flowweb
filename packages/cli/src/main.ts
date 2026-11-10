@@ -94,6 +94,14 @@ export async function main(argv: string[], io: Io = processIo, factory?: CoreCli
   try {
     parsed = parseArgs({ args: argv, options: optionSpec(), allowPositionals: true, strict: true });
   } catch (e) {
+    // --help wins over a malformed command line: `fw hunt add --name --help` reads --help as the
+    // value of --name and fails to parse, but the person asked for help, so print it.
+    if (argv.includes('--help') || argv.includes('-h')) {
+      if (argv.includes('--json'))
+        io.out(JSON.stringify({ commands: COMMANDS.map((c) => ({ usage: c.usage, summary: c.summary })) }));
+      else io.out(helpText());
+      return EXIT.OK;
+    }
     return usageError(io, argv.includes('--json'), (e as Error).message);
   }
   const values = parsed.values as Record<string, string | boolean | string[] | undefined>;
