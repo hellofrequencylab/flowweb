@@ -59,3 +59,19 @@ people a day, with an "Adjust from replies" switch that lets the last 14 days of
 the min and max. From the site these queue `flow.schedule` and `flow.intensity`, which the relay applies
 through fwd. Apply `supabase/migrations/0005_flowweb_morning_intensity.sql` once in the Supabase SQL
 editor first; until then the database refuses the two kinds.
+
+## Businesses, members and roles (FW-C-083)
+
+`supabase/migrations/0006_flowweb_accounts.sql` turns the single-owner mirror into businesses
+(accounts). Each login can make businesses and be invited into others, as admin, helper or
+viewer, for the whole business or only named flows (helpers and viewers). Roles: owner
+(everything), admin (people, machines, flow controls, drafts), helper (works drafts), viewer
+(reads only). `server/accounts.mjs` holds the same table for the screens; the database decides.
+
+- Everything the site keeps (mirror, machines, queued requests) carries `account_id`, and row
+  level security reads by membership. A machine token belongs to one business, so a relay only
+  replaces and takes its own business's rows.
+- Running 0006 moves what is there now into one business, "My FlowWeb", owned by the logins in
+  `fw_owners`. The existing relay token keeps working; nothing changes on the Mac.
+- Order matters: deploy the /v1 that understands businesses first, then run 0006. The older /v1
+  calls `fw_is_owner` and the old `fw_request` signature, which 0006 replaces.
