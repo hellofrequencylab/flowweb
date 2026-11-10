@@ -67,6 +67,15 @@ export interface WProject {
   /** From settings 'project_labels' (`fw project label`); absent from an older fwd. */
   brand?: string | null;
   category?: string | null;
+  /** FW-C-087: the Owner's brief (five answers), or null; absent from an older fwd. */
+  brief?: {
+    what: string;
+    who: string;
+    voice: string;
+    never: string;
+    done: string;
+    updated_at?: string;
+  } | null;
   /** Served from c0/08: open+ready, claimed..merging, awaiting_approval+blocked. */
   rows_open?: number;
   rows_in_progress?: number;
