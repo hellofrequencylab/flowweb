@@ -4,7 +4,7 @@
     "profile": "core",
     "schema": "ledger-row/1",
     "generated": "2026-11-09",
-    "row_count": 104,
+    "row_count": 105,
     "conventions": {
       "verify_probe": "Same convention as 04-build-plan/backlog.json: 'pnpm probe <path>' runs probes/<path>.probe.ts, a Tier 0 file written before the implementation row starts and never edited by the agent doing the row. Every probe fails today because its target does not exist (a missing probe file exits 2, a missing behaviour exits 1). The probe pack for a milestone is committed by the Owner or a pair session before the milestone's rows start.",
       "status": "All rows start as open. Status lives only in the ledger database (imported with fw ledger sync), never in prose.",
@@ -28,7 +28,7 @@
       }
     },
     "full_plan_rows_included": 37,
-    "new_core_rows": 67
+    "new_core_rows": 68
   },
   "rows": [
     {
@@ -3682,6 +3682,44 @@
         "packages/web/src/settings/SettingsPage.tsx",
         "packages/web/src/evidence/EvidenceView.tsx",
         "packages/web/src/evidence/EvidencePage.tsx",
+        "packages/web/test/"
+      ],
+      "origin": "new Core row"
+    },
+    {
+      "id": "FW-C-067",
+      "title": "The Owner finds everything in four pages with plain names: Today, Inbox, Growth and Under the hood",
+      "core_milestone": "C2",
+      "phase": 4,
+      "epic": "C2.1 API and shell",
+      "priority": "P1",
+      "size": "M",
+      "lane": "web",
+      "agent_suitability": "agent",
+      "gate": "none",
+      "depends_on": [
+        "FW-C-019"
+      ],
+      "description": "The nav names six pages (Console, Sign-offs, Logs, Runs, Spend, Flows) that mix two jobs: growing Frequency and tracking agent code work. The Owner asked for something stupid simple. Rename the nav to four pages: Today (/), Inbox (/inbox, the decision cards), Growth (/growth, the flows) and Under the hood (/hood, with tabs for Logs, Runs, Projects and Spend). Settings stays behind the gear. On phones the tab bar is Today, Inbox, Growth and More, and More links Under the hood, Get started and Settings. Old addresses (/table, /flows, /ledger, /runs, /spend, /projects) keep rendering their pages and light the new tab, because links and probes use them. One routeOf(path) names the page each address shows, and Layout uses it. Pages keep their content; only names, routes and the Under the hood tabs change.",
+      "acceptance": [
+        "The top nav links Today, Inbox, Growth and Under the hood, in that order, with none of the old names",
+        "Old addresses render their pages and light the new tab",
+        "The phone tab bar is Today, Inbox, Growth and More; More links Under the hood, Get started and Settings",
+        "Under the hood shows tabs for Logs, Runs, Projects and Spend, the current one marked",
+        "routeOf names one page per address and Layout picks its page with it"
+      ],
+      "verify_probe": "pnpm probe ui/clear-nav",
+      "files_hint": [
+        "packages/web/src/shell/Nav.tsx",
+        "packages/web/src/shell/Layout.tsx",
+        "packages/web/src/shell/routes.ts",
+        "packages/web/src/shell/StatusStrip.tsx",
+        "packages/web/src/shell/Footer.tsx",
+        "packages/web/src/hood/",
+        "packages/web/src/table/TablePage.tsx",
+        "packages/web/src/table/CardView.tsx",
+        "packages/web/src/shell/ShortcutSheet.tsx",
+        "packages/web/src/ui-kit/base.css",
         "packages/web/test/"
       ],
       "origin": "new Core row"
