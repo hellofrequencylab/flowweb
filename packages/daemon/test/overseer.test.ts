@@ -1,6 +1,6 @@
 // FW-C-033: the Supervisor's gates (pure) and its Owner controls (settings plus one event each).
 
-import { mkdirSync, writeFileSync } from 'node:fs';
+import { mkdirSync, readFileSync, writeFileSync } from 'node:fs';
 import { join, resolve } from 'node:path';
 import { describe, expect, test } from 'vitest';
 import {
@@ -13,7 +13,9 @@ import {
   plan,
   readSettings,
   STALL_STOP,
+  SupervisorError,
   type SupervisorFacts,
+  setDial,
   setFlowEnabled,
   setPaused,
   shippedFlows,
@@ -27,6 +29,8 @@ const flow = (over: Partial<FlowFacts> = {}): FlowFacts => ({
   key: 'f',
   enabled: true,
   has_engine: true,
+  dial: 'draft',
+  dial_confirmed: false,
   caps: { max_usd: 5, max_turns: 200, period: 'week' },
   spend: { usd: 0, turns: 0 },
   open_asks: 0,
@@ -56,6 +60,8 @@ describe('gates', () => {
       [{}, { paused: true }, 'supervisor_paused'],
       [{ enabled: false }, {}, 'flow_disabled'],
       [{ has_engine: false }, {}, 'no_engine'],
+      [{ dial: 'autopilot', dial_confirmed: false }, {}, 'dial_unapproved'],
+      [{ caps: { max_usd: null, max_turns: 200, period: 'week' } }, {}, 'cap_required'],
       [{ spend: { usd: 5, turns: 0 } }, {}, 'budget'],
       [{ open_asks: ASK_CAP }, {}, 'open_asks'],
       [{ dry_streak: DRY_STOP }, {}, 'dormant'],
@@ -87,11 +93,16 @@ describe('gates', () => {
   test('a cap that is not set never runs out, so an uncapped flow keeps going', () => {
     expect(capUsed({ max_usd: null, max_turns: null, period: 'week' }, { usd: 1e6, turns: 1e6 })).toBe(false);
     expect(capUsed({ max_usd: null, max_turns: 10, period: 'week' }, { usd: 1e6, turns: 10 })).toBe(true);
+    // Only Autopilot may run uncapped (FW-C-035); at Draft or Copilot a flow needs a dollar cap.
     const uncapped = flow({
+      dial: 'autopilot',
+      dial_confirmed: true,
       caps: { max_usd: null, max_turns: null, period: 'week' },
       spend: { usd: 500, turns: 9000 },
     });
     expect(decide(uncapped, sup()).state).toBe('ready');
+    for (const dial of ['draft', 'copilot'] as const)
+      expect(decide({ ...uncapped, dial }, sup()).gate).toBe('cap_required');
   });
 
   test('plan admits ready flows in order, up to the free slots', () => {
@@ -137,7 +148,7 @@ describe('the Supervisor in fwd', () => {
         expect(readSettings(w)).toEqual({
           version: 1,
           paused: true,
-          flows: { 'local-saturation': { enabled: true } },
+          flows: { 'local-saturation': { enabled: true, dial: 'draft' } },
         });
         const v = supervisorView({ reader: w, repoRoot, fwHome: home.path });
         expect(v.flows.find((f) => f.key === 'local-saturation')?.gate).toBe('supervisor_paused');
@@ -198,6 +209,54 @@ describe('the Supervisor in fwd', () => {
         expect(gate()).toBe('budget');
         spentAt('2026-10-01T00:00:00Z');
         expect(gate()).toBe('not_due');
+      });
+    } finally {
+      home.cleanup();
+    }
+  });
+  test('the dial: autopilot needs the current confirm hash, and a changed channel list holds the flow', () => {
+    const home = tempHome();
+    const key = 'local-saturation';
+    try {
+      withWriter(home.path, (w) => {
+        setFlowEnabled(w, repoRoot, key, true);
+        const view = () =>
+          supervisorView({ reader: w, repoRoot, fwHome: home.path }).flows.find((f) => f.key === key);
+        expect(view()?.dial).toBe('draft');
+        expect(setDial(w, repoRoot, home.path, key, 'copilot').changed).toBe(true);
+        expect(setDial(w, repoRoot, home.path, key, 'copilot').changed).toBe(false);
+        expect(() => setDial(w, repoRoot, home.path, key, 'turbo')).toThrow(/stop must be one of/);
+
+        let hash = '';
+        try {
+          setDial(w, repoRoot, home.path, key, 'autopilot');
+        } catch (e) {
+          expect(e).toBeInstanceOf(SupervisorError);
+          expect((e as SupervisorError).code).toBe('CONFIRM_REQUIRED');
+          hash = String((e as SupervisorError).details.confirm_hash);
+        }
+        expect(hash).toMatch(/^[0-9a-f]{64}$/);
+        expect(() => setDial(w, repoRoot, home.path, key, 'autopilot', 'nope')).toThrow(/Confirm/);
+        expect(view()?.dial).toBe('copilot');
+        setDial(w, repoRoot, home.path, key, 'autopilot', hash);
+        expect(view()?.dial).toBe('autopilot');
+        expect(view()?.gate).toBe('not_due');
+
+        // A new channel in the $FW_HOME override changes the hash, so the old confirmation is void.
+        const cfg = JSON.parse(readFileSync(join(repoRoot, 'flows', key, 'config.json'), 'utf8'));
+        cfg.channels.push({ key: 'x', label: 'X', action_class: 'publish_external' });
+        mkdirSync(join(home.path, 'flows', key), { recursive: true });
+        writeFileSync(join(home.path, 'flows', key, 'config.json'), JSON.stringify(cfg));
+        expect(view()?.gate).toBe('dial_unapproved');
+
+        // Leaving Autopilot drops the confirmation, and the flow is free again at Copilot.
+        setDial(w, repoRoot, home.path, key, 'copilot');
+        expect(readSettings(w).flows[key]).toEqual({ enabled: true, dial: 'copilot' });
+        expect(view()?.gate).toBe('not_due');
+        const events = w.all<{ payload: string }>(
+          "SELECT payload FROM events WHERE type = 'system.config_changed'",
+        );
+        expect(events.filter((e) => e.payload.includes('"dial":"autopilot"')).length).toBe(1);
       });
     } finally {
       home.cleanup();

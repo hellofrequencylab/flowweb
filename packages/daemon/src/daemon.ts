@@ -11,7 +11,7 @@ import { ApiError, sendError } from './api/http.ts';
 import { buildRouter, principalOf, type RunStartBody } from './api/routes.ts';
 import type { ChainStatus } from './api/status.ts';
 import { hostAllowed, PairingStore, writeOriginAllowed } from './auth.ts';
-import { setFlowEnabled, setPaused } from './overseer/index.ts';
+import { setDial, setFlowEnabled, setPaused } from './overseer/index.ts';
 import { runStart } from './pipeline/run-start.ts';
 import { type ReconcileReport, reconcileOnStart } from './reconciler.ts';
 import { RunHost } from './run-host.ts';
@@ -227,6 +227,7 @@ export async function startDaemon(opts: DaemonOptions): Promise<Daemon> {
     supervisor: {
       setFlowEnabled: (key, enabled) => setFlowEnabled(writer, REPO_ROOT, key, enabled),
       setPaused: (paused) => setPaused(writer, paused),
+      setDial: (key, stop, confirm) => setDial(writer, REPO_ROOT, fwHome, key, stop, confirm),
     },
   });
 

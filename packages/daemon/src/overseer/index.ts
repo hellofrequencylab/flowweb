@@ -3,6 +3,7 @@
 // (turn a flow on or off, pause or resume the Supervisor) live in settings('supervisor') and each one
 // writes a system.config_changed event. Only fwd's single writer touches the database.
 // Dispatching steps waits for the scheduler (WS-P1-004); asks as decision cards wait for WS-P1-024.
+import { createHash } from 'node:crypto';
 import { existsSync, readdirSync, readFileSync } from 'node:fs';
 import { join } from 'node:path';
 import type { ActorKind, Reader, Writer } from '@fw/eventlog';
@@ -12,6 +13,8 @@ import * as neighborhood from '../flows/neighborhood-activation.ts';
 import {
   type Caps,
   capUsed,
+  DIALS,
+  type Dial,
   decide,
   type FlowFacts,
   GATES,
@@ -33,13 +36,16 @@ export const DEFAULT_MAX_CONCURRENT = 4;
 export interface SupervisorSettings {
   version: 1;
   paused: boolean;
-  flows: Record<string, { enabled: boolean }>;
+  /** dial_hash: the confirm hash the Owner accepted when turning on Autopilot (FW-C-035). */
+  flows: Record<string, { enabled: boolean; dial: Dial; dial_hash?: string }>;
 }
 
 /** What an engine (a module under src/flows/) tells the Supervisor about its flow. */
 export interface EngineFacts {
   caps: Caps | null;
   spend: Spend | null;
+  /** Where the flow's finished items go (its channels). Autopilot is confirmed against these. */
+  outward: unknown;
 }
 type Engine = (repoRoot: string, fwHome: string, now: Date) => EngineFacts | null;
 
@@ -47,7 +53,9 @@ type Engine = (repoRoot: string, fwHome: string, now: Date) => EngineFacts | nul
 export const ENGINES: Record<string, Engine> = {
   'local-saturation': (repoRoot, fwHome, now) => {
     const f = loadLocalSaturation(repoRoot, fwHome, now);
-    return f ? { caps: f.budget, spend: { usd: f.state.spend.usd, turns: f.state.spend.turns } } : null;
+    if (!f) return null;
+    const spend = { usd: f.state.spend.usd, turns: f.state.spend.turns };
+    return { caps: f.budget, spend, outward: f.cfg.channels ?? null };
   },
   'neighborhood-activation': (repoRoot, fwHome, now) => {
     const f = neighborhood.loadFlow(repoRoot, fwHome, now);
@@ -57,14 +65,38 @@ export const ENGINES: Record<string, Engine> = {
     // budget, spend recorded in an old period no longer counts against this one.
     const paused = neighborhood.decide(f.cfg, f.state, f.budget, now).kind === 'paused_budget';
     const spend = paused || !capUsed(f.budget, { usd, turns }) ? { usd, turns } : { usd: 0, turns: 0 };
-    return { caps: f.budget, spend };
+    return { caps: f.budget, spend, outward: f.cfg.send_routes ?? null };
   },
 };
+
+/** JSON with sorted keys, so the same facts always hash the same. */
+function canonical(v: unknown): string {
+  if (Array.isArray(v)) return `[${v.map(canonical).join(',')}]`;
+  if (v && typeof v === 'object')
+    return `{${Object.keys(v)
+      .sort()
+      .map((k) => `${JSON.stringify(k)}:${canonical((v as Record<string, unknown>)[k])}`)
+      .join(',')}}`;
+  return JSON.stringify(v ?? null);
+}
+
+/**
+ * The hash the Owner confirms to turn on Autopilot: the flow's channels and caps. Change either and
+ * the old confirmation no longer matches, so the flow holds by dial_unapproved.
+ */
+export function confirmHash(key: string, facts: Pick<EngineFacts, 'caps' | 'outward'>): string {
+  const c = facts.caps;
+  const caps = c ? { max_usd: c.max_usd, max_turns: c.max_turns, period: c.period } : null;
+  return createHash('sha256')
+    .update(canonical({ flow: key, channels: facts.outward ?? null, caps }))
+    .digest('hex');
+}
 
 export interface FlowView {
   key: string;
   name: string;
   enabled: boolean;
+  dial: Dial;
   tier: string;
   state: Verdict['state'];
   gate: Verdict['gate'];
@@ -101,8 +133,13 @@ export function readSettings(r: Reader): SupervisorSettings {
     r.get<{ value: string }>('SELECT value FROM settings WHERE key = ?', [SETTINGS_KEY])?.value,
   );
   const flows: SupervisorSettings['flows'] = {};
-  const raw = (o?.flows ?? {}) as Record<string, { enabled?: unknown }>;
-  for (const [k, v] of Object.entries(raw)) if (KEY_RE.test(k)) flows[k] = { enabled: v?.enabled === true };
+  const raw = (o?.flows ?? {}) as Record<string, { enabled?: unknown; dial?: unknown; dial_hash?: unknown }>;
+  for (const [k, v] of Object.entries(raw)) {
+    if (!KEY_RE.test(k)) continue;
+    const dial = DIALS.find((d) => d === v?.dial) ?? 'draft';
+    flows[k] = { enabled: v?.enabled === true, dial };
+    if (dial === 'autopilot' && typeof v?.dial_hash === 'string') flows[k].dial_hash = v.dial_hash;
+  }
   return { version: 1, paused: o?.paused === true, flows };
 }
 
@@ -161,10 +198,14 @@ export function supervisorView(d: SupervisorDeps): SupervisorView {
       engineError = (e as Error).message;
     }
     const wip = Number(stream.wip_limit);
+    const set = settings.flows[key];
+    const dial = set?.dial ?? 'draft';
     const f: FlowFacts = {
       key,
-      enabled: settings.flows[key]?.enabled === true,
+      enabled: set?.enabled === true,
       has_engine: facts !== null,
+      dial,
+      dial_confirmed: dial === 'autopilot' && facts !== null && set?.dial_hash === confirmHash(key, facts),
       caps: facts?.caps ?? null,
       spend: facts?.spend ?? null,
       open_asks: 0,
@@ -182,6 +223,7 @@ export function supervisorView(d: SupervisorDeps): SupervisorView {
       key,
       name: typeof stream.name === 'string' ? stream.name : key,
       enabled: f.enabled,
+      dial,
       tier: typeof stream.default_tier === 'string' ? stream.default_tier : 'L1',
       state: verdict.state,
       gate: verdict.gate,
@@ -209,11 +251,17 @@ export function supervisorView(d: SupervisorDeps): SupervisorView {
 
 export class SupervisorError extends Error {
   // A plain field, not a parameter property: fwd runs this file with Node's type stripping.
-  readonly code: 'NOT_FOUND';
-  constructor(code: 'NOT_FOUND', message: string) {
+  readonly code: 'NOT_FOUND' | 'INVALID' | 'CONFIRM_REQUIRED';
+  readonly details: Record<string, unknown>;
+  constructor(
+    code: 'NOT_FOUND' | 'INVALID' | 'CONFIRM_REQUIRED',
+    message: string,
+    details: Record<string, unknown> = {},
+  ) {
     super(message);
     this.name = 'SupervisorError';
     this.code = code;
+    this.details = details;
   }
 }
 
@@ -267,7 +315,7 @@ export function setFlowEnabled(w: Writer, repoRoot: string, key: string, enabled
     throw new SupervisorError('NOT_FOUND', `no flow named ${key}`);
   return change(w, { flow: key, enabled }, (s) => {
     if ((s.flows[key]?.enabled === true) === enabled) return false;
-    s.flows[key] = { enabled };
+    s.flows[key] = { ...(s.flows[key] ?? { dial: 'draft' }), enabled };
     return true;
   });
 }
@@ -276,6 +324,48 @@ export function setPaused(w: Writer, paused: boolean) {
   return change(w, { paused }, (s) => {
     if (s.paused === paused) return false;
     s.paused = paused;
+    return true;
+  });
+}
+
+/**
+ * Set a flow's dial (FW-C-035). Autopilot needs the Owner to pass the flow's current confirm hash,
+ * which binds the choice to its channels and caps; without it, or with a stale one, nothing changes
+ * and the error names the hash to confirm. Leaving Autopilot drops the confirmation.
+ */
+export function setDial(
+  w: Writer,
+  repoRoot: string,
+  fwHome: string,
+  key: string,
+  stop: string,
+  confirm?: string,
+  engines: Record<string, Engine> = ENGINES,
+  now: Date = new Date(),
+) {
+  if (!shippedFlows(repoRoot).some((f) => f.key === key))
+    throw new SupervisorError('NOT_FOUND', `no flow named ${key}`);
+  const dial = DIALS.find((d) => d === stop);
+  if (!dial) throw new SupervisorError('INVALID', `stop must be one of ${DIALS.join(', ')}`);
+  let hash: string | undefined;
+  if (dial === 'autopilot') {
+    const facts = engines[key]?.(repoRoot, fwHome, now) ?? null;
+    if (!facts)
+      throw new SupervisorError('INVALID', `${key} has no decision logic, so it cannot run on Autopilot`);
+    hash = confirmHash(key, facts);
+    if (confirm !== hash)
+      throw new SupervisorError(
+        'CONFIRM_REQUIRED',
+        `Autopilot for ${key} is bound to its channels and caps. Confirm with this hash.`,
+        { confirm_hash: hash, flow: key },
+      );
+  }
+  return change(w, { flow: key, dial, ...(hash ? { confirm_hash: hash } : {}) }, (s) => {
+    const cur = s.flows[key] ?? { enabled: false, dial: 'draft' as Dial };
+    if (cur.dial === dial && cur.dial_hash === hash) return false;
+    const next: SupervisorSettings['flows'][string] = { enabled: cur.enabled, dial };
+    if (hash) next.dial_hash = hash;
+    s.flows[key] = next;
     return true;
   });
 }

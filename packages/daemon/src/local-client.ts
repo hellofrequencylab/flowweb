@@ -69,6 +69,7 @@ export interface DaemonCoreClient extends LocalCoreClient {
   runShow(runId: string): Promise<RunDetail>;
   supervisorStatus(): Promise<SupervisorReport>;
   supervisorControl(action: SupervisorAction, flow?: string): Promise<SupervisorReport>;
+  supervisorDial(flow: string, stop: string, confirm?: string): Promise<SupervisorReport>;
   spendRollup(opts: { by: string }): Promise<(SpendRow & { unknown_runs?: number })[]>;
   policyCheck(input: DecisionInput): Promise<Decision & { policy_path: string }>;
   policyApply(): Promise<ApplyReport & { policy_path: string }>;
@@ -271,25 +272,16 @@ export function createCoreClient(opts: LocalClientOptions): DaemonCoreClient {
         ro.close();
       }
     },
-    async supervisorControl(action, flow) {
-      const ep = fwdEndpoint(home);
+    supervisorControl(action, flow) {
       const path =
         action === 'pause' || action === 'resume'
           ? `/v1/supervisor/${action}`
           : `/v1/supervisor/flows/${encodeURIComponent(flow ?? '')}/${action}`;
-      let res: Awaited<ReturnType<typeof fwdRequest>>;
-      try {
-        res = await fwdRequest(ep, 'POST', path, {}, 10000);
-      } catch (e) {
-        if (e instanceof FwdUnreachableError)
-          throw Object.assign(
-            new Error(`the Supervisor is controlled through fwd, and fwd is not running: ${e.message}`),
-            { code: 'UNAVAILABLE' },
-          );
-        throw e;
-      }
-      if (res.status !== 200) throw fwdError(res);
-      return { ...((res.body.data ?? {}) as object), source: 'daemon' } as SupervisorReport;
+      return supervisorPost(path, {});
+    },
+    supervisorDial(flow, stop, confirm) {
+      const path = `/v1/supervisor/flows/${encodeURIComponent(flow)}/dial`;
+      return supervisorPost(path, confirm ? { stop, confirm } : { stop });
     },
     close() {
       store?.close();
@@ -297,6 +289,23 @@ export function createCoreClient(opts: LocalClientOptions): DaemonCoreClient {
       ledger.close();
     },
   };
+
+  async function supervisorPost(path: string, body: Record<string, unknown>): Promise<SupervisorReport> {
+    const ep = fwdEndpoint(home);
+    let res: Awaited<ReturnType<typeof fwdRequest>>;
+    try {
+      res = await fwdRequest(ep, 'POST', path, body, 10000);
+    } catch (e) {
+      if (e instanceof FwdUnreachableError)
+        throw Object.assign(
+          new Error(`the Supervisor is controlled through fwd, and fwd is not running: ${e.message}`),
+          { code: 'UNAVAILABLE' },
+        );
+      throw e;
+    }
+    if (res.status !== 200) throw fwdError(res);
+    return { ...((res.body.data ?? {}) as object), source: 'daemon' } as SupervisorReport;
+  }
 
   async function runStartViaFwd(
     lock: WriterLockError,

@@ -16,6 +16,12 @@ describe('the Supervisor panel', () => {
     expect(screen.getByText(/Runs up to 4 at once/)).toBeTruthy();
   });
 
+  it("shows each flow's dial", () => {
+    render(<SupervisorFlows s={s} />);
+    expect(screen.getByText('Draft')).toBeTruthy();
+    expect(screen.getByText('Copilot')).toBeTruthy();
+  });
+
   it('every gate fwd publishes has a word, and the kill switch says so first', () => {
     for (const gate of s.gates) {
       const spec = flowSpec({ ...s.flows[0], state: 'held', gate });

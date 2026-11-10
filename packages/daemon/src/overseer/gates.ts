@@ -9,8 +9,10 @@
 export const GATES = [
   'kill_switch',
   'supervisor_paused',
+  'dial_unapproved',
   'flow_disabled',
   'no_engine',
+  'cap_required',
   'budget',
   'open_asks',
   'dormant',
@@ -20,6 +22,14 @@ export const GATES = [
   'machine_busy',
 ] as const;
 export type Gate = (typeof GATES)[number];
+
+/**
+ * The Owner's dial for one flow (FW-C-035). Draft only drafts; Copilot acts after the Owner approves
+ * each item; Autopilot runs on its own and hands finished items to a sender outside Core. Core never
+ * sends at any stop.
+ */
+export const DIALS = ['draft', 'copilot', 'autopilot'] as const;
+export type Dial = (typeof DIALS)[number];
 
 /** Unanswered asks a flow may stack before it waits for the Owner. */
 export const ASK_CAP = 3;
@@ -46,6 +56,9 @@ export interface FlowFacts {
   enabled: boolean;
   /** fwd has decision logic for this flow (a module under src/flows/). */
   has_engine: boolean;
+  dial: Dial;
+  /** At autopilot: the Owner confirmed the flow's current channels and caps (their hash still matches). */
+  dial_confirmed: boolean;
   caps: Caps | null;
   spend: Spend | null;
   open_asks: number;
@@ -89,9 +102,18 @@ export function decide(f: FlowFacts, s: SupervisorFacts): Verdict {
   if (s.kill_switch)
     return held('kill_switch', 'The kill switch is engaged. Nothing runs until the Owner releases it.');
   if (s.paused) return held('supervisor_paused', 'The Owner paused the Supervisor.');
+  // Before flow_disabled on purpose: a stale Autopilot confirmation shows even while the flow is off,
+  // so the Owner re-confirms before turning it back on.
+  if (f.dial === 'autopilot' && !f.dial_confirmed)
+    return held(
+      'dial_unapproved',
+      "The flow's channels or caps changed since the Owner turned on Autopilot. It waits for a new confirmation.",
+    );
   if (!f.enabled) return held('flow_disabled', 'The Owner has not turned this flow on.');
   if (!f.has_engine)
     return held('no_engine', 'This flow has a definition but fwd has no decision logic for it yet.');
+  if (f.dial !== 'autopilot' && (f.caps?.max_usd ?? null) === null)
+    return held('cap_required', `At ${f.dial} a flow needs a spend cap. Only Autopilot may run uncapped.`);
   if (capUsed(f.caps, f.spend)) {
     const period = f.caps?.period ?? 'period';
     return held('budget', `This ${period}'s cap is used up.`);
