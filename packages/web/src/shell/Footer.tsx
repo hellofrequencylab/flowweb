@@ -5,11 +5,11 @@ import { Link } from './router';
 
 const COLUMNS: { title: string; links: { to: string; label: string }[] }[] = [
   {
-    title: 'Daily',
+    title: 'Flows',
     links: [
-      { to: '/', label: 'Today' },
-      { to: '/inbox', label: 'Inbox' },
-      { to: '/growth', label: 'Growth' },
+      { to: '/', label: 'Your flows' },
+      { to: '/inbox', label: 'Needs you' },
+      { to: '/flows/neighborhood-activation', label: 'Neighborhood activation' },
     ],
   },
   {

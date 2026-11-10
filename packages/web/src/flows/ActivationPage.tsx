@@ -1,4 +1,4 @@
-import type { ReactNode } from 'react';
+import { type ReactNode, useEffect } from 'react';
 import { api } from '../api/client';
 import { useResource } from '../api/resource';
 import type {
@@ -124,10 +124,21 @@ function Fold({
   );
 }
 
-/** Neighborhood activation: works one region until it is active, then asks you before opening the next. */
-export function ActivationPage() {
+/** Where a flow opened from home lands on this page: paid ads has its own chapter; others start at the top. */
+const FLOW_ANCHOR: Record<string, string> = { 'paid-ads': 'na-ads' };
+
+/**
+ * Neighborhood activation: works one region until it is active, then asks you before opening the next.
+ * `flow` is the key from /flows/<key>; a flow shown inside this page scrolls to its own chapter.
+ */
+export function ActivationPage({ flow }: { flow?: string } = {}) {
   const res = useResource('flow:neighborhood-activation', () => api.activationFlow(), ['runs', 'cards']);
   const d = res.honesty === 'current' ? res.data : null;
+  const anchor = flow ? FLOW_ANCHOR[flow] : undefined;
+  const loaded = d != null;
+  useEffect(() => {
+    if (anchor && loaded) document.getElementById(anchor)?.scrollIntoView({ block: 'start' });
+  }, [anchor, loaded]);
   const active = d?.territories.find((t) => t.status === 'active');
   const sup = useResource('supervisor', () => api.supervisor(), ['runs', 'cards']);
   const pulse = pulseOf(sup.honesty === 'current' ? sup.data : null);
