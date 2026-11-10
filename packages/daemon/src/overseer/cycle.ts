@@ -1,0 +1,278 @@
+// FW-C-038: dispatch. Turning a flow on registers its stream with the scheduler, and a fire the
+// Supervisor admits runs one cycle of the flow on the routed adapter. A cycle is not a ledger-row run
+// (no worktree, branch or pull request): the adapter works in $FW_HOME/flows/<key>/cycles/<fire>/
+// and writes drafts.json there. fwd turns each draft into one file under drafts/, records the spend
+// against the flow's stream and writes one run report. Core never sends: every draft waits for the
+// Owner (handing Autopilot items to the outbox is FW-C-037).
+import { existsSync, mkdirSync, readFileSync, writeFileSync } from 'node:fs';
+import { join } from 'node:path';
+import { type AdapterName, createAdapter, isAdapterName, type VendorAdapterInput } from '@fw/adapters';
+import type { WorkOrder } from '@fw/contracts';
+import { newId, nowIso, type Writer } from '@fw/eventlog';
+import { addStream, DEFAULT_AGENTS, ownerActor } from '@fw/ledger';
+import { chooseAdapter } from '../pipeline/route.ts';
+
+const SAFE = /[^A-Za-z0-9_-]/g;
+
+/** The flow's shipped stream definition, or null when it ships none. */
+export function flowStream(repoRoot: string, key: string): Record<string, unknown> | null {
+  const p = join(repoRoot, 'flows', key, 'stream.json');
+  return existsSync(p) ? (JSON.parse(readFileSync(p, 'utf8')) as Record<string, unknown>) : null;
+}
+
+/** Adds the flow's stream to the ledger (active) unless it is there already. */
+export function registerFlowStream(w: Writer, repoRoot: string, key: string): void {
+  const def = flowStream(repoRoot, key);
+  if (!def) return;
+  if (w.get('SELECT 1 FROM streams WHERE id = ? OR key = ?', [def.id, key])) return;
+  // A flow whose project fwd does not know yet (no project.json) is not dispatched until it is.
+  if (!w.get('SELECT 1 FROM projects WHERE id = ?', [def.project_id])) return;
+  // The shipped file starts off; the Supervisor's own switch decides whether a fire runs.
+  addStream(w, { ...def, enabled: true });
+  ensureReporter(w);
+}
+
+/** The agent that signs a cycle's run report (the one every Core project starts with). */
+function ensureReporter(w: Writer): void {
+  const a = DEFAULT_AGENTS.lead;
+  if (w.get('SELECT 1 FROM agents WHERE id = ?', [a.id])) return;
+  const actor = ownerActor(w);
+  w.transaction((tx) => {
+    tx.run(
+      "INSERT INTO agents(id, name, role, vendor, model, tier, status) VALUES (?, ?, ?, 'local', 'unassigned', ?, 'active')",
+      [a.id, a.name, a.role, a.tier],
+    );
+    tx.appendEvent({
+      type: 'agent.registered',
+      actor_kind: actor.kind,
+      actor_id: actor.id,
+      idempotency_key: a.id,
+      payload: {
+        agent_id: a.id,
+        role: a.role,
+        vendor: 'local',
+        model: 'unassigned',
+        tool_manifest_hash: null,
+        rule_of_two_flags: {},
+      },
+    });
+  });
+}
+
+export interface CycleDeps {
+  writer: Writer;
+  repoRoot: string;
+  fwHome: string;
+  env: Record<string, string | undefined>;
+  log?: (line: string) => void;
+}
+
+export interface CycleFire {
+  flow: string;
+  streamId: string;
+  fireId: string;
+}
+
+interface Draft {
+  id?: unknown;
+  lead_id?: unknown;
+  send_via?: unknown;
+  channel?: unknown;
+  subject?: unknown;
+  body?: unknown;
+}
+
+function brief(key: string, stream: Record<string, unknown>): string {
+  return [
+    `Run one cycle of the flow "${String(stream.name ?? key)}".`,
+    `Read the flow's files under flows/${key}/ in the repository (README.md and config.json) for the offer, territories, sources, funnels and send routes.`,
+    'Find leads, score fit and timing, route each one, and draft invites and posts for the Owner to review.',
+    'Write your drafts to drafts.json in the current folder as {"drafts":[{"id","lead_id","send_via","subject","body"}]}.',
+    'Never send, post or email anything: every draft waits for the Owner.',
+  ].join('\n');
+}
+
+/** Runs one cycle of a flow for an admitted fire. Never throws; failures end in a report. */
+export async function runFlowCycle(d: CycleDeps, fire: CycleFire): Promise<void> {
+  const w = d.writer;
+  const log = d.log ?? (() => {});
+  const stream = flowStream(d.repoRoot, fire.flow) ?? {};
+  const projectId = String(stream.project_id ?? '');
+  const dir = join(d.fwHome, 'flows', fire.flow, 'cycles', fire.fireId.replace(SAFE, '_'));
+  const started = nowIso();
+  let adapterName = 'unknown';
+  let outcome: 'drafted' | 'dry' | 'failed' = 'failed';
+  let reason: string | undefined;
+  let written = 0;
+  try {
+    mkdirSync(dir, { recursive: true, mode: 0o700 });
+    adapterName = chooseAdapter({ env: d.env, fwHome: d.fwHome, repoDir: d.repoRoot }).name;
+    if (!isAdapterName(adapterName)) throw new Error(`unknown adapter ${adapterName}`);
+    const adapter = createAdapter(adapterName as AdapterName, { env: d.env });
+    const caps = ((stream.budget as { caps?: Record<string, number> } | undefined)?.caps ?? {}) as Record<
+      string,
+      number
+    >;
+    const runId = `cyc_${fire.fireId.replace(SAFE, '_')}`;
+    const order = {
+      id: `wo_${runId}`,
+      version: 1,
+      title: `${String(stream.name ?? fire.flow)}: one cycle`,
+      project_id: projectId,
+      stream_id: fire.streamId,
+      ledger_row_id: '',
+      base_commit: '0'.repeat(40),
+      goal: brief(fire.flow, stream),
+      context_links: [`flows/${fire.flow}/README.md`, `flows/${fire.flow}/config.json`],
+      scope: { touches: ['drafts.json'], forbidden: ['**/*'] },
+      constraints: {
+        max_diff_lines: 0,
+        notes: ['This is a flow cycle: write drafts.json only and commit nothing.'],
+      },
+      acceptance: [
+        {
+          id: 'AC1',
+          claim: 'drafts.json lists the drafts for the Owner',
+          probe_command: 'fwd reads drafts.json',
+          expected: 'drafts',
+        },
+      ],
+      autonomy_tier: 'L1',
+      budget: { caps, ttl_hours: 1 },
+      escalate_if: [],
+      output: { required_artifacts: [] },
+      roles: {
+        doer: DEFAULT_AGENTS.lead.id,
+        verifier: DEFAULT_AGENTS.verifier.id,
+        approver: { kind: 'owner', id: 'owner' },
+      },
+    } as unknown as WorkOrder;
+    const input: VendorAdapterInput = {
+      schema_version: '1',
+      run_id: runId,
+      attempt: 1,
+      work_order: order,
+      workspace: { path: dir, base_commit: '0'.repeat(40), read_only: false },
+      credentials_handle: {
+        handle_id: 'none',
+        scopes: [],
+        expires_at: new Date(Date.now() + 3600e3).toISOString(),
+      },
+      budget: caps,
+      caps: { max_turns: Number(caps.max_turns ?? 50), max_wall_clock_s: 900 },
+      sandbox: { isolation: 'worktree_only', network_policy: 'allowlist', egress_allowlist: [] },
+      tool_allowlist: [],
+      context_provenance: {
+        untrusted_inputs: [],
+        rule_of_two: {},
+      } as unknown as VendorAdapterInput['context_provenance'],
+      planner_text_is_data: true,
+    };
+    const scenario = adapterName === 'fake' ? d.env.FW_FAKE_SCENARIO : undefined;
+    const run = adapter.start(input, scenario ? { scenario } : {});
+    for await (const _ of run.events) {
+      // drain: the result settles after the events end
+    }
+    const result = await run.result;
+    const usd = Number(result.cost?.usd ?? 0);
+    if (usd > 0 || result.cost?.input_tokens || result.cost?.output_tokens)
+      w.run(
+        `INSERT INTO spend_entries(id, project_id, stream_id, kind, vendor, model, tokens_in, tokens_out, usd, idempotency_key)
+         VALUES (?, ?, ?, 'model_tokens', ?, ?, ?, ?, ?, ?)`,
+        [
+          newId('spd'),
+          projectId || null,
+          fire.streamId,
+          result.adapter?.vendor ?? null,
+          result.adapter?.model ?? null,
+          result.cost?.input_tokens ?? 0,
+          result.cost?.output_tokens ?? 0,
+          usd,
+          `flow_cycle:${fire.fireId}`,
+        ],
+      );
+    addFlowSpend(d, fire.flow, usd, Number(result.turns ?? 0));
+    if (result.status !== 'completed') {
+      reason = `adapter ended ${result.status}: ${result.summary ?? ''}`;
+    } else {
+      const p = join(dir, 'drafts.json');
+      const drafts = existsSync(p)
+        ? ((JSON.parse(readFileSync(p, 'utf8')) as { drafts?: Draft[] }).drafts ?? [])
+        : [];
+      const out = join(d.fwHome, 'flows', fire.flow, 'drafts');
+      mkdirSync(out, { recursive: true, mode: 0o700 });
+      drafts.forEach((x, i) => {
+        if (typeof x.body !== 'string' || x.body.length === 0) return;
+        const id = `${fire.fireId}-${String(x.id ?? i)}`.replace(SAFE, '_').slice(0, 100);
+        const doc = {
+          flow: fire.flow,
+          id,
+          fire_id: fire.fireId,
+          lead_id: typeof x.lead_id === 'string' ? x.lead_id : null,
+          channel: typeof (x.channel ?? x.send_via) === 'string' ? String(x.channel ?? x.send_via) : null,
+          subject: typeof x.subject === 'string' ? x.subject : null,
+          body: x.body,
+          status: 'waiting_for_owner',
+          created_at: nowIso(),
+        };
+        writeFileSync(join(out, `${id}.json`), `${JSON.stringify(doc, null, 2)}\n`, { mode: 0o600 });
+        written++;
+      });
+      outcome = written > 0 ? 'drafted' : 'dry';
+    }
+  } catch (e) {
+    reason = (e as Error)?.message ?? String(e);
+    log(`supervisor: cycle ${fire.fireId} failed: ${reason}`);
+  }
+  try {
+    const body = {
+      stream_id: fire.streamId,
+      flow: fire.flow,
+      fire_id: fire.fireId,
+      adapter: adapterName,
+      outcome,
+      drafts: written,
+      ...(reason ? { reason } : {}),
+    };
+    const id = newId('rpt');
+    w.transaction((tx) => {
+      tx.run(
+        `INSERT INTO status_reports(id, reporter_agent_id, project_id, kind, period_from, period_to, body, data_as_of)
+         VALUES (?, ?, ?, 'run', ?, ?, ?, ?)`,
+        [id, DEFAULT_AGENTS.lead.id, projectId || null, started, nowIso(), JSON.stringify(body), nowIso()],
+      );
+      tx.appendEvent({
+        type: 'status_report.published',
+        actor_kind: 'system',
+        actor_id: 'supervisor',
+        ...(projectId ? { project_id: projectId } : {}),
+        stream_id: fire.streamId,
+        idempotency_key: id,
+        payload: {
+          report_id: id,
+          project_id: projectId || null,
+          kind: 'run',
+          period: { from: started, to: nowIso() },
+          data_as_of: nowIso(),
+        },
+      });
+    });
+  } catch (e) {
+    log(`supervisor: could not record cycle ${fire.fireId}: ${(e as Error)?.message ?? e}`);
+  }
+}
+
+/** Adds a cycle's spend to the flow's own period total (state.json), which its cap reads. */
+function addFlowSpend(d: CycleDeps, key: string, usd: number, turns: number): void {
+  const p = join(d.fwHome, 'flows', key, 'state.json');
+  if (usd <= 0 && turns <= 0) return;
+  const state = existsSync(p) ? (JSON.parse(readFileSync(p, 'utf8')) as Record<string, unknown>) : {};
+  const s = (state.spend ?? {}) as { period_start?: string; usd?: number; turns?: number };
+  state.spend = {
+    period_start: s.period_start ?? nowIso(),
+    usd: Number(s.usd ?? 0) + usd,
+    turns: Number(s.turns ?? 0) + turns,
+  };
+  mkdirSync(join(d.fwHome, 'flows', key), { recursive: true, mode: 0o700 });
+  writeFileSync(p, `${JSON.stringify(state, null, 2)}\n`);
+}
