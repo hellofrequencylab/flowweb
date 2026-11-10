@@ -22,6 +22,7 @@ import { FlowPulse, MeasureDials, PipelineBar, type PulseState, RegionPath } fro
 import { flowSpec } from './flowState';
 import { LeadHunts } from './LeadHunts';
 import { PaidAdsPanel } from './PaidAdsPanel';
+import { WhatsWorking } from './WhatsWorking';
 
 const pct = (x: number) => `${Math.round(x * 100)}%`;
 const num = (n: number) => n.toLocaleString('en-US');
@@ -279,7 +280,7 @@ export function ActivationPage() {
               title="Reach"
               lede="Who the flow has found, and what is working."
             />
-            {/* FW-C-070: mount spot for the weekly review's card, <WhatsWorking flow={KEY} />, once it exists. */}
+            <WhatsWorking flow={KEY} />
             <section className="panel" aria-labelledby="na-leads">
               <div className="panel-head">
                 <h2 id="na-leads">Lead pipeline</h2>
