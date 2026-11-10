@@ -4,7 +4,7 @@
 // writes a system.config_changed event. Only fwd's single writer touches the database.
 // Dispatching steps waits for the scheduler (WS-P1-004); asks as decision cards wait for WS-P1-024.
 import { createHash } from 'node:crypto';
-import { existsSync, readdirSync, readFileSync } from 'node:fs';
+import { existsSync, mkdirSync, readdirSync, readFileSync, renameSync, writeFileSync } from 'node:fs';
 import { join } from 'node:path';
 import type { ActorKind, Reader, Writer } from '@fw/eventlog';
 import { ownerActor } from '@fw/ledger';
@@ -368,4 +368,96 @@ export function setDial(
     s.flows[key] = next;
     return true;
   });
+}
+
+export interface HandOffItem {
+  id: string;
+  channel: string;
+  body: string;
+}
+export type HandOffResult = { outcome: 'queued'; path: string } | { outcome: 'held'; reason: string };
+
+const channelKeys = (outward: unknown): string[] => {
+  if (Array.isArray(outward))
+    return outward
+      .map((c) => (c && typeof c === 'object' ? (c as { key?: unknown }).key : c))
+      .filter((k): k is string => typeof k === 'string');
+  return outward && typeof outward === 'object' ? Object.keys(outward) : [];
+};
+
+/**
+ * FW-C-037: hand one finished item of a flow at confirmed Autopilot to the outbox, a folder a sending
+ * app outside Core reads. Core never sends: this writes one local file and one notification.queued
+ * event. Anything else holds the item, and the reason starts with why.
+ */
+export function handOff(o: {
+  writer: Writer;
+  repoRoot: string;
+  fwHome: string;
+  flow: string;
+  item: HandOffItem;
+  engines?: Record<string, Engine>;
+  now?: Date;
+}): HandOffResult {
+  const { writer: w, flow, item } = o;
+  if (!shippedFlows(o.repoRoot).some((f) => f.key === flow))
+    throw new SupervisorError('NOT_FOUND', `no flow named ${flow}`);
+  if (!/^[A-Za-z0-9_-]{1,100}$/.test(item.id))
+    throw new SupervisorError('INVALID', 'item id must be 1-100 letters, digits, _ or -');
+  const held = (why: string, words: string): HandOffResult => ({
+    outcome: 'held',
+    reason: `${why}: ${words}`,
+  });
+  if (killSwitch(w)) return held('kill_switch', 'The kill switch is engaged.');
+  const s = readSettings(w);
+  if (s.paused) return held('supervisor_paused', 'The Owner paused the Supervisor.');
+  let facts: EngineFacts | null = null;
+  try {
+    facts = (o.engines ?? ENGINES)[flow]?.(o.repoRoot, o.fwHome, o.now ?? new Date()) ?? null;
+  } catch {
+    facts = null;
+  }
+  if (!facts) return held('no_engine', 'The flow has no working logic.');
+  const set = s.flows[flow];
+  if (set?.enabled !== true) return held('flow_disabled', 'The Owner has not turned this flow on.');
+  if ((set.dial ?? 'draft') !== 'autopilot')
+    return held('needs_owner', `At ${set.dial ?? 'draft'} every item waits for the Owner.`);
+  const hash = confirmHash(flow, facts);
+  if (set.dial_hash !== hash)
+    return held(
+      'dial_unapproved',
+      "The flow's channels or caps changed since the Owner confirmed Autopilot.",
+    );
+  if (!channelKeys(facts.outward).includes(item.channel))
+    return held('unknown_channel', `${flow} does not list ${item.channel}.`);
+  const dir = join(o.fwHome, 'outbox', flow);
+  const path = join(dir, `${item.id}.json`);
+  if (existsSync(path)) return { outcome: 'queued', path };
+  const sha256 = createHash('sha256').update(item.body).digest('hex');
+  const dedupe_key = `flow_handoff:${flow}:${item.id}`;
+  mkdirSync(dir, { recursive: true, mode: 0o700 });
+  const tmp = `${path}.tmp`;
+  writeFileSync(
+    tmp,
+    `${JSON.stringify({ flow, id: item.id, channel: item.channel, body: item.body, confirm_hash: hash, sha256 }, null, 2)}\n`,
+    { mode: 0o600 },
+  );
+  w.appendEvent({
+    type: 'notification.queued',
+    actor_kind: 'system',
+    actor_id: 'supervisor',
+    idempotency_key: dedupe_key,
+    payload: {
+      notification_id: dedupe_key,
+      channel: item.channel,
+      kind: 'flow_handoff',
+      priority: 'normal',
+      dedupe_key,
+      flow,
+      item_id: item.id,
+      sha256,
+    },
+  });
+  renameSync(tmp, path);
+  return { outcome: 'queued', path };
 }

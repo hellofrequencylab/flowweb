@@ -54,6 +54,14 @@ export {
   type StatusReport,
 } from './local-client.ts';
 export {
+  handOff,
+  SupervisorError,
+  setDial,
+  setFlowEnabled,
+  setPaused,
+  supervisorView,
+} from './overseer/index.ts';
+export {
   buildEvidenceBundle,
   type EvidenceInput,
   evidenceBundleHash,
