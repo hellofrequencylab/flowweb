@@ -189,7 +189,8 @@ await probe(NAME, async () => {
     check(flowOf(v, KEY).gate === 'kill_switch', `kill switch: the autopilot flow is held by ${flowOf(v, KEY).gate}`);
 
     // ---- 7. the CLI agrees -------------------------------------------------------------------
-    const cli = fwJson(['supervisor', 'status'], { home });
+    // FW_PORT names this probe's fwd, so another fwd on the default port (the Owner's own) is never asked.
+    const cli = fwJson(['supervisor', 'status'], { home, env: { FW_PORT: String(f.port) } });
     check(cli.status === 0, `fw supervisor status --json exited ${cli.status}: ${cli.stderr.slice(0, 200)}`);
     const cliFlows = cli.json?.flows;
     check(Array.isArray(cliFlows), 'fw supervisor status --json printed no flows');

@@ -2,7 +2,7 @@
 // them and approves or rejects each one. Approving hands the draft off exactly as Autopilot does (the
 // same outbox file and notification.queued event, deduplicated on the same key), so approving twice
 // changes nothing. A rejected draft is never handed off.
-import { existsSync, readdirSync, readFileSync, renameSync, writeFileSync } from 'node:fs';
+import { existsSync, mkdirSync, readdirSync, readFileSync, renameSync, writeFileSync } from 'node:fs';
 import { join } from 'node:path';
 import type { Writer } from '@fw/eventlog';
 import { handOff, SupervisorError, shippedFlows } from './index.ts';
@@ -20,6 +20,11 @@ export interface DraftView {
   approved_at?: string;
   rejected_at?: string;
   edited_at?: string;
+  /** FW-C-054: the draft id in Frequency's slug form; every flowweb link in the body carries it. */
+  tag?: string;
+  sent_at?: string;
+  replied_at?: string;
+  declined_at?: string;
 }
 
 const ID = /^[A-Za-z0-9_-]{1,100}$/;
@@ -45,6 +50,11 @@ function view(doc: Record<string, unknown>): DraftView {
     ...(str('approved_at') ? { approved_at: str('approved_at') as string } : {}),
     ...(str('rejected_at') ? { rejected_at: str('rejected_at') as string } : {}),
     ...(str('edited_at') ? { edited_at: str('edited_at') as string } : {}),
+    ...Object.fromEntries(
+      (['tag', 'sent_at', 'replied_at', 'declined_at'] as const).flatMap((k) =>
+        str(k) ? [[k, str(k)]] : [],
+      ),
+    ),
   };
 }
 
@@ -166,4 +176,79 @@ export function editDraft(o: {
   };
   save(path, next);
   return view(next);
+}
+
+/**
+ * FW-C-054: the tag a draft's links carry as utm_content, so Frequency can trace a signup back to the
+ * draft. It is the draft id in Frequency's slug form: lower case, a-z 0-9 _ -, at most 48 characters.
+ */
+export function draftTag(id: string): string {
+  return id
+    .toLowerCase()
+    .replace(/[^a-z0-9_-]/g, '-')
+    .slice(0, 48);
+}
+
+/** Adds utm_content=<tag> to every link in the text that carries utm_source=flowweb. Other text is kept. */
+export function tagLinks(text: string, tag: string): string {
+  return text.replace(/https?:\/\/[^\s<>"')\]]+/g, (raw) => {
+    const tail = /[.,;:!?]+$/.exec(raw)?.[0] ?? '';
+    const link = tail ? raw.slice(0, -tail.length) : raw;
+    let u: URL;
+    try {
+      u = new URL(link);
+    } catch {
+      return raw;
+    }
+    if (u.searchParams.get('utm_source') !== 'flowweb') return raw;
+    u.searchParams.set('utm_content', tag);
+    return `${u.toString()}${tail}`;
+  });
+}
+
+export const DRAFT_OUTCOMES = ['sent', 'replied', 'declined'] as const;
+export type DraftOutcome = (typeof DRAFT_OUTCOMES)[number];
+
+/**
+ * FW-C-054: the Owner says what happened to a draft they sent by hand. sent, replied and declined each
+ * stamp their time once (a repeat keeps the first); replied and declined stamp sent_at too when it is
+ * missing. declined is an opt-out: the draft's address, else its contact page, else its lead id goes on
+ * the flow's do-not-contact list. The status is never changed and nothing is sent.
+ */
+export function markDraft(o: {
+  repoRoot: string;
+  fwHome: string;
+  flow: string;
+  id: string;
+  outcome: unknown;
+  now?: Date;
+}): DraftView {
+  if (!(DRAFT_OUTCOMES as readonly unknown[]).includes(o.outcome))
+    throw new SupervisorError('INVALID', `outcome must be one of ${DRAFT_OUTCOMES.join(', ')}`);
+  const outcome = o.outcome as DraftOutcome;
+  const { path, doc } = load(o.repoRoot, o.fwHome, o.flow, o.id);
+  if (doc.status === 'rejected')
+    throw conflict('rejected', 'The Owner rejected this draft, so it was never sent.');
+  const at = (o.now ?? new Date()).toISOString();
+  const next: Record<string, unknown> = { ...doc };
+  if (typeof next.sent_at !== 'string') next.sent_at = at;
+  const field = `${outcome}_at`;
+  if (typeof next[field] !== 'string') next[field] = at;
+  if (outcome === 'declined') {
+    const pick = (k: string) => (typeof doc[k] === 'string' && doc[k] !== '' ? (doc[k] as string) : null);
+    const key = (pick('to') ?? pick('contact_url') ?? pick('lead_id'))?.toLowerCase();
+    if (key && !key.startsWith('template:')) addToDoNotContact(o.fwHome, o.flow, key);
+  }
+  save(path, next);
+  return view(next);
+}
+
+/** Appends one entry to $FW_HOME/flows/<flow>/state.json do_not_contact, keeping everything else. */
+function addToDoNotContact(fwHome: string, flow: string, key: string): void {
+  const p = join(fwHome, 'flows', flow, 'state.json');
+  const state = existsSync(p) ? (JSON.parse(readFileSync(p, 'utf8')) as Record<string, unknown>) : {};
+  const list = Array.isArray(state.do_not_contact) ? (state.do_not_contact as unknown[]).map(String) : [];
+  if (list.some((x) => x.toLowerCase() === key)) return;
+  mkdirSync(join(fwHome, 'flows', flow), { recursive: true, mode: 0o700 });
+  save(p, { ...state, do_not_contact: [...list, key] });
 }
