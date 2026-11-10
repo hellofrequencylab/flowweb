@@ -21,6 +21,7 @@ import {
   setPaused,
   shippedFlows,
 } from './overseer/index.ts';
+import { rewriteDraft } from './overseer/rewrite.ts';
 import { runStart } from './pipeline/run-start.ts';
 import { type ReconcileReport, reconcileOnStart } from './reconciler.ts';
 import { RunHost } from './run-host.ts';
@@ -245,6 +246,11 @@ export async function startDaemon(opts: DaemonOptions): Promise<Daemon> {
       setDial: (key, stop, confirm) => setDial(writer, REPO_ROOT, fwHome, key, stop, confirm),
       approveDraft: (key, id) => approveDraft({ writer, repoRoot: REPO_ROOT, fwHome, flow: key, id }),
       rejectDraft: (key, id) => rejectDraft({ repoRoot: REPO_ROOT, fwHome, flow: key, id }),
+      rewriteDraft: (key, id, body) =>
+        rewriteDraft(
+          { writer, repoRoot: REPO_ROOT, fwHome, env: process.env, log },
+          { flow: key, id, instruction: body.instruction, subject: body.subject, body: body.body },
+        ),
       runFlow: async (key) => {
         const s = writer.get<{ id: string }>('SELECT id FROM streams WHERE key = ?', [key]);
         if (!s || !shippedFlows(REPO_ROOT).some((f) => f.key === key))

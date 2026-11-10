@@ -548,6 +548,12 @@ export interface CoreClient {
     id: string,
     edit: { subject?: string; body?: string },
   ): Promise<SupervisorDraft>;
+  /** FW-C-051: a rewrite of a draft from the flow's engine, for the Owner to review; nothing is saved. */
+  supervisorRewriteDraft?(
+    flow: string,
+    id: string,
+    instruction: string,
+  ): Promise<{ id: string; subject: string | null; body: string; instruction: string }>;
   /** FW-C-039: where setup stands; served by the daemon package. */
   setup?(): Promise<SetupReport>;
   /** The policy engine: optional, served by the daemon package (the CLI never imports @fw/policy). */

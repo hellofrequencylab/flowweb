@@ -164,6 +164,12 @@ function fakeClient(overrides: Partial<CoreClient> = {}): CoreClient {
       ...edit,
       edited_at: '2026-11-10T00:00:00.000Z',
     }),
+    supervisorRewriteDraft: async (_flow: string, id: string, instruction: string) => ({
+      id,
+      subject: 'Rewritten',
+      body: 'Rewritten body',
+      instruction,
+    }),
     policyCheck: async () => ({
       effect: 'ask',
       rule_id: 'pol_0120',
