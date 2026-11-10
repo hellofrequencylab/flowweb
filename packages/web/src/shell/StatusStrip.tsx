@@ -40,12 +40,6 @@ export function StatusStrip({ onStop }: { onStop: () => void }) {
   if (prefs.calm) conditions.push({ icon: 'paused', text: 'Calm mode' });
   if (s?.paused_by_budget) conditions.push({ icon: 'paused', text: 'Paused: budget', tone: 'warn' });
   if (s?.breaker?.tripped) conditions.push({ icon: 'warn', text: 'Breaker tripped', tone: 'warn' });
-  if (s && s.sandbox_egress !== 'enforced')
-    conditions.push({
-      icon: 'warn',
-      text: `Sandbox egress ${s.sandbox_egress === 'best_effort' ? 'best effort' : 'none'}`,
-      tone: 'warn',
-    });
   if (s && !s.integrity.ok) conditions.push({ icon: 'fail', text: 'Integrity check failed', tone: 'fail' });
 
   return (
@@ -56,6 +50,8 @@ export function StatusStrip({ onStop }: { onStop: () => void }) {
         </Link>
         <TopNav />
         <span className="spacer" />
+
+        {s && s.sandbox_egress !== 'enforced' && <EgressWarning level={s.sandbox_egress} />}
 
         <span
           className={`conn conn-${connection}`}
@@ -107,5 +103,31 @@ export function StatusStrip({ onStop }: { onStop: () => void }) {
         </ul>
       )}
     </header>
+  );
+}
+
+const EGRESS_TIP: Record<string, string> = {
+  best_effort:
+    'Sandbox egress: best effort. Agent runs are limited from reaching the network, but it is not guaranteed.',
+  none: 'Sandbox egress: none. Agent runs on your machine are not blocked from reaching the network.',
+};
+
+/**
+ * Sandbox egress that is not enforced is a standing risk, so it stays in the first
+ * row of the header as an icon. The full sentence is a tooltip on hover and focus,
+ * and is the accessible name, so it is never hidden from a screen reader.
+ */
+function EgressWarning({ level }: { level: string }) {
+  const tip = EGRESS_TIP[level === 'best_effort' ? 'best_effort' : 'none'];
+  return (
+    <span className="tip-wrap">
+      <button type="button" className="icon-btn egress-warn" aria-describedby="egress-tip">
+        <Icon name="warn" size={18} />
+        <span className="visually-hidden">Sandbox warning</span>
+      </button>
+      <span role="tooltip" id="egress-tip" className="tip">
+        {tip}
+      </span>
+    </span>
   );
 }

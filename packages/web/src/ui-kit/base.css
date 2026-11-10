@@ -423,6 +423,43 @@ code,
   background: var(--surface-selected);
   color: var(--active-fg);
 }
+/* A standing warning kept in the first header row: an icon whose sentence is a tooltip. */
+.tip-wrap {
+  position: relative;
+  display: inline-flex;
+}
+.egress-warn,
+.egress-warn:hover {
+  color: var(--caution-fg);
+}
+.tip {
+  position: absolute;
+  top: calc(100% + var(--space-2));
+  right: 0;
+  z-index: 30;
+  width: max-content;
+  max-width: 280px;
+  padding: var(--space-3) var(--space-4);
+  border-radius: var(--radius-xs);
+  background: var(--surface-inverse);
+  color: var(--text-inverse);
+  font: var(--type-small);
+  box-shadow: var(--shadow-raised);
+  opacity: 0;
+  visibility: hidden;
+  pointer-events: none;
+  transition: opacity 120ms ease;
+}
+.tip-wrap:hover .tip,
+.tip-wrap:focus-within .tip {
+  opacity: 1;
+  visibility: visible;
+}
+@media (prefers-reduced-motion: reduce) {
+  .tip {
+    transition: none;
+  }
+}
 .banner-area:empty {
   display: none;
 }
