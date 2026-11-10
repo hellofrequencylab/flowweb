@@ -32,7 +32,8 @@ import { REPO_ROOT, VERSION } from './daemon.ts';
 import { FwdUnreachableError, fwdEndpoint, fwdError, fwdRequest } from './fwd-client.ts';
 import { supervisorView } from './overseer/index.ts';
 import { listRuns, type RunDetail, type RunSummary, showRun } from './pipeline/queries.ts';
-import { type RunStartReport, runStart } from './pipeline/run-start.ts';
+import { type RunStartReport, resolveGitHost, runStart } from './pipeline/run-start.ts';
+import { type GitReconcileReport, reconcileGitHost } from './reconcile-git.ts';
 import { type DoctorReport, runDoctor } from './runtime/doctor.ts';
 import { type GcReport, gcRunDirs } from './runtime/gc.ts';
 import { SPEND_GROUP_NAMES, type SpendGroup, type SpendRow, spendRollup } from './spend.ts';
@@ -73,6 +74,7 @@ export interface DaemonCoreClient extends LocalCoreClient {
   spendRollup(opts: { by: string }): Promise<(SpendRow & { unknown_runs?: number })[]>;
   policyCheck(input: DecisionInput): Promise<Decision & { policy_path: string }>;
   policyApply(): Promise<ApplyReport & { policy_path: string }>;
+  reconcile(opts?: { host?: string }): Promise<GitReconcileReport>;
   doctor(): Promise<DoctorReport>;
   gc(): Promise<GcReport>;
 }
@@ -228,6 +230,10 @@ export function createCoreClient(opts: LocalClientOptions): DaemonCoreClient {
       const policy = loadPolicy(policyPath);
       const w = open(true).writer!;
       return { ...applyPolicy(w, policy, ownerId(w)), policy_path: policyPath };
+    },
+    async reconcile(o = {}) {
+      const host = resolveGitHost(o.host ?? process.env.FW_GIT_HOST, repoDir, process.env);
+      return reconcileGitHost(open(true).writer!, host);
     },
     async doctor() {
       return runDoctor(home);

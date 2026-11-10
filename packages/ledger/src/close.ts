@@ -115,6 +115,13 @@ export async function closeRow(w: Writer, code: string, opts: CloseOptions): Pro
       `illegal ledger_row transition: ${rowCode} ${row.status} -> done (close needs a row in verifying)`,
       { code: rowCode, from: row.status, to: 'done' },
     );
+  // A merge the reconciler recorded queues this probe for that exact commit.
+  if (row.merged_sha && row.merged_sha !== mergedSha)
+    throw new LedgerError(
+      'MERGED_SHA_MISMATCH',
+      `${rowCode} was merged at ${row.merged_sha} (recorded by the reconciler), not ${mergedSha}`,
+      { recorded: row.merged_sha, merged_sha: mergedSha },
+    );
   const head = gitHead(opts.repoDir);
   if (!head) throw new LedgerError('NOT_A_GIT_REPO', `${opts.repoDir} is not a git checkout`);
   if (head !== mergedSha)

@@ -11,6 +11,7 @@ export {
   type GitHost,
   GitHostError,
   type OpenPullRequestInput,
+  type PrListing,
   type PrState,
   type PrStatus,
   type PullRequestRef,

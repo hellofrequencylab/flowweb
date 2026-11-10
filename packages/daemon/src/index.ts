@@ -34,6 +34,7 @@ export {
   GitHostError,
   LocalBareHost,
   type OpenPullRequestInput,
+  type PrListing,
   type PrState,
   type PrStatus,
   type PullRequestRef,
@@ -77,6 +78,7 @@ export {
   startSupervised,
   supervise,
 } from './pipeline/supervisor.ts';
+export { type DriftItem, type GitReconcileReport, reconcileGitHost } from './reconcile-git.ts';
 export { ORPHAN_STATES, type ReconcileReport, reconcileOnStart } from './reconciler.ts';
 export { RunHost, RunHostStoppingError } from './run-host.ts';
 export {

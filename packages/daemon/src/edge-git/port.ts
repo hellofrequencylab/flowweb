@@ -40,6 +40,12 @@ export interface GitHost {
   getPrStatus(number: number): Promise<PrStatus>;
   /** Head commit of a branch on the host, or null when the branch does not exist there. */
   getHeadSha(branch: string): Promise<string | null>;
+  /** Every pull request on the host (open, merged and closed), newest first; read for the reconciler. */
+  listPullRequests(): Promise<PrListing[]>;
+}
+
+export interface PrListing extends PrStatus {
+  title: string;
 }
 
 export class GitHostError extends Error {
