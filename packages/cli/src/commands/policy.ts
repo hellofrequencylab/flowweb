@@ -18,7 +18,7 @@ class BadArgument extends Error {
 
 const check: Command = {
   path: ['policy', 'check'],
-  usage: 'fw policy check --action <class> --env <environment> [--role <role>] [--context <json>]',
+  usage: 'fw policy check [--role <role>] [--context <json>] --action <class> --env <environment>',
   summary: 'Dry-run the policy engine: print the effect, tier and deciding rule (always exit 0)',
   args: [],
   options: ['action', 'env', 'role', 'context'],
