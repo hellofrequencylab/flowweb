@@ -4,7 +4,7 @@
     "profile": "core",
     "schema": "ledger-row/1",
     "generated": "2026-11-09",
-    "row_count": 119,
+    "row_count": 120,
     "conventions": {
       "verify_probe": "Same convention as 04-build-plan/backlog.json: 'pnpm probe <path>' runs probes/<path>.probe.ts, a Tier 0 file written before the implementation row starts and never edited by the agent doing the row. Every probe fails today because its target does not exist (a missing probe file exits 2, a missing behaviour exits 1). The probe pack for a milestone is committed by the Owner or a pair session before the milestone's rows start.",
       "status": "All rows start as open. Status lives only in the ledger database (imported with fw ledger sync), never in prose.",
@@ -28,7 +28,7 @@
       }
     },
     "full_plan_rows_included": 37,
-    "new_core_rows": 81
+    "new_core_rows": 82
   },
   "rows": [
     {
@@ -4191,6 +4191,42 @@
         "api/v1.mjs",
         "hosted/README.md",
         "hosted/test/"
+      ],
+      "origin": "new Core row"
+    },
+    {
+      "id": "FW-C-085",
+      "title": "A new person gets a setup assistant on Get started that walks them through connecting their own AI account, and never takes a key",
+      "core_milestone": "C1",
+      "phase": 1,
+      "epic": "C1.5 First flow",
+      "priority": "P1",
+      "size": "L",
+      "lane": "workstreams",
+      "agent_suitability": "agent",
+      "gate": "none",
+      "depends_on": [
+        "FW-C-039",
+        "FW-C-076"
+      ],
+      "description": "The Owner wants to give FlowWeb to friends and asked for an AI assistant that helps each person set up their own AI accounts. Today a new person lands on Get started and sees a list of steps with commands, and the AI accounts are explained in a long panel in Settings. Add SetupAssistant to packages/web/src/setup and render it from SetupPage. It reads what the machine last reported (the hosted machine list and its account test, or the setup steps) and says the one next thing: put FlowWeb on a machine (clone, install, start fwd, then Add a machine in Settings); pick the AI account they have (Claude Pro or Max, ChatGPT Plus or Pro, an Anthropic API key, an OpenAI API key) and run its pnpm fw accounts connect command on their own machine; fix an account whose test failed; then the next setup step. It also answers setup questions: on the live site through POST /v1/assistant/setup (hosted/server/assistant.mjs, Claude with the site's own key from FW_ASSISTANT_ANTHROPIC_KEY, nothing stored or logged), falling back to built-in answers when the site has no AI or fails. Keys stay on the person's own machine, in its keychain; the site never holds one. Anything typed that looks like a key or token is refused before it is shown, stored or sent, on the page and again on the server. The conversation lives in sessionStorage for the tab.",
+      "acceptance": [
+        "SetupPage renders SetupAssistant, and api/v1.mjs serves POST /v1/assistant/setup from hosted/server/assistant.mjs",
+        "With no machine reported, the assistant says how to put FlowWeb on a machine and points at Settings",
+        "With a machine and no working AI account, it asks which account the person has and gives that account's pnpm fw accounts connect command",
+        "A failed account test shows the machine's fix and pnpm fw accounts check; a working one names the next setup step",
+        "A question goes to /v1/assistant/setup on the live site and falls back to built-in answers when that fails",
+        "A key-shaped message is refused: not shown, not stored, not sent; the server refuses one too, before any call",
+        "The server answers 503 not_configured without FW_ASSISTANT_ANTHROPIC_KEY and sends that key only as a header"
+      ],
+      "verify_probe": "pnpm probe onboarding/setup-assistant",
+      "files_hint": [
+        "packages/web/src/setup/",
+        "packages/web/src/api/client.ts",
+        "packages/web/src/ui-kit/flow.css",
+        "hosted/server/assistant.mjs",
+        "api/v1.mjs",
+        "hosted/README.md"
       ],
       "origin": "new Core row"
     }
