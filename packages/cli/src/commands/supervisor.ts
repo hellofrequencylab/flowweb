@@ -209,6 +209,25 @@ const rewrite: Command = {
   },
 };
 
+const mark: Command = {
+  path: ['supervisor', 'mark'],
+  usage: 'fw supervisor mark <flow> <id> <sent|replied|declined>',
+  summary: 'Say what happened to a draft you sent by hand; declined adds them to do-not-contact (Owner)',
+  args: ['flow', 'id', 'outcome'],
+  options: [],
+  async run(ctx) {
+    if (typeof ctx.client.supervisorMarkDraft !== 'function')
+      throw new UnsupportedError(
+        'the core client in use does not serve the Supervisor; the daemon package provides it',
+      );
+    const [flow = '', id = '', outcome = ''] = ctx.args;
+    const d = await ctx.client.supervisorMarkDraft(flow, id, outcome);
+    if (ctx.json) ctx.io.out(JSON.stringify(d, null, 2));
+    else ctx.io.out(`${d.id}: ${outcome}`);
+    return EXIT.OK;
+  },
+};
+
 export const supervisorCommands: Command[] = [
   status,
   control('pause', false, 'Pause the Supervisor: hold every flow until resumed (Owner)'),
@@ -222,4 +241,5 @@ export const supervisorCommands: Command[] = [
   draftAction('reject', 'Reject one draft: it is never handed off (Owner)'),
   edit,
   rewrite,
+  mark,
 ];

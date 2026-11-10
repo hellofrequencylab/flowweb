@@ -11,6 +11,7 @@ import { ApiError, sendError } from './api/http.ts';
 import { buildRouter, principalOf, type RunStartBody } from './api/routes.ts';
 import type { ChainStatus } from './api/status.ts';
 import { hostAllowed, PairingStore, writeOriginAllowed } from './auth.ts';
+import { pullOutcomes } from './flows/outcomes.ts';
 import { reapOrphanCycles, runFlowCycle } from './overseer/cycle.ts';
 import { approveDraft, rejectDraft } from './overseer/drafts.ts';
 import {
@@ -202,6 +203,20 @@ export async function startDaemon(opts: DaemonOptions): Promise<Daemon> {
   const decisionTimer = setInterval(expireDecisions, opts.decisionExpiryIntervalMs ?? 60_000);
   decisionTimer.unref();
 
+  // ---- flow outcomes (FW-C-055) -------------------------------------------------------------
+  // Soon after start, then once a day: ask Frequency what became of the people the flow reached.
+  const pullNow = (): void => {
+    pullOutcomes({ repoRoot: REPO_ROOT, fwHome, env: process.env }).then(
+      (n) => log(`outcomes: pulled ${n.outcomes} outcome row(s) and ${n.regions} region(s) from Frequency`),
+      (e) => log(`outcomes: pull failed: ${(e as Error)?.message ?? e}`),
+    );
+  };
+  const everyMs = Number(process.env.FW_OUTCOMES_PULL_EVERY_MS) || 86_400_000;
+  const firstPull = setTimeout(pullNow, 2_000);
+  firstPull.unref();
+  const pullTimer = setInterval(pullNow, everyMs);
+  pullTimer.unref();
+
   // ---- auth --------------------------------------------------------------------------------
   const pairing = new PairingStore(join(fwHome, 'pairing'));
   const cliTokenPath = pairing.ensureCliToken();
@@ -337,6 +352,8 @@ export async function startDaemon(opts: DaemonOptions): Promise<Daemon> {
   } catch (e) {
     clearInterval(chainTimer);
     clearInterval(decisionTimer);
+    clearInterval(pullTimer);
+    clearTimeout(firstPull);
     try {
       writer.appendEvent({
         type: 'system.stopped',
@@ -408,6 +425,8 @@ export async function startDaemon(opts: DaemonOptions): Promise<Daemon> {
     }
     clearInterval(chainTimer);
     clearInterval(decisionTimer);
+    clearInterval(pullTimer);
+    clearTimeout(firstPull);
     for (const end of [...streams]) end();
     await new Promise<void>((ok) => {
       server.close(() => ok());

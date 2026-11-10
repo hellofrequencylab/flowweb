@@ -48,3 +48,16 @@ test('the relay calls only the matching fwd draft route', () => {
   assert.equal(fwdCallFor({ ...r, flow: '../x' }), null);
   assert.deepEqual(fwdCallFor({ ...r, kind: 'draft.reject' }), { path: `${P}/reject`, body: {} });
 });
+
+test('a mark carries only a known outcome, and the relay maps it to the mark route', () => {
+  assert.deepEqual(draftRequestOf('POST', `${P}/mark`, { outcome: 'replied', status: 'handed_off' }).payload, {
+    outcome: 'replied',
+  });
+  assert.ok(draftRequestOf('POST', `${P}/mark`, {}).error);
+  assert.ok(draftRequestOf('POST', `${P}/mark`, { outcome: 'approved' }).error);
+  assert.deepEqual(fwdCallFor({ kind: 'draft.mark', flow: 'f', draft_id: 'd', payload: { outcome: 'declined' } }), {
+    path: '/supervisor/flows/f/drafts/d/mark',
+    body: { outcome: 'declined' },
+  });
+  assert.equal(fwdCallFor({ kind: 'draft.mark', flow: 'f', draft_id: 'd', payload: { outcome: 'send' } }), null);
+});

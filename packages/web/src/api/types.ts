@@ -645,6 +645,11 @@ export interface FlowDraft {
   approved_at?: string;
   rejected_at?: string;
   edited_at?: string;
+  /** FW-C-054: what the Owner says happened after they sent it by hand. */
+  tag?: string;
+  sent_at?: string;
+  replied_at?: string;
+  declined_at?: string;
 }
 
 export interface FlowDrafts extends Envelope {
