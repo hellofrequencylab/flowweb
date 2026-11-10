@@ -1,4 +1,4 @@
-import { type FormEvent, useId, useState } from 'react';
+import { type FormEvent, type ReactNode, useId, useState } from 'react';
 import {
   authMethods,
   sendLink,
@@ -8,7 +8,7 @@ import {
   signInWithPassword,
   signUp,
 } from '../hosted/auth';
-import { Icon } from '../ui-kit/Icon';
+import { Icon, type IconName } from '../ui-kit/Icon';
 import { Logo } from '../ui-kit/Logo';
 import './home.css';
 
@@ -44,8 +44,89 @@ export function HomePage({
           </p>
         </div>
         <AccountCard notice={notice} recovery={recovery} onSignedIn={onSignedIn} />
+        <FlowPreview />
       </main>
+
+      <section className="home-band" aria-labelledby="home-how">
+        <h2 id="home-how">How it works</h2>
+        <ol className="home-steps">
+          <Step n={1} title="Pick a flow">
+            Lead hunts, follow-ups and a morning digest. Each one runs on a schedule you set.
+          </Step>
+          <Step n={2} title="It does the legwork">
+            AI on your own Mac searches, sorts and writes the first draft. Your keys never leave it.
+          </Step>
+          <Step n={3} title="You sign off">
+            Edit, rewrite or reject any draft. You send what you approve, from your own inbox.
+          </Step>
+        </ol>
+      </section>
+
+      <section className="home-band" aria-labelledby="home-people">
+        <h2 id="home-people">Bring your people</h2>
+        <ul className="home-roles">
+          <Role icon="verified" name="Owner" text="Runs the account and decides who is in." />
+          <Role icon="settings" name="Admin" text="Sets up flows, machines and hunts." />
+          <Role icon="pencil" name="Helper" text="Edits and rewrites drafts with you." />
+          <Role icon="console" name="Viewer" text="Follows along without touching a thing." />
+        </ul>
+      </section>
+
+      <footer className="home-foot">
+        <Logo size={22} />
+        <p>Drafts only. FlowWeb never sends on its own.</p>
+      </footer>
     </div>
+  );
+}
+
+function Step({ n, title, children }: { n: number; title: string; children: ReactNode }) {
+  return (
+    <li className="home-step">
+      <span className="home-step-n" aria-hidden="true">
+        {n}
+      </span>
+      <h3>{title}</h3>
+      <p>{children}</p>
+    </li>
+  );
+}
+
+function Role({ icon, name, text }: { icon: IconName; name: string; text: string }) {
+  return (
+    <li className="home-role">
+      <Icon name={icon} size={18} />
+      <span>
+        <strong>{name}</strong> {text}
+      </span>
+    </li>
+  );
+}
+
+/** A still picture of one flow. Idle on purpose: motion on this site means something is running. */
+function FlowPreview() {
+  const stages: { label: string; note: string; state: 'done' | 'waiting' | 'next' }[] = [
+    { label: 'Find', note: '12 new leads', state: 'done' },
+    { label: 'Draft', note: '8 messages', state: 'done' },
+    { label: 'Sign off', note: 'Waiting on you', state: 'waiting' },
+    { label: 'Send', note: 'From your inbox', state: 'next' },
+  ];
+  return (
+    <figure
+      className="home-flow"
+      aria-label="An example flow: find leads, draft messages, you sign off, then you send."
+    >
+      <figcaption>Morning lead hunt</figcaption>
+      <ol>
+        {stages.map((s) => (
+          <li key={s.label} className={`home-flow-stage is-${s.state}`}>
+            <span className="home-flow-node" aria-hidden="true" />
+            <strong>{s.label}</strong>
+            <span>{s.note}</span>
+          </li>
+        ))}
+      </ol>
+    </figure>
   );
 }
 
