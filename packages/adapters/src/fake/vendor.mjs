@@ -15,7 +15,7 @@ Reads a JSON request on stdin and plays a scripted scenario.
 Options:
   --version   Print the version
   --help      Print this help
-Scenarios: success, flow_drafts, hunt_leads, fail, hang, secret_leak, prompt_injection, over_budget,
+Scenarios: success, flow_drafts, hunt_leads, hunt_reach, fail, hang, secret_leak, prompt_injection, over_budget,
   forbidden_path, malformed_output, fabricated_claim
 `;
 
@@ -188,6 +188,60 @@ const scenarios = {
       lead(h, 'd', `d-${h.id}@example.com`, true),
       lead(h, 'e', `a-${h.id}@example.com`, true),
       lead(h, 'f', `f-${h.id}@example.com`, true),
+    ]);
+    writeFileSync(join(process.cwd(), 'leads.json'), JSON.stringify({ leads }, null, 2));
+    writeFileSync(join(process.cwd(), 'drafts.json'), JSON.stringify({ drafts: [] }));
+    out({
+      t: 'result',
+      ok: true,
+      usd: 0.0123,
+      artifacts: [{ kind: 'file', ref: 'leads.json' }],
+      report: { summary: `found ${leads.length} leads`, claims: [], followups: [] },
+    });
+  },
+  // FW-C-050: a hunt cycle that tests where and how. For every hunt in ./hunts.json, eight leads: a by
+  // email in the US, e by a contact form and f by an Instagram profile; b (event in Canada), c (a .de
+  // address), d (organizer in France), g (organizer in the UK) and h (a .ca contact form) are restricted.
+  async hunt_reach() {
+    session();
+    out({
+      t: 'turn',
+      id: 'msg_1',
+      text: 'Searching listings for the due hunts.',
+      usage: { input_tokens: 1100, output_tokens: 400, cached_tokens: 0 },
+    });
+    let hunts = [];
+    try {
+      hunts = JSON.parse(readFileSync(join(process.cwd(), 'hunts.json'), 'utf8')).hunts ?? [];
+    } catch {
+      hunts = [];
+    }
+    const lead = (h, k, org, event = {}) => ({
+      hunt_id: h.id,
+      event: {
+        title: `Event ${k}`,
+        starts_at: '2026-12-01T18:00:00Z',
+        url: `https://example.com/e/${h.id}/${k}`,
+        ...event,
+      },
+      organizer: { name: `Organizer ${k}`, source_url: `https://example.com/o/${h.id}/${k}`, ...org },
+      subject: `Your event ${k}`,
+      body: `Hi Organizer ${k}, I saw your event ${k} and loved it.`,
+    });
+    const leads = hunts.flatMap((h) => [
+      lead(
+        h,
+        'a',
+        { email: `a-${h.id}@example.com`, country: 'US', contact_via: 'email' },
+        { country: 'US' },
+      ),
+      lead(h, 'b', { email: `b-${h.id}@example.com` }, { country: 'CA' }),
+      lead(h, 'c', { email: `c-${h.id}@example.de` }),
+      lead(h, 'd', { email: `d-${h.id}@example.com`, country: 'FR' }),
+      lead(h, 'e', { contact_via: 'form', contact_url: `https://example.com/contact/${h.id}/e` }),
+      lead(h, 'f', { contact_via: 'social', contact_url: `https://www.instagram.com/organizer_f_${h.id}` }),
+      lead(h, 'g', { email: `g-${h.id}@example.com`, country: 'GB' }),
+      lead(h, 'h', { contact_via: 'form', contact_url: `https://example.ca/contact/${h.id}/h` }),
     ]);
     writeFileSync(join(process.cwd(), 'leads.json'), JSON.stringify({ leads }, null, 2));
     writeFileSync(join(process.cwd(), 'drafts.json'), JSON.stringify({ drafts: [] }));
