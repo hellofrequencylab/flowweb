@@ -36,6 +36,7 @@ import { writeJsonAtomic } from '../flows/neighborhood-admin.ts';
 import { runCredentials } from '../pipeline/credentials.ts';
 import { chooseAdapter } from '../pipeline/route.ts';
 import { killOrphanGroup } from '../reconciler.ts';
+import { readFlowAi } from './ai.ts';
 import { draftTag, tagLinks } from './drafts.ts';
 import { handOff, perDayFor } from './index.ts';
 
@@ -113,13 +114,17 @@ function ensureReporter(w: Writer): void {
 
 /**
  * The engine a flow names in config.json: which adapter runs its cycles and on which sign-in lane.
- * The Owner's override in $FW_HOME wins over the repo's config, as it does for everything else.
+ * The Owner's override in $FW_HOME wins over the repo's config, as it does for everything else, and the
+ * account chosen in Settings (FW-C-086, $FW_HOME/flows/<key>/ai.json) wins over both.
  */
 export function flowEngine(
   repoRoot: string,
   key: string,
   fwHome?: string,
-): { adapter?: string; auth?: 'signin' | 'api_key' } {
+): { adapter?: string; auth?: 'signin' | 'api_key'; chosen?: true } {
+  // FW-C-086: the account chosen in Settings wins over the config's engine.
+  const chosen = readFlowAi(fwHome, key);
+  if (chosen) return { ...chosen, chosen: true };
   try {
     const override = fwHome ? join(fwHome, 'flows', key, 'config.json') : '';
     const file = override && existsSync(override) ? override : join(repoRoot, 'flows', key, 'config.json');

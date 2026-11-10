@@ -29,6 +29,7 @@ import {
   createSupervisorOnFire,
   SupervisorError,
   setDial,
+  setFlowAi,
   setFlowEnabled,
   setIntensity,
   setPaused,
@@ -334,6 +335,7 @@ export async function startDaemon(opts: DaemonOptions): Promise<Daemon> {
         return out;
       },
       setIntensity: (key, body) => setIntensity(writer, REPO_ROOT, key, body),
+      setFlowAi: (key, body) => setFlowAi(REPO_ROOT, fwHome, key, body),
       approveDraft: (key, id) => approveDraft({ writer, repoRoot: REPO_ROOT, fwHome, flow: key, id }),
       rejectDraft: (key, id) => rejectDraft({ repoRoot: REPO_ROOT, fwHome, flow: key, id }),
       rewriteDraft: (key, id, body) =>

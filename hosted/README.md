@@ -59,3 +59,10 @@ people a day, with an "Adjust from replies" switch that lets the last 14 days of
 the min and max. From the site these queue `flow.schedule` and `flow.intensity`, which the relay applies
 through fwd. Apply `supabase/migrations/0005_flowweb_morning_intensity.sql` once in the Supabase SQL
 editor first; until then the database refuses the two kinds.
+
+## AI for each flow (FW-C-086)
+
+Settings, "AI for each flow", picks which AI account each flow uses: Claude plan, Anthropic API key,
+ChatGPT plan or OpenAI API key. Only the choice moves; keys stay in the machine's keychain. From the site it
+queues `flow.ai`, which the relay applies through fwd. Apply `supabase/migrations/0007_flowweb_flow_ai.sql`
+once first; until then the database refuses the kind and the site says it could not queue the change.

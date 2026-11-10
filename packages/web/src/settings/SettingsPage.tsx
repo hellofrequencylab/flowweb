@@ -9,6 +9,7 @@ import { Copy, ResourceView } from '../ui-kit/honest';
 import { Icon } from '../ui-kit/Icon';
 import { PageHead } from '../ui-kit/page';
 import { shortHash, when } from '../ui-kit/time';
+import { AiSettings } from './AiSettings';
 
 function Toggle({
   k,
@@ -214,6 +215,8 @@ export function SettingsPage({
           <MachinesPanel />
         </>
       )}
+
+      <AiSettings hosted={HOSTED} />
 
       <Group id="sess-h" title="Session">
         <div className="panel">
