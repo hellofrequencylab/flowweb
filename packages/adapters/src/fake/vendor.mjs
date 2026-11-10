@@ -15,7 +15,7 @@ Reads a JSON request on stdin and plays a scripted scenario.
 Options:
   --version   Print the version
   --help      Print this help
-Scenarios: success, flow_drafts, fail, hang, secret_leak, prompt_injection, over_budget,
+Scenarios: success, flow_drafts, hunt_leads, fail, hang, secret_leak, prompt_injection, over_budget,
   forbidden_path, malformed_output, fabricated_claim
 `;
 
@@ -146,6 +146,55 @@ const scenarios = {
       usd: 0.0123,
       artifacts: [{ kind: 'file', ref: 'drafts.json' }],
       report: { summary: 'drafted 2 items', claims: [], followups: [] },
+    });
+  },
+  // FW-C-041: a hunt cycle. For every hunt in ./hunts.json, six leads: three good ones (a, d, f), one
+  // whose address is on the probe's do-not-contact list, one with no source page, one repeating a.
+  async hunt_leads() {
+    session();
+    out({
+      t: 'turn',
+      id: 'msg_1',
+      text: 'Searching listings for the due hunts.',
+      usage: { input_tokens: 1100, output_tokens: 400, cached_tokens: 0 },
+    });
+    let hunts = [];
+    try {
+      hunts = JSON.parse(readFileSync(join(process.cwd(), 'hunts.json'), 'utf8')).hunts ?? [];
+    } catch {
+      hunts = [];
+    }
+    const lead = (h, k, email, source) => ({
+      hunt_id: h.id,
+      event: {
+        title: `Event ${k}`,
+        starts_at: '2026-12-01T18:00:00Z',
+        url: `https://example.com/e/${h.id}/${k}`,
+      },
+      organizer: {
+        name: `Organizer ${k}`,
+        email,
+        ...(source ? { source_url: `https://example.com/o/${h.id}/${k}` } : {}),
+      },
+      subject: `Your event ${k}`,
+      body: `Hi Organizer ${k}, I saw your event ${k} and loved it.`,
+    });
+    const leads = hunts.flatMap((h) => [
+      lead(h, 'a', `a-${h.id}@example.com`, true),
+      lead(h, 'b', 'blocked@example.org', true),
+      lead(h, 'c', `c-${h.id}@example.com`, false),
+      lead(h, 'd', `d-${h.id}@example.com`, true),
+      lead(h, 'e', `a-${h.id}@example.com`, true),
+      lead(h, 'f', `f-${h.id}@example.com`, true),
+    ]);
+    writeFileSync(join(process.cwd(), 'leads.json'), JSON.stringify({ leads }, null, 2));
+    writeFileSync(join(process.cwd(), 'drafts.json'), JSON.stringify({ drafts: [] }));
+    out({
+      t: 'result',
+      ok: true,
+      usd: 0.0123,
+      artifacts: [{ kind: 'file', ref: 'leads.json' }],
+      report: { summary: `found ${leads.length} leads`, claims: [], followups: [] },
     });
   },
   async success() {

@@ -409,6 +409,8 @@ export interface HandOffItem {
   id: string;
   channel: string;
   body: string;
+  /** FW-C-041: who the item is for and where that came from, for the sending app. */
+  lead?: Record<string, unknown>;
 }
 export type HandOffResult = { outcome: 'queued'; path: string } | { outcome: 'held'; reason: string };
 
@@ -474,7 +476,7 @@ export function handOff(o: {
   const tmp = `${path}.tmp`;
   writeFileSync(
     tmp,
-    `${JSON.stringify({ flow, id: item.id, channel: item.channel, body: item.body, confirm_hash: hash, sha256 }, null, 2)}\n`,
+    `${JSON.stringify({ flow, id: item.id, channel: item.channel, body: item.body, ...(item.lead ? { lead: item.lead } : {}), confirm_hash: hash, sha256 }, null, 2)}\n`,
     { mode: 0o600 },
   );
   w.appendEvent({

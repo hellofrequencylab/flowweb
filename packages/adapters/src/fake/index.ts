@@ -30,6 +30,7 @@ export const FAKE_SCENARIOS = [
   'malformed_output',
   'fabricated_claim',
   'flow_drafts',
+  'hunt_leads',
 ] as const;
 
 export type FakeScenario = (typeof FAKE_SCENARIOS)[number];
@@ -52,6 +53,10 @@ export const FAKE_EXPECTED: Record<FakeScenario, { status: RunStatus; note: stri
     note: 'claimed artifact only; the kernel artifact guard must refuse it',
   },
   flow_drafts: { status: 'completed', note: 'a flow cycle: drafts.json in the cycle folder, no commit' },
+  hunt_leads: {
+    status: 'completed',
+    note: 'a hunt cycle: leads.json for each hunt in hunts.json, no commit',
+  },
 };
 
 const VENDOR_SCRIPT = fileURLToPath(new URL('./vendor.mjs', import.meta.url));

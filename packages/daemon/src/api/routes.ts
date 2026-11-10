@@ -7,6 +7,7 @@ import { existsSync, readFileSync } from 'node:fs';
 import { isAbsolute, join, resolve } from 'node:path';
 import { type Reader, sha256Hex } from '@fw/eventlog';
 import type { PairingStore, Principal } from '../auth.ts';
+import * as hunts from '../flows/hunts.ts';
 import * as localSaturation from '../flows/local-saturation.ts';
 import * as neighborhoodActivation from '../flows/neighborhood-activation.ts';
 import * as naAdmin from '../flows/neighborhood-admin.ts';
@@ -191,6 +192,7 @@ function addFlowAdminRoutes(r: Router, deps: ApiDeps): void {
     });
   }
   r.get(`${base}/config`, () => envelope(deps.reader, () => ({ data: load(new Date()).cfg })));
+  addHuntRoutes(r, deps, base, load);
   r.get(`${base}/leads.csv`, ({ req, res }) => {
     const now = new Date();
     const f = load(now);
@@ -200,6 +202,64 @@ function addFlowAdminRoutes(r: Router, deps: ApiDeps): void {
     res.writeHead(200, { ...type, 'cache-control': 'no-store', 'content-length': Buffer.byteLength(text) });
     res.end(req.method === 'HEAD' ? undefined : text);
     return undefined;
+  });
+}
+
+/**
+ * FW-C-041: the Owner's saved lead hunts. Save, list and delete write hunts.json under the flow's
+ * folder and the admin log. Run asks for the hunt in the next cycle and fires the flow by hand through
+ * the scheduler, so the Supervisor still decides it.
+ */
+function addHuntRoutes(r: Router, deps: ApiDeps, base: string, load: (now: Date) => NaFlow): void {
+  const log = (now: Date, summary: string) =>
+    naAdmin.appendAdminLog(deps.fwHome, { at: now.toISOString(), action: 'hunt', summary });
+  const find = (id: string) => {
+    const list = hunts.loadHunts(deps.fwHome);
+    const h = list.find((x) => x.id === id);
+    if (!h) throw notFound('hunt', id);
+    return { list, h };
+  };
+  r.get(`${base}/hunts`, () => envelope(deps.reader, () => ({ data: hunts.loadHunts(deps.fwHome) })));
+  r.post(`${base}/hunts`, async ({ req, res }) => {
+    const body = await readJsonBody(req);
+    const now = new Date();
+    let h: hunts.Hunt;
+    try {
+      h = hunts.newHunt(load(now).cfg, body, now);
+    } catch (e) {
+      if (!(e instanceof naAdmin.AdminError)) throw e;
+      throw new ApiError(e.status, ADMIN_CODES[e.status], e.message, e.details);
+    }
+    hunts.saveHunts(deps.fwHome, [...hunts.loadHunts(deps.fwHome), h]);
+    log(now, `Saved the hunt "${h.name}".`);
+    sendJson(res, 201, { data: h });
+    return undefined;
+  });
+  r.add('DELETE', `${base}/hunts/{id}`, ({ params }) => {
+    const { list, h } = find(params.id ?? '');
+    hunts.saveHunts(
+      deps.fwHome,
+      list.filter((x) => x.id !== h.id),
+    );
+    log(new Date(), `Deleted the hunt "${h.name}".`);
+    return envelope(deps.reader, () => ({ data: { deleted: h.id } }));
+  });
+  r.post(`${base}/hunts/{id}/run`, async ({ params }) => {
+    const { list, h } = find(params.id ?? '');
+    const c = deps.supervisor;
+    if (!c?.runFlow) throw new ApiError(501, 'not_implemented', 'this fwd cannot run flows by hand');
+    const now = new Date().toISOString();
+    hunts.saveHunts(
+      deps.fwHome,
+      list.map((x) => (x.id === h.id ? { ...x, requested_at: now } : x)),
+    );
+    try {
+      const out = await c.runFlow(neighborhoodActivation.FLOW_KEY);
+      return envelope(deps.reader, () => ({ data: { hunt_id: h.id, ...out } }));
+    } catch (e) {
+      if (e instanceof SupervisorError) throw new ApiError(404, 'not_found', e.message);
+      throw kernelError(e);
+    }
   });
 }
 
