@@ -6,7 +6,7 @@ import { createServer, type IncomingMessage, type Server, type ServerResponse } 
 import { hostname } from 'node:os';
 import { join, resolve } from 'node:path';
 import { openStore, type Store, type Writer } from '@fw/eventlog';
-import { expireDecisionItems } from '@fw/ledger';
+import { addProject, briefProject, expireDecisionItems, labelProject, type ProjectAdd } from '@fw/ledger';
 import { ApiError, sendError } from './api/http.ts';
 import { buildRouter, principalOf, type RunStartBody } from './api/routes.ts';
 import type { ChainStatus } from './api/status.ts';
@@ -228,6 +228,11 @@ export async function startDaemon(opts: DaemonOptions): Promise<Daemon> {
       setFlowEnabled: (key, enabled) => setFlowEnabled(writer, REPO_ROOT, key, enabled),
       setPaused: (paused) => setPaused(writer, paused),
       setDial: (key, stop, confirm) => setDial(writer, REPO_ROOT, fwHome, key, stop, confirm),
+    },
+    projects: {
+      add: (input) => addProject(writer, input as unknown as ProjectAdd),
+      label: (ref, change) => labelProject(writer, ref, change),
+      brief: (ref, answers) => briefProject(writer, ref, answers),
     },
   });
 

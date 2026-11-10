@@ -18,6 +18,14 @@ import {
   type ProjectFilter,
   type ProjectView,
 } from './projects/labels.ts';
+import {
+  addProject,
+  type BriefReport,
+  briefProject,
+  getBrief,
+  type ProjectAdd,
+  type ProjectAddReport,
+} from './projects/projects.ts';
 import { listRows, nextRow, type RowDetail, retestCandidates, showRow } from './queries.ts';
 import type { RowView } from './rows.ts';
 import { addStream, listStreams, type StreamAddReport, type StreamView } from './streams/streams.ts';
@@ -47,6 +55,10 @@ export interface LocalCoreClient {
   streamList(): Promise<StreamView[]>;
   projectList(filter?: ProjectFilter): Promise<ProjectView[]>;
   projectLabel(ref: string, change: LabelChange): Promise<LabelReport>;
+  /** FW-C-038: a project with no repository. */
+  projectAdd(input: ProjectAdd): Promise<ProjectAddReport>;
+  /** FW-C-038: with answers, saves the brief (all five or nothing); without, reads it. */
+  projectBrief(ref: string, answers?: Record<string, string | undefined>): Promise<BriefReport>;
   close(): void;
 }
 
@@ -119,6 +131,12 @@ export function createCoreClient(opts: LocalClientOptions): LocalCoreClient {
     },
     async projectLabel(ref, change) {
       return labelProject(writer(), ref, change);
+    },
+    async projectAdd(input) {
+      return addProject(writer(), input);
+    },
+    async projectBrief(ref, answers) {
+      return answers ? briefProject(writer(), ref, answers) : getBrief(reader(), ref);
     },
     close() {
       store?.close();

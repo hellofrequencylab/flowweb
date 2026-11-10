@@ -105,6 +105,24 @@ export {
   readLabels,
 } from './projects/labels.ts';
 export {
+  addProject,
+  BRIEF_KEYS,
+  BRIEF_QUESTIONS,
+  type BriefAnswers,
+  type BriefKey,
+  type BriefReport,
+  briefProject,
+  checkBrief,
+  getBrief,
+  isCompleteBrief,
+  PROJECT_BRIEFS_KEY,
+  PROJECT_KINDS,
+  type ProjectAdd,
+  type ProjectAddReport,
+  type ProjectBrief,
+  readBriefs,
+} from './projects/projects.ts';
+export {
   findQuery,
   QUERIES,
   type QueryParams,
