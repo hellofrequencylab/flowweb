@@ -136,6 +136,13 @@ function fakeClient(overrides: Partial<CoreClient> = {}): CoreClient {
     supervisorControl: async () => ({ ...supervisorReport, changed: true }),
     supervisorDial: async () => ({ ...supervisorReport, changed: true }),
     supervisorRun: async () => ({ fire_id: 'stm_x:manual:t', outcome: 'fired' }),
+    flowApi: async (method, path) => {
+      if (path.endsWith('/do-not-contact')) return { blocked: 'a@example.com', already: false };
+      if (path.endsWith('/run')) return { hunt_id: 'hnt_1', fire_id: 'stm_x:manual:t', outcome: 'fired' };
+      if (method === 'DELETE') return { deleted: 'hnt_1' };
+      if (method === 'GET') return [];
+      return { id: 'hnt_1', name: 'x', region: 'r', areas: [], links: [], every_days: 1, max_sends: 10, build: false };
+    },
     policyCheck: async () => ({
       effect: 'ask',
       rule_id: 'pol_0120',

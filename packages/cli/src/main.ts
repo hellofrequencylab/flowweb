@@ -7,6 +7,7 @@ import { parseArgs } from 'node:util';
 import { type CoreClient, type CoreClientFactory, loadCoreClientFactory } from './client.ts';
 import { accountsCommands } from './commands/accounts.ts';
 import { auditCommands } from './commands/audit.ts';
+import { huntCommands } from './commands/hunt.ts';
 import { ledgerCommands } from './commands/ledger.ts';
 import { policyCommands } from './commands/policy.ts';
 import { projectCommands } from './commands/project.ts';
@@ -29,6 +30,7 @@ export const COMMANDS: Command[] = [
   ...woCommands,
   ...streamCommands,
   ...supervisorCommands,
+  ...huntCommands,
   ...policyCommands,
   ...reconcileCommands,
   ...relayCommands,
@@ -42,7 +44,9 @@ export const COMMANDS: Command[] = [
 ];
 
 const GLOBAL = ['json', 'home', 'repo', 'help'];
-const BOOLEAN = new Set(['json', 'help']);
+const BOOLEAN = new Set(['json', 'help', 'build']);
+/** Options that may be given more than once; a command reads them joined by newlines. */
+const MULTIPLE = new Set(['link', 'area']);
 const SHORT: Record<string, string> = { f: 'file' };
 
 export function helpText(): string {
@@ -67,8 +71,9 @@ export function helpText(): string {
 
 function optionSpec() {
   const names = new Set([...GLOBAL, ...COMMANDS.flatMap((c) => c.options)]);
-  const spec: Record<string, { type: 'string' | 'boolean'; short?: string }> = {};
-  for (const n of names) spec[n] = { type: BOOLEAN.has(n) ? 'boolean' : 'string' };
+  const spec: Record<string, { type: 'string' | 'boolean'; short?: string; multiple?: boolean }> = {};
+  for (const n of names)
+    spec[n] = { type: BOOLEAN.has(n) ? 'boolean' : 'string', ...(MULTIPLE.has(n) ? { multiple: true } : {}) };
   spec.help = { type: 'boolean', short: 'h' };
   for (const [s, long] of Object.entries(SHORT)) if (spec[long]) spec[long].short = s;
   return spec;
@@ -87,7 +92,7 @@ export async function main(argv: string[], io: Io = processIo, factory?: CoreCli
   } catch (e) {
     return usageError(io, argv.includes('--json'), (e as Error).message);
   }
-  const values = parsed.values as Record<string, string | boolean | undefined>;
+  const values = parsed.values as Record<string, string | boolean | string[] | undefined>;
   const json = values.json === true;
   const pos = parsed.positionals;
   if (values.help || pos.length === 0) {
@@ -131,7 +136,12 @@ export async function main(argv: string[], io: Io = processIo, factory?: CoreCli
       ...(Object.keys(project).length ? { project } : {}),
     });
     const opts: Record<string, string | undefined> = {};
-    for (const o of cmd.options) if (typeof values[o] === 'string') opts[o] = values[o] as string;
+    for (const o of cmd.options) {
+      const v = values[o];
+      if (typeof v === 'string') opts[o] = v;
+      else if (Array.isArray(v)) opts[o] = v.join('\n');
+      else if (v === true) opts[o] = 'true';
+    }
     return await cmd.run({
       client,
       io,

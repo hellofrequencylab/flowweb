@@ -497,6 +497,8 @@ export interface CoreClient {
   supervisorDial?(flow: string, stop: string, confirm?: string): Promise<SupervisorReport>;
   /** FW-C-038: fire a flow by hand; the Supervisor decides it like any fire. */
   supervisorRun?(flow: string): Promise<SupervisorRunReport>;
+  /** FW-C-048: one call to a flow route on fwd (CLI token); the data fwd answers. Needs fwd up. */
+  flowApi?(method: 'GET' | 'POST' | 'DELETE', path: string, body?: unknown): Promise<unknown>;
   /** FW-C-039: where setup stands; served by the daemon package. */
   setup?(): Promise<SetupReport>;
   /** The policy engine: optional, served by the daemon package (the CLI never imports @fw/policy). */
