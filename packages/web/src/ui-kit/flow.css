@@ -1541,33 +1541,130 @@ a.flow-line:hover .flow-line-name {
   }
 }
 
-/* Activation page: drafts the flow wrote, shown as plain text to copy. */
-.drafts-list {
-  list-style: none;
+.draft-bars {
+  display: flex;
+  align-items: flex-end;
+  gap: var(--space-3);
   margin: 0;
-  padding: 0;
+}
+.draft-bars svg {
+  width: 112px;
+  height: 28px;
+}
+.draft-bars rect {
+  fill: var(--flow-teal);
+  opacity: 0.85;
+}
+.draft-bars rect.is-empty {
+  fill: var(--border-subtle);
+  opacity: 1;
+}
+.draft-bars figcaption,
+.reply-meter-text {
+  font: var(--type-small);
+  color: var(--text-tertiary);
+}
+.draft-bars strong {
+  color: var(--text-primary);
+  font-weight: var(--weight-medium);
+}
+.reply-meter {
+  display: grid;
+  gap: 6px;
+  min-width: 150px;
+}
+.reply-meter-track {
+  display: block;
+  height: 6px;
+  border-radius: var(--radius-full);
+  background: var(--surface-soft);
+  overflow: hidden;
+}
+.reply-meter-fill {
+  display: block;
+  height: 100%;
+  border-radius: inherit;
+  background: var(--verified-border);
+}
+.reply-meter-text {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+}
+.reply-meter-text .icon + .icon,
+.reply-meter-text .icon:not(:first-child) {
+  margin-left: 6px;
+}
+
+.draft-state {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 2px 10px 2px 8px;
+  border-radius: var(--radius-full);
+  background: var(--surface-soft);
+  font: var(--weight-medium) var(--text-xs) / 1.5 var(--font-sans);
+  color: var(--text-secondary);
+  white-space: nowrap;
+}
+.draft-state-dot {
+  width: 7px;
+  height: 7px;
+  border-radius: var(--radius-full);
+  background: var(--text-tertiary);
+}
+.draft-state.is-waiting {
+  background: var(--waiting-bg);
+  color: var(--waiting-fg);
+}
+.draft-state.is-waiting .draft-state-dot {
+  background: var(--waiting-solid);
+}
+.draft-state.is-caution {
+  background: var(--caution-bg);
+  color: var(--caution-fg);
+}
+.draft-state.is-caution .draft-state-dot {
+  background: var(--caution-border);
+}
+.draft-state.is-sent .draft-state-dot {
+  background: var(--flow-slate);
+}
+.draft-state.is-replied {
+  background: var(--verified-bg);
+  color: var(--verified-fg);
+}
+.draft-state.is-replied .draft-state-dot {
+  background: var(--verified-border);
+}
+.draft-state.is-approved .draft-state-dot {
+  background: var(--flow-indigo);
+}
+
+/* The editor inside the viewer: the message reads like a letter, the tools sit in soft trays. */
+.draft-editor {
+  display: grid;
+  gap: var(--space-5);
 }
 .draft-body {
   margin: 0;
+  padding: var(--space-6) var(--space-7);
+  border-radius: var(--radius-md);
+  background: var(--surface-page);
+  box-shadow: var(--shadow-inset);
+  font: var(--text-base) / 1.7 var(--font-sans);
+  color: var(--text-primary);
   white-space: pre-wrap;
   overflow-wrap: anywhere;
-  font: inherit;
-}
-.draft-group-title {
-  margin: 0;
-  font-size: var(--text-md, 1rem);
-}
-.draft-group-hint {
-  margin: 0 0 var(--space-2);
-}
-.draft-editor {
-  display: grid;
-  gap: var(--space-3);
 }
 .draft-editor input,
 .draft-editor textarea {
   width: 100%;
   font: inherit;
+}
+.draft-editor textarea {
+  min-height: 360px;
+  line-height: 1.7;
 }
 .draft-actions {
   display: flex;
@@ -1577,9 +1674,23 @@ a.flow-line:hover .flow-line-name {
 }
 .draft-ai {
   display: grid;
-  gap: var(--space-2);
-  padding-top: var(--space-3);
-  border-top: 1px solid var(--border, rgba(0, 0, 0, 0.08));
+  gap: var(--space-3);
+  padding: var(--space-5);
+  border-radius: var(--radius-md);
+  background: var(--surface-soft);
+}
+.draft-rewrite {
+  background:
+    linear-gradient(135deg, color-mix(in srgb, var(--flow-teal) 9%, transparent), transparent 60%),
+    var(--surface-soft);
+}
+.draft-ai .field-label {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+}
+.draft-rewrite .field-label .icon {
+  color: var(--flow-teal);
 }
 .draft-ai-ask {
   display: flex;
@@ -1592,10 +1703,23 @@ a.flow-line:hover .flow-line-name {
 }
 .draft-ai-hint {
   margin: 0;
+  font: var(--type-small);
 }
 .draft-note-fail {
-  color: var(--fail, #b42318);
   margin: 0;
+  color: var(--fail-fg);
+}
+
+@media (max-width: 760px) {
+  .draft-body {
+    padding: var(--space-5);
+  }
+  .draft-ai-ask {
+    flex-wrap: wrap;
+  }
+  .draft-ai-ask input {
+    flex-basis: 100%;
+  }
 }
 
 /* ---------------------------------------------------------------- Flows: chapters and live motion */
@@ -1785,4 +1909,91 @@ a.flow-line:hover .flow-line-name {
 :root[data-calm="on"] .flow-pulse-dot::after,
 :root[data-calm="on"] .kpi .icon-wash::after {
   display: none;
+}
+
+/* ---------------------------------------------------------------- Flows: softer surfaces (FW-C-066) */
+/* Rounder, quieter cards; fewer hairlines; trays instead of boxes inside boxes. */
+.flows-page > .panel.panel,
+.flows-page .region-card.panel,
+.flow-ctl > .panel {
+  border-radius: var(--radius-flow);
+}
+.kpi {
+  border-radius: var(--radius-lg);
+}
+.chapter-num {
+  display: inline-grid;
+  place-items: center;
+  width: 48px;
+  height: 48px;
+  border-radius: var(--radius-full);
+  background: color-mix(in srgb, var(--flow-teal) 12%, transparent);
+  font-size: var(--text-lg);
+}
+.chapter-head {
+  align-items: center;
+  box-shadow: none;
+}
+.callout {
+  border-radius: var(--radius-lg);
+  box-shadow: none;
+}
+
+/* Flow controls: one soft card per flow, side by side; the dial is a tray that explains only its choice. */
+.flow-ctl > .panel {
+  padding: var(--space-6);
+  box-shadow: var(--shadow-1);
+}
+.flow-ctl .plain-list {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
+  gap: var(--space-4);
+}
+.flow-ctl .plain-list > li {
+  margin: 0;
+  padding: var(--space-5);
+  border-radius: var(--radius-lg);
+  background: var(--surface-soft);
+  box-shadow: none;
+}
+.flow-ctl .plain-list > li > * + * {
+  margin-top: var(--space-4);
+}
+.flow-ctl .plain-list > li .panel-head {
+  margin-bottom: 0;
+}
+.flow-ctl .plain-list > li .row {
+  gap: var(--space-2);
+}
+.flow-ctl [role="radiogroup"] {
+  display: grid;
+  gap: 2px;
+  padding: 4px;
+  border-radius: var(--radius-md);
+  background: var(--surface-sunken);
+  box-shadow: var(--shadow-inset);
+}
+.flow-ctl [role="radiogroup"] > * + * {
+  margin-top: 0;
+}
+.flow-ctl [role="radiogroup"] > label {
+  position: relative;
+  gap: var(--space-3);
+  padding: 6px var(--space-4);
+  border-radius: var(--radius-sm);
+  cursor: pointer;
+  transition: background var(--dur-fast) var(--ease-standard);
+}
+.flow-ctl [role="radiogroup"] > label:hover {
+  background: var(--surface-hover);
+}
+.flow-ctl [role="radiogroup"] > label:has(input:checked) {
+  background: var(--surface-raised);
+  box-shadow: var(--shadow-1);
+}
+.flow-ctl [role="radiogroup"] > label:not(:has(input:checked)) .muted {
+  display: none;
+}
+.flow-ctl [role="radiogroup"] > label:has(input:checked) strong {
+  color: var(--flow-teal);
 }

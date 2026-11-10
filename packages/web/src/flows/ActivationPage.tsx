@@ -200,7 +200,9 @@ export function ActivationPage() {
           </span>
         </li>
       </ul>
-      <FlowControls />
+      <div className="flow-ctl">
+        <FlowControls />
+      </div>
       <ResourceView res={res} what="this flow">
         {(f) => (
           <div className="stack flows-page">

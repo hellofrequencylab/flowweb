@@ -2,6 +2,7 @@ import { useState } from 'react';
 import { api } from '../api/client';
 import type { FlowDraft } from '../api/types';
 import { Button } from '../ui-kit/Button';
+import { Icon } from '../ui-kit/Icon';
 
 const QUICK = ['Shorter', 'Warmer and more personal', 'More specific about their event', 'Fix grammar only'];
 
@@ -137,7 +138,7 @@ export function DraftEditor({
           </label>
           <label className="field">
             <span className="field-label">Message</span>
-            <textarea rows={12} value={body} onChange={(e) => setBody(e.target.value)} maxLength={20000} />
+            <textarea rows={16} value={body} onChange={(e) => setBody(e.target.value)} maxLength={20000} />
           </label>
         </>
       )}
@@ -177,8 +178,10 @@ export function DraftEditor({
       </div>
 
       {draft.status !== 'rejected' && (
-        <div className="draft-ai">
-          <span className="field-label">After you send it</span>
+        <div className="draft-ai draft-after">
+          <span className="field-label">
+            <Icon name="send" /> After you send it
+          </span>
           <div className="draft-actions">
             {!draft.sent_at && (
               <Button
@@ -219,8 +222,10 @@ export function DraftEditor({
       )}
 
       {!locked && (
-        <div className="draft-ai">
-          <span className="field-label">Rewrite with AI</span>
+        <div className="draft-ai draft-rewrite">
+          <span className="field-label">
+            <Icon name="sparkles" /> Rewrite with AI
+          </span>
           <div className="draft-actions">
             {QUICK.map((q) => (
               <Button key={q} className="btn-small" onClick={() => rewrite(q)} disabledReason={busy}>
