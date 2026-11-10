@@ -62,7 +62,10 @@ describe('intensity', () => {
       draft('c', { sent_at: '2026-11-17T10:00:00Z', tag: 'd_c' });
       draft('d', { sent_at: '2026-10-01T10:00:00Z', replied_at: '2026-10-02T10:00:00Z' });
       draft('e', {});
-      writeFileSync(join(dir, 'outcomes.json'), JSON.stringify({ outcomes: [{ content: 'd_c', members: 1 }] }));
+      writeFileSync(
+        join(dir, 'outcomes.json'),
+        JSON.stringify({ outcomes: [{ content: 'd_c', members: 1 }] }),
+      );
       expect(recentResults(home.path, KEY, now)).toEqual({ sent: 3, responded: 2, declined: 1 });
     } finally {
       home.cleanup();
@@ -78,7 +81,10 @@ describe('Owner controls', () => {
         setFlowEnabled(w, repoRoot, KEY, true);
         const before = w.get<{ version: number }>('SELECT version FROM streams WHERE key = ?', [KEY])!;
         expect(setSchedule(w, repoRoot, KEY, '05:45', 'daily')).toEqual({ changed: true, rescheduled: true });
-        expect(setSchedule(w, repoRoot, KEY, '05:45', 'daily')).toEqual({ changed: false, rescheduled: false });
+        expect(setSchedule(w, repoRoot, KEY, '05:45', 'daily')).toEqual({
+          changed: false,
+          rescheduled: false,
+        });
         const row = w.get<{ version: number; definition: string }>(
           'SELECT version, definition FROM streams WHERE key = ?',
           [KEY],
@@ -92,8 +98,12 @@ describe('Owner controls', () => {
         const s = readSettings(w).flows[KEY]!;
         expect(s.schedule).toEqual({ time: '05:45', days: 'daily' });
         expect(s.intensity).toEqual({ per_day: 7, auto: true, min: 2, max: 9 });
-        const v = supervisorView({ reader: w, repoRoot, fwHome: home.path }).flows.find((f) => f.key === KEY)!;
-        expect(v.schedule).toEqual(expect.objectContaining({ time: '05:45', days: 'daily', cron: '45 5 * * *' }));
+        const v = supervisorView({ reader: w, repoRoot, fwHome: home.path }).flows.find(
+          (f) => f.key === KEY,
+        )!;
+        expect(v.schedule).toEqual(
+          expect.objectContaining({ time: '05:45', days: 'daily', cron: '45 5 * * *' }),
+        );
         expect(v.intensity.today.per_day).toBe(7);
       });
     } finally {
