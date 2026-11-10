@@ -1,0 +1,30 @@
+{
+  "id": "FW-C-074",
+  "title": "Settings puts the kill switch first, then sign-ins and machines, then the session, with display preferences folded under Look and feel and Calm mode left in view",
+  "core_milestone": "C2",
+  "phase": 4,
+  "epic": "C2.2 Daily screens",
+  "priority": "P2",
+  "size": "M",
+  "lane": "ui",
+  "agent_suitability": "agent",
+  "gate": "none",
+  "depends_on": [
+    "FW-C-073"
+  ],
+  "description": "Settings in packages/web/src/settings/SettingsPage.tsx is a long run of equal groups: the kill switch, then Calm and rewards, Appearance and Keyboard, Policy and Session, with the site's machines and sign-ins in between. The things the Owner comes to Settings for are mixed with display preferences he sets once. Reorder it: the kill switch first; then sign-ins (Accounts and API keys) and Machines on the site; then the session (pairing on the Mac, the signed-in email on the site) with Sign out. After the session comes a Look and feel section. Calm mode stays in view there as its own switch (the Owner chose this, and probes/ui/rewards-calm reaches it without opening anything). Rewards with its two sub-toggles, Motion, Theme, Table density and the Keyboard settings (single-key shortcuts and how the kill switch asks) fold under one disclosure button named Look and feel, closed by default (aria-expanded false, its settings not rendered until opened). Policy stays as it is: locked and read-only. Every preference keeps working.",
+  "acceptance": [
+    "Settings shows the kill switch first, then on the site Accounts and API keys and Machines, then Session, then Look and feel",
+    "Calm mode is in view without opening anything and turns calm on",
+    "A Look and feel button, closed by default, holds Rewards and its two sub-toggles, Motion, Theme, Table density and the Keyboard settings, none of them shown until it is opened",
+    "Opening Look and feel shows them all",
+    "Policy is still shown, locked and read-only, without opening anything"
+  ],
+  "verify_probe": "pnpm probe ui/settings-tidy",
+  "files_hint": [
+    "packages/web/src/settings/SettingsPage.tsx",
+    "packages/web/src/ui-kit/base.css",
+    "packages/web/test/"
+  ],
+  "origin": "new Core row"
+}
