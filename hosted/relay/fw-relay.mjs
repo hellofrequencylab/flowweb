@@ -175,6 +175,35 @@ function accounts() {
   };
 }
 
+/**
+ * The last `fw accounts check` result, if any: whether each account passed its tiny real test
+ * call. Only known fields are copied, so nothing else in the file can ride along. Never a secret:
+ * the check writes plain words and booleans, and redacts vendor error text.
+ */
+const ACCOUNT_IDS = ['claude_signin', 'claude_api_key', 'codex_signin', 'codex_api_key'];
+const short = (v) => (typeof v === 'string' ? v.slice(0, 240) : null);
+function accountTest(text) {
+  try {
+    const r = JSON.parse(text);
+    const accounts = {};
+    for (const a of Array.isArray(r.accounts) ? r.accounts : []) {
+      if (!ACCOUNT_IDS.includes(a?.id)) continue;
+      const tri = (v) => (v === true || v === false ? v : null);
+      accounts[a.id] = { set_up: tri(a.set_up), ok: tri(a.ok), detail: short(a.detail), fix: short(a.fix) };
+    }
+    return { checked_at: short(r.checked_at), accounts, start_command: short(r.start_command) };
+  } catch {
+    return null;
+  }
+}
+function lastAccountTest() {
+  try {
+    return accountTest(readFileSync(join(FW_HOME, 'accounts-check.json'), 'utf8'));
+  } catch {
+    return null; // never run on this machine
+  }
+}
+
 let target = null;
 async function hostedConfig() {
   if (target) return target;
@@ -220,6 +249,7 @@ async function once() {
     entries: Object.keys(entries).length,
     took_ms: Date.now() - started,
     accounts: accounts(),
+    account_test: lastAccountTest(),
   };
   if (DUMP) {
     // Write the snapshot to a file instead of pushing it (to inspect what would be sent).

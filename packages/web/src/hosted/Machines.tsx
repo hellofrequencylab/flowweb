@@ -1,6 +1,7 @@
 import { type ReactNode, useState } from 'react';
 import { api } from '../api/client';
 import { useResource } from '../api/resource';
+import type { WAccountTest } from '../api/wire';
 import { Copy, ResourceView } from '../ui-kit/honest';
 import { StatusLabel, type StatusSpec } from '../ui-kit/status';
 import { age, useNow } from '../ui-kit/time';
@@ -136,6 +137,22 @@ function Cmd({ text }: { text: string }) {
 }
 
 type AccountKey = 'claude_signin_token' | 'claude_api_key' | 'codex_signin' | 'codex_api_key';
+type TestKey = keyof WAccountTest['accounts'];
+const TEST_KEY: Record<AccountKey, TestKey> = {
+  claude_signin_token: 'claude_signin',
+  claude_api_key: 'claude_api_key',
+  codex_signin: 'codex_signin',
+  codex_api_key: 'codex_api_key',
+};
+
+/** The badge: not set up wins; then the last real test call; then whether the Mac has it set up. */
+export function accountSpec(setUp: boolean | null | undefined, ok: boolean | null | undefined): StatusSpec {
+  if (setUp === false) return { word: 'Not set up', tone: 'neutral', icon: 'open' };
+  if (ok === true) return { word: 'Works', tone: 'ok', icon: 'pass' };
+  if (ok === false) return { word: 'Test failed', tone: 'fail', icon: 'fail' };
+  if (setUp === true) return { word: 'Set up', tone: 'ok', icon: 'pass' };
+  return { word: setUp === null ? "Mac can't tell" : 'Not reported yet', tone: 'unknown', icon: 'unknown' };
+}
 
 const ACCOUNTS: { key: AccountKey; title: string; lane: string; steps: ReactNode[] }[] = [
   {
@@ -218,6 +235,7 @@ export function AccountsPanel() {
     .sort((a, b) => (b.last_seen_at ?? '').localeCompare(a.last_seen_at ?? ''));
   const m = reporting[0];
   const acc = m?.report.accounts;
+  const test = m?.report.account_test ?? null;
   return (
     <section className="panel" aria-labelledby="acct-h">
       <h2 id="acct-h">Accounts and API keys</h2>
@@ -226,6 +244,17 @@ export function AccountsPanel() {
         keychain. The relay only reports whether each one is set up, never the secret itself. To use both
         plans, start fwd with both settings: <code>FW_CLAUDE_AUTH=signin FW_CODEX_AUTH=signin fwd</code>.
       </p>
+      <p className="small">
+        Quickest way: on your Mac, in the FlowWeb folder, run this. It signs in each account, stores the
+        tokens in your keychain and tests each one with a tiny real call.
+        <Cmd text="pnpm fw accounts connect" />
+        To test again later: <Cmd text="pnpm fw accounts check" />
+      </p>
+      {test?.start_command && (
+        <p className="small">
+          Your last test says to start fwd with: <Cmd text={test.start_command} />
+        </p>
+      )}
       <p className="small">
         {acc && m ? (
           <>
@@ -237,17 +266,8 @@ export function AccountsPanel() {
       </p>
       <ol className="account-list">
         {ACCOUNTS.map((a) => {
-          const v = acc ? acc[a.key] : undefined;
-          const spec: StatusSpec =
-            v === true
-              ? { word: 'Set up', tone: 'ok', icon: 'pass' }
-              : v === false
-                ? { word: 'Not set up', tone: 'neutral', icon: 'open' }
-                : {
-                    word: v === null ? "Mac can't tell" : 'Not reported yet',
-                    tone: 'unknown',
-                    icon: 'unknown',
-                  };
+          const t = test?.accounts[TEST_KEY[a.key]];
+          const spec = accountSpec(acc ? acc[a.key] : undefined, t?.ok);
           return (
             <li key={a.key} className="account">
               <div className="account-head">
@@ -255,6 +275,15 @@ export function AccountsPanel() {
                 <StatusLabel spec={spec} />
               </div>
               <p className="small muted">{a.lane}</p>
+              {t?.ok === true && test?.checked_at && (
+                <p className="small">Passed a test call {age(test.checked_at, now)}.</p>
+              )}
+              {t?.ok === false && (
+                <p className="small">
+                  Test call failed{test?.checked_at ? ` ${age(test.checked_at, now)}` : ''}: {t.detail}
+                  {t.fix && <> Fix: {t.fix}.</>}
+                </p>
+              )}
               <ol className="account-steps">
                 {a.steps.map((step, i) => (
                   // biome-ignore lint/suspicious/noArrayIndexKey: fixed, ordered steps
