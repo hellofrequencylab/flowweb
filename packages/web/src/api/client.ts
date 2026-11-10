@@ -780,7 +780,7 @@ export const api = {
   async draftChange<T = V.FlowDraft>(
     flow: string,
     id: string,
-    action: 'edit' | 'reject' | 'rewrite',
+    action: 'edit' | 'reject' | 'rewrite' | 'mark',
     body: Record<string, string>,
     onQueued?: () => void,
   ): Promise<T> {

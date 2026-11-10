@@ -1,22 +1,24 @@
 // The changes the Owner may ask for from the hosted site, and how the relay applies them.
 //
 // The site stores a request (fw_requests); the relay on the Owner's machine takes it and calls the
-// matching fwd route with the CLI token. Only draft edits, rejects and AI rewrites exist here: a
-// request can never approve, send, or change a flow, a budget or a policy. Pure functions, tested.
+// matching fwd route with the CLI token. Only draft edits, rejects, AI rewrites and marks (what the
+// Owner did by hand: sent, replied, declined) exist here: a request can never approve, send, or change
+// a flow, a budget or a policy. Pure functions, tested.
 
 const FLOW = /^[a-z0-9][a-z0-9-]{0,63}$/;
 const DRAFT = /^[A-Za-z0-9_-]{1,100}$/;
 const MAX_FIELD = 20_000;
 const MAX_INSTRUCTION = 2_000;
 
-const ACTIONS = { edit: 'draft.edit', reject: 'draft.reject', rewrite: 'draft.rewrite' };
+const ACTIONS = { edit: 'draft.edit', reject: 'draft.reject', rewrite: 'draft.rewrite', mark: 'draft.mark' };
+const OUTCOMES = ['sent', 'replied', 'declined'];
 
 /**
  * The request a site call asks for, or null when the path is not a draft change.
  * Answers { error } for a draft change with bad input.
  */
 export function draftRequestOf(method, path, body) {
-  const m = /^\/supervisor\/flows\/([^/]+)\/drafts\/([^/]+)\/(edit|reject|rewrite)$/.exec(path);
+  const m = /^\/supervisor\/flows\/([^/]+)\/drafts\/([^/]+)\/(edit|reject|rewrite|mark)$/.exec(path);
   if (!m || method !== 'POST') return null;
   const [, flow, draftId, action] = m;
   if (!FLOW.test(flow) || !DRAFT.test(draftId)) return { error: 'unknown flow or draft' };
@@ -44,6 +46,10 @@ export function draftRequestOf(method, path, body) {
       payload[f] = b[f];
     }
   }
+  if (action === 'mark') {
+    if (!OUTCOMES.includes(b.outcome)) return { error: `outcome must be one of ${OUTCOMES.join(', ')}` };
+    payload.outcome = b.outcome;
+  }
   return { kind: ACTIONS[action], flow, draft_id: draftId, payload };
 }
 
@@ -60,7 +66,12 @@ export function fwdCallFor(req) {
             instruction: String(p.instruction ?? ''),
             ...Object.fromEntries(['subject', 'body'].filter((f) => typeof p[f] === 'string').map((f) => [f, p[f]])),
           }
-        : {};
+        : action === 'mark'
+          ? OUTCOMES.includes(p.outcome)
+            ? { outcome: p.outcome }
+            : null
+          : {};
+  if (!body) return null;
   return {
     path: `/supervisor/flows/${encodeURIComponent(req.flow)}/drafts/${encodeURIComponent(req.draft_id)}/${action}`,
     body,
