@@ -4,7 +4,7 @@
     "profile": "core",
     "schema": "ledger-row/1",
     "generated": "2026-11-09",
-    "row_count": 90,
+    "row_count": 91,
     "conventions": {
       "verify_probe": "Same convention as 04-build-plan/backlog.json: 'pnpm probe <path>' runs probes/<path>.probe.ts, a Tier 0 file written before the implementation row starts and never edited by the agent doing the row. Every probe fails today because its target does not exist (a missing probe file exits 2, a missing behaviour exits 1). The probe pack for a milestone is committed by the Owner or a pair session before the milestone's rows start.",
       "status": "All rows start as open. Status lives only in the ledger database (imported with fw ledger sync), never in prose.",
@@ -28,7 +28,7 @@
       }
     },
     "full_plan_rows_included": 37,
-    "new_core_rows": 52
+    "new_core_rows": 54
   },
   "rows": [
     {
@@ -3178,6 +3178,40 @@
         "packages/web/src/api/",
         "packages/web/mock/",
         "docs/api/LOCAL-API-V1.md"
+      ],
+      "origin": "new Core row"
+    },
+    {
+      "id": "FW-C-055",
+      "title": "fwd pulls each day what became of the people a flow reached, from Frequency",
+      "core_milestone": "C1",
+      "phase": 1,
+      "epic": "C1.5 First flow",
+      "priority": "P1",
+      "size": "M",
+      "lane": "workstreams",
+      "agent_suitability": "agent",
+      "gate": "owner-approval",
+      "depends_on": [
+        "FW-C-032",
+        "FW-C-054"
+      ],
+      "description": "On 10 Nov the Owner asked for flows that track their results and keep shifting toward what works. Today results reach FlowWeb only by hand: the Owner downloads Frequency's region CSV and uploads it, and nothing tells fwd which hunts and drafts turned into members. Frequency now answers a signed outcomes request (frequency-web LIVE-2255): counts per FlowWeb campaign and draft (leads, members, hosts, paid) and the four region numbers, with no name or email. fwd now pulls it once soon after it starts and then once a day (FW_OUTCOMES_PULL_EVERY_MS), and when the Owner asks (POST /v1/flows/neighborhood-activation/outcomes/pull). It signs with the secret behind credential handle crd_frequencyoutcomes, writes outcomes.json in the flow's folder keeping only the count fields, and makes the region numbers the regions' measures as a metrics upload would, so the CSV upload becomes optional. A failed pull keeps the last good numbers and records last_pull ok false with the error, so a Frequency outage never reads as a region going cold. FW_FREQUENCY_URL overrides the flow's offer url, for tests.",
+      "acceptance": [
+        "With no secret behind crd_frequencyoutcomes a pull answers 409 naming the handle and writes nothing",
+        "fwd pulls on its own soon after it starts and every FW_OUTCOMES_PULL_EVERY_MS after, with a signature Frequency can verify",
+        "outcomes.json keeps only campaign, content, medium, src, leads, members, hosts and paid on each row",
+        "Each region's four numbers become its measures in state.json",
+        "A failed pull answers 502, keeps outcomes.json and the measures, and GET .../outcomes shows last_pull ok false",
+        "The neighborhood-activation and flow-admin probes still pass"
+      ],
+      "verify_probe": "pnpm probe flows/outcome-pull",
+      "files_hint": [
+        "packages/daemon/src/flows/outcomes.ts",
+        "packages/daemon/src/flows/neighborhood-admin.ts",
+        "packages/daemon/src/api/routes.ts",
+        "packages/daemon/src/daemon.ts",
+        "packages/daemon/test/"
       ],
       "origin": "new Core row"
     }
