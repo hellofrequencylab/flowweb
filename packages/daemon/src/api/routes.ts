@@ -98,6 +98,12 @@ export interface ApiDeps {
   supervisor?: SupervisorControls;
   /** FW-C-039: project writes on fwd's writer. Absent: those routes answer 501. */
   projects?: ProjectControls;
+  /** WS-P0-021: fw ledger close on fwd's writer, for when fwd holds the lock. Absent: 501. */
+  ledger?: LedgerControls;
+}
+
+export interface LedgerControls {
+  close(code: string, mergedSha: string, repoDir: string): Promise<unknown>;
 }
 
 /** FW-C-039: the project writes the CLI hands to fwd while fwd holds the writer. */
@@ -719,6 +725,24 @@ export function buildRouter(deps: ApiDeps): Router {
     return env(() => ({ data }));
   };
   const labelArg = (v: unknown) => (v === undefined ? undefined : v === null ? null : String(v));
+  // WS-P0-021: the CLI's ledger close, run on fwd's writer. CLI token only; the probe is the row's own.
+  r.post('/v1/ledger/rows/{id}/close', async ({ req, params }) => {
+    const c = deps.ledger;
+    if (!c) throw new ApiError(501, 'not_implemented', 'this fwd does not host ledger close');
+    const p = principalOf.get(req);
+    if (p?.kind !== 'cli' && p?.kind !== 'dev_no_auth')
+      throw new ApiError(403, 'forbidden', 'rows are closed with the CLI token, not a browser session');
+    const b = await readJsonBody(req);
+    if (typeof b.merged_sha !== 'string' || typeof b.repo_dir !== 'string' || !isAbsolute(b.repo_dir))
+      throw new ApiError(400, 'validation_failed', 'merged_sha and an absolute repo_dir are required');
+    let data: unknown;
+    try {
+      data = await c.close(params.id ?? '', b.merged_sha, b.repo_dir);
+    } catch (e) {
+      throw kernelError(e);
+    }
+    return env(() => ({ data }));
+  });
   r.post('/v1/projects', ({ req }) => projectWrite(req, (c, b) => c.add(b)));
   r.post('/v1/projects/{id}/labels', ({ req, params }) =>
     projectWrite(req, (c, b) => {
