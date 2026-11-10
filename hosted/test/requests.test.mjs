@@ -99,3 +99,23 @@ test('hunts and do-not-contact become requests with only their own fields', () =
   });
   assert.ok(requestOf('POST', `${F}/do-not-contact`, { email: 'a@b.c' }).error);
 });
+
+test('a morning run time and people a day become requests, checked like fwd checks them (FW-C-063)', () => {
+  const S = '/supervisor/flows/neighborhood-activation';
+  const sch = requestOf('POST', `${S}/schedule`, { time: '05:30', days: 'daily', sneaky: 1 });
+  assert.deepEqual(sch, { kind: 'flow.schedule', flow: 'neighborhood-activation', draft_id: null, payload: { time: '05:30', days: 'daily' } });
+  assert.deepEqual(fwdCallFor(sch), { method: 'POST', path: `${S}/schedule`, body: { time: '05:30', days: 'daily' } });
+  const int = requestOf('POST', `${S}/intensity`, { per_day: 6 });
+  assert.deepEqual(int.payload, { per_day: 6, auto: false, min: 1, max: 25 });
+  assert.equal(fwdCallFor(int).path, `${S}/intensity`);
+  for (const [path, body] of [
+    [`${S}/schedule`, { time: '5:30', days: 'daily' }],
+    [`${S}/schedule`, { time: '05:30', days: 'weekends' }],
+    [`${S}/intensity`, { per_day: 0 }],
+    [`${S}/intensity`, { per_day: 8, min: 9, max: 20 }],
+    [`${S}/intensity`, { per_day: '8' }],
+  ])
+    assert.ok(requestOf('POST', path, body).error, `${path} ${JSON.stringify(body)} should be refused`);
+  assert.equal(requestOf('GET', `${S}/schedule`, {}), null);
+  assert.equal(fwdCallFor({ kind: 'flow.intensity', flow: 'neighborhood-activation', payload: { per_day: 99 } }), null);
+});

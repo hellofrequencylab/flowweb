@@ -1,10 +1,11 @@
 // FW-C-062: the Owner's flow controls on the Flows page. Turn each flow on or off, run it now, set its
 // dial, and pause or resume the Supervisor. Locally fwd answers at once; on flowweb.app each change is
-// queued and applied on the Owner's Mac by the relay, and the page says it is waiting.
+// queued and applied on the Owner's Mac by the relay, and the page says it is waiting. FW-C-063 adds the
+// morning run time and how many new people a day, which Adjust from replies may move within min..max.
 import { useId, useState } from 'react';
 import { ApiError, api } from '../api/client';
 import { useResource } from '../api/resource';
-import type { Supervisor, SupervisorDial, SupervisorFlow } from '../api/types';
+import type { FlowIntensity, FlowSchedule, Supervisor, SupervisorDial, SupervisorFlow } from '../api/types';
 import { HOSTED } from '../hosted/auth';
 import { Button } from '../ui-kit/Button';
 import { AsOf, ResourceView } from '../ui-kit/honest';
@@ -60,6 +61,106 @@ function budgetLine(f: SupervisorFlow): string {
   if (!b) return 'No spend cap';
   const spent = b.spent_usd == null ? 'unknown' : usd(b.spent_usd);
   return b.max_usd == null ? `${spent} spent, no cap` : `${spent} of ${usd(b.max_usd)} this ${b.period}`;
+}
+
+const DAY_CHOICES = [
+  { value: 'daily', label: 'Every day' },
+  { value: 'weekdays', label: 'Weekdays' },
+] as const;
+
+/** FW-C-063: when the flow runs each morning, and how many new people it reaches a day. */
+function Tuning({ f, why, reload }: { f: SupervisorFlow; why: string | null; reload: () => void }) {
+  const { busy, run, shown } = useWrite(reload);
+  const sch: FlowSchedule | null = f.schedule ?? null;
+  const cur: FlowIntensity | undefined = f.intensity;
+  const [time, setTime] = useState(sch?.time ?? '07:00');
+  const [days, setDays] = useState<'daily' | 'weekdays'>(sch?.days ?? 'weekdays');
+  const [perDay, setPerDay] = useState(cur?.per_day ?? 10);
+  const [auto, setAuto] = useState(cur?.auto ?? false);
+  if (!sch && !cur) return null;
+  const min = Math.min(cur?.min ?? 1, perDay);
+  const max = Math.max(cur?.max ?? 25, perDay);
+  const saveSchedule = () =>
+    run(
+      'Saving the schedule.',
+      (q) => api.setSchedule(f.key, time, days, q),
+      `${f.name} runs at ${time} ${days === 'daily' ? 'every day' : 'on weekdays'}.`,
+    );
+  const saveIntensity = () =>
+    run(
+      'Saving how many a day.',
+      (q) => api.setIntensity(f.key, { per_day: perDay, auto, min, max }, q),
+      auto
+        ? `${f.name} aims for ${perDay} a day and adjusts from replies, between ${min} and ${max}.`
+        : `${f.name} reaches up to ${perDay} new people a day.`,
+    );
+  const off = why ?? busy;
+  return (
+    <div className="stack">
+      {sch && (
+        <div className="row">
+          <label className="row">
+            <span>Runs at</span>
+            <input
+              type="time"
+              aria-label={`Morning run time for ${f.name}`}
+              value={time}
+              onChange={(e) => setTime(e.target.value)}
+            />
+          </label>
+          <select
+            aria-label={`Days for ${f.name}`}
+            value={days}
+            onChange={(e) => setDays(e.target.value as typeof days)}
+          >
+            {DAY_CHOICES.map((d) => (
+              <option key={d.value} value={d.value}>
+                {d.label}
+              </option>
+            ))}
+          </select>
+          <Button onClick={saveSchedule} disabledReason={off} aria-label={`Save schedule for ${f.name}`}>
+            Save time
+          </Button>
+          <span className="muted small">{sch.timezone}</span>
+        </div>
+      )}
+      {cur && (
+        <div className="stack">
+          <div className="row">
+            <label className="row">
+              <span>New people a day: {perDay}</span>
+              <input
+                type="range"
+                min={1}
+                max={25}
+                aria-label={`Leads per day for ${f.name}`}
+                value={perDay}
+                onChange={(e) => setPerDay(Number(e.target.value))}
+              />
+            </label>
+            <label className="row">
+              <input
+                type="checkbox"
+                aria-label={`Adjust from replies for ${f.name}`}
+                checked={auto}
+                onChange={(e) => setAuto(e.target.checked)}
+              />
+              <span>Adjust from replies</span>
+            </label>
+            <Button onClick={saveIntensity} disabledReason={off} aria-label={`Save intensity for ${f.name}`}>
+              Save
+            </Button>
+          </div>
+          <p className="muted small">
+            {cur.today.per_day} today. {cur.today.why} The weekly cap and each hunt's cap still apply.
+          </p>
+        </div>
+      )}
+      {busy && <p className="muted small">{busy}</p>}
+      {shown}
+    </div>
+  );
 }
 
 function FlowRow({ f, stopped, reload }: { f: SupervisorFlow; stopped: boolean; reload: () => void }) {
@@ -142,6 +243,7 @@ function FlowRow({ f, stopped, reload }: { f: SupervisorFlow; stopped: boolean; 
           </label>
         ))}
       </div>
+      <Tuning f={f} why={why} reload={reload} />
       {confirm && (
         <div className="callout callout-attention stack">
           <p>

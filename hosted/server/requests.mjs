@@ -3,7 +3,7 @@
 // The site stores a request (fw_requests); the relay on the Owner's machine takes it and calls the
 // matching fwd route with the CLI token. Draft changes (edit, reject, AI rewrite, mark, approve), the
 // flow controls (on, off, run now, the Draft or Copilot dial, Supervisor pause and resume), hunts and
-// do-not-contact exist here (FW-C-062). A request can never set Autopilot, send anything, release the
+// do-not-contact exist here (FW-C-062), and the morning run time and people a day (FW-C-063). A request can never set Autopilot, send anything, release the
 // kill switch, or change a budget or a policy. Approving only hands a draft to the outbox; Core never
 // sends. Pure functions, tested.
 
@@ -70,6 +70,22 @@ const FLOW_ACTIONS = { enable: 'flow.enable', disable: 'flow.disable', run: 'flo
 
 const text = (v) => (typeof v === 'string' ? v.trim() : '');
 
+/** FW-C-063: the morning run time and the people a day, checked the way fwd checks them. */
+const TIME = /^([01]\d|2[0-3]):[0-5]\d$/;
+const PER_DAY = (v) => Number.isInteger(v) && v >= 1 && v <= 25;
+function tuningPayload(action, b) {
+  if (action === 'schedule') {
+    if (!TIME.test(String(b.time ?? ''))) return { error: 'time must be HH:MM' };
+    if (b.days !== 'daily' && b.days !== 'weekdays') return { error: 'days must be daily or weekdays' };
+    return { payload: { time: b.time, days: b.days } };
+  }
+  const min = b.min ?? 1;
+  const max = b.max ?? 25;
+  if (![b.per_day, min, max].every(PER_DAY)) return { error: 'leads per day must be a whole number from 1 to 25' };
+  if (min > b.per_day || b.per_day > max) return { error: 'min must be at most per_day, and per_day at most max' };
+  return { payload: { per_day: b.per_day, auto: b.auto === true, min, max } };
+}
+
 /** A hunt's fields as the Owner sent them, in their order; fwd checks the values. */
 function huntPayload(b) {
   const payload = {};
@@ -90,6 +106,13 @@ export function requestOf(method, path, body) {
   if (drafted) return drafted;
   const sup = /^\/supervisor\/(pause|resume)$/.exec(path);
   if (sup) return method === 'POST' ? { kind: `supervisor.${sup[1]}`, flow: 'all', draft_id: null, payload: {} } : null;
+  const tune = /^\/supervisor\/flows\/([^/]+)\/(schedule|intensity)$/.exec(path);
+  if (tune) {
+    if (method !== 'POST') return null;
+    if (!FLOW.test(tune[1])) return { error: 'unknown flow' };
+    const t = tuningPayload(tune[2], b);
+    return t.error ? t : { kind: `flow.${tune[2]}`, flow: tune[1], draft_id: null, payload: t.payload };
+  }
   const ctl = /^\/supervisor\/flows\/([^/]+)\/(enable|disable|run|dial)$/.exec(path);
   if (ctl) {
     const [, flow, action] = ctl;
@@ -153,6 +176,11 @@ export function fwdCallFor(req) {
     return SITE_STOPS.includes(p.stop)
       ? { method: 'POST', path: `/supervisor/flows/${f}/dial`, body: { stop: p.stop } }
       : null;
+  }
+  if (kind === 'flow.schedule' || kind === 'flow.intensity') {
+    const action = kind.slice(5);
+    const t = tuningPayload(action, p);
+    return t.error ? null : { method: 'POST', path: `/supervisor/flows/${f}/${action}`, body: t.payload };
   }
   if (kind === 'hunt.save') {
     const h = huntPayload(p);
