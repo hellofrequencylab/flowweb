@@ -4,6 +4,7 @@ import type { FlowDraft } from '../api/types';
 import { Button } from '../ui-kit/Button';
 import { Icon } from '../ui-kit/Icon';
 import { DraftAssistant } from './DraftAssistant';
+import { draftHtml, LOGO_URL, splitSignOff } from './draft-html';
 
 type Mode = 'view' | 'edit';
 
@@ -92,7 +93,18 @@ export function DraftEditor({
 
   const copy = async () => {
     try {
-      await navigator.clipboard.writeText(`${draft.subject ? `${draft.subject}\n\n` : ''}${draft.body}`);
+      const text = `${draft.subject ? `${draft.subject}\n\n` : ''}${draft.body}`;
+      // FW-C-089: an HTML twin carries the Frequency logo above the sign-off, so it pastes into Gmail.
+      if (typeof ClipboardItem !== 'undefined' && navigator.clipboard.write) {
+        await navigator.clipboard.write([
+          new ClipboardItem({
+            'text/plain': new Blob([text], { type: 'text/plain' }),
+            'text/html': new Blob([draftHtml(text)], { type: 'text/html' }),
+          }),
+        ]);
+      } else {
+        await navigator.clipboard.writeText(text);
+      }
       setCopied(true);
       setTimeout(() => setCopied(false), 2000);
       return true;
@@ -179,7 +191,7 @@ export function DraftEditor({
       )}
 
       {mode === 'view' ? (
-        <div className="draft-body">{draft.body}</div>
+        <DraftBody text={draft.body} />
       ) : (
         <div className="draft-fields">
           <label className="field">
@@ -256,6 +268,20 @@ export function DraftEditor({
           </p>
         </div>
       )}
+    </div>
+  );
+}
+
+/** FW-C-089: the draft as it will paste, with the Frequency logo above the sign-off. */
+function DraftBody({ text }: { text: string }) {
+  const s = splitSignOff(text);
+  if (!s) return <div className="draft-body">{text}</div>;
+  return (
+    <div className="draft-body">
+      {s.before ? `${s.before}\n\n` : ''}
+      <img className="draft-logo" src={LOGO_URL} alt="Frequency" width={32} height={32} />
+      {s.signOff}
+      {s.after ? `\n\n${s.after}` : ''}
     </div>
   );
 }

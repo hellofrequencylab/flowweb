@@ -15,7 +15,9 @@ const DAY = 86_400_000;
 const TODAY_MS = 20 * 3_600_000;
 export const MAX_SENDS = 25;
 export const MAX_LINKS = 20;
-const DEFAULT_SIGN_OFF = 'Daniel Tyack\nFounder, Frequency (frequencylocal.com)';
+// FW-C-089: the Owner's own sign-off and P.S., from his edit of the Pages in Bloom draft on 10 Nov.
+const DEFAULT_SIGN_OFF = 'Daniel Tyack\nFounder\nfrequencylocal.com';
+const DEFAULT_LOCAL = 'San Diego (North County)';
 
 export type Hunt = {
   id: string;
@@ -235,9 +237,12 @@ export function funnelLink(cfg: FlowConfig, h: Hunt): string {
   return `${cfg.offer.url.replace(/\/$/, '')}${f.path}?${q}`;
 }
 
-/** The model's words plus what fwd always adds: the link or claim slot, sign-off, source and opt-out. */
+/** The model's words plus what fwd always adds: the link or claim slot, sign-off, and a P.S. with source and opt-out. */
 export function composeBody(cfg: FlowConfig, h: Hunt, lead: HuntLead): string {
-  const signOff = text((cfg as { hunts?: { sign_off?: unknown } }).hunts?.sign_off) || DEFAULT_SIGN_OFF;
+  const own = (cfg as { hunts?: { sign_off?: unknown; local_to?: unknown } }).hunts;
+  const signOff = text(own?.sign_off) || DEFAULT_SIGN_OFF;
+  const local = text(own?.local_to) || DEFAULT_LOCAL;
+  const found = lead.organizer.contact_via === 'email' ? 'your address' : 'how to reach you';
   const link = h.build
     ? `I set up a page for your event on Frequency. It is yours to claim: {{claim_url}}`
     : `If you'd like to host on Frequency, start here: ${funnelLink(cfg, h)}`;
@@ -248,7 +253,8 @@ export function composeBody(cfg: FlowConfig, h: Hunt, lead: HuntLead): string {
     link,
     '',
     signOff,
-    `I found ${lead.organizer.contact_via === 'email' ? 'your address' : 'how to reach you'} on ${lead.organizer.source_url}. Not interested? Reply "no" and I won't write again.`,
+    '',
+    `P.S. I'm local to ${local} and found ${found} on ${lead.organizer.source_url}. If you aren't interested, just reply "no" and I won't reach out again.`,
   ].join('\n');
 }
 
