@@ -1,0 +1,65 @@
+{
+  "version": 1,
+  "description": "Diff policy rules (Tier 0, Owner file), read by packages/policy evaluateDiffPolicy. Every rule blocks. A missing or invalid file is a deny. Regexes are JavaScript syntax. Globs: ** across segments, * within one, {a,b} alternatives; path matching ignores case.",
+  "rules": {
+    "forbidden_path": {
+      "violation": "tier0_path",
+      "description": "A change touching a Tier 0 path (the caller passes the Tier 0 list plus the work order's forbidden paths). Renames count on both sides."
+    },
+    "outside_allowed_files": {
+      "violation": "outside_allowed_files",
+      "description": "A change outside the work order's scope.touches globs. An empty list allows nothing."
+    },
+    "deleted_test": {
+      "violation": "deleted_test",
+      "description": "A test file deleted or renamed to a non-test path, or a test file that loses more test cases than it gains.",
+      "test_paths": ["**/*.test.*", "**/*.spec.*", "**/__tests__/**", "**/test/**", "**/tests/**", "**/test_*.py", "**/*_test.py", "**/*_test.go", "e2e/**"],
+      "test_case_regex": "^\\s*(it|test|describe|suite)(\\.\\w+)*\\s*\\(|^\\s*(async\\s+)?def\\s+test_|^\\s*func\\s+Test"
+    },
+    "skipped_test": {
+      "violation": "skipped_test",
+      "description": "An added line that skips, focuses or expects a test to fail, in any file but Markdown.",
+      "added_line_regex": "\\b(it|test|describe|suite|context)\\.(skip|only|todo|fails|skipIf|runIf)\\b|\\b(xit|xtest|xdescribe|fit|fdescribe)\\s*\\(|@pytest\\.mark\\.(skip|skipif|xfail)\\b|@unittest\\.(skip|expectedFailure)|\\bt\\.Skip(Now|f)?\\(",
+      "exclude": ["**/*.md"]
+    },
+    "config_relaxation": {
+      "violation": "config_relaxation",
+      "description": "A gate config file (lint, typecheck, test runner, CI, hooks, budgets, baselines) that is deleted or renamed away, loses a non-blank line (a changed value counts), or gains a line that turns something off. A purely additive tightening passes.",
+      "paths": [
+        "**/biome.json",
+        "**/biome.jsonc",
+        "**/tsconfig*.json",
+        "**/vitest.config.*",
+        "**/vitest.workspace.*",
+        "**/jest.config.*",
+        "**/eslint.config.*",
+        "**/.eslintrc*",
+        "**/playwright.config.*",
+        "**/pytest.ini",
+        "**/.coveragerc",
+        "**/pyproject.toml",
+        "**/.gitleaks.toml",
+        ".github/workflows/**",
+        ".husky/**",
+        "**/*budget*.{json,yaml,yml,toml}",
+        "**/*baseline*.{json,yaml,yml,toml,txt}"
+      ],
+      "added_line_regex": "\\b(false|off|warn|ignore|ignored|skip|none|disable|disabled)\\b|continue-on-error|\\|\\|\\s*true|--no-verify|--passWithNoTests|\\bnosec\\b|nosemgrep|HUSKY=0"
+    },
+    "size_over_cap": {
+      "violation": "size_over_cap",
+      "description": "Changed lines (added plus removed, text files) over the row size cap. A row with no known size gets the unknown_size cap. Lockfiles are generated and not counted (a new dependency is its own rule).",
+      "max_changed_lines": { "S": 150, "M": 400, "L": 600 },
+      "unknown_size": "S",
+      "exclude": ["**/pnpm-lock.yaml", "**/package-lock.json", "**/yarn.lock"]
+    },
+    "new_dependency": {
+      "violation": "new_dependency",
+      "description": "A dependency name present after the change and absent before it, in any listed manifest, unless the work order allows new dependencies. A changed manifest whose content is not supplied, or does not parse, is a violation.",
+      "manifests": [
+        { "glob": "**/package.json", "format": "package_json" },
+        { "glob": "**/requirements*.txt", "format": "requirements_txt" }
+      ]
+    }
+  }
+}

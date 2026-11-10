@@ -36,7 +36,7 @@ import {
   surfaceDbRefusal,
   transitionRow,
 } from '@fw/ledger';
-import { type DiffVerdict, evaluateDiffPolicy } from '@fw/policy';
+import { type DiffVerdict, evaluateDiffPolicy, isDependencyManifest } from '@fw/policy';
 import {
   CredentialError,
   type InjectedCredentials,
@@ -45,7 +45,7 @@ import {
 } from '../creds/index.ts';
 import { GhHost, type GitHost, GitHostError, LocalBareHost } from '../edge-git/index.ts';
 import { checkRunArtifact } from '../runtime/artifact-guard.ts';
-import { branchChanges } from '../runtime/branch-diff.ts';
+import { branchChanges, branchManifests, branchPatch } from '../runtime/branch-diff.ts';
 import { ExecError, execOk, git } from '../runtime/exec.ts';
 import { quarantineBranch } from '../runtime/quarantine.ts';
 import {
@@ -1046,7 +1046,15 @@ async function execute(c: ExecCtx): Promise<void> {
     throw new RunFailure('no_artifact', 'the run made no commit on its branch');
   const changes = await branchChanges(c.repoDir, baseSha, headSha);
   const tier0 = [...new Set([...TIER0_PATHS, ...order.scope.forbidden])];
-  const verdict = evaluateDiffPolicy({ changes, allowedFiles: order.scope.touches, tier0Paths: tier0 });
+  const verdict = evaluateDiffPolicy({
+    changes,
+    allowedFiles: order.scope.touches,
+    tier0Paths: tier0,
+    patch: await branchPatch(c.repoDir, baseSha, headSha),
+    manifests: await branchManifests(c.repoDir, baseSha, headSha, changes, (p) => isDependencyManifest(p)),
+    rowSize: getDbRow(c.w, c.rowId).size,
+    allowNewDependencies: order.constraints.no_new_dependencies === false,
+  });
   const policyAt = nowIso(now());
   if (!verdict.allowed) await quarantine(c, verdict);
 
