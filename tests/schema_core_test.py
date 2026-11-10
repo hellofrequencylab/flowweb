@@ -241,7 +241,8 @@ class CoreDB(unittest.TestCase):
         self.assertEqual(bad, 2)
 
     def test_09_events_secret_shaped_payload_rejected(self):
-        for secret in ("sk-ant-api03-abcdef", "ghp_abcdefghij1234567890", "AKIAABCDEFGHIJKLMNOP", "-----BEGIN OPENSSH PRIVATE KEY-----"):
+        for secret in ("sk-ant-api03-abcdef", "ghp_abcdefghij1234567890", "AKIAABCDEFGHIJKLMNOP", "-----BEGIN OPENSSH PRIVATE KEY-----",
+                       "-----BEGIN PRIVATE KEY-----"):  # 1.1.0: a bare PKCS#8 header too
             with self.assertRaisesRegex(sqlite3.DatabaseError, "secret-shaped"):
                 append_event(self.db, "system.config_changed", {"note": secret})
         append_event(self.db, "system.config_changed", {"note": "a normal sentence"})
@@ -417,6 +418,13 @@ class CoreDB(unittest.TestCase):
         self.x("UPDATE run_artifacts SET verified_by_kernel=1, verified_at=? WHERE run_id=?", iso(), r)
         self.fails("result_hash and exit_code=0", "UPDATE runs SET status='succeeded' WHERE id=?", r)
         self.x("UPDATE runs SET status='succeeded', result_hash=?, exit_code=0 WHERE id=?", sha("res"), r)
+
+    def test_28b_run_failure_class_vocabulary(self):
+        # 1.1.0: a diff-policy violation has its own class, 'policy'; anything outside the list is refused
+        r = self.running_run()
+        self.fails("CHECK constraint", "UPDATE runs SET status='failed', failure_class='diff_policy' WHERE id=?", r)
+        self.x("UPDATE runs SET status='failed', failure_class='policy' WHERE id=?", r)
+        self.assertEqual(self.one("SELECT failure_class FROM runs WHERE id=?", r), "policy")
 
     # =========================== E. budgets: hard stops ================================================
     def test_29_budget_caps_are_owner_set_and_always_hard(self):

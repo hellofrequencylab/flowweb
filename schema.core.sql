@@ -11,6 +11,14 @@
 --
 -- What Core omits (and why) is in the table at the end of this file ("OMITTED").
 --
+-- Versions. This file is always the CURRENT schema: a new database is created from it.
+-- A database created from an earlier version is brought forward by the forward-only upgrades
+-- in packages/contracts/sql/migrations/ (applied by @fw/eventlog openStore, one transaction each).
+--   1.0.0-core  first release.
+--   1.1.0-core  runs.failure_class gains 'policy' (a diff-policy violation; the full schema
+--               needs the same value); the secret tripwire also catches a bare PKCS#8 header
+--               ("BEGIN PRIVATE KEY"). Upgrade: migrations/0002-core-1.1.0.sql.
+--
 -- Conventions (identical to the full schema): ids are prefixed text (prj_, stm_, wo_, lr_,
 -- run_, agt_ ...); every JSON column is json_valid()-checked; every *_hash is lowercase hex
 -- SHA-256; timestamps are UTC ISO-8601 text. The daemon opens every connection with
@@ -34,7 +42,7 @@ CREATE TABLE schema_meta (
   key TEXT PRIMARY KEY, value TEXT NOT NULL
 );
 INSERT INTO schema_meta(key,value) VALUES
-  ('schema_version','1.0.0-core'),
+  ('schema_version','1.1.0-core'),
   ('profile','core'),
   ('full_schema_base','03-contracts/schema.sql 1.0.0'),
   ('json_schema_dialect','2020-12');
@@ -365,7 +373,7 @@ CREATE TABLE runs (
   result TEXT CHECK (result IS NULL OR json_valid(result)),     -- run-result.json
   result_hash TEXT CHECK (result_hash IS NULL OR length(result_hash) = 64),
   exit_code INTEGER,
-  failure_class TEXT CHECK (failure_class IS NULL OR failure_class IN ('adapter','schema','no_artifact','claim_mismatch','nonzero_exit','timeout','budget','killed','cancelled')),
+  failure_class TEXT CHECK (failure_class IS NULL OR failure_class IN ('adapter','schema','no_artifact','claim_mismatch','nonzero_exit','timeout','budget','killed','cancelled','policy')),
   cost_usd REAL NOT NULL DEFAULT 0 CHECK (cost_usd >= 0),
   tokens_in INTEGER NOT NULL DEFAULT 0, tokens_out INTEGER NOT NULL DEFAULT 0, tokens_cached INTEGER NOT NULL DEFAULT 0,
   turns INTEGER NOT NULL DEFAULT 0,
@@ -566,7 +574,7 @@ END;
 CREATE TRIGGER trg_events_no_secret_shapes BEFORE INSERT ON events
 WHEN NEW.payload GLOB '*sk-ant-*' OR NEW.payload GLOB '*sk-proj-*' OR NEW.payload GLOB '*ghp_[A-Za-z0-9]*'
   OR NEW.payload GLOB '*github_pat_*' OR NEW.payload GLOB '*AKIA[0-9A-Z][0-9A-Z][0-9A-Z][0-9A-Z]*'
-  OR NEW.payload GLOB '*xox[bp]-*' OR NEW.payload GLOB '*BEGIN * PRIVATE KEY*'
+  OR NEW.payload GLOB '*xox[bp]-*' OR NEW.payload GLOB '*BEGIN *PRIVATE KEY*'
 BEGIN SELECT RAISE(ABORT, 'events: payload contains a secret-shaped token; redact before write'); END;
 
 -- --- 3. State machine guards (legal_transitions is seeded from STATE-MACHINES.md) --

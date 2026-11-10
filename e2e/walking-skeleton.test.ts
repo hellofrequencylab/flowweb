@@ -345,7 +345,7 @@ describe('walking skeleton: failure cases', () => {
     expect(r.body).toMatchObject({
       ok: false,
       status: 'failed',
-      failure_class: 'no_artifact',
+      failure_class: 'policy',
       policy_code: 'DIFF_POLICY',
       pr: null,
     });

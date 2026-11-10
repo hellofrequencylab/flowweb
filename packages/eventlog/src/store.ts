@@ -1,6 +1,8 @@
 // SQLite implementation of the Store port (types.ts) on better-sqlite3.
 // - WAL mode; PRAGMA foreign_keys=ON on every connection, checked, never handed out off.
 // - schema.core.sql is migration 0001; its sha256 is recorded in schema_meta and checked on every open.
+//   A database created from an earlier released schema.core.sql is brought forward by the
+//   forward-only upgrades in upgrade.ts (one transaction each, each recorded by its sha256).
 // - One writer, guarded by a process-level lock file; readers use separate read-only connections.
 import { existsSync, readFileSync } from 'node:fs';
 import { resolve } from 'node:path';
@@ -16,6 +18,7 @@ import {
 import {
   ForbiddenStatementError,
   SchemaMismatchError,
+  SchemaUpgradeRequiredError,
   SecretShapeError,
   StoreClosedError,
 } from './errors.ts';
@@ -31,6 +34,7 @@ import type {
   VerifyResult,
   Writer,
 } from './types.ts';
+import { applyUpgrade, planUpgrades, type UpgradePlan } from './upgrade.ts';
 import { canonicalJson, newId, nowIso, sha256Hex } from './util.ts';
 
 type DB = Database.Database;
@@ -86,13 +90,15 @@ function hasSchemaMeta(db: DB): boolean {
   );
 }
 
-function checkSchemaHash(db: DB, current: string, schemaPath: string): void {
+/** Refuses a database it cannot account for; otherwise returns the upgrades it still needs. */
+function checkSchema(db: DB, current: string, schemaText: string, schemaPath: string): UpgradePlan {
   const row = hasSchemaMeta(db)
     ? (db.prepare('SELECT value FROM schema_meta WHERE key = ?').get(MIGRATION_0001_KEY) as
         | { value: string }
         | undefined)
     : undefined;
-  if (row?.value !== current) throw new SchemaMismatchError(row?.value, current, schemaPath);
+  if (row === undefined) throw new SchemaMismatchError(undefined, current, schemaPath);
+  return planUpgrades(db, current, schemaText, schemaPath, row.value);
 }
 
 const PRAGMA_LINE = /^[ \t]*PRAGMA[ \t]+[^;\n]+;[ \t]*$/gim;
@@ -268,7 +274,10 @@ export function openStore(opts: OpenStoreOptions): Store {
       try {
         configure(db, true);
         if (!hasSchemaMeta(db)) migrate(db, schemaText, schemaSha, now);
-        checkSchemaHash(db, schemaSha, schemaPath);
+        for (const u of checkSchema(db, schemaSha, schemaText, schemaPath).pending)
+          applyUpgrade(db, u, now());
+        const left = checkSchema(db, schemaSha, schemaText, schemaPath).pending;
+        if (left.length) throw new SchemaUpgradeRequiredError(left.map((u) => u.id));
       } catch (e) {
         db.close();
         throw e;
@@ -295,8 +304,10 @@ export function openStore(opts: OpenStoreOptions): Store {
         probe.close();
         openWriter();
       } else {
-        checkSchemaHash(probe, schemaSha, schemaPath);
+        const pending = checkSchema(probe, schemaSha, schemaText, schemaPath).pending;
         probe.close();
+        if (pending.length && readonly) throw new SchemaUpgradeRequiredError(pending.map((u) => u.id));
+        if (pending.length) openWriter();
       }
     } finally {
       if (probe.open) probe.close();

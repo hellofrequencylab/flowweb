@@ -101,7 +101,12 @@ describe('checkRunArtifact', () => {
       writeFile(wt.path, file, 'tampered\n');
       const head = await commitAll(wt.path, 'sneaky');
       const r = await checkRunArtifact({ repoPath: repo, baseRef: base, branch: wt.branch, allowedFiles });
-      expect(r).toMatchObject({ ok: false, reason: 'policy_violation', head_sha: head });
+      expect(r).toMatchObject({
+        ok: false,
+        reason: 'policy_violation',
+        failure_class: 'policy',
+        head_sha: head,
+      });
       expect(r.verdict?.violations).toEqual([{ path: file, rule: 'tier0_path', status: 'M' }]);
 
       const q = await quarantineBranch({ repoPath: repo, branch: wt.branch, run_id: runId });
@@ -143,6 +148,7 @@ describe('checkRunArtifact', () => {
     await commitAll(wt.path, 'out of scope');
     const r = await checkRunArtifact({ repoPath: repo, baseRef: base, branch: wt.branch, allowedFiles });
     expect(r.reason).toBe('policy_violation');
+    expect(r.failure_class).toBe('policy');
     expect(r.verdict?.violations[0]?.rule).toBe('outside_allowed_files');
   });
 
