@@ -1,7 +1,8 @@
-import { useState } from 'react';
+import { type ReactNode, useState } from 'react';
 import { api } from '../api/client';
 import { useResource } from '../api/resource';
 import { Copy, ResourceView } from '../ui-kit/honest';
+import { StatusLabel, type StatusSpec } from '../ui-kit/status';
 import { age, useNow } from '../ui-kit/time';
 
 /** Machines older than this without a push are shown as not syncing. */
@@ -122,34 +123,149 @@ export function MachinesPanel() {
   );
 }
 
-/** Hosted mode: an honest account of which sign-ins can drive FlowWeb, and where they live. */
+/** A command to run on the Mac, with a copy button. */
+function Cmd({ text }: { text: string }) {
+  return (
+    <span className="cmd">
+      <code>{text}</code>
+      <Copy text={text} label="command" />
+    </span>
+  );
+}
+
+type AccountKey = 'claude_signin_token' | 'claude_api_key' | 'codex_signin' | 'codex_api_key';
+
+const ACCOUNTS: { key: AccountKey; title: string; lane: string; steps: ReactNode[] }[] = [
+  {
+    key: 'claude_signin_token',
+    title: 'Claude Pro or Max plan',
+    lane: 'Claude runs use your plan instead of an API key.',
+    steps: [
+      <>
+        On your Mac, run this and sign in with your Claude account in the browser window it opens. It prints a
+        long-lived token.
+        <Cmd text="claude setup-token" />
+      </>,
+      <>
+        Store the token in your keychain. Paste it when asked.
+        <Cmd text="security add-generic-password -U -s flowweb -a crd_claude0002 -w" />
+      </>,
+      <>
+        Start fwd with the plan turned on:
+        <Cmd text="FW_CLAUDE_AUTH=signin fwd" />
+      </>,
+    ],
+  },
+  {
+    key: 'claude_api_key',
+    title: 'Anthropic API key',
+    lane: 'The default for Claude runs.',
+    steps: [
+      <>
+        Create a key at <a href="https://console.anthropic.com/settings/keys">console.anthropic.com</a>.
+      </>,
+      <>
+        Store it in your keychain. Paste it when asked.
+        <Cmd text="security add-generic-password -U -s flowweb -a crd_claude0001 -w" />
+      </>,
+      <>Start fwd as usual. Leave FW_CLAUDE_AUTH unset.</>,
+    ],
+  },
+  {
+    key: 'codex_signin',
+    title: 'ChatGPT plan (Codex)',
+    lane: 'Codex runs use your ChatGPT plan instead of an API key.',
+    steps: [
+      <>
+        Install the Codex CLI, run this and sign in with ChatGPT in the browser.
+        <Cmd text="codex login" />
+      </>,
+      <>
+        Check it worked:
+        <Cmd text="codex login status" />
+      </>,
+      <>
+        Start fwd with the plan turned on:
+        <Cmd text="FW_CODEX_AUTH=signin fwd" />
+      </>,
+    ],
+  },
+  {
+    key: 'codex_api_key',
+    title: 'OpenAI API key',
+    lane: 'The default for Codex runs.',
+    steps: [
+      <>
+        Create a key at <a href="https://platform.openai.com/api-keys">platform.openai.com</a>.
+      </>,
+      <>
+        Store it in your keychain. Paste it when asked.
+        <Cmd text="security add-generic-password -U -s flowweb -a crd_codex0001 -w" />
+      </>,
+      <>Start fwd as usual. Leave FW_CODEX_AUTH unset.</>,
+    ],
+  },
+];
+
+/** Hosted mode: how to sign in each account on the Mac, and which ones the Mac reports as set up. */
 export function AccountsPanel() {
+  const res = useResource('hosted-machines', api.machines);
+  const now = useNow(60_000);
+  const reporting = (res.data?.machines ?? [])
+    .filter((m) => !m.revoked_at && m.report.accounts)
+    .sort((a, b) => (b.last_seen_at ?? '').localeCompare(a.last_seen_at ?? ''));
+  const m = reporting[0];
+  const acc = m?.report.accounts;
   return (
     <section className="panel" aria-labelledby="acct-h">
       <h2 id="acct-h">Accounts and API keys</h2>
       <p className="small muted">
-        Agents run on your machine, so your accounts and keys stay there. This site never holds them.
+        Agents run on your Mac, so you sign in there, not on this site. Tokens and keys stay in your Mac's
+        keychain. The relay only reports whether each one is set up, never the secret itself. To use both
+        plans, start fwd with both settings: <code>FW_CLAUDE_AUTH=signin FW_CODEX_AUTH=signin fwd</code>.
       </p>
-      <dl className="facts">
-        <dt>Anthropic API key</dt>
-        <dd>
-          Used for agent runs today. Store it in your Mac's Keychain, where FlowWeb reads it:{' '}
-          <code>security add-generic-password -U -s flowweb -a crd_claude0001 -w</code> (it prompts for the
-          key).
-        </dd>
-        <dt>Claude and Claude Code account</dt>
-        <dd>
-          Sign in once with <code>claude</code> on your Mac. FlowWeb's policy runs agents on API keys only for
-          now; using your subscription instead is an owner decision, not a setting here. Claude accounts
-          cannot sign in to other websites, including this one.
-        </dd>
-        <dt>ChatGPT Business and OpenAI API key</dt>
-        <dd>
-          Sign in with <code>codex login</code> on your Mac, or set an OpenAI API key there. FlowWeb does not
-          have an adapter for this vendor yet, so neither is used for runs today. ChatGPT accounts cannot sign
-          in to other websites either.
-        </dd>
-      </dl>
+      <p className="small">
+        {acc && m ? (
+          <>
+            Status from <strong>{m.report.label ?? m.label}</strong>, checked {age(acc.checked_at, now)}.
+          </>
+        ) : (
+          <span className="muted">Status appears here once your Mac syncs with an up-to-date relay.</span>
+        )}
+      </p>
+      <ol className="account-list">
+        {ACCOUNTS.map((a) => {
+          const v = acc ? acc[a.key] : undefined;
+          const spec: StatusSpec =
+            v === true
+              ? { word: 'Set up', tone: 'ok', icon: 'pass' }
+              : v === false
+                ? { word: 'Not set up', tone: 'neutral', icon: 'open' }
+                : {
+                    word: v === null ? "Mac can't tell" : 'Not reported yet',
+                    tone: 'unknown',
+                    icon: 'unknown',
+                  };
+          return (
+            <li key={a.key} className="account">
+              <div className="account-head">
+                <h3>{a.title}</h3>
+                <StatusLabel spec={spec} />
+              </div>
+              <p className="small muted">{a.lane}</p>
+              <ol className="account-steps">
+                {a.steps.map((step, i) => (
+                  // biome-ignore lint/suspicious/noArrayIndexKey: fixed, ordered steps
+                  <li key={i}>{step}</li>
+                ))}
+              </ol>
+            </li>
+          );
+        })}
+      </ol>
+      <p className="small muted">
+        Claude and ChatGPT accounts cannot sign in to this website. You sign in here with your FlowWeb login.
+      </p>
     </section>
   );
 }

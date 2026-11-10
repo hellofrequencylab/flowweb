@@ -13,6 +13,7 @@
 //   add --once to push one snapshot and exit, or --dump <file> to write it to a file instead.
 // Env: FW_HOME (default ~/.flowweb), FW_PORT (7317), FW_RELAY_INTERVAL_S (60),
 //      FW_RELAY_TOKEN or the file $FW_HOME/relay.token, FW_RELAY_LABEL (shown on the site).
+import { spawnSync } from 'node:child_process';
 import { readFileSync, writeFileSync } from 'node:fs';
 import { homedir, hostname } from 'node:os';
 import { join } from 'node:path';
@@ -149,6 +150,31 @@ async function snapshot() {
   return { entries: keyed, status };
 }
 
+/**
+ * Which sign-ins FlowWeb can use on this machine, as yes or no only. Secrets are never read:
+ * the keychain lookups send their output to /dev/null and only the exit code comes back.
+ * null means this machine cannot tell (no keychain tool, or the CLI is not installed).
+ */
+function exitOk(cmd, args) {
+  const r = spawnSync(cmd, args, { stdio: 'ignore', timeout: 10_000 });
+  if (r.error) return null;
+  return r.status === 0;
+}
+function stored(handle) {
+  if (process.platform === 'darwin') return exitOk('security', ['find-generic-password', '-s', 'flowweb', '-a', handle]);
+  if (process.platform === 'linux') return exitOk('secret-tool', ['lookup', 'service', 'flowweb', 'handle', handle]);
+  return null;
+}
+function accounts() {
+  return {
+    checked_at: new Date().toISOString(),
+    claude_api_key: stored('crd_claude0001'),
+    claude_signin_token: stored('crd_claude0002'),
+    codex_api_key: stored('crd_codex0001'),
+    codex_signin: exitOk('codex', ['login', 'status']),
+  };
+}
+
 let target = null;
 async function hostedConfig() {
   if (target) return target;
@@ -193,6 +219,7 @@ async function once() {
     head_seq: status.head_seq ?? null,
     entries: Object.keys(entries).length,
     took_ms: Date.now() - started,
+    accounts: accounts(),
   };
   if (DUMP) {
     // Write the snapshot to a file instead of pushing it (to inspect what would be sent).

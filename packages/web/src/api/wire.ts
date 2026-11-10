@@ -411,6 +411,14 @@ export interface WMachine {
     fwd_version?: string | null;
     head_seq?: number | null;
     entries?: number;
+    /** Yes or no per sign-in, from the relay. null: the machine could not tell. Never a secret. */
+    accounts?: {
+      checked_at: string;
+      claude_api_key: boolean | null;
+      claude_signin_token: boolean | null;
+      codex_api_key: boolean | null;
+      codex_signin: boolean | null;
+    };
   };
 }
 
