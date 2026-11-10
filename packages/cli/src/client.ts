@@ -316,7 +316,7 @@ export interface ProjectLabelReport {
   event_seq: number | null;
 }
 
-/** FW-C-038: `fw project add`. */
+/** FW-C-039: `fw project add`. */
 export interface ProjectAddInput {
   slug: string;
   name?: string;
@@ -330,7 +330,7 @@ export interface ProjectAddReport {
   event_seq: number;
 }
 
-/** FW-C-038: the Owner's answers to the five brief questions, word for word. */
+/** FW-C-039: the Owner's answers to the five brief questions, word for word. */
 export interface ProjectBrief {
   what: string;
   who: string;

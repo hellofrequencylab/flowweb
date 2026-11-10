@@ -77,11 +77,11 @@ export interface ApiDeps {
   runs?: RunsApi;
   /** The Supervisor's Owner controls, on fwd's writer (FW-C-033). Absent: those routes answer 501. */
   supervisor?: SupervisorControls;
-  /** FW-C-038: project writes on fwd's writer. Absent: those routes answer 501. */
+  /** FW-C-039: project writes on fwd's writer. Absent: those routes answer 501. */
   projects?: ProjectControls;
 }
 
-/** FW-C-038: the project writes the CLI hands to fwd while fwd holds the writer. */
+/** FW-C-039: the project writes the CLI hands to fwd while fwd holds the writer. */
 export interface ProjectControls {
   add(input: Row): unknown;
   label(ref: string, change: { brand?: string | null; category?: string | null }): unknown;
@@ -468,7 +468,7 @@ export function buildRouter(deps: ApiDeps): Router {
     );
   });
 
-  // FW-C-038: project writes, CLI token only (like the Supervisor controls).
+  // FW-C-039: project writes, CLI token only (like the Supervisor controls).
   const projectWrite = async (req: IncomingMessage, act: (c: ProjectControls, body: Row) => unknown) => {
     const c = deps.projects;
     if (!c) throw new ApiError(501, 'not_implemented', 'this fwd does not host project writes');
