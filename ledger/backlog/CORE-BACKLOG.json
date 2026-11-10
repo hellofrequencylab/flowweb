@@ -4,7 +4,7 @@
     "profile": "core",
     "schema": "ledger-row/1",
     "generated": "2026-11-09",
-    "row_count": 74,
+    "row_count": 76,
     "conventions": {
       "verify_probe": "Same convention as 04-build-plan/backlog.json: 'pnpm probe <path>' runs probes/<path>.probe.ts, a Tier 0 file written before the implementation row starts and never edited by the agent doing the row. Every probe fails today because its target does not exist (a missing probe file exits 2, a missing behaviour exits 1). The probe pack for a milestone is committed by the Owner or a pair session before the milestone's rows start.",
       "status": "All rows start as open. Status lives only in the ledger database (imported with fw ledger sync), never in prose.",
@@ -28,7 +28,7 @@
       }
     },
     "full_plan_rows_included": 37,
-    "new_core_rows": 37
+    "new_core_rows": 39
   },
   "rows": [
     {
@@ -2607,7 +2607,80 @@
       "origin": "new Core row"
     },
     {
+      "id": "FW-C-037",
+      "title": "Hand finished Autopilot items to a sending app through an outbox",
+      "core_milestone": "C1",
+      "phase": 1,
+      "epic": "C1.5 First flow",
+      "priority": "P1",
+      "size": "M",
+      "lane": "workstreams",
+      "agent_suitability": "agent",
+      "gate": "owner-approval",
+      "depends_on": [
+        "FW-C-035"
+      ],
+      "description": "Give Autopilot its hand-off, as the Owner chose on 10 Nov: Core stays a drafter and never sends, and a sending app outside Core picks up finished items. fwd gets one function, handOff, that takes one finished item of a flow (an id, one of the flow's channels and the body). The item is queued only when the flow is on, at Autopilot, and its confirm hash still matches its channels and caps. Queued means one JSON file at $FW_HOME/outbox/<flow>/<id>.json, holding the flow, the channel, the body, the confirm hash the Owner approved and the sha256 of the body, plus one notification.queued event of kind flow_handoff. That event type already exists, so there is no schema change. Handing off the same item again changes nothing. Otherwise the item is held, and the reason starts with why: kill_switch, supervisor_paused, no_engine, flow_disabled, needs_owner (at Draft and Copilot every item waits for the Owner), dial_unapproved or unknown_channel. Writing the file is the whole hand-off: no network, no run and no approval. Calling handOff when a flow finishes a cycle comes with dispatch. Showing Draft and Copilot items to the Owner as decision cards, and the sending app itself, are later work.",
+      "acceptance": [
+        "At Draft and at Copilot an item is held by needs_owner, and no file appears in the outbox",
+        "At confirmed Autopilot an item for one of the flow's channels is queued as one file in $FW_HOME/outbox/<flow>/ with the flow, channel, body, confirm hash and sha256, and one notification.queued event of kind flow_handoff",
+        "Handing off the same item twice writes one file and one event",
+        "An item for a channel the flow does not list is held by unknown_channel",
+        "After the flow's channels change, items are held by dial_unapproved until the Owner confirms again",
+        "A flow that is off holds its items by flow_disabled, and the kill switch holds them by kill_switch",
+        "A hand-off writes no run, no approval and no event other than notification.queued"
+      ],
+      "verify_probe": "pnpm probe flows/handoff",
+      "files_hint": [
+        "packages/daemon/src/overseer/",
+        "packages/daemon/src/index.ts",
+        "packages/daemon/test/"
+      ],
+      "origin": "new Core row"
+    },
+    {
       "id": "FW-C-038",
+      "title": "Dispatch: an admitted fire runs one cycle of the flow",
+      "core_milestone": "C1",
+      "phase": 1,
+      "epic": "C1.5 First flow",
+      "priority": "P1",
+      "size": "L",
+      "lane": "workstreams",
+      "agent_suitability": "agent",
+      "gate": "owner-approval",
+      "depends_on": [
+        "FW-C-036"
+      ],
+      "description": "Make a flow do work when it fires. Turning a flow on also registers its shipped stream with the scheduler (active), once its project is in the ledger, so the flow fires on its own schedule. The Owner can also run a flow now with POST /v1/supervisor/flows/{key}/run or fw supervisor run <flow> (CLI token only). That fires the stream by hand through the scheduler, so the Supervisor decides it like any other fire. A fire the Supervisor admits runs one cycle of the flow on the routed adapter. A cycle is not a ledger-row run: there is no worktree, branch or pull request. The adapter works in $FW_HOME/flows/<key>/cycles/<fire>/ and writes drafts.json there. fwd turns each draft into one file under $FW_HOME/flows/<key>/drafts/ with status waiting_for_owner, records the cycle's spend against the flow's stream (spend_entries, and the flow's own period total that its cap reads), and writes one status report of kind run naming the stream, the fire, the adapter, the outcome (drafted, dry or failed) and the number of drafts. Core never sends: at every stop each draft waits for the Owner. The fake adapter gains a flow_drafts scenario, so this runs without a network or keys. Showing drafts as decision cards, handing Autopilot drafts to the outbox (FW-C-037), and a flow-specific prompt for the real Codex run are later rows.",
+      "acceptance": [
+        "Turning a flow on registers its stream, active, with one stream.created event",
+        "Running a flow by hand needs the CLI token: without it the request answers 401 and nothing fires",
+        "With the token the fire is recorded as fired (trigger manual) and one cycle runs: one run report with outcome drafted, one waiting_for_owner draft file per draft, and spend recorded against the flow's stream; GET /v1/supervisor then shows the flow's spend above zero",
+        "At Draft nothing is handed off: no outbox file and no notification.queued event",
+        "Running a flow that is off is held by flow_disabled, and no cycle runs",
+        "fw supervisor run <flow> --json reaches the same route and prints the same answer"
+      ],
+      "verify_probe": "pnpm probe flows/dispatch",
+      "files_hint": [
+        "packages/daemon/src/overseer/",
+        "packages/daemon/src/daemon.ts",
+        "packages/daemon/src/api/routes.ts",
+        "packages/daemon/src/local-client.ts",
+        "packages/daemon/src/index.ts",
+        "packages/daemon/test/",
+        "packages/cli/src/client.ts",
+        "packages/cli/src/commands/supervisor.ts",
+        "packages/cli/test/",
+        "packages/adapters/src/fake/",
+        "packages/adapters/test/",
+        "packages/ledger/src/index.ts",
+        "docs/api/LOCAL-API-V1.md"
+      ],
+      "origin": "new Core row"
+    },
+    {
+      "id": "FW-C-039",
       "title": "A new Owner gets set up with one guided command",
       "core_milestone": "C1",
       "phase": 1,

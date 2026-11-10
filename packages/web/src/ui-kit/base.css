@@ -270,12 +270,56 @@ code,
   padding: 0 var(--space-8);
 }
 .topbar-conditions {
+  flex: none;
   list-style: none;
   margin: 0;
+  padding: 0;
   display: flex;
-  flex-wrap: wrap;
-  gap: var(--space-3);
-  padding: 0 var(--space-8) var(--space-5);
+  align-items: center;
+  gap: var(--space-2);
+}
+.cond-icon {
+  position: relative;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 32px;
+  height: 32px;
+  padding: 0;
+  border: 0;
+  border-radius: var(--radius-full);
+  background: var(--surface-soft);
+  color: var(--text-primary);
+  cursor: help;
+}
+.cond-warn {
+  color: var(--caution-fg);
+}
+.cond-fail {
+  color: var(--fail-fg);
+}
+.cond-icon::after {
+  content: attr(data-tip);
+  position: absolute;
+  top: calc(100% + 8px);
+  right: 0;
+  z-index: 50;
+  width: max-content;
+  max-width: 280px;
+  padding: var(--space-3) var(--space-4);
+  border-radius: var(--radius-xs);
+  background: var(--surface-inverse);
+  color: var(--text-inverse);
+  font: var(--weight-regular) var(--text-xs) / 1.4 var(--font-sans);
+  white-space: normal;
+  box-shadow: var(--shadow-2);
+  opacity: 0;
+  pointer-events: none;
+  transition: opacity 120ms ease;
+}
+.cond-icon:hover::after,
+.cond-icon:focus-visible::after {
+  opacity: 1;
 }
 .brand {
   display: inline-flex;
@@ -312,6 +356,10 @@ code,
   gap: var(--space-1);
   margin-left: var(--space-5);
   min-width: 0;
+  /* On a crowded row the tabs scroll sideways instead of running under the status icons. */
+  overflow-x: auto;
+  scrollbar-width: none;
+  padding: 3px;
 }
 .topnav ul,
 .bottomnav ul {
@@ -455,9 +503,6 @@ code,
   }
   .topbar-row {
     padding: 0 var(--space-6);
-  }
-  .topbar-conditions {
-    padding: 0 var(--space-6) var(--space-5);
   }
   .main {
     padding: var(--space-9) var(--space-8) var(--space-12);
