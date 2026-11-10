@@ -56,6 +56,7 @@ export {
 } from './local-client.ts';
 export {
   createSupervisorOnFire,
+  handOff,
   SupervisorError,
   setDial,
   setFlowEnabled,

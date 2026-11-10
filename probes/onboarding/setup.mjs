@@ -1,4 +1,4 @@
-// Probe for FW-C-038 (a new Owner gets set up with one guided command): `pnpm probe onboarding/setup`.
+// Probe for FW-C-039 (a new Owner gets set up with one guided command): `pnpm probe onboarding/setup`.
 // Tier 0.
 // probe-timeout-s: 300
 // Surfaces: the fw CLI (`fw setup`, `fw project add`, `fw project label`, `fw project brief`,
