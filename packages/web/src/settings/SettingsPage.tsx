@@ -128,15 +128,15 @@ export function SettingsPage({
     <>
       <PageHead title="Settings" lede="Preferences live in this browser. Rules live in the policy file." />
 
-      {HOSTED ? (
+      <Group id="kill-h" title="Kill switch" desc="Also in the top bar, and Ctrl+Shift+. anywhere.">
+        <KillControl />
+      </Group>
+
+      {HOSTED && (
         <>
           <MachinesPanel />
           <AccountsPanel />
         </>
-      ) : (
-        <Group id="kill-h" title="Kill switch" desc="Also in the top bar, and Ctrl+Shift+. anywhere.">
-          <KillControl />
-        </Group>
       )}
 
       <Group
