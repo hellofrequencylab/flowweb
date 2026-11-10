@@ -1,43 +1,41 @@
 {
   "id": "FW-C-038",
-  "title": "A new Owner gets set up with one guided command",
+  "title": "Dispatch: an admitted fire runs one cycle of the flow",
   "core_milestone": "C1",
   "phase": 1,
-  "epic": "C1.6 Onboarding",
+  "epic": "C1.5 First flow",
   "priority": "P1",
   "size": "L",
-  "lane": "devex",
+  "lane": "workstreams",
   "agent_suitability": "agent",
   "gate": "owner-approval",
-  "depends_on": [],
-  "description": "Today a new Owner has to know which of a dozen commands to run, in what order, and some of them fail while fwd is running (fw project label answers LOCKED). There is also no way to make a project that is not a code repository, and nothing tells the agents what a project is for. `fw setup` walks the Owner through six steps in order: machine (fwd answering on this home), sign-ins (a passing `fw accounts check`), a project with a brand and category, a project brief, the first flow turned on, and the live site (optional). Each step is checked from real state, never from a click or a flag the Owner set by hand, and a step that is not done names the exact command or place that does it, so setup resumes wherever the Owner stopped. `fw project add` makes a project with no repository. `fw project brief` stores the Owner's own answers to five plain questions (what the project is, who it is for, its voice, what agents must never do, what done looks like) word for word; a blank answer saves nothing. Project writes go through fwd when fwd holds the database. GET /v1/setup answers the same report for the web UI and the relay. Putting the brief into every agent prompt is a later row; this row stores it and shows it. Nothing here changes a gate, a cap, the dial or the core policy.",
-  "acceptance": [
-    "fw setup --json lists machine, sign_ins, project, brief, flow and live_site in that order; next is the first required step not done; it exits 0 only when every required step is done",
-    "Every step that is not done names the command or place that does it",
-    "sign_ins is done only when the last account check has a passing test call; live_site only when the relay's last accepted push is recent",
-    "fw project add creates a project with no repository and refuses a slug that is taken",
-    "fw project brief saves all five answers word for word, refuses a missing or blank one and saves nothing then",
-    "fw project add, label and brief work while fwd is running",
-    "GET /v1/setup answers the same steps as fw setup, and no secret from the home appears in either"
+  "depends_on": [
+    "FW-C-036"
   ],
-  "verify_probe": "pnpm probe onboarding/setup",
+  "description": "Make a flow do work when it fires. Turning a flow on also registers its shipped stream with the scheduler (active), once its project is in the ledger, so the flow fires on its own schedule. The Owner can also run a flow now with POST /v1/supervisor/flows/{key}/run or fw supervisor run <flow> (CLI token only). That fires the stream by hand through the scheduler, so the Supervisor decides it like any other fire. A fire the Supervisor admits runs one cycle of the flow on the routed adapter. A cycle is not a ledger-row run: there is no worktree, branch or pull request. The adapter works in $FW_HOME/flows/<key>/cycles/<fire>/ and writes drafts.json there. fwd turns each draft into one file under $FW_HOME/flows/<key>/drafts/ with status waiting_for_owner, records the cycle's spend against the flow's stream (spend_entries, and the flow's own period total that its cap reads), and writes one status report of kind run naming the stream, the fire, the adapter, the outcome (drafted, dry or failed) and the number of drafts. Core never sends: at every stop each draft waits for the Owner. The fake adapter gains a flow_drafts scenario, so this runs without a network or keys. Showing drafts as decision cards, handing Autopilot drafts to the outbox (FW-C-037), and a flow-specific prompt for the real Codex run are later rows.",
+  "acceptance": [
+    "Turning a flow on registers its stream, active, with one stream.created event",
+    "Running a flow by hand needs the CLI token: without it the request answers 401 and nothing fires",
+    "With the token the fire is recorded as fired (trigger manual) and one cycle runs: one run report with outcome drafted, one waiting_for_owner draft file per draft, and spend recorded against the flow's stream; GET /v1/supervisor then shows the flow's spend above zero",
+    "At Draft nothing is handed off: no outbox file and no notification.queued event",
+    "Running a flow that is off is held by flow_disabled, and no cycle runs",
+    "fw supervisor run <flow> --json reaches the same route and prints the same answer"
+  ],
+  "verify_probe": "pnpm probe flows/dispatch",
   "files_hint": [
-    "packages/cli/src/commands/setup.ts",
-    "packages/cli/src/commands/project.ts",
-    "packages/cli/src/main.ts",
-    "packages/cli/src/client.ts",
-    "packages/cli/test/",
-    "packages/ledger/src/projects/",
-    "packages/ledger/src/local-client.ts",
-    "packages/daemon/src/setup/",
-    "packages/daemon/src/api/routes.ts",
+    "packages/daemon/src/overseer/",
     "packages/daemon/src/daemon.ts",
+    "packages/daemon/src/api/routes.ts",
     "packages/daemon/src/local-client.ts",
+    "packages/daemon/src/index.ts",
     "packages/daemon/test/",
-    "hosted/relay/fw-relay.mjs",
-    "packages/web/src/setup/",
-    "packages/web/src/api/",
-    "packages/web/src/shell/"
+    "packages/cli/src/client.ts",
+    "packages/cli/src/commands/supervisor.ts",
+    "packages/cli/test/",
+    "packages/adapters/src/fake/",
+    "packages/adapters/test/",
+    "packages/ledger/src/index.ts",
+    "docs/api/LOCAL-API-V1.md"
   ],
   "origin": "new Core row"
 }
