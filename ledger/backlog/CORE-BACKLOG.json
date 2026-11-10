@@ -4,7 +4,7 @@
     "profile": "core",
     "schema": "ledger-row/1",
     "generated": "2026-11-09",
-    "row_count": 97,
+    "row_count": 98,
     "conventions": {
       "verify_probe": "Same convention as 04-build-plan/backlog.json: 'pnpm probe <path>' runs probes/<path>.probe.ts, a Tier 0 file written before the implementation row starts and never edited by the agent doing the row. Every probe fails today because its target does not exist (a missing probe file exits 2, a missing behaviour exits 1). The probe pack for a milestone is committed by the Owner or a pair session before the milestone's rows start.",
       "status": "All rows start as open. Status lives only in the ledger database (imported with fw ledger sync), never in prose.",
@@ -28,7 +28,7 @@
       }
     },
     "full_plan_rows_included": 37,
-    "new_core_rows": 59
+    "new_core_rows": 61
   },
   "rows": [
     {
@@ -3418,6 +3418,51 @@
       "derived_from": [
         "FW-C-023"
       ]
+    },
+    {
+      "id": "FW-C-062",
+      "title": "The Owner runs a flow from the web and from flowweb.app: on and off, the dial, run now, pause, hunts and approving drafts",
+      "core_milestone": "C1",
+      "phase": 1,
+      "epic": "C1.5 First flow",
+      "priority": "P1",
+      "size": "L",
+      "lane": "workstreams",
+      "agent_suitability": "agent",
+      "gate": "owner-approval",
+      "depends_on": [
+        "FW-C-046"
+      ],
+      "description": "Every flow control is CLI only today: the Flows page says 'Only the CLI changes these', fwd refuses the Supervisor controls to the paired browser session, and flowweb.app can only edit, reject, rewrite and mark drafts. So the Owner cannot turn a flow on, change its dial, run it, pause the Supervisor, add or run a hunt, or approve a draft from the site he actually uses. fwd answers the Supervisor controls (pause, resume, enable, disable, run, dial) and draft approve and reject to the paired browser session as well as the CLI token; Autopilot still needs the confirm hash. The Flows page gains, per flow, a Turn on / Turn off button, a Draft / Copilot / Autopilot dial, Run now, and a Supervisor pause and resume, and each draft gains Approve when the flow is at Copilot. On flowweb.app the same controls queue a request (fw_requests) that the Owner's relay applies through fwd with the CLI token, as draft edits already do: hosted/server/requests.mjs maps each site call to a request kind (supervisor.pause, supervisor.resume, flow.enable, flow.disable, flow.run, flow.dial, flow.block, draft.approve, hunt.save, hunt.run, hunt.remove, plus the existing draft kinds) and back to the same fwd route; Autopilot is refused from the site. Migration hosted/supabase/migrations/0004_flowweb_flow_controls.sql allows those kinds and lets draft_id be empty; the Owner applies it. The relay pushes a fresh mirror right after a control so the site shows the change. Core still never sends anything: approving hands a draft to the outbox only.",
+      "acceptance": [
+        "Each site control becomes a queued request of the right kind, and the relay calls the same fwd route with the same body; Autopilot and unknown paths are refused",
+        "Migration 0004 allows every request kind and lets draft_id be empty",
+        "The paired browser session can turn a flow on and set it to Copilot; Autopilot without the confirm hash answers 409; no session or token answers 401",
+        "On the Flows page the Owner turns a flow off and on and moves its dial, and GET /v1/supervisor shows each change",
+        "On flowweb.app the same buttons queue the change and the page shows it once the relay has applied it"
+      ],
+      "verify_probe": "pnpm probe flows/site-controls",
+      "files_hint": [
+        "hosted/server/requests.mjs",
+        "hosted/relay/fw-relay.mjs",
+        "hosted/supabase/migrations/0004_flowweb_flow_controls.sql",
+        "hosted/test/",
+        "hosted/README.md",
+        "api/v1.mjs",
+        "packages/daemon/src/api/routes.ts",
+        "packages/daemon/test/",
+        "packages/web/src/flows/FlowControls.tsx",
+        "packages/web/src/flows/SupervisorPanel.tsx",
+        "packages/web/src/flows/LeadHunts.tsx",
+        "packages/web/src/flows/DraftEditor.tsx",
+        "packages/web/src/flows/ActivationPage.tsx",
+        "packages/web/src/api/client.ts",
+        "packages/web/src/api/types.ts",
+        "packages/web/test/",
+        "packages/web/mock/",
+        "docs/api/LOCAL-API-V1.md"
+      ],
+      "origin": "new Core row"
     }
   ]
 }
