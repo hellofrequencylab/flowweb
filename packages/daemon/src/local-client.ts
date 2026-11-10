@@ -34,6 +34,14 @@ import { supervisorView } from './overseer/index.ts';
 import { listRuns, type RunDetail, type RunSummary, showRun } from './pipeline/queries.ts';
 import { type RunStartReport, resolveGitHost, runStart } from './pipeline/run-start.ts';
 import { type GitReconcileReport, reconcileGitHost } from './reconcile-git.ts';
+import {
+  type RelayOwedReport,
+  type RelayPrompt,
+  type RelayResult,
+  relayOwed,
+  relayPrompt,
+  relayResult,
+} from './relay/src/index.ts';
 import { type DoctorReport, runDoctor } from './runtime/doctor.ts';
 import { type GcReport, gcRunDirs } from './runtime/gc.ts';
 import { SPEND_GROUP_NAMES, type SpendGroup, type SpendRow, spendRollup } from './spend.ts';
@@ -75,6 +83,9 @@ export interface DaemonCoreClient extends LocalCoreClient {
   policyCheck(input: DecisionInput): Promise<Decision & { policy_path: string }>;
   policyApply(): Promise<ApplyReport & { policy_path: string }>;
   reconcile(opts?: { host?: string }): Promise<GitReconcileReport>;
+  relayPrompt(order: string): Promise<RelayPrompt>;
+  relayOwed(opts?: { olderThanHours?: number }): Promise<RelayOwedReport>;
+  relayResult(runId: string, text: string): Promise<RelayResult>;
   doctor(): Promise<DoctorReport>;
   gc(): Promise<GcReport>;
 }
@@ -234,6 +245,15 @@ export function createCoreClient(opts: LocalClientOptions): DaemonCoreClient {
     async reconcile(o = {}) {
       const host = resolveGitHost(o.host ?? process.env.FW_GIT_HOST, repoDir, process.env);
       return reconcileGitHost(open(true).writer!, host);
+    },
+    async relayPrompt(order) {
+      return relayPrompt(open(true).writer!, order);
+    },
+    async relayOwed(o = {}) {
+      return relayOwed(open(true).writer!, o);
+    },
+    async relayResult(runId, text) {
+      return relayResult(open(true).writer!, runId, text);
     },
     async doctor() {
       return runDoctor(home);
