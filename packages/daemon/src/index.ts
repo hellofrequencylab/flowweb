@@ -88,6 +88,16 @@ export {
 } from './pipeline/supervisor.ts';
 export { type DriftItem, type GitReconcileReport, reconcileGitHost } from './reconcile-git.ts';
 export { ORPHAN_STATES, type ReconcileReport, reconcileOnStart } from './reconciler.ts';
+export {
+  composePrompt,
+  RelayError,
+  type RelayOwedReport,
+  type RelayPrompt,
+  type RelayResult,
+  relayOwed,
+  relayPrompt,
+  relayResult,
+} from './relay/src/index.ts';
 export { RunHost, RunHostStoppingError } from './run-host.ts';
 export {
   type ArtifactCheck,
