@@ -305,7 +305,17 @@ export function createCoreClient(opts: LocalClientOptions): DaemonCoreClient {
       return relayResult(open(true).writer!, runId, text);
     },
     async doctor() {
-      return runDoctor(home);
+      // The last backup is read from the event log; no database yet means no backup either.
+      let lastBackupAt: string | null = null;
+      if (existsSync(path)) {
+        const row = open(false)
+          .reader()
+          .get<{ ts: string }>(
+            "SELECT ts FROM events WHERE type = 'system.backup_completed' ORDER BY seq DESC LIMIT 1",
+          );
+        lastBackupAt = row?.ts ?? null;
+      }
+      return runDoctor(home, { repoDir, lastBackupAt });
     },
     async gc() {
       // No database means no run was ever started in this home, so no directory has a live run.
