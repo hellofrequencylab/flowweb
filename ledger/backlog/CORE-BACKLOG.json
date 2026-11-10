@@ -2972,6 +2972,7 @@
       "verify_probe": "pnpm probe flows/hunt-cli",
       "files_hint": [
         "packages/cli/src/",
+        "packages/cli/test/",
         "packages/daemon/src/local-client.ts",
         "packages/daemon/src/fwd-client.ts"
       ],
