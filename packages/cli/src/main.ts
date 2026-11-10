@@ -5,6 +5,7 @@
 import { resolve } from 'node:path';
 import { parseArgs } from 'node:util';
 import { type CoreClient, type CoreClientFactory, loadCoreClientFactory } from './client.ts';
+import { accountsCommands } from './commands/accounts.ts';
 import { auditCommands } from './commands/audit.ts';
 import { ledgerCommands } from './commands/ledger.ts';
 import { projectCommands } from './commands/project.ts';
@@ -29,6 +30,7 @@ export const COMMANDS: Command[] = [
   ...auditCommands,
   ...systemCommands,
   ...statusCommands,
+  ...accountsCommands,
 ];
 
 const GLOBAL = ['json', 'home', 'repo', 'help'];
@@ -122,7 +124,15 @@ export async function main(argv: string[], io: Io = processIo, factory?: CoreCli
     });
     const opts: Record<string, string | undefined> = {};
     for (const o of cmd.options) if (typeof values[o] === 'string') opts[o] = values[o] as string;
-    return await cmd.run({ client, io, json, args, opts, repoDir });
+    return await cmd.run({
+      client,
+      io,
+      json,
+      args,
+      opts,
+      repoDir,
+      ...(typeof values.home === 'string' ? { home: values.home } : {}),
+    });
   } catch (e) {
     const err = toCliError(e);
     if (json) io.out(JSON.stringify({ error: err }));

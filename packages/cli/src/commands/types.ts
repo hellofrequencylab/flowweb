@@ -8,6 +8,8 @@ export interface CommandContext {
   args: string[];
   opts: Record<string, string | undefined>;
   repoDir: string;
+  /** --home, when given (resolved). */
+  home?: string;
 }
 
 export interface Command {

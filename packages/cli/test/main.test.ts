@@ -2,9 +2,11 @@
 import { mkdtempSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
-import { describe, expect, test } from 'vitest';
+import { beforeAll, describe, expect, test } from 'vitest';
 import type { CoreClient, CoreClientFactory, StatusReport } from '../src/client.ts';
+import { setAccountsSystem } from '../src/commands/accounts.ts';
 import { COMMANDS, EXIT, helpText, type Io, invocationCwd, main } from '../src/index.ts';
+import { fakeSystem, OKEY, TOKEN } from './fake-machine.ts';
 
 const SHA = 'a'.repeat(40);
 /** A file for options that name one (`fw stream add -f`). */
@@ -277,6 +279,11 @@ describe('usage errors exit 2', () => {
 });
 
 describe('--json', () => {
+  // fw accounts tests real accounts; here it runs on a fake machine where every account works.
+  beforeAll(() => {
+    const machine = { secrets: { crd_claude0002: TOKEN, crd_codex0001: OKEY }, claude: true, codex: true };
+    setAccountsSystem(() => fakeSystem({ ...machine, codexSignedIn: true }).sys);
+  });
   test.each(COMMANDS.map((c) => [c.path.join(' ')]))('%s prints exactly one JSON document', async (path) => {
     const r = await run([...sampleArgs(path.split(' ')), '--json']);
     expect(r.code).toBe(EXIT.OK);
