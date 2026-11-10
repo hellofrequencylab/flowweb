@@ -162,7 +162,7 @@ const retest: Command = {
 const close: Command = {
   path: ['ledger', 'close'],
   usage: 'fw ledger close <code> --merged-sha <sha>',
-  summary: 'Run the probe on the merged commit, store the evidence bundle and move verifying -> done',
+  summary: 'Run the probe on the merged commit, store the evidence bundle and mark the row done',
   args: ['code'],
   options: ['merged-sha'],
   required: ['merged-sha'],

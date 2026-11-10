@@ -62,6 +62,9 @@ export const LEDGER_TRANSITIONS: ReadonlyArray<readonly [RowStatus, RowStatus]> 
   ['blocked', 'parked'],
   ['parked', 'open'],
   ['parked', 'ready'],
+  // 1.2.0-core: a row built outside fwd closes on a passing probe (trg_ledger_done_requires_proof).
+  ['open', 'done'],
+  ['parked', 'done'],
 ];
 
 const LEGAL = new Set(LEDGER_TRANSITIONS.map(([f, t]) => `${f}>${t}`));

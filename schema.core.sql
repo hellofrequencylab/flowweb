@@ -18,6 +18,10 @@
 --   1.1.0-core  runs.failure_class gains 'policy' (a diff-policy violation; the full schema
 --               needs the same value); the secret tripwire also catches a bare PKCS#8 header
 --               ("BEGIN PRIVATE KEY"). Upgrade: migrations/0002-core-1.1.0.sql.
+--   1.2.0-core  a ledger row built outside fwd can close: open -> done and parked -> done, still
+--               guarded by trg_ledger_done_requires_proof (passing probe, kernel-captured
+--               evidence bound to the merged SHA); the full schema needs the same two rows.
+--               Upgrade: migrations/0003-core-1.2.0.sql.
 --
 -- Conventions (identical to the full schema): ids are prefixed text (prj_, stm_, wo_, lr_,
 -- run_, agt_ ...); every JSON column is json_valid()-checked; every *_hash is lowercase hex
@@ -42,7 +46,7 @@ CREATE TABLE schema_meta (
   key TEXT PRIMARY KEY, value TEXT NOT NULL
 );
 INSERT INTO schema_meta(key,value) VALUES
-  ('schema_version','1.1.0-core'),
+  ('schema_version','1.2.0-core'),
   ('profile','core'),
   ('full_schema_base','03-contracts/schema.sql 1.0.0'),
   ('json_schema_dialect','2020-12');
@@ -991,6 +995,8 @@ INSERT INTO legal_transitions(machine,from_state,to_state,guard) VALUES
  ('ledger_row','blocked','parked','Owner parks'),
  ('ledger_row','parked','open','Owner or Program Lead unparks'),
  ('ledger_row','parked','ready','Owner or Program Lead unparks a fully specified row'),
+ ('ledger_row','open','done','Built outside fwd (by hand or another tool) and merged: probe passes on the merged commit; kernel-captured evidence attached'),
+ ('ledger_row','parked','done','Parked because its probe already passed, then closed: probe passes on the merged commit; kernel-captured evidence attached'),
  ('work_order','draft','issued','Schema-valid; touches/forbidden non-empty; acceptance[] all have probe_command; budget within stream envelope; tier <= stream cap'),
  ('work_order','draft','cancelled','Author or Program Lead cancels'),
  ('work_order','issued','running','First run started under lease'),

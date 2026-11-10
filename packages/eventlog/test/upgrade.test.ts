@@ -23,6 +23,7 @@ import { ev, tempDir } from './helpers.ts';
 
 const dir = tempDir();
 const V1_0 = join(import.meta.dirname, 'fixtures/schema.core-1.0.0-core.sql');
+const V1_1 = join(import.meta.dirname, 'fixtures/schema.core-1.1.0-core.sql');
 const H64 = (c: string) => c.repeat(64);
 
 /** A 1.0.0-core database with a small world in it: two runs, their steps, spend and events. */
@@ -98,7 +99,7 @@ describe('schema upgrade 1.0.0-core -> current', () => {
     expect(sha256Hex(readFileSync(V1_0))).toBe(SCHEMA_HISTORY[0]?.sha256);
     expect(schemaVersionOf(readFileSync(V1_0, 'utf8'))).toBe('1.0.0-core');
     expect(schemaVersionOf(readFileSync(DEFAULT_SCHEMA_PATH, 'utf8'))).toBe(UPGRADES.at(-1)?.to);
-    expect(UPGRADES.map((u) => u.id)).toEqual(['0002']);
+    expect(UPGRADES.map((u) => u.id)).toEqual(['0002', '0003']);
   });
 
   test('rows, indexes, triggers and the event chain survive; the new failure class is accepted', () => {
@@ -111,7 +112,7 @@ describe('schema upgrade 1.0.0-core -> current', () => {
     const s = openStore({ path });
     const w = s.writer!;
     expect(w.get("SELECT value FROM schema_meta WHERE key = 'schema_version'")).toEqual({
-      value: '1.1.0-core',
+      value: '1.2.0-core',
     });
     expect(w.get('SELECT value FROM schema_meta WHERE key = ?', [MIGRATION_0001_KEY])).toEqual({
       value: SCHEMA_HISTORY[0]?.sha256,
@@ -219,5 +220,53 @@ describe('schema upgrade 1.0.0-core -> current', () => {
     raw.close();
     expect(() => openStore({ path })).toThrow(SchemaMismatchError);
     expect(() => openStore({ path, readonly: true })).toThrow(SchemaMismatchError);
+  });
+});
+
+describe('schema upgrade 1.1.0-core -> 1.2.0-core', () => {
+  test('the 1.1.0-core fixture is the released file', () => {
+    expect(sha256Hex(readFileSync(V1_1))).toBe(SCHEMA_HISTORY[1]?.sha256);
+    expect(schemaVersionOf(readFileSync(V1_1, 'utf8'))).toBe('1.1.0-core');
+  });
+
+  test('a row built outside fwd gains open -> done and parked -> done; nothing else changes', () => {
+    const path = join(dir, 'v11.sqlite');
+    const old = openStore({ path, schemaPath: V1_1 });
+    for (let i = 1; i <= 3; i++) old.writer!.appendEvent(ev(i, {}));
+    old.close();
+    const eventsBefore = dump(path, 'SELECT * FROM events ORDER BY seq');
+    const transitionsBefore = dump(
+      path,
+      'SELECT * FROM legal_transitions ORDER BY machine, from_state, to_state',
+    );
+
+    const s = openStore({ path });
+    const w = s.writer!;
+    expect(w.get("SELECT value FROM schema_meta WHERE key = 'schema_version'")).toEqual({
+      value: '1.2.0-core',
+    });
+    const file = readFileSync(join(MIGRATIONS_DIR, '0003-core-1.2.0.sql'));
+    expect(w.get("SELECT value FROM schema_meta WHERE key = 'migration_0003_sha256'")).toEqual({
+      value: sha256Hex(file),
+    });
+    expect(s.verifyChain()).toMatchObject({ ok: true, count: 3 });
+    s.close();
+
+    const added = dump(path, 'SELECT * FROM legal_transitions ORDER BY machine, from_state, to_state').filter(
+      (t) => !transitionsBefore.some((b) => JSON.stringify(b) === JSON.stringify(t)),
+    ) as Array<{ machine: string; from_state: string; to_state: string }>;
+    expect(added.map((t) => `${t.machine}:${t.from_state}>${t.to_state}`).sort()).toEqual([
+      'ledger_row:open>done',
+      'ledger_row:parked>done',
+    ]);
+    expect(dump(path, 'SELECT * FROM events ORDER BY seq')).toEqual(eventsBefore);
+
+    // same objects and the same transition table as a database created fresh from the current file
+    const fresh = join(dir, 'fresh-v12.sqlite');
+    openStore({ path: fresh }).close();
+    expect(objects(path)).toEqual(objects(fresh));
+    expect(dump(path, 'SELECT * FROM legal_transitions ORDER BY machine, from_state, to_state')).toEqual(
+      dump(fresh, 'SELECT * FROM legal_transitions ORDER BY machine, from_state, to_state'),
+    );
   });
 });
