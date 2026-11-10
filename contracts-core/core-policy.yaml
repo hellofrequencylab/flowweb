@@ -201,8 +201,15 @@ tamper_tripwires:
 trust_tier_paths:
   tier0:
     rule: Owner only. Agent identities have no write grant; a diff touching these fails the static policy check.
-    paths: ['policy/**', 'probes/**', 'config/**', 'scripts/check-*', '.github/**', '**/CODEOWNERS', 'AGENTS.md', 'CLAUDE.md',
-            'packages/policy/**', 'packages/eventlog/src/chain.*', 'packages/contracts/sql/**']
+    # Must equal policy/tier0-paths.json, the one Tier 0 list ("dir/**" here is "dir/" there);
+    # scripts/check-bootstrap.mjs fails on drift.
+    paths: ['probes/**', 'policy/**', 'config/**', 'ledger/rows/**', 'ledger/backlog/**', 'scripts/check-*',
+            'scripts/probe-*', 'scripts/probe.mjs', 'scripts/seed-rows.mjs', 'scripts/test/**',
+            'tooling/requirements-ci.txt', '.github/**', '.husky/**', 'CODEOWNERS', '**/CODEOWNERS', 'AGENTS.md',
+            'CLAUDE.md', '.gitleaks.toml', 'contracts-core/**', 'schema.core.sql', 'tests/schema_core_test.py',
+            'packages/policy/**', 'packages/eventlog/src/envelope.ts', 'packages/eventlog/src/store.ts',
+            'packages/contracts/sql/**', 'packages/contracts/json-schema/**',
+            'packages/contracts/SCHEMA-SNAPSHOT.sha256']
   tier1:
     paths: ['prompts/**', 'docs/playbooks/**']
     who: agent-proposed, Owner-reviewed

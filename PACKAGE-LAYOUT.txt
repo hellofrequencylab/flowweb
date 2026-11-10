@@ -19,7 +19,7 @@ Mapping to the full-plan layout is in CORE-SPEC.md section 13; Core merges what 
 |-- tooling/                 requirements-ci.txt (hashed), lint configs
 `-- packages/
     |-- contracts/           @fw/contracts   JSON Schemas [T0], SCHEMA-SNAPSHOT.sha256 [T0], sql/0001_core.sql [T0], generated types, OpenAPI, validate.py
-    |-- eventlog/            @fw/eventlog    store (better-sqlite3 port, migrations), single-writer append, chain.ts [T0], redaction, verify
+    |-- eventlog/            @fw/eventlog    store (better-sqlite3 port, migrations), single-writer append, chain (envelope.ts, store.ts) [T0], redaction, verify
     |-- ledger/              @fw/ledger      rows, state machine, sync, probe executor, premise re-test, work-order compiler, leases, queries
     |-- policy/ [T0]         @fw/policy      engine, diff-policy, budget governor, approval service, merge slot, auditor and watchdog checks
     |-- adapters/            @fw/adapters    src/sdk (contract, registry, conformance), src/claude, src/codex, src/fake, review-pick

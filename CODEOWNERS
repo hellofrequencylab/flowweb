@@ -1,5 +1,6 @@
 # CODEOWNERS: Tier 0 protected paths. Humans only.
-# Every Tier 0 path in AGENTS.md rule 3 has its own rule here (scripts/check-bootstrap.mjs checks it).
+# Every Tier 0 path in AGENTS.md rule 3 (policy/tier0-paths.json) has its own rule here
+# (scripts/check-bootstrap.mjs checks it).
 # Branch protection must require code-owner review and dismiss stale approvals. Agent identities
 # have no admin or bypass permission.
 
@@ -8,6 +9,7 @@
 
 # Instructions and ownership itself
 /CODEOWNERS                                @hellofrequencylab
+**/CODEOWNERS                              @hellofrequencylab
 /AGENTS.md                                 @hellofrequencylab
 /CLAUDE.md                                 @hellofrequencylab
 
@@ -16,7 +18,7 @@
 /ledger/rows/                              @hellofrequencylab
 /ledger/backlog/                           @hellofrequencylab
 /scripts/check-*                           @hellofrequencylab
-/scripts/probe-*.sh                        @hellofrequencylab
+/scripts/probe-*                           @hellofrequencylab
 /scripts/probe.mjs                         @hellofrequencylab
 /scripts/seed-rows.mjs                     @hellofrequencylab
 /scripts/test/                             @hellofrequencylab
@@ -38,7 +40,8 @@
 
 # The gates and the audit chain
 /packages/policy/                          @hellofrequencylab
-/packages/eventlog/src/chain.ts            @hellofrequencylab
+/packages/eventlog/src/envelope.ts         @hellofrequencylab
+/packages/eventlog/src/store.ts            @hellofrequencylab
 /packages/contracts/sql/                   @hellofrequencylab
 /packages/contracts/json-schema/           @hellofrequencylab
 /packages/contracts/SCHEMA-SNAPSHOT.sha256 @hellofrequencylab

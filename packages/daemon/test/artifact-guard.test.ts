@@ -216,8 +216,9 @@ describe('checkRunArtifact', () => {
   });
 });
 
-test('the daemon Tier 0 list adds agent instruction files to the policy list', async () => {
+test('the daemon Tier 0 list is the one list (policy/tier0-paths.json), instruction files included', async () => {
   const { CORE_TIER0_PATHS } = await import('@fw/policy');
   const { TIER0_PATHS } = await import('../src/runtime/tier0.ts');
-  expect(TIER0_PATHS).toEqual(expect.arrayContaining([...CORE_TIER0_PATHS, 'AGENTS.md', 'CLAUDE.md']));
+  expect([...TIER0_PATHS]).toEqual([...CORE_TIER0_PATHS]);
+  expect(TIER0_PATHS).toEqual(expect.arrayContaining(['AGENTS.md', 'CLAUDE.md']));
 });

@@ -2,6 +2,7 @@
 // Pure and deterministic: the same input gives the same order, byte for byte (the caller supplies
 // the id, version and clock). scope.touches comes from the row's files_hint (a restrictive default
 // when there is none), acceptance from the probe, budget caps and TTL from the core-policy size table.
+import { readFileSync } from 'node:fs';
 import type { BudgetCaps, Size, WorkOrder } from '@fw/contracts';
 import { validate } from '@fw/contracts';
 import { canonicalJson, nowIso, sha256Hex } from '@fw/eventlog';
@@ -10,25 +11,17 @@ import { LedgerError } from '../errors.ts';
 import type { CorePolicy } from '../policy.ts';
 
 /**
- * Tier 0 paths a worker never touches (AGENTS.md rule 3), merged with the policy's tier0 list. The
- * agent instruction files at the repo root come from the policy list (this package stays vendor-blind).
+ * Tier 0 paths a worker never touches, merged with the policy's tier0 list: policy/tier0-paths.json,
+ * the one Tier 0 list (AGENTS.md rule 3), in glob form (`dir/` becomes `dir/**`). It is data, so this
+ * package stays vendor-blind. A missing or malformed file throws at import (fail closed).
  */
-export const ALWAYS_FORBIDDEN = [
-  'probes/**',
-  'policy/**',
-  'config/**',
-  'ledger/rows/**',
-  'scripts/check-*',
-  '.github/**',
-  '**/CODEOWNERS',
-  'AGENTS.md',
-  '.gitleaks.toml',
-  'packages/policy/**',
-  'packages/eventlog/src/chain.*',
-  'packages/contracts/sql/**',
-  'packages/contracts/json-schema/**',
-  'packages/contracts/SCHEMA-SNAPSHOT.sha256',
-];
+export const ALWAYS_FORBIDDEN: readonly string[] = Object.freeze(
+  (
+    JSON.parse(readFileSync(new URL('../../../../policy/tier0-paths.json', import.meta.url), 'utf8')) as {
+      paths: string[];
+    }
+  ).paths.map((p) => (p.endsWith('/') ? `${p}**` : p)),
+);
 
 export interface CompileInput {
   id: string;

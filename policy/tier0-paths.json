@@ -1,0 +1,32 @@
+{
+  "description": "The one Tier 0 path list (Owner only). Read by scripts/check-tier0.mjs (TIER0), @fw/policy (CORE_TIER0_PATHS, so the daemon's TIER0_PATHS) and @fw/ledger (ALWAYS_FORBIDDEN in work orders). AGENTS.md rule 3, CODEOWNERS and contracts-core/core-policy.yaml trust_tier_paths.tier0.paths must agree; scripts/check-bootstrap.mjs and packages/policy/test/tier0.test.ts fail on drift. Forms: a trailing / is the whole directory, * matches within one path segment, **/ matches any directory depth; matching ignores case.",
+  "paths": [
+    "probes/",
+    "policy/",
+    "config/",
+    "ledger/rows/",
+    "ledger/backlog/",
+    "scripts/check-*",
+    "scripts/probe-*",
+    "scripts/probe.mjs",
+    "scripts/seed-rows.mjs",
+    "scripts/test/",
+    "tooling/requirements-ci.txt",
+    ".github/",
+    ".husky/",
+    "CODEOWNERS",
+    "**/CODEOWNERS",
+    "AGENTS.md",
+    "CLAUDE.md",
+    ".gitleaks.toml",
+    "contracts-core/",
+    "schema.core.sql",
+    "tests/schema_core_test.py",
+    "packages/policy/",
+    "packages/eventlog/src/envelope.ts",
+    "packages/eventlog/src/store.ts",
+    "packages/contracts/sql/",
+    "packages/contracts/json-schema/",
+    "packages/contracts/SCHEMA-SNAPSHOT.sha256"
+  ]
+}
