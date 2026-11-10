@@ -36,6 +36,7 @@ import { writeJsonAtomic } from '../flows/neighborhood-admin.ts';
 import { runCredentials } from '../pipeline/credentials.ts';
 import { chooseAdapter } from '../pipeline/route.ts';
 import { killOrphanGroup } from '../reconciler.ts';
+import { draftTag, tagLinks } from './drafts.ts';
 import { handOff } from './index.ts';
 
 const SAFE = /[^A-Za-z0-9_-]/g;
@@ -415,6 +416,9 @@ export async function runFlowCycle(d: CycleDeps, fire: CycleFire): Promise<void>
       drafts.forEach((x, i) => {
         if (typeof x.body !== 'string' || x.body.length === 0) return;
         const id = `${fire.fireId}-${String(x.id ?? i)}`.replace(SAFE, '_').slice(0, 100);
+        // FW-C-054: every flowweb link names this draft, so Frequency can trace a signup back to it.
+        const tag = draftTag(id);
+        const text = tagLinks(x.body, tag);
         const channel =
           typeof (x.channel ?? x.send_via) === 'string' ? String(x.channel ?? x.send_via) : null;
         // At confirmed Autopilot the draft goes to the outbox; at any other stop handOff holds it for the Owner.
@@ -429,7 +433,7 @@ export async function runFlowCycle(d: CycleDeps, fire: CycleFire): Promise<void>
                 repoRoot: d.repoRoot,
                 fwHome: d.fwHome,
                 flow: fire.flow,
-                item: { id, channel, body: x.body },
+                item: { id, channel, body: text },
               })
             : null;
         const doc = {
@@ -439,7 +443,8 @@ export async function runFlowCycle(d: CycleDeps, fire: CycleFire): Promise<void>
           lead_id: leadId,
           channel,
           subject: typeof x.subject === 'string' ? x.subject : null,
-          body: x.body,
+          body: text,
+          tag,
           status: handed?.outcome === 'queued' ? 'handed_off' : 'waiting_for_owner',
           ...(handed && handed.outcome !== 'queued' ? { held: handed.reason } : {}),
           ...(unaddressed ? { held: unaddressed } : {}),
@@ -649,13 +654,15 @@ function runHunts(d: CycleDeps, fire: CycleFire, dir: string, hunts: Hunt[], out
       send_how: k.send_how,
     };
     const subject = k.lead.subject ?? `About ${k.lead.event.title || 'your event'}`;
+    const tag = draftTag(k.id);
+    const body = tagLinks(k.body, tag);
     // handOff holds anything that is not email (FW-C-052), so those drafts wait for the Owner.
     const res = handOff({
       writer: d.writer,
       repoRoot: d.repoRoot,
       fwHome: d.fwHome,
       flow: fire.flow,
-      item: { id: k.id, channel: 'frequency', body: k.body, lead: { ...lead, subject } },
+      item: { id: k.id, channel: 'frequency', body, lead: { ...lead, subject } },
     });
     const doc = {
       flow: fire.flow,
@@ -664,7 +671,8 @@ function runHunts(d: CycleDeps, fire: CycleFire, dir: string, hunts: Hunt[], out
       ...lead,
       channel: 'frequency',
       subject,
-      body: k.body,
+      body,
+      tag,
       status: res.outcome === 'queued' ? 'handed_off' : 'waiting_for_owner',
       ...(res.outcome === 'held' ? { held: res.reason } : {}),
       created_at: now.toISOString(),

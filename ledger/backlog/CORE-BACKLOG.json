@@ -4,7 +4,7 @@
     "profile": "core",
     "schema": "ledger-row/1",
     "generated": "2026-11-09",
-    "row_count": 92,
+    "row_count": 94,
     "conventions": {
       "verify_probe": "Same convention as 04-build-plan/backlog.json: 'pnpm probe <path>' runs probes/<path>.probe.ts, a Tier 0 file written before the implementation row starts and never edited by the agent doing the row. Every probe fails today because its target does not exist (a missing probe file exits 2, a missing behaviour exits 1). The probe pack for a milestone is committed by the Owner or a pair session before the milestone's rows start.",
       "status": "All rows start as open. Status lives only in the ledger database (imported with fw ledger sync), never in prose.",
@@ -28,7 +28,7 @@
       }
     },
     "full_plan_rows_included": 37,
-    "new_core_rows": 55
+    "new_core_rows": 57
   },
   "rows": [
     {
@@ -3216,6 +3216,74 @@
         "packages/cli/src/",
         "packages/daemon/test/",
         "packages/cli/test/"
+      ],
+      "origin": "new Core row"
+    },
+    {
+      "id": "FW-C-055",
+      "title": "fwd pulls each day what became of the people a flow reached, from Frequency",
+      "core_milestone": "C1",
+      "phase": 1,
+      "epic": "C1.5 First flow",
+      "priority": "P1",
+      "size": "M",
+      "lane": "workstreams",
+      "agent_suitability": "agent",
+      "gate": "owner-approval",
+      "depends_on": [
+        "FW-C-032"
+      ],
+      "description": "On 10 Nov the Owner asked for flows that track their results and keep shifting toward what works. Today results reach FlowWeb only by hand: the Owner downloads Frequency's region CSV and uploads it, and nothing tells fwd which hunts and drafts turned into members. Frequency now answers a signed outcomes request (frequency-web LIVE-2255): counts per FlowWeb campaign and draft (leads, members, hosts, paid) and the four region numbers, with no name or email. fwd now pulls it once soon after it starts and then once a day (FW_OUTCOMES_PULL_EVERY_MS), and when the Owner asks (POST /v1/flows/neighborhood-activation/outcomes/pull). It signs with the secret behind credential handle crd_frequencyoutcomes, writes outcomes.json in the flow's folder keeping only the count fields, and makes the region numbers the regions' measures as a metrics upload would, so the CSV upload becomes optional. A failed pull keeps the last good numbers and records last_pull ok false with the error, so a Frequency outage never reads as a region going cold. FW_FREQUENCY_URL overrides the flow's offer url, for tests. It builds on FW-C-054, which are open rows of their own.",
+      "acceptance": [
+        "With no secret behind crd_frequencyoutcomes a pull answers 409 naming the handle and writes nothing",
+        "fwd pulls on its own soon after it starts and every FW_OUTCOMES_PULL_EVERY_MS after, with a signature Frequency can verify",
+        "outcomes.json keeps only campaign, content, medium, src, leads, members, hosts and paid on each row",
+        "Each region's four numbers become its measures in state.json",
+        "A failed pull answers 502, keeps outcomes.json and the measures, and GET .../outcomes shows last_pull ok false",
+        "The neighborhood-activation and flow-admin probes still pass"
+      ],
+      "verify_probe": "pnpm probe flows/outcome-pull",
+      "files_hint": [
+        "packages/daemon/src/flows/outcomes.ts",
+        "packages/daemon/src/flows/neighborhood-admin.ts",
+        "packages/daemon/src/api/routes.ts",
+        "packages/daemon/src/daemon.ts",
+        "packages/daemon/test/"
+      ],
+      "origin": "new Core row"
+    },
+    {
+      "id": "FW-C-056",
+      "title": "Each week the flow scores its hunts and shifts effort toward what works, as far as the dial allows",
+      "core_milestone": "C1",
+      "phase": 1,
+      "epic": "C1.5 First flow",
+      "priority": "P1",
+      "size": "M",
+      "lane": "workstreams",
+      "agent_suitability": "agent",
+      "gate": "owner-approval",
+      "depends_on": [
+        "FW-C-035",
+        "FW-C-041"
+      ],
+      "description": "On 10 Nov the Owner asked for flows that keep analyzing their results and shifting the campaign. With drafts marked sent and replied, and outcomes pulled from Frequency per draft, fwd can now tell which hunts work. A weekly review, plain code with no model judging the numbers, joins the flow's drafts with outcomes.json per hunt: drafted, sent, replied, declined, leads, members, hosts, paid, and responded (sent drafts with a reply, or a lead, member or host on their tag). It proposes shifts: pause a hunt with 15 or more sent and none responded, and move max_sends between enabled hunts toward the ones that respond, shrinking the pooled rate's pull as sends grow, never raising the enabled hunts' total. It writes review.json with the scorecard, the shifts and a few plain learnings lines for the next cycle's brief. Shifts wait for the Owner at Draft and Copilot (apply or dismiss each); at confirmed Autopilot, with the kill switch off and the Supervisor running, the review applies them itself. A review never changes the weekly invite cap, the regions, the dial or policy, and never sends anything. fwd runs it every FW_REVIEW_EVERY_MS (default a week) and when the Owner asks. It builds on FW-C-054 and FW-C-055, which are open rows of their own.",
+      "acceptance": [
+        "POST .../review/run needs the CLI token and answers the review; GET .../review answers the last one",
+        "The scorecard counts per hunt drafted, sent, replied, declined, leads, members, hosts, paid and responded from the drafts and outcomes.json",
+        "A hunt with 15 or more sent and none responded gets a pause shift; no set of shifts raises the enabled hunts' total max_sends",
+        "At Draft and Copilot shifts stay proposed and hunts.json is unchanged until the Owner applies one; a shift applies once (409 after) and an unknown one answers 404",
+        "At confirmed Autopilot a review applies its shifts and writes hunts.json; the weekly invite cap is unchanged",
+        "fwd runs the review on its own every FW_REVIEW_EVERY_MS",
+        "The hunts, flow-admin and dial probes still pass"
+      ],
+      "verify_probe": "pnpm probe flows/review",
+      "files_hint": [
+        "packages/daemon/src/flows/review.ts",
+        "packages/daemon/src/flows/hunts.ts",
+        "packages/daemon/src/api/routes.ts",
+        "packages/daemon/src/daemon.ts",
+        "packages/daemon/test/"
       ],
       "origin": "new Core row"
     },
