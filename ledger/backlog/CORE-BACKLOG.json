@@ -4,7 +4,7 @@
     "profile": "core",
     "schema": "ledger-row/1",
     "generated": "2026-11-09",
-    "row_count": 73,
+    "row_count": 74,
     "conventions": {
       "verify_probe": "Same convention as 04-build-plan/backlog.json: 'pnpm probe <path>' runs probes/<path>.probe.ts, a Tier 0 file written before the implementation row starts and never edited by the agent doing the row. Every probe fails today because its target does not exist (a missing probe file exits 2, a missing behaviour exits 1). The probe pack for a milestone is committed by the Owner or a pair session before the milestone's rows start.",
       "status": "All rows start as open. Status lives only in the ledger database (imported with fw ledger sync), never in prose.",
@@ -28,7 +28,7 @@
       }
     },
     "full_plan_rows_included": 37,
-    "new_core_rows": 36
+    "new_core_rows": 37
   },
   "rows": [
     {
@@ -2603,6 +2603,47 @@
         "packages/daemon/src/daemon.ts",
         "packages/daemon/src/index.ts",
         "packages/daemon/test/"
+      ],
+      "origin": "new Core row"
+    },
+    {
+      "id": "FW-C-038",
+      "title": "Dispatch: an admitted fire runs one cycle of the flow",
+      "core_milestone": "C1",
+      "phase": 1,
+      "epic": "C1.5 First flow",
+      "priority": "P1",
+      "size": "L",
+      "lane": "workstreams",
+      "agent_suitability": "agent",
+      "gate": "owner-approval",
+      "depends_on": [
+        "FW-C-036"
+      ],
+      "description": "Make a flow do work when it fires. Turning a flow on also registers its shipped stream with the scheduler (active), once its project is in the ledger, so the flow fires on its own schedule. The Owner can also run a flow now with POST /v1/supervisor/flows/{key}/run or fw supervisor run <flow> (CLI token only). That fires the stream by hand through the scheduler, so the Supervisor decides it like any other fire. A fire the Supervisor admits runs one cycle of the flow on the routed adapter. A cycle is not a ledger-row run: there is no worktree, branch or pull request. The adapter works in $FW_HOME/flows/<key>/cycles/<fire>/ and writes drafts.json there. fwd turns each draft into one file under $FW_HOME/flows/<key>/drafts/ with status waiting_for_owner, records the cycle's spend against the flow's stream (spend_entries, and the flow's own period total that its cap reads), and writes one status report of kind run naming the stream, the fire, the adapter, the outcome (drafted, dry or failed) and the number of drafts. Core never sends: at every stop each draft waits for the Owner. The fake adapter gains a flow_drafts scenario, so this runs without a network or keys. Showing drafts as decision cards, handing Autopilot drafts to the outbox (FW-C-037), and a flow-specific prompt for the real Codex run are later rows.",
+      "acceptance": [
+        "Turning a flow on registers its stream, active, with one stream.created event",
+        "Running a flow by hand needs the CLI token: without it the request answers 401 and nothing fires",
+        "With the token the fire is recorded as fired (trigger manual) and one cycle runs: one run report with outcome drafted, one waiting_for_owner draft file per draft, and spend recorded against the flow's stream; GET /v1/supervisor then shows the flow's spend above zero",
+        "At Draft nothing is handed off: no outbox file and no notification.queued event",
+        "Running a flow that is off is held by flow_disabled, and no cycle runs",
+        "fw supervisor run <flow> --json reaches the same route and prints the same answer"
+      ],
+      "verify_probe": "pnpm probe flows/dispatch",
+      "files_hint": [
+        "packages/daemon/src/overseer/",
+        "packages/daemon/src/daemon.ts",
+        "packages/daemon/src/api/routes.ts",
+        "packages/daemon/src/local-client.ts",
+        "packages/daemon/src/index.ts",
+        "packages/daemon/test/",
+        "packages/cli/src/client.ts",
+        "packages/cli/src/commands/supervisor.ts",
+        "packages/cli/test/",
+        "packages/adapters/src/fake/",
+        "packages/adapters/test/",
+        "packages/ledger/src/index.ts",
+        "docs/api/LOCAL-API-V1.md"
       ],
       "origin": "new Core row"
     }
