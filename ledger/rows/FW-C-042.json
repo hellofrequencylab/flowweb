@@ -1,0 +1,30 @@
+{
+  "id": "FW-C-042",
+  "title": "A sender outside Core emails Autopilot hunt messages from the Owner's own mailbox, a few a day",
+  "core_milestone": "C1",
+  "phase": 1,
+  "epic": "C1.5 First flow",
+  "priority": "P1",
+  "size": "M",
+  "lane": "workstreams",
+  "agent_suitability": "agent",
+  "gate": "owner-approval",
+  "depends_on": [
+    "FW-C-037",
+    "FW-C-041"
+  ],
+  "description": "Give the outbox its sending app, as the Owner chose on 10 Nov: hunt messages go out from his own Workspace mailbox (daniel@danieltyack.com, or hello@frequencylocal.com when he picks it), never through Resend, whose rules ban cold outreach. senders/email.mjs runs on the Owner's Mac outside Core (no package refers to it and fwd never runs it). It reads $FW_HOME/senders/email.json (mailboxes, routes from an outbox channel to a mailbox, postal address, daily_cap per mailbox default 15 and at most 40, per_pass default 1, sending hours, smtp_url default smtps://smtp.gmail.com:465) and signs in with the mailbox's Google app password from FW_EMAIL_PASSWORD_<KEY> or the macOS Keychain (service flowweb-email). It takes outbox items that carry a lead on a routed channel (lead.send_from may name the mailbox) and sends each as one plain message to one person: From the Owner's name and address, the body, the postal address, a List-Unsubscribe mailto header. Replies reach the Owner's inbox. Before sending it holds build items whose claim link cannot be made yet, skips do-not-contact addresses, skips any id or address already in its sent record $FW_HOME/senders/email/sent.jsonl (so a re-handed item never mails twice), fails a body without the reply-no line or the source page, and waits outside the hours, over the daily cap or without a password. A 5xx answer moves the item to failed/. --once runs one pass; launchd runs it every few minutes, so per_pass 1 paces the day.",
+  "acceptance": [
+    "Without senders/email.json or a postal address the sender exits non-zero and sends nothing",
+    "per_pass 1 sends one message, from the routed mailbox, with From, To, Subject, Message-ID, List-Unsubscribe, the opt-out line and the postal address, and records it in sent/ and sent.jsonl",
+    "lead.send_from picks the other mailbox; build items are held; do-not-contact addresses are skipped; a body without the opt-out and a 5xx bounce fail; the daily cap per mailbox leaves the rest waiting; other channels and items without a lead are untouched",
+    "A re-handed sent item and a new item to an address already written to are skipped, never sent",
+    "Outside the sending hours nothing goes out; without a password the item stays and the sender exits non-zero",
+    "No package under packages/ refers to the sender"
+  ],
+  "verify_probe": "pnpm probe flows/sender",
+  "files_hint": [
+    "senders/"
+  ],
+  "origin": "new Core row"
+}
