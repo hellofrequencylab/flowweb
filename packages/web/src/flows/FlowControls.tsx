@@ -2,6 +2,8 @@
 // dial, and pause or resume the Supervisor. Locally fwd answers at once; on flowweb.app each change is
 // queued and applied on the Owner's Mac by the relay, and the page says it is waiting. FW-C-063 adds the
 // morning run time and how many new people a day, which Adjust from replies may move within min..max.
+// FW-C-070 folds the Supervisor table in: each flow is one row, a group named after the flow, carrying its
+// gate word, why, spend, on/off, Run now and dial.
 import { useId, useState } from 'react';
 import { ApiError, api } from '../api/client';
 import { useResource } from '../api/resource';
@@ -11,7 +13,7 @@ import { Button } from '../ui-kit/Button';
 import { AsOf, ResourceView } from '../ui-kit/honest';
 import { StatusLabel } from '../ui-kit/status';
 import { usd } from '../ui-kit/time';
-import { DIAL, flowSpec } from './SupervisorPanel';
+import { DIAL, flowSpec } from './flowState';
 
 type Note = { tone: 'ok' | 'warn'; text: string } | null;
 
@@ -59,7 +61,7 @@ function useWrite(reload: () => void) {
 function budgetLine(f: SupervisorFlow): string {
   const b = f.budget;
   if (!b) return 'No spend cap';
-  const spent = b.spent_usd == null ? 'unknown' : usd(b.spent_usd);
+  const spent = b.spent_usd == null ? 'Unknown' : usd(b.spent_usd);
   return b.max_usd == null ? `${spent} spent, no cap` : `${spent} of ${usd(b.max_usd)} this ${b.period}`;
 }
 
@@ -163,6 +165,16 @@ function Tuning({ f, why, reload }: { f: SupervisorFlow; why: string | null; rel
   );
 }
 
+/** A fieldset holds one flow's row so it reads as a group named after the flow, inside the list. */
+const ROW = {
+  border: 0,
+  padding: 0,
+  margin: 0,
+  minWidth: 0,
+  display: 'grid',
+  gap: 'var(--space-4)',
+} as const;
+
 function FlowRow({ f, stopped, reload }: { f: SupervisorFlow; stopped: boolean; reload: () => void }) {
   const { busy, run, setNote, shown } = useWrite(reload);
   const [confirm, setConfirm] = useState<string | null>(null);
@@ -200,74 +212,78 @@ function FlowRow({ f, stopped, reload }: { f: SupervisorFlow; stopped: boolean; 
     }
   };
   const why = busy ?? (stopped ? 'The kill switch is engaged.' : null);
+  const name = useId();
   return (
-    <li className="stack">
-      <div className="panel-head">
-        <strong>{f.name}</strong>
-        <StatusLabel spec={flowSpec(f)} />
-      </div>
-      <p className="muted small">
-        {f.reason} · {budgetLine(f)}
-      </p>
-      <div className="row">
-        <Button
-          variant={f.enabled ? 'quiet' : 'primary'}
-          onClick={toggle}
-          disabledReason={why}
-          aria-label={`${f.enabled ? 'Turn off' : 'Turn on'} ${f.name}`}
-        >
-          {f.enabled ? 'Turn off' : 'Turn on'}
-        </Button>
-        <Button
-          onClick={runNow}
-          disabledReason={why ?? (f.enabled ? null : 'Turn it on first.')}
-          aria-label={`Run ${f.name} now`}
-        >
-          Run now
-        </Button>
-      </div>
-      <div role="radiogroup" aria-label={`Dial for ${f.name}`} className="stack">
-        {STOPS.map(({ stop, hint }) => (
-          <label key={stop} className="row">
-            <input
-              type="radio"
-              name={group}
-              value={stop}
-              checked={f.dial === stop}
-              disabled={Boolean(why)}
-              onChange={() => (stop === 'autopilot' ? askAutopilot() : dial(stop))}
-            />
-            <span>
-              <strong>{DIAL[stop]}</strong> <span className="muted small">{hint}</span>
-            </span>
-          </label>
-        ))}
-      </div>
-      <Tuning f={f} why={why} reload={reload} />
-      {confirm && (
-        <div className="callout callout-attention stack">
-          <p>
-            Put {f.name} on Autopilot? It hands each finished draft to your sending app without asking you,
-            using only this flow's channels and caps. FlowWeb itself still never sends. The kill switch and
-            the stall breaker stay on.
-          </p>
-          <div className="row">
-            <Button variant="primary" onClick={() => dial('autopilot', confirm)} disabledReason={busy}>
-              Yes, Autopilot
-            </Button>
-            <Button variant="quiet" onClick={() => setConfirm(null)}>
-              Cancel
-            </Button>
-          </div>
+    <li>
+      <fieldset aria-labelledby={name} style={ROW}>
+        <div className="panel-head">
+          <strong id={name}>{f.name}</strong>
+          <StatusLabel spec={flowSpec(f)} />
         </div>
-      )}
-      {busy && <p className="muted small">{busy}</p>}
-      {shown}
+        <p className="muted small">
+          {f.reason} · {budgetLine(f)}
+        </p>
+        <div className="row">
+          <Button
+            variant={f.enabled ? 'quiet' : 'primary'}
+            onClick={toggle}
+            disabledReason={why}
+            aria-label={`${f.enabled ? 'Turn off' : 'Turn on'} ${f.name}`}
+          >
+            {f.enabled ? 'Turn off' : 'Turn on'}
+          </Button>
+          <Button
+            onClick={runNow}
+            disabledReason={why ?? (f.enabled ? null : 'Turn it on first.')}
+            aria-label={`Run ${f.name} now`}
+          >
+            Run now
+          </Button>
+        </div>
+        <div role="radiogroup" aria-label={`Dial for ${f.name}`} className="stack">
+          {STOPS.map(({ stop, hint }) => (
+            <label key={stop} className="row">
+              <input
+                type="radio"
+                name={group}
+                value={stop}
+                checked={f.dial === stop}
+                disabled={Boolean(why)}
+                onChange={() => (stop === 'autopilot' ? askAutopilot() : dial(stop))}
+              />
+              <span>
+                <strong>{DIAL[stop]}</strong> <span className="muted small">{hint}</span>
+              </span>
+            </label>
+          ))}
+        </div>
+        <Tuning f={f} why={why} reload={reload} />
+        {confirm && (
+          <div className="callout callout-attention stack">
+            <p>
+              Put {f.name} on Autopilot? It hands each finished draft to your sending app without asking you,
+              using only this flow's channels and caps. FlowWeb itself still never sends. The kill switch and
+              the stall breaker stay on.
+            </p>
+            <div className="row">
+              <Button variant="primary" onClick={() => dial('autopilot', confirm)} disabledReason={busy}>
+                Yes, Autopilot
+              </Button>
+              <Button variant="quiet" onClick={() => setConfirm(null)}>
+                Cancel
+              </Button>
+            </div>
+          </div>
+        )}
+        {busy && <p className="muted small">{busy}</p>}
+        {shown}
+      </fieldset>
     </li>
   );
 }
 
-function Controls({ s, reload }: { s: Supervisor; reload: () => void }) {
+/** The flows as rows. Pure apart from writes, so it can be tested without fwd. */
+export function Controls({ s, reload }: { s: Supervisor; reload: () => void }) {
   const { busy, run, shown } = useWrite(reload);
   const pause = () =>
     run(
@@ -305,7 +321,7 @@ function Controls({ s, reload }: { s: Supervisor; reload: () => void }) {
   );
 }
 
-/** The controls panel: every flow the Supervisor runs, with its switch, Run now and dial. */
+/** The controls panel: every flow the Supervisor runs, with its gate word, switch, Run now and dial. */
 export function FlowControls() {
   const id = useId();
   const res = useResource('supervisor', () => api.supervisor(), ['runs', 'cards']);
