@@ -14,40 +14,27 @@
 //   --repo <dir>     git working directory (default: cwd)
 // Exit: 0 clean, 1 an agent PR touched a Tier 0 path, 2 missing or bad input (fails closed).
 import { spawnSync } from 'node:child_process';
-import { pathToFileURL } from 'node:url';
+import { readFileSync } from 'node:fs';
+import { fileURLToPath, pathToFileURL } from 'node:url';
 
-// Must match AGENTS.md rule 3 exactly (scripts/check-bootstrap.mjs verifies this) and be covered
-// by CODEOWNERS. A trailing "/" means the whole directory; "*" matches within one path segment.
-export const TIER0 = [
-  'probes/',
-  'policy/',
-  'config/',
-  'ledger/rows/',
-  'ledger/backlog/',
-  'scripts/check-*',
-  'scripts/probe-*.sh',
-  'scripts/probe.mjs',
-  'scripts/seed-rows.mjs',
-  'scripts/test/',
-  'tooling/requirements-ci.txt',
-  '.github/',
-  'CODEOWNERS',
-  'AGENTS.md',
-  'CLAUDE.md',
-  '.gitleaks.toml',
-  'contracts-core/',
-  'schema.core.sql',
-  'tests/schema_core_test.py',
-  'packages/policy/',
-  'packages/eventlog/src/chain.ts',
-  'packages/contracts/sql/',
-  'packages/contracts/json-schema/',
-  'packages/contracts/SCHEMA-SNAPSHOT.sha256',
-];
+// The one Tier 0 list lives in policy/tier0-paths.json (Tier 0 data); @fw/policy and @fw/ledger read
+// the same file. AGENTS.md rule 3 must equal it, CODEOWNERS must cover it and core-policy.yaml
+// tier0.paths must agree (scripts/check-bootstrap.mjs verifies all three). A trailing "/" means the
+// whole directory, "*" matches within one path segment and "**/" any directory depth; matching
+// ignores case. A missing or unreadable list throws at import, so the check fails closed.
+export const TIER0_FILE = fileURLToPath(new URL('../policy/tier0-paths.json', import.meta.url));
+export const TIER0 = Object.freeze(JSON.parse(readFileSync(TIER0_FILE, 'utf8')).paths.map(String));
 
 export function patternToRegExp(pattern) {
-  const esc = pattern.replace(/[.+?^${}()|[\]\\]/g, '\\$&').replace(/\*/g, '[^/]*');
-  return pattern.endsWith('/') ? new RegExp(`^${esc}`) : new RegExp(`^${esc}$`);
+  let re = '';
+  for (let i = 0; i < pattern.length; i++) {
+    if (pattern.startsWith('**/', i)) {
+      re += '(?:.*/)?';
+      i += 2;
+    } else if (pattern[i] === '*') re += '[^/]*';
+    else re += pattern[i].replace(/[.+?^${}()|[\]\\]/g, '\\$&');
+  }
+  return pattern.endsWith('/') ? new RegExp(`^${re}`, 'i') : new RegExp(`^${re}$`, 'i');
 }
 
 export function matchTier0(file, patterns = TIER0) {

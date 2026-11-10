@@ -4,36 +4,8 @@
 // Any internal error is a deny, never an allow.
 import { createHash } from 'node:crypto';
 
-/**
- * Tier 0 paths (Owner only), minus per-vendor agent instruction files: this package must stay vendor-blind,
- * so the composition root appends those (see the daemon's TIER0_PATHS). Entry forms: `dir/` matches
- * everything under dir; entries with `*` or `?` are globs (`*` within one segment, `**` across segments);
- * anything else is an exact repo path. Matching ignores case. The row asks for these rules to live in a
- * Tier 0 data file; until that file exists this constant is the version the Owner reviews.
- */
-export const CORE_TIER0_PATHS: readonly string[] = Object.freeze([
-  'probes/',
-  'policy/',
-  'config/',
-  'ledger/rows/',
-  'ledger/backlog/',
-  'scripts/check-*',
-  'scripts/probe-*',
-  '.github/',
-  'CODEOWNERS',
-  '**/CODEOWNERS',
-  'AGENTS.md',
-  '.gitleaks.toml',
-  '.husky/',
-  'packages/policy/',
-  'packages/eventlog/src/chain.ts',
-  'packages/contracts/sql/',
-  'packages/contracts/json-schema/',
-  'packages/contracts/SCHEMA-SNAPSHOT.sha256',
-  'contracts-core/',
-  'schema.core.sql',
-  'tests/schema_core_test.py',
-]);
+/** The Tier 0 list, read from policy/tier0-paths.json (see tier0.ts). */
+export { CORE_TIER0_PATHS } from './tier0.ts';
 
 /** One changed path. `status` is the first letter of git's name-status code (A, M, D, R, C, T, U, X). */
 export interface PathChange {

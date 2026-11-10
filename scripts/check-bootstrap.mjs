@@ -6,8 +6,11 @@
 //   3. CODEOWNERS has no placeholder owner (@OWNER) and every rule names at least one @owner.
 //   4. Every Tier 0 path listed in AGENTS.md rule 3 is covered by its own CODEOWNERS rule
 //      (the catch-all "*" does not count).
-//   5. The AGENTS.md rule 3 list equals the TIER0 list enforced by scripts/check-tier0.mjs.
+//   5. The AGENTS.md rule 3 list equals the TIER0 list enforced by scripts/check-tier0.mjs
+//      (policy/tier0-paths.json, the one Tier 0 list).
 //   6. The PR template has the ledger-row, probe-output and tier-touched fields.
+//   7. contracts-core/core-policy.yaml trust_tier_paths.tier0.paths equals that list ("dir/**" reads
+//      as "dir/"), so the work-order compiler and the gates use the same paths.
 // Usage: node scripts/check-bootstrap.mjs [repo-root]
 import { existsSync, readFileSync } from 'node:fs';
 import { join, resolve } from 'node:path';
@@ -15,6 +18,7 @@ import { pathToFileURL } from 'node:url';
 import { TIER0 } from './check-tier0.mjs';
 
 export const REQUIRED_FILES = ['AGENTS.md', 'CLAUDE.md', 'CODEOWNERS', '.github/pull_request_template.md'];
+export const CORE_POLICY = 'contracts-core/core-policy.yaml';
 export const TEMPLATE_FIELDS = [
   ['ledger-row', /^##\s+Ledger row/m],
   ['probe-output', /^##\s+Probe[\s\S]*Before[\s\S]*After/m],
@@ -34,6 +38,17 @@ export function tier0FromAgents(text) {
     else if (i > 0 && /\.\s/.test(parts[i])) break;
   }
   return out;
+}
+
+// trust_tier_paths.tier0.paths of core-policy.yaml (a flow list of quoted strings that may wrap
+// lines), with "dir/**" read as "dir/"; null when the block is not found.
+export function tier0FromCorePolicy(text) {
+  const m =
+    /^trust_tier_paths:\s*\n\s+tier0:[ \t]*\n(?:[ \t]+(?:[a-z_]+:|#).*\n)*?[ \t]+paths:\s*\[([^\]]*)\]/m.exec(
+      text,
+    );
+  if (!m) return null;
+  return [...m[1].matchAll(/'([^']*)'|"([^"]*)"/g)].map((x) => (x[1] ?? x[2]).replace(/\/\*\*$/, '/'));
 }
 
 export function parseCodeowners(text) {
@@ -94,6 +109,17 @@ export function checkBootstrap(root) {
     for (const p of b) if (!a.has(p)) errors.push(`${p} is in check-tier0 TIER0 but not in AGENTS.md rule 3`);
   }
 
+  if (existsSync(join(root, CORE_POLICY))) {
+    const policy = tier0FromCorePolicy(read(CORE_POLICY));
+    if (!policy) errors.push(`${CORE_POLICY} trust_tier_paths.tier0.paths not found`);
+    else {
+      const a = new Set(policy);
+      for (const p of a)
+        if (!TIER0.includes(p)) errors.push(`${p} is in ${CORE_POLICY} tier0 but not in TIER0`);
+      for (const p of TIER0) if (!a.has(p)) errors.push(`${p} is in TIER0 but not in ${CORE_POLICY} tier0`);
+    }
+  }
+
   const tpl = read('.github/pull_request_template.md');
   for (const [name, re] of TEMPLATE_FIELDS)
     if (!re.test(tpl)) errors.push(`PR template lacks the ${name} field`);
@@ -107,7 +133,7 @@ export function main(argv = process.argv.slice(2), out = console) {
     for (const e of errors) out.error(`check-bootstrap: ${e}`);
     return 1;
   }
-  out.log('check-bootstrap: ok (instructions, CODEOWNERS, PR template and Tier 0 lists agree)');
+  out.log('check-bootstrap: ok (instructions, CODEOWNERS, core-policy, PR template and Tier 0 lists agree)');
   return 0;
 }
 
