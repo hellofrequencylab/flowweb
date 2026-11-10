@@ -933,6 +933,10 @@ export const api = {
     return { data_as_of: e.as_of, ...e.data };
   },
 
+  /** FW-C-092: ask the AI console about this page. Only the live site answers it; changes come back as proposals. */
+  askConsole(question: ConsoleQuestion): Promise<ConsoleAnswer> {
+    return post<ConsoleAnswer>('/assistant/console', question);
+  },
   /**
    * FW-C-085: ask the setup assistant a question. Only the live site answers it (with its own AI);
    * the caller falls back to built-in answers when this fails. Never send a secret here.
@@ -1058,3 +1062,25 @@ export const leadHunts = {
       onQueued,
     ),
 };
+
+/** FW-C-092: what the AI console sends about the page, and what it gets back. */
+export interface ConsoleQuestion {
+  question: string;
+  page: { path: string; name: string; heading: string; text: string };
+  flow: string | null;
+  history: { who: 'you' | 'ai'; text: string }[];
+}
+export interface ConsoleProposal {
+  id: string;
+  summary: string;
+  method: 'POST' | 'DELETE';
+  path: string;
+  body?: Record<string, unknown>;
+  kind: string;
+  flow: string;
+}
+export interface ConsoleAnswer {
+  answer: string;
+  proposals: ConsoleProposal[];
+  can_change: boolean;
+}
