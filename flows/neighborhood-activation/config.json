@@ -1,7 +1,7 @@
 {
   "version": 1,
   "offer": {"name": "Frequency", "url": "https://frequencylocal.com", "pitch": "Free, local, in-person community: find or start a Circle near you around what you love.", "call_to_action": "Join a Circle near you"},
-  "engine": {"label": "ChatGPT sign-in through the Codex CLI (FW_CODEX_AUTH=signin)", "fallback": "OpenAI API key, billed per token", "runs_on": "local fwd only; the hosted mirror stores no subscription sign-in"},
+  "engine": {"adapter": "codex", "auth": "signin", "label": "ChatGPT sign-in through the Codex CLI (FW_CODEX_AUTH=signin)", "fallback": "OpenAI API key, billed per token", "runs_on": "local fwd only; the hosted mirror stores no subscription sign-in"},
   "seed_territory_id": "north-county-sd",
   "territories": [
     {"id": "north-county-sd", "name": "North County San Diego", "order": 1, "lat": 33.17, "lng": -117.2, "borders": ["orange-county", "inland-north", "san-diego"], "sub_areas": [
