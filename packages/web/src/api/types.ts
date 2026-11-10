@@ -555,6 +555,82 @@ export interface Flow extends Envelope {
   awaiting_owner_total: number;
 }
 
+export type ActivationMeasures = {
+  hosts_active_28d: number;
+  events_next_14d: number;
+  sub_areas_covered_14d: number;
+  wam: number;
+};
+
+export type LeadKind = 'host' | 'venue' | 'builder' | 'resident';
+export type LeadStage = 'invite' | 'watch' | 'post_only' | 'capped' | 'blocked' | 'drop';
+export type SendVia = 'founder_email' | 'frequency';
+
+export interface ActivationTerritory {
+  id: string;
+  name: string;
+  order: number;
+  status: 'active' | 'upkeep' | 'waiting';
+  borders: string[];
+  population: number;
+  sub_areas: { id: string; name: string; population: number }[];
+  targets: ActivationMeasures;
+  /** null when fwd has no metrics for the region: Unknown, never zero. */
+  measures: ActivationMeasures | null;
+  progress: number | null;
+  qualifies: boolean | null;
+  weeks_at_threshold: number;
+  weeks_below: number;
+  leads: Record<LeadKind, number>;
+}
+
+export interface ActivationLead {
+  id: string;
+  name: string;
+  kind: LeadKind;
+  territory_id: string;
+  sub_area: string | null;
+  channel: string | null;
+  source: string;
+  url: string;
+  fit: number;
+  timing: number;
+  stage: LeadStage;
+  reason: string;
+  send_via: SendVia | null;
+  funnel: { path: string; persona: string; url: string } | null;
+}
+
+export type ActivationDecision =
+  | { kind: 'paused_budget'; summary: string }
+  | { kind: 'keep_working'; summary: string }
+  | { kind: 'propose_expansion'; territory_id: string; summary: string }
+  | { kind: 'all_active'; summary: string };
+
+export interface ActivationFlow extends Envelope {
+  key: string;
+  name: string;
+  enabled: boolean;
+  tier: string;
+  gate_on: string[];
+  offer: { name: string; url: string; pitch?: string; call_to_action?: string; placeholder?: boolean };
+  engine: { label: string; fallback: string; runs_on: string };
+  sources: { key: string; label: string; finds: string; reach: string; action_class: string }[];
+  funnels: Record<LeadKind, { path: string; persona: string; placeholder?: boolean }>;
+  send_routes: Record<SendVia, { label: string; one_to_one?: boolean; needs?: string[]; adds?: string[] }>;
+  placeholders: string[];
+  thresholds: { hold_weeks: number; upkeep_relapse_weeks: number; [k: string]: number };
+  opened: string[];
+  territories: ActivationTerritory[];
+  leads: ActivationLead[];
+  pipeline: Record<LeadStage, number>;
+  decision: ActivationDecision;
+  plan: { sub_areas: { territory_id: string; sub_area: string; reason: string }[]; invites: string[] };
+  steps: { key: string; label: string; outward: boolean }[];
+  budget: Flow['budget'];
+  awaiting_owner_total: number;
+}
+
 /* ---------- Settings / policy ---------- */
 
 export interface PolicyFile extends Envelope {
