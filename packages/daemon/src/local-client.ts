@@ -18,8 +18,9 @@ import {
   resolveHome,
 } from '@fw/ledger';
 import { type ChainStatus, statusOf } from './api/status.ts';
-import { VERSION } from './daemon.ts';
+import { REPO_ROOT, VERSION } from './daemon.ts';
 import { FwdUnreachableError, fwdEndpoint, fwdError, fwdRequest } from './fwd-client.ts';
+import { supervisorView } from './overseer/index.ts';
 import { listRuns, type RunDetail, type RunSummary, showRun } from './pipeline/queries.ts';
 import { type RunStartReport, runStart } from './pipeline/run-start.ts';
 import { type DoctorReport, runDoctor } from './runtime/doctor.ts';
@@ -47,11 +48,17 @@ export type StatusReport = Record<string, unknown> & {
   database: boolean;
 };
 
+export type SupervisorAction = 'pause' | 'resume' | 'enable' | 'disable';
+/** GET /v1/supervisor with where it was read from: fwd, or the database read-only when fwd is down. */
+export type SupervisorReport = Record<string, unknown> & { source: 'daemon' | 'database' };
+
 export interface DaemonCoreClient extends LocalCoreClient {
   status(): Promise<StatusReport>;
   runStart(code: string, opts?: RunStartRequest): Promise<RunStartReport>;
   runList(opts?: { status?: string; limit?: number }): Promise<RunSummary[]>;
   runShow(runId: string): Promise<RunDetail>;
+  supervisorStatus(): Promise<SupervisorReport>;
+  supervisorControl(action: SupervisorAction, flow?: string): Promise<SupervisorReport>;
   spendRollup(opts: { by: string }): Promise<(SpendRow & { unknown_runs?: number })[]>;
   doctor(): Promise<DoctorReport>;
   gc(): Promise<GcReport>;
@@ -202,6 +209,57 @@ export function createCoreClient(opts: LocalClientOptions): DaemonCoreClient {
         home,
         (runId) => r.get<{ status: string }>('SELECT status FROM runs WHERE id = ?', [runId])?.status,
       );
+    },
+    async supervisorStatus() {
+      const ep = fwdEndpoint(home);
+      if (ep.token || process.env.FW_DEV_NO_AUTH === '1') {
+        try {
+          const res = await fwdRequest(ep, 'GET', '/v1/supervisor', undefined, 5000);
+          if (res.status === 200)
+            return { ...((res.body.data ?? {}) as object), source: 'daemon' } as SupervisorReport;
+          throw fwdError(res);
+        } catch (e) {
+          if (!(e instanceof FwdUnreachableError)) throw e;
+        }
+      }
+      // fwd is down: the same view, read from the database read-only. Never writes.
+      store?.close();
+      store = undefined;
+      ledger.close();
+      if (!existsSync(path))
+        throw new LedgerError(
+          'NO_DATABASE',
+          `no ledger database at ${path} (start fwd or run fw ledger sync first)`,
+        );
+      const ro = openStore({ path, readonly: true, lockPath: join(home, 'fwd.lock') });
+      try {
+        return {
+          ...supervisorView({ reader: ro.reader(), repoRoot: REPO_ROOT, fwHome: home }),
+          source: 'database',
+        };
+      } finally {
+        ro.close();
+      }
+    },
+    async supervisorControl(action, flow) {
+      const ep = fwdEndpoint(home);
+      const path =
+        action === 'pause' || action === 'resume'
+          ? `/v1/supervisor/${action}`
+          : `/v1/supervisor/flows/${encodeURIComponent(flow ?? '')}/${action}`;
+      let res: Awaited<ReturnType<typeof fwdRequest>>;
+      try {
+        res = await fwdRequest(ep, 'POST', path, {}, 10000);
+      } catch (e) {
+        if (e instanceof FwdUnreachableError)
+          throw Object.assign(
+            new Error(`the Supervisor is controlled through fwd, and fwd is not running: ${e.message}`),
+            { code: 'UNAVAILABLE' },
+          );
+        throw e;
+      }
+      if (res.status !== 200) throw fwdError(res);
+      return { ...((res.body.data ?? {}) as object), source: 'daemon' } as SupervisorReport;
     },
     close() {
       store?.close();

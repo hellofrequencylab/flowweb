@@ -127,6 +127,8 @@ function fakeClient(overrides: Partial<CoreClient> = {}): CoreClient {
     streamList: async () => [],
     projectList: async () => [],
     projectLabel: async () => ({ project: {} as never, changed_fields: [], event_seq: null }),
+    supervisorStatus: async () => supervisorReport,
+    supervisorControl: async () => ({ ...supervisorReport, changed: true }),
     gc: async () => ({
       home: '/h',
       removed: [{ run_id: 'run_done', path: '/h/runs/run_done', status: 'succeeded' }],
@@ -192,6 +194,29 @@ function run(argv: string[], client: CoreClient = fakeClient()) {
   const factory: CoreClientFactory = () => client;
   return main(argv, io, factory).then((code) => ({ code, out: out.join('\n'), err: err.join('\n') }));
 }
+
+const supervisorReport = {
+  source: 'daemon' as const,
+  kill_switch: false,
+  paused: false,
+  max_concurrent: 1,
+  running: 0,
+  gates: ['flow_disabled'],
+  flows: [
+    {
+      key: 'local-saturation',
+      name: 'Local saturation marketing',
+      enabled: false,
+      tier: 'L1',
+      state: 'held' as const,
+      gate: 'flow_disabled',
+      reason: 'The Owner has not turned this flow on.',
+      open_asks: 0,
+      budget: null,
+    },
+  ],
+  next: [],
+};
 
 const sampleArgs = (path: string[]) => {
   const c = COMMANDS.find((x) => x.path.join(' ') === path.join(' '))!;

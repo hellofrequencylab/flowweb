@@ -196,12 +196,12 @@ export function supervisorView(d: SupervisorDeps): SupervisorView {
 }
 
 export class SupervisorError extends Error {
-  constructor(
-    readonly code: 'NOT_FOUND',
-    message: string,
-  ) {
+  // A plain field, not a parameter property: fwd runs this file with Node's type stripping.
+  readonly code: 'NOT_FOUND';
+  constructor(code: 'NOT_FOUND', message: string) {
     super(message);
     this.name = 'SupervisorError';
+    this.code = code;
   }
 }
 
