@@ -1,6 +1,6 @@
 /*
  * FlowWeb token layer: the design system's tokens (tokens/*.css in the
- * handoff, unchanged values), plus the Deep water dark theme and a mapping
+ * handoff, unchanged values), plus the dark theme and a mapping
  * from the names the app's components use. THE ONLY FILE WITH RAW VALUES:
  * `npm run check:tokens` forbids colour literals anywhere else in src/.
  *
@@ -407,7 +407,7 @@
   --scrim-blur: blur(3px);
 }
 
-/* Deep water, the signature dark theme: chosen in Settings, or by the system when Settings says System. */
+/* The dark theme: chosen in Settings, or by the system when Settings says System. */
 :root[data-theme="dark"] {
   --surface-page: #0b1520;
   --surface-raised: #111e2b;

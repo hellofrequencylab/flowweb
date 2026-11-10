@@ -21,7 +21,7 @@ export function RowPage({ id }: { id: string }) {
           <div className="stack">
             <nav className="crumbs" aria-label="Breadcrumb">
               <Link to="/ledger">
-                <Icon name="arrow-left" /> Ledger
+                <Icon name="arrow-left" /> Logs
               </Link>
             </nav>
             <PageHead

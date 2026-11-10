@@ -51,7 +51,7 @@ export function LedgerPage() {
   return (
     <>
       <PageHead
-        title={<>Projects and ledger</>}
+        title={<>Logs</>}
         lede={
           <>
             Every row, its status and its last probe. Waiting on you first.
@@ -63,9 +63,9 @@ export function LedgerPage() {
       />
       <ProjectsSummary />
       <div className="section">
-        <SectionHead title="Ledger" overline="One row per change, each with a probe" />
+        <SectionHead title="Every change" overline="One row per change, each with a probe" />
       </div>
-      <ResourceView res={res} what="ledger">
+      <ResourceView res={res} what="logs">
         {(d) => {
           const lanes = [...new Set(d.rows.map((r) => r.lane))].sort();
           const rows = sortRows(

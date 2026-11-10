@@ -147,8 +147,8 @@ export function SettingsPage({
         <div className="panel settings-panel">
           <Toggle k="calm" label="Calm mode" hint="No animation; rewards become a static tick. Key m." />
           <Toggle k="rewards" label="Rewards" hint="The two small marks for proven outcomes." />
-          <Toggle k="rewardTableCleared" label="Table cleared" disabled={!prefs.rewards} nested />
-          <Toggle k="rewardCargoLanded" label="Cargo landed" disabled={!prefs.rewards} nested />
+          <Toggle k="rewardTableCleared" label="All signed off" disabled={!prefs.rewards} nested />
+          <Toggle k="rewardCargoLanded" label="Landed and proven" disabled={!prefs.rewards} nested />
           <Choice
             k="motion"
             label="Motion"
@@ -165,7 +165,6 @@ export function SettingsPage({
           <Choice
             k="theme"
             label="Theme"
-            hint="Dark is Deep water."
             options={[
               { v: 'system', label: 'System' },
               { v: 'light', label: 'Light' },

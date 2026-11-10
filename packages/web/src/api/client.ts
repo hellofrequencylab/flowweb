@@ -434,7 +434,7 @@ export const api = {
   },
 
   /**
-   * Dawn Log. Uses the daily digest when one exists and passed its own check;
+   * Console. Uses the daily digest when one exists and passed its own check;
    * the live counts always come from current queries so the screen can fall
    * back to them, labelled, when the digest is missing or failed.
    */
