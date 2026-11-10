@@ -644,6 +644,7 @@ export interface FlowDraft {
   created_at: string | null;
   approved_at?: string;
   rejected_at?: string;
+  edited_at?: string;
 }
 
 export interface FlowDrafts extends Envelope {

@@ -767,6 +767,39 @@ export const api = {
     return { data_as_of: e.as_of, drafts: Array.isArray(e.data) ? e.data : [] };
   },
 
+  /**
+   * A draft change: edit, reject or an AI rewrite. On the live site it is queued and applied on the
+   * Owner's machine by the relay, so this waits for that answer; `onQueued` says it is waiting.
+   */
+  async draftChange<T = V.FlowDraft>(
+    flow: string,
+    id: string,
+    action: 'edit' | 'reject' | 'rewrite',
+    body: Record<string, string>,
+    onQueued?: () => void,
+  ): Promise<T> {
+    const r = await post<T | { request_id: string; status: string }>(
+      `/supervisor/flows/${enc(flow)}/drafts/${enc(id)}/${action}`,
+      body,
+    );
+    if (!r || typeof r !== 'object' || !('request_id' in r)) return r as T;
+    onQueued?.();
+    const until = Date.now() + (action === 'rewrite' ? 15 : 5) * 60_000;
+    for (;;) {
+      await new Promise((ok) => setTimeout(ok, 2000));
+      const e = await get<{ status: string; result: T | null; error: string | null }>(
+        `/hosted/requests/${enc(r.request_id)}`,
+      );
+      if (e.data.status === 'done') return e.data.result as T;
+      if (e.data.status === 'failed')
+        throw new Error(e.data.error ?? 'Your machine could not make that change.');
+      if (Date.now() > until)
+        throw new Error(
+          'Your Mac has not answered yet. The change stays queued for a day and applies when FlowWeb there is running.',
+        );
+    }
+  },
+
   async supervisor(): Promise<V.Supervisor> {
     const e = await get<Omit<V.Supervisor, 'data_as_of'>>('/supervisor');
     return { data_as_of: e.as_of, ...e.data };
