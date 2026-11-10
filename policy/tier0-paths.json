@@ -19,6 +19,7 @@
     "AGENTS.md",
     "CLAUDE.md",
     ".gitleaks.toml",
+    ".gitleaksignore",
     "contracts-core/",
     "schema.core.sql",
     "tests/schema_core_test.py",

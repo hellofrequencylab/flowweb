@@ -1,0 +1,38 @@
+# Secret scanning rules (Tier 0). Used by .husky/pre-commit and the CI secret-scan job.
+# Starts from gitleaks' default rules and adds looser vendor-key shapes, without an entropy floor,
+# so a key-shaped string is caught even when it is low entropy (as a pasted test key often is).
+title = "flowweb"
+
+[extend]
+useDefault = true
+
+[[rules]]
+id = "fw-anthropic-key"
+description = "Anthropic API or admin key shape"
+regex = '''sk-ant-(?:api|admin|oat)[0-9]{2}-[A-Za-z0-9_\-]{20,}'''
+keywords = ["sk-ant-"]
+
+[[rules]]
+id = "fw-openai-key"
+description = "OpenAI project, service account or admin key shape"
+regex = '''sk-(?:proj|svcacct|admin)-[A-Za-z0-9_\-]{20,}'''
+keywords = ["sk-proj-", "sk-svcacct-", "sk-admin-"]
+
+[[rules]]
+id = "fw-github-token"
+description = "GitHub token shape (classic, OAuth, app, refresh, fine-grained)"
+regex = '''(?:gh[pousr]_[A-Za-z0-9]{30,}|github_pat_[A-Za-z0-9_]{40,})'''
+keywords = ["ghp_", "gho_", "ghu_", "ghs_", "ghr_", "github_pat_"]
+
+# Private keys are left to the default rule, which needs a key body, so a bare PEM header in docs
+# and redaction tests is not a finding.
+#
+# The allowlist names exact fake values only, never paths, so a real key in a test file is still
+# caught. New tests should assemble fake keys at run time (probes/c0/_lib.mjs fakeSecret) instead
+# of adding entries here. Adding an entry is an Owner decision.
+[allowlist]
+description = "Known fake test values"
+regexes = [
+  # AWS key id made of the alphabet, used by the event-log redaction tests and schema_core_test.py.
+  '''AKIAABCDEFGHIJKLMNOP''',
+]

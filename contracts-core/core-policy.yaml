@@ -206,7 +206,7 @@ trust_tier_paths:
     paths: ['probes/**', 'policy/**', 'config/**', 'ledger/rows/**', 'ledger/backlog/**', 'scripts/check-*',
             'scripts/probe-*', 'scripts/probe.mjs', 'scripts/seed-rows.mjs', 'scripts/test/**',
             'tooling/requirements-ci.txt', '.github/**', '.husky/**', 'CODEOWNERS', '**/CODEOWNERS', 'AGENTS.md',
-            'CLAUDE.md', '.gitleaks.toml', 'contracts-core/**', 'schema.core.sql', 'tests/schema_core_test.py',
+            'CLAUDE.md', '.gitleaks.toml', '.gitleaksignore', 'contracts-core/**', 'schema.core.sql', 'tests/schema_core_test.py',
             'packages/policy/**', 'packages/eventlog/src/envelope.ts', 'packages/eventlog/src/store.ts',
             'packages/contracts/sql/**', 'packages/contracts/json-schema/**',
             'packages/contracts/SCHEMA-SNAPSHOT.sha256']

@@ -26,6 +26,7 @@
 # CI, automation and repo settings
 /.github/                                  @hellofrequencylab
 /.gitleaks.toml                            @hellofrequencylab
+/.gitleaksignore                           @hellofrequencylab
 /.husky/                                   @hellofrequencylab
 /tooling/requirements-ci.txt               @hellofrequencylab
 

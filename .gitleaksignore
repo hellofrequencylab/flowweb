@@ -1,0 +1,12 @@
+# Findings already in history that are fake test values (Tier 0, Owner only). History cannot be
+# rewritten, so each one is ignored by its exact fingerprint (commit:file:rule:line); the same
+# string anywhere else is still a finding. Checked 2026-11-10, values are test placeholders:
+#   schema_core_test.py      ghp_ placeholder in the secret-trigger test
+#   lease-manager.mjs        a branch name ('fw/probe/...') read as a generic key
+#   walking-skeleton.test.ts a 'fwtest-SECRET-...' marker the e2e test looks for in redaction
+#   secrets.test.ts          a PEM header around a generated fake body in the redaction tests
+e807796841e4fa750a06bed2a36ff115266f5c0c:tests/schema_core_test.py:generic-api-key:244
+5c0c462c30d62ba81e90e0642646449dd714c327:tests/schema_core_test.py:generic-api-key:244
+a24025dd1942b86cd7625c3e07e18bc770aa807f:probes/c1/lease-manager.mjs:generic-api-key:134
+53a81525370e955d62bf72f9426b6fe9a1853420:e2e/walking-skeleton.test.ts:generic-api-key:28
+a13d445814d611ff2d5522aa93f690ab9e732ee8:packages/eventlog/test/secrets.test.ts:private-key:29
