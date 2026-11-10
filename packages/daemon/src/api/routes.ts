@@ -14,6 +14,7 @@ import * as naAdmin from '../flows/neighborhood-admin.ts';
 import { SupervisorError, supervisorView } from '../overseer/index.ts';
 import { type RunHost, RunHostStoppingError } from '../run-host.ts';
 import { isInside, RUN_ID_RE } from '../runtime/paths.ts';
+import { setupReport } from '../setup/index.ts';
 import { spendRollup } from '../spend.ts';
 import { rowIdOf } from './codes.ts';
 import {
@@ -349,6 +350,12 @@ export function buildRouter(deps: ApiDeps): Router {
 
   // ---- status and policy ------------------------------------------------------------------
   r.get('/v1/status', () => env(() => ({ data: statusOf(deps) })));
+  // FW-C-039: where the Owner is in setting up. fwd answering this is the machine step itself.
+  r.get('/v1/setup', () =>
+    env(() => ({
+      data: setupReport({ reader, fwHome: deps.fwHome, repoRoot: deps.repoRoot, fwdUp: true }),
+    })),
+  );
 
   r.get('/v1/policy', () =>
     env(() => {
