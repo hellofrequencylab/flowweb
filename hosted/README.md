@@ -19,8 +19,10 @@ your machine                                   hosted
 - **The site** (`api/v1.mjs`) serves the same `/v1` paths the web UI already uses, from the
   copy, with fwd's own `as_of`, so the UI shows real data age. Writes (approve, kill switch,
   answer a card) answer 501: do them in FlowWeb on your machine.
-- **Sign-in** is a one-time email link (Supabase Auth). Accounts are never created from the
-  site. Reads are allowed by row-level security only for emails in `fw_owners`.
+- **Sign-in** (FW-C-080, `packages/web/src/hosted/auth.ts`): email and password, a one-time
+  email link, or Google when `VITE_FW_AUTH_GOOGLE` is on, plus a password reset. Anyone can
+  make a login. Every error shown is one of our own sentences, never Supabase's text. What a
+  login may read is decided by row-level security (accounts and roles: FW-C-083).
 - **Vendor accounts and keys stay on your machine.** See Settings, "Accounts and API keys".
   The site holds no vendor credential and no service-role key.
 
@@ -28,8 +30,12 @@ your machine                                   hosted
 
 1. Apply `supabase/migrations/0001_flowweb_mirror.sql` to the Supabase project, then add the
    owner: `insert into fw_owners(email) values (lower('<your email>'));`
-2. In Supabase, Authentication, URL configuration: add `https://<your-site>/**` to the
-   redirect URLs, so the email link comes back to the site.
+2. In Supabase, Authentication, URL configuration: set the site URL and add
+   `https://<your-site>/**` to the redirect URLs, so email links and Google come back to the
+   site. Under Sign In / Providers: Email on (with "Confirm email"), and for Google add the
+   OAuth client ID and secret from Google Cloud (its authorized redirect URI is
+   `https://<project-ref>.supabase.co/auth/v1/callback`), then set `VITE_FW_AUTH_GOOGLE=1`
+   in Vercel.
 3. Vercel project from this repo (root directory = repo root; `vercel.json` has the build).
    Environment: `VITE_SUPABASE_URL`, `VITE_SUPABASE_ANON_KEY` (the public anon key; also used
    by the function at run time).
