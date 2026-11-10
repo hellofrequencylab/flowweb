@@ -763,10 +763,10 @@ export function RunTrace({
                 <Icon name={c.icon} size={12} label={c.word} />
               </span>
             </span>
-            <span className="trace-body">
+            <div className="trace-body">
               <span className="trace-name">{s.name}</span>
-              {s.detail && <span className="trace-detail">{s.detail}</span>}
-            </span>
+              {s.detail && <div className="trace-detail">{s.detail}</div>}
+            </div>
             {s.aside && <span className="trace-aside">{s.aside}</span>}
           </li>
         );

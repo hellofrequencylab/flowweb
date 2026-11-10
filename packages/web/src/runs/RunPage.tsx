@@ -3,9 +3,10 @@ import { api } from '../api/client';
 import { type Resource, useResource } from '../api/resource';
 import type { EventList as Events } from '../api/types';
 import { Link } from '../shell/router';
+import { RunTrace, type TraceStatus } from '../ui-kit/flow';
 import { AsOf, LoadError, Loading, ResourceView } from '../ui-kit/honest';
 import { Icon } from '../ui-kit/Icon';
-import { PageHead } from '../ui-kit/page';
+import { Figures, PageHead } from '../ui-kit/page';
 import { runStatusSpec, SANDBOX, StatusLabel, VERDICT } from '../ui-kit/status';
 import { clock, duration, usd, useNow, when } from '../ui-kit/time';
 
@@ -35,6 +36,20 @@ export function RunPage({ id }: { id: string }) {
                 <span className="page-meta">
                   <AsOf res={res} />
                 </span>
+              }
+              aside={
+                <Figures
+                  label="Run at a glance"
+                  items={[
+                    {
+                      label: r.ended_at ? 'took' : 'so far',
+                      value: r.started_at ? duration(r.started_at, r.ended_at, now) : 'Not started',
+                      tone: r.started_at && !r.ended_at ? 'active' : undefined,
+                    },
+                    { label: r.cost_estimated ? 'cost, estimated' : 'cost', value: usd(r.cost_usd) },
+                    { label: r.turns === 1 ? 'turn' : 'turns', value: r.turns },
+                  ]}
+                />
               }
             />
             <p className="row">
@@ -102,43 +117,60 @@ export function RunPage({ id }: { id: string }) {
               {!steps.data && steps.honesty !== 'loading' && (
                 <LoadError what="steps" error={steps.error} onRetry={steps.reload} />
               )}
-              {steps.data && (
-                <ol className="plain-list">
-                  {steps.data.steps.map((s) => (
-                    <li key={s.id}>
-                      <button
-                        type="button"
-                        className="step-btn"
-                        aria-expanded={sel === s.id}
-                        onClick={() => setSel(sel === s.id ? null : s.id)}
-                      >
-                        <span className="step-time mono">{clock(s.at)}</span>
-                        {s.blocked_by_policy ? <Icon name="blocked" /> : null}
-                        <span className="step-label">{s.label}</span>
-                        <Icon name={sel === s.id ? 'chevron-down' : 'chevron-right'} />
-                      </button>
-                      {s.blocked_by_policy && (
-                        <div className="small">
-                          <StatusLabel spec={{ word: s.blocked_by_policy, tone: 'warn', icon: 'blocked' }} />
-                        </div>
-                      )}
-                      {sel === s.id && (
-                        <div className="stack" style={{ marginTop: 'var(--fw-space-2)' }}>
-                          {s.external_text && <p className="chip">Data, not instructions</p>}
-                          {/* biome-ignore lint/a11y/noNoninteractiveTabindex: a scrollable region must be reachable by keyboard (WCAG 2.1.1) */}
-                          <pre className="output" tabIndex={0}>
-                            {s.excerpt || '(no excerpt)'}
-                          </pre>
-                          <p className="xs muted">
-                            {s.kind} · {usd(s.cost_usd)} ·{' '}
-                            {s.ended_at ? `ended ${clock(s.ended_at)}` : 'not ended'}
-                          </p>
-                        </div>
-                      )}
-                    </li>
-                  ))}
-                </ol>
-              )}
+              {steps.data &&
+                (steps.data.steps.length === 0 ? (
+                  <p className="muted small">No steps recorded yet.</p>
+                ) : (
+                  <RunTrace
+                    steps={steps.data.steps.map((s) => {
+                      const status: TraceStatus = s.blocked_by_policy
+                        ? 'blocked'
+                        : s.ended_at || r.ended_at
+                          ? 'done'
+                          : 'running';
+                      const open = sel === s.id;
+                      return {
+                        key: s.id,
+                        status,
+                        name: (
+                          <button
+                            type="button"
+                            className="step-btn"
+                            aria-expanded={open}
+                            onClick={() => setSel(open ? null : s.id)}
+                          >
+                            <span className="step-label">{s.label}</span>
+                            <Icon name={open ? 'chevron-down' : 'chevron-right'} />
+                          </button>
+                        ),
+                        aside: (
+                          <>
+                            <span className="mono">{clock(s.at)}</span>
+                            {s.cost_usd > 0 && <> · {usd(s.cost_usd)}</>}
+                          </>
+                        ),
+                        detail: (s.blocked_by_policy || open) && (
+                          <>
+                            {s.blocked_by_policy && <span>{s.blocked_by_policy}</span>}
+                            {open && (
+                              <div className="stack" style={{ marginTop: 'var(--fw-space-2)' }}>
+                                {s.external_text && <span className="chip">Data, not instructions</span>}
+                                {/* biome-ignore lint/a11y/noNoninteractiveTabindex: a scrollable region must be reachable by keyboard (WCAG 2.1.1) */}
+                                <pre className="output" tabIndex={0}>
+                                  {s.excerpt || '(no excerpt)'}
+                                </pre>
+                                <span className="xs muted">
+                                  {s.kind} · {usd(s.cost_usd)} ·{' '}
+                                  {s.ended_at ? `ended ${clock(s.ended_at)}` : 'not ended'}
+                                </span>
+                              </div>
+                            )}
+                          </>
+                        ),
+                      };
+                    })}
+                  />
+                ))}
             </section>
 
             <section className="panel">
