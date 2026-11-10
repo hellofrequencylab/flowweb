@@ -3,10 +3,13 @@ import { useResource } from '../api/resource';
 import type { RowStatus, RowSummary } from '../api/types';
 import { ProjectsSummary } from '../projects/ProjectsPage';
 import { Link, useRouter } from '../shell/router';
+import { FlowRing, GroupBadge, hueFor, rowFlow, ShareBar, STAGES, TallyMark } from '../ui-kit/flow';
 import { AsOf, Empty, ResourceView } from '../ui-kit/honest';
-import { PageHead, SectionHead } from '../ui-kit/page';
+import { Icon } from '../ui-kit/Icon';
+import { Figures, PageHead, SectionHead } from '../ui-kit/page';
 import { probeSpec, ROW_STATUS, StatusLabel } from '../ui-kit/status';
 import { age, useNow } from '../ui-kit/time';
+import { FlowBoard, inFlight } from './FlowBoard';
 
 const ORDER: RowStatus[] = [
   'awaiting_approval',
@@ -38,6 +41,7 @@ export function LedgerPage() {
   const status = loc.query.get('status') ?? '';
   const priority = loc.query.get('priority') ?? '';
   const lane = loc.query.get('lane') ?? '';
+  const view = loc.query.get('view') === 'table' || status || priority ? 'table' : 'map';
   const res = useResource('rows', () => api.rows(), ['rows']);
   const now = useNow();
 
@@ -60,11 +64,8 @@ export function LedgerPage() {
             </span>
           </>
         }
+        aside={res.data ? <LoopSummary rows={res.data.rows} /> : undefined}
       />
-      <ProjectsSummary />
-      <div className="section">
-        <SectionHead title="Every change" overline="One row per change, each with a probe" />
-      </div>
       <ResourceView res={res} what="logs">
         {(d) => {
           const lanes = [...new Set(d.rows.map((r) => r.lane))].sort();
@@ -76,8 +77,50 @@ export function LedgerPage() {
                 (!lane || r.lane === lane),
             ),
           );
+          const toggle = (
+            <fieldset className="flow-filters view-toggle">
+              <legend className="visually-hidden">View</legend>
+              <button
+                type="button"
+                aria-pressed={view === 'map'}
+                onClick={() => go(lane ? `/ledger?lane=${encodeURIComponent(lane)}` : '/ledger')}
+              >
+                <Icon name="flow" size={14} /> Flow map
+              </button>
+              <button
+                type="button"
+                aria-pressed={view === 'table'}
+                onClick={() => setFilter('view', 'table')}
+              >
+                <Icon name="logs" size={14} /> Table
+              </button>
+            </fieldset>
+          );
+          if (view === 'map')
+            return (
+              <>
+                <LaneBoard rows={d.rows} />
+                <div className="section">
+                  <SectionHead
+                    title={lane ? `Lane ${lane}` : 'Every change'}
+                    overline="Queued, build, check, sign-off, landed"
+                    meta={
+                      lane ? (
+                        <Link to="/ledger" className="small">
+                          Show every lane
+                        </Link>
+                      ) : undefined
+                    }
+                  />
+                  {toggle}
+                  <FlowBoard rows={rows} initial="todo" label={lane ? `Lane ${lane}` : 'Every change'} />
+                </div>
+              </>
+            );
           return (
-            <>
+            <div className="section">
+              <SectionHead title="Every change" overline="One row per change, each with a probe" />
+              {toggle}
               <fieldset className="filters">
                 <legend className="visually-hidden">Filters</legend>
                 <label>
@@ -163,10 +206,96 @@ export function LedgerPage() {
                   </table>
                 </div>
               )}
-            </>
+            </div>
           );
         }}
       </ResourceView>
+      <div className="section">
+        <ProjectsSummary />
+      </div>
     </>
+  );
+}
+
+/** The whole ledger as one loop: how many rows sit at each stage, and how many have landed. */
+function LoopSummary({ rows }: { rows: RowSummary[] }) {
+  const at = STAGES.map(
+    (_, i) => rows.filter((r) => rowFlow(r.status).at === i && r.status !== 'open').length,
+  );
+  const done = rows.filter((r) => r.status === 'done').length;
+  const waiting = rows.filter((r) => r.status === 'awaiting_approval').length;
+  return (
+    <div className="loop-summary">
+      <FlowRing
+        size={230}
+        hue="slate"
+        at={4}
+        state="done"
+        tallies={at}
+        showLabels
+        label={`${done}`}
+        sublabel={`of ${rows.length} landed`}
+        title={`${done} of ${rows.length} rows landed. ${STAGES.map((s, i) => `${s} ${at[i]}`).join(', ')}.`}
+      />
+      <Figures
+        label="Rows by stage"
+        items={[
+          { label: 'moving', value: rows.filter(inFlight).length },
+          { label: 'need you', value: waiting, tone: waiting ? 'waiting' : undefined },
+          { label: 'not started', value: rows.filter((r) => r.status === 'open').length },
+        ]}
+      />
+    </div>
+  );
+}
+
+/** One card per lane: its badge, a bar of where its rows are, and a tally of what landed. */
+function LaneBoard({ rows }: { rows: RowSummary[] }) {
+  const lanes = [...new Set(rows.map((r) => r.lane))].sort();
+  return (
+    <section className="section" aria-labelledby="lanes-h">
+      <SectionHead id="lanes-h" title="Lanes" overline={`${lanes.length} lanes`} />
+      <ul className="lane-grid">
+        {lanes.map((lane) => {
+          const mine = rows.filter((r) => r.lane === lane);
+          const n = (f: (r: RowSummary) => boolean) => mine.filter(f).length;
+          const done = n((r) => r.status === 'done');
+          const waiting = n((r) => r.status === 'awaiting_approval');
+          const problem = n((r) => rowFlow(r.status).state === 'problem');
+          const moving = n(inFlight) - waiting - problem;
+          const open = mine.length - done - waiting - problem - moving;
+          return (
+            <li key={lane}>
+              <Link to={`/ledger?lane=${encodeURIComponent(lane)}`} className="lane-card">
+                <span className="lane-card-head">
+                  <GroupBadge name={lane} hue={hueFor(lane)} />
+                  <strong>{lane}</strong>
+                  <span className="muted small">{mine.length} rows</span>
+                </span>
+                <ShareBar
+                  label={`${lane}: ${done} landed, ${moving} moving, ${waiting} need you, ${problem} problems, ${open} not started`}
+                  slices={[
+                    { key: 'done', label: 'Landed', value: done, tone: 'ok' },
+                    { key: 'moving', label: 'Moving', value: moving, tone: 'active' },
+                    { key: 'waiting', label: 'Needs you', value: waiting, tone: 'waiting' },
+                    { key: 'problem', label: 'Problems', value: problem, tone: 'fail' },
+                    { key: 'open', label: 'Not started', value: open, tone: 'unknown' },
+                  ]}
+                />
+                <span className="lane-card-foot">
+                  <TallyMark count={done} hue={hueFor(lane)} label={`${done} landed`} size={14} />
+                  <span className="muted small">landed</span>
+                  {waiting > 0 && (
+                    <span className="lane-card-wait">
+                      <Icon name="waiting" size={13} /> {waiting} need{waiting === 1 ? 's' : ''} you
+                    </span>
+                  )}
+                </span>
+              </Link>
+            </li>
+          );
+        })}
+      </ul>
+    </section>
   );
 }

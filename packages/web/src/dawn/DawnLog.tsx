@@ -1,11 +1,13 @@
 import { api } from '../api/client';
 import { useLive, useStatusResource } from '../api/live';
 import { useResource } from '../api/resource';
-import type { DawnLog as Dawn, Status } from '../api/types';
+import type { CardSummary, DawnLog as Dawn, RowList, Status } from '../api/types';
 import { UNREACHABLE } from '../hosted/auth';
+import { FlowBoard, inFlight, LaneOrbits } from '../ledger/FlowBoard';
 import { LandedProven } from '../rewards/Rewards';
 import { usePrefs } from '../shell/prefs';
 import { Link } from '../shell/router';
+import { Donut, FlowRing, Gauge, IconTile, Legend, type Slice } from '../ui-kit/flow';
 import { AsOf, Empty, Fact, LoadError, Loading, StaleNotice } from '../ui-kit/honest';
 import { Icon } from '../ui-kit/Icon';
 import { type FigureItem, Figures, PageHead, SectionHead } from '../ui-kit/page';
@@ -23,6 +25,9 @@ const unknown = <span className="fact-unknown">Unknown</span>;
 export function DawnLog() {
   const dawn = useResource('dawn', api.dawn, ['dawn', 'rows', 'runs']);
   const st = useStatusResource();
+  const rowsRes = useResource<RowList>('rows', () => api.rows(), ['rows']);
+  const cardsRes = useResource('cards', api.cards, ['cards']);
+  const moving = rowsRes.data?.rows.filter(inFlight) ?? [];
   const { connection } = useLive();
   const now = useNow();
   const s = st.data;
@@ -85,13 +90,45 @@ export function DawnLog() {
         <>
           <DigestNote d={d} />
 
-          <NeedsStrip res={st} now={now} />
+          <NeedsStrip
+            res={st}
+            now={now}
+            cards={cardsRes.honesty === 'current' ? cardsRes.data?.cards : undefined}
+          />
 
           {isQuiet(d, s) && dawn.honesty === 'current' ? (
             <Empty title="All quiet">
               Nothing changed since {clock(d.since)}. Checked: logs, runs, spend, sign-offs.
             </Empty>
           ) : null}
+
+          {rowsRes.data && (
+            <section className="section" aria-labelledby="dawn-lanes">
+              <SectionHead
+                id="dawn-lanes"
+                overline={`${new Set(rowsRes.data.rows.map((r) => r.lane)).size} lanes · ${moving.length} changes moving`}
+                title="Your lanes"
+                meta={<AsOf res={rowsRes} />}
+              />
+              <LaneOrbits rows={rowsRes.data.rows} />
+            </section>
+          )}
+
+          {rowsRes.data && moving.length > 0 && (
+            <section className="section" aria-labelledby="dawn-flow">
+              <SectionHead
+                id="dawn-flow"
+                overline="Queued, build, check, sign-off, landed"
+                title="Every change in flight"
+                meta={
+                  <Link to="/ledger" className="small">
+                    All of Logs
+                  </Link>
+                }
+              />
+              <FlowBoard rows={moving} label="Changes in flight" />
+            </section>
+          )}
 
           <section className="section" aria-labelledby="dawn-landed">
             <SectionHead
@@ -105,8 +142,11 @@ export function DawnLog() {
             ) : (
               <ul className="item-list">
                 {d.rows_done.map((r) => (
-                  <li key={r.ledger_row_id} className="item">
-                    <StatusLabel spec={{ word: 'Done', tone: 'ok', icon: 'done' }} />
+                  <li key={r.ledger_row_id} className="item item-ring">
+                    <span className="item-ring-mark">
+                      <FlowRing hue="teal" at={4} state="done" size={30} title="" />
+                      <StatusLabel plain spec={{ word: 'Done', tone: 'ok', icon: 'done' }} />
+                    </span>
                     <div className="item-main">
                       <Link to={`/ledger/${r.ledger_row_id}`} className="item-title">
                         <span className="mono item-id">{r.row_id}</span> {r.title}
@@ -144,8 +184,14 @@ export function DawnLog() {
               />
               <ul className="item-list">
                 {d.rows_watching.map((r) => (
-                  <li key={r.ledger_row_id} className="item">
-                    <StatusLabel spec={{ word: 'Not verified', tone: 'unknown', icon: 'notverified' }} />
+                  <li key={r.ledger_row_id} className="item item-ring">
+                    <span className="item-ring-mark">
+                      <FlowRing hue="slate" at={4} state="held" size={30} title="" />
+                      <StatusLabel
+                        plain
+                        spec={{ word: 'Not verified', tone: 'unknown', icon: 'notverified' }}
+                      />
+                    </span>
                     <div className="item-main">
                       <Link to={`/ledger/${r.ledger_row_id}`} className="item-title">
                         <span className="mono item-id">{r.row_id}</span> {r.title}
@@ -158,88 +204,74 @@ export function DawnLog() {
             </section>
           )}
 
-          <div className="section grid-2">
-            <section className="panel" aria-labelledby="dawn-runs">
-              <div className="panel-head">
-                <h2 id="dawn-runs">Runs since {when(d.since, now)}</h2>
-                <span className="asof">of {d.runs.total} finished</span>
-              </div>
-              <p className="chip-row">
-                <Link to="/runs?status=succeeded" className="status status-ok">
-                  <Icon name="pass" /> {d.runs.succeeded} succeeded
-                </Link>
-                <Link
-                  to="/runs?status=failed"
-                  className={`status status-${d.runs.failed ? 'fail' : 'neutral'}`}
-                >
-                  <Icon name="fail" /> {d.runs.failed} failed
-                </Link>
-                <Link
-                  to="/runs?status=halted"
-                  className={`status status-${d.runs.halted ? 'stop' : 'neutral'}`}
-                >
-                  <Icon name="halted" /> {d.runs.halted} halted
-                </Link>
-              </p>
-            </section>
+          <div className="section dash-grid">
+            <RunsTile d={d} label={`Runs since ${when(d.since, now)}`} />
 
-            <section className="panel" aria-labelledby="dawn-spend">
+            <section className="panel dash-tile" aria-labelledby="dawn-spend">
               <div className="panel-head">
                 <h2 id="dawn-spend">Spend today</h2>
                 <Link to="/spend" className="small">
                   Details
                 </Link>
               </div>
-              <Fact
-                res={st}
-                pick={(x: Status) => x.spend_today}
-                format={(sp) => (
-                  <div className="stack">
-                    <p>
-                      <strong>{usd(sp.usd, sp.estimated)}</strong> of {usd(sp.cap_usd)} cap
-                    </p>
-                    <div className="meter" aria-hidden="true">
-                      <span
-                        className="meter-fill"
-                        style={{ width: `${Math.min(100, (sp.usd / (sp.cap_usd || 1)) * 100)}%` }}
-                      />
-                    </div>
-                    {sp.vendors_configured && sp.vendors_reporting.length < sp.vendors_configured.length && (
-                      <p className="small muted">
-                        Partial: {sp.vendors_reporting.length} of {sp.vendors_configured.length} vendors
-                        reporting.
-                      </p>
-                    )}
-                  </div>
+              <div className="dash-tile-body">
+                {live && s.spend_today ? (
+                  <Gauge
+                    size={176}
+                    label="Spend today against the daily cap"
+                    valueText={`${usd(s.spend_today.usd, s.spend_today.estimated)} of ${usd(s.spend_today.cap_usd)}`}
+                    value={s.spend_today.usd}
+                    cap={s.spend_today.cap_usd}
+                    forecast={s.spend_today.forecast_usd}
+                    center={usd(s.spend_today.usd)}
+                    sub={`${s.spend_today.estimated ? 'est., ' : ''}of ${usd(s.spend_today.cap_usd)}`}
+                  />
+                ) : (
+                  <Gauge size={176} label="Spend today" value={null} cap={1} center={unknown} />
                 )}
-              />
+              </div>
+              {live &&
+                s.spend_today?.vendors_configured &&
+                s.spend_today.vendors_reporting.length < s.spend_today.vendors_configured.length && (
+                  <p className="small muted">
+                    Partial: {s.spend_today.vendors_reporting.length} of{' '}
+                    {s.spend_today.vendors_configured.length} vendors reporting.
+                  </p>
+                )}
             </section>
 
-            <section className="panel" aria-labelledby="dawn-integrity">
+            <section className="panel dash-tile" aria-labelledby="dawn-integrity">
               <div className="panel-head">
                 <h2 id="dawn-integrity">Integrity</h2>
               </div>
               <Fact
                 res={st}
                 pick={(x: Status) => x.integrity}
-                format={(i) =>
-                  i.ok ? (
-                    <p className="row">
-                      <StatusLabel spec={{ word: 'Verified', tone: 'ok', icon: 'verified' }} />
-                      <span className="small muted">
-                        Event log up to #{i.verified_up_to_seq} at {clock(i.checked_at)}.
-                      </span>
-                    </p>
-                  ) : (
-                    <StatusLabel
-                      spec={{
-                        word: `Event log failed its integrity check at #${i.failed_at_seq ?? '?'}`,
-                        tone: 'fail',
-                        icon: 'shield-x',
-                      }}
+                format={(i) => (
+                  <div className="dash-tile-body integrity-tile">
+                    <IconTile
+                      name={i.ok ? 'verified' : 'shield-x'}
+                      tone={i.ok ? 'verified' : 'fail'}
+                      size="lg"
                     />
-                  )
-                }
+                    <span className="integrity-text">
+                      <StatusLabel
+                        plain
+                        spec={
+                          i.ok
+                            ? { word: 'Verified', tone: 'ok', icon: 'verified' }
+                            : {
+                                word: `Failed at #${i.failed_at_seq ?? '?'}`,
+                                tone: 'fail',
+                                icon: 'shield-x',
+                              }
+                        }
+                      />
+                      <span className="integrity-seq">#{i.verified_up_to_seq}</span>
+                      <span className="small muted">events checked, at {clock(i.checked_at)}</span>
+                    </span>
+                  </div>
+                )}
               />
             </section>
           </div>
@@ -250,7 +282,15 @@ export function DawnLog() {
 }
 
 /** The saffron "needs you" strip. Saffron means one thing: waiting on you. */
-function NeedsStrip({ res, now }: { res: ReturnType<typeof useStatusResource>; now: number }) {
+function NeedsStrip({
+  res,
+  now,
+  cards,
+}: {
+  res: ReturnType<typeof useStatusResource>;
+  now: number;
+  cards?: CardSummary[];
+}) {
   const s = res.data;
   if (res.honesty !== 'current' || !s)
     return (
@@ -284,6 +324,21 @@ function NeedsStrip({ res, now }: { res: ReturnType<typeof useStatusResource>; n
           </span>
         )}
       </span>
+      {cards && cards.length > 0 && (
+        <ul className="needs-chips">
+          {cards
+            .filter((c) => c.state === 'open')
+            .slice(0, 3)
+            .map((c) => (
+              <li key={c.id}>
+                <Link to={`/table/${c.id}`} className="needs-chip">
+                  <span className="needs-chip-title">{c.title}</span>
+                  <span className="muted">{age(c.created_at, now).replace(' ago', '')}</span>
+                </Link>
+              </li>
+            ))}
+        </ul>
+      )}
       <Link to="/table" className="btn btn-primary">
         Open Sign-offs <Icon name="arrow-right" />
       </Link>
@@ -355,5 +410,35 @@ function Problems({ status: s, down }: { status: Status | null; down: boolean })
         ))}
       </ul>
     </div>
+  );
+}
+
+/** Run outcomes as a donut, with the words and links in the legend. */
+function RunsTile({ d, label }: { d: Dawn; label: string }) {
+  const other = Math.max(0, d.runs.total - d.runs.succeeded - d.runs.failed - d.runs.halted);
+  const slices: Slice[] = [
+    { key: 'succeeded', label: 'Succeeded', value: d.runs.succeeded, tone: 'ok' },
+    { key: 'failed', label: 'Failed', value: d.runs.failed, tone: 'fail' },
+    { key: 'halted', label: 'Halted', value: d.runs.halted, tone: 'stop' },
+    ...(other ? [{ key: 'other', label: 'Other', value: other, tone: 'neutral' } as Slice] : []),
+  ];
+  return (
+    <section className="panel dash-tile" aria-labelledby="dawn-runs">
+      <div className="panel-head">
+        <h2 id="dawn-runs">{label}</h2>
+        <Link to="/runs" className="small">
+          All runs
+        </Link>
+      </div>
+      <div className="dash-tile-body">
+        <Donut
+          slices={slices}
+          center={d.runs.total}
+          sub="finished"
+          label={`${d.runs.total} runs finished: ${slices.map((x) => `${x.value} ${x.label.toLowerCase()}`).join(', ')}`}
+        />
+        <Legend slices={slices} hrefFor={(x) => (x.key === 'other' ? undefined : `/runs?status=${x.key}`)} />
+      </div>
+    </section>
   );
 }
