@@ -4,7 +4,7 @@
     "profile": "core",
     "schema": "ledger-row/1",
     "generated": "2026-11-09",
-    "row_count": 128,
+    "row_count": 129,
     "conventions": {
       "verify_probe": "Same convention as 04-build-plan/backlog.json: 'pnpm probe <path>' runs probes/<path>.probe.ts, a Tier 0 file written before the implementation row starts and never edited by the agent doing the row. Every probe fails today because its target does not exist (a missing probe file exits 2, a missing behaviour exits 1). The probe pack for a milestone is committed by the Owner or a pair session before the milestone's rows start.",
       "status": "All rows start as open. Status lives only in the ledger database (imported with fw ledger sync), never in prose.",
@@ -28,7 +28,7 @@
       }
     },
     "full_plan_rows_included": 37,
-    "new_core_rows": 90
+    "new_core_rows": 91
   },
   "rows": [
     {
@@ -4509,6 +4509,42 @@
       "files_hint": [
         "packages/web/src/flows/",
         "packages/web/test/"
+      ],
+      "origin": "new Core row"
+    },
+    {
+      "id": "FW-C-094",
+      "title": "Settings shows whether email sending, the Frequency link and Google Analytics are set up on the machine, and the exact command for each missing piece",
+      "core_milestone": "C1",
+      "phase": 1,
+      "epic": "C1.5 First flow",
+      "priority": "P1",
+      "size": "M",
+      "lane": "workstreams",
+      "agent_suitability": "agent",
+      "gate": "none",
+      "depends_on": [
+        "FW-C-071",
+        "FW-C-087"
+      ],
+      "description": "The Owner wants every person using FlowWeb to have a page and a setting for every function. Three connections are still set up only by reading senders/README.md on the Mac: the email sender (senders/email.json, a mailbox password in the keychain, the sender running), the Frequency link (the outcomes secret crd_frequencyoutcomes) and Google Analytics for paid ads (the flow's ga4 property and its key crd_ga4paidads). Nobody can see from the site which of these is done. fwd answers GET /v1/connections (packages/daemon/src/api/connections.ts) with, for email: settings (the file is readable), mailboxes (address and whether its password is saved), postal, claim_url, claim_secret, last_pass_at, running; for frequency: site (FW_FREQUENCY_URL or null) and outcomes_secret; for ga4: property_id, credential, key and last_pull; each with ready and fix, the exact commands for what is missing, using this machine's FW_HOME. A secret is only checked for presence: the keychain is asked without -w and a creds file is only stat'ed, so no secret value is ever read into the answer. FW_KEYCHAIN=off skips the keychain (tests). The relay mirrors /connections. Settings gets a Connections section (packages/web/src/settings/ConnectionsSettings.tsx): each connection with Ready or Needs setup, what is set, and each fix command with a Copy button; no field takes a secret; when the machine's FlowWeb is older and answers 404, it says to update FlowWeb on that machine. Tokens only. No em dashes.",
+      "acceptance": [
+        "GET /v1/connections reports email, frequency and ga4 from this machine's files, keychain and env, each with ready and fix",
+        "A saved secret shows as true and its value never appears in the answer",
+        "FW_KEYCHAIN=off keeps the keychain out of the answer",
+        "The relay mirrors /connections",
+        "Settings shows each connection as Ready or Needs setup with each fix command and a Copy button, and has no field for a secret",
+        "An older fwd answering 404 shows Update FlowWeb on this machine"
+      ],
+      "verify_probe": "pnpm probe settings/connections",
+      "files_hint": [
+        "packages/daemon/src/api/connections.ts",
+        "packages/daemon/src/api/routes.ts",
+        "hosted/relay/fw-relay.mjs",
+        "packages/web/src/settings/",
+        "packages/web/src/api/client.ts",
+        "packages/web/src/api/types.ts",
+        "packages/web/src/ui-kit/flow.css"
       ],
       "origin": "new Core row"
     }
