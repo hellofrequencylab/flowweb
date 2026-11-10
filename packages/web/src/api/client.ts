@@ -951,6 +951,12 @@ export const api = {
     return { data_as_of: e.as_of, ...e.data };
   },
 
+  /** FW-C-094: whether email sending, the Frequency link and Google Analytics are set up on the machine. */
+  async connections(): Promise<V.Connections> {
+    const e = await get<Omit<V.Connections, 'data_as_of'>>('/connections');
+    return { data_as_of: e.as_of, ...e.data };
+  },
+
   async policy(): Promise<V.PolicyFile> {
     const e = await get<W.WPolicy>('/policy');
     return { data_as_of: e.as_of, ...e.data };

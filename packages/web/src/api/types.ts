@@ -857,6 +857,31 @@ export interface Setup extends Envelope {
   checked_at: string;
 }
 
+/** FW-C-094: GET /v1/connections. Presence only: no secret value is ever in it. */
+export interface ConnectionPart {
+  ready: boolean;
+  fix: string[];
+}
+
+export interface Connections extends Envelope {
+  email: ConnectionPart & {
+    settings: boolean;
+    mailboxes: { address: string; password: boolean }[];
+    postal: boolean;
+    claim_url: string | null;
+    claim_secret: boolean;
+    last_pass_at: string | null;
+    running: boolean;
+  };
+  frequency: ConnectionPart & { site: string | null; outcomes_secret: boolean };
+  ga4: ConnectionPart & {
+    property_id: string | null;
+    credential: string | null;
+    key: boolean;
+    last_pull: { ok: boolean; at: string; error?: string } | null;
+  };
+}
+
 /* ---------------- paid ads flow (FW-C-048) ---------------- */
 
 export interface AdsFigures {

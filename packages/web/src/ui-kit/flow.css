@@ -2342,6 +2342,22 @@ a.flow-line:hover .flow-line-name {
   width: 100%;
 }
 
+/* FW-C-094: each connection in Settings, with the commands that finish it. */
+.connection + .connection {
+  margin-top: var(--space-6);
+  padding-top: var(--space-6);
+  border-top: 1px solid var(--border-subtle);
+}
+.connection-fix {
+  display: grid;
+  gap: var(--space-2);
+  padding: 0;
+  list-style: none;
+}
+.connection-fix code {
+  overflow-wrap: anywhere;
+}
+
 /* FW-C-092: the AI console, bottom right on every page (above the phone tab bar). */
 .console-dock {
   position: fixed;

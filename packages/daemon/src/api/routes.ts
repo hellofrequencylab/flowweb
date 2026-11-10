@@ -26,6 +26,7 @@ import { isInside, RUN_ID_RE } from '../runtime/paths.ts';
 import { setupReport } from '../setup/index.ts';
 import { spendRollup } from '../spend.ts';
 import { rowIdOf } from './codes.ts';
+import { connectionsOf } from './connections.ts';
 import {
   ApiError,
   envelope,
@@ -489,6 +490,9 @@ export function buildRouter(deps: ApiDeps): Router {
       data: setupReport({ reader, fwHome: deps.fwHome, repoRoot: deps.repoRoot, fwdUp: true }),
     })),
   );
+
+  // FW-C-094: whether email sending, the Frequency link and Google Analytics are set up here. Presence only.
+  r.get('/v1/connections', () => env(() => ({ data: connectionsOf(deps.fwHome, deps.repoRoot) })));
 
   r.get('/v1/policy', () =>
     env(() => {
