@@ -94,6 +94,8 @@ export interface SupervisorControls {
   setPaused(paused: boolean): { changed: boolean };
   /** FW-C-035: autopilot needs the flow's current confirm hash. */
   setDial(key: string, stop: string, confirm?: string): { changed: boolean };
+  /** FW-C-038: fire the flow's stream by hand; the Supervisor decides it like any fire. */
+  runFlow?(key: string): Promise<{ fire_id: string; outcome: string; reason?: string }>;
 }
 
 /** The body of POST /v1/runs, checked. */
@@ -434,6 +436,25 @@ export function buildRouter(deps: ApiDeps): Router {
   r.post('/v1/supervisor/flows/{key}/disable', ({ req, params }) =>
     ownerControl(req, (c) => c.setFlowEnabled(params.key ?? '', false)),
   );
+  // FW-C-038: run a flow now. The fire goes through the scheduler, so the Supervisor decides it.
+  r.post('/v1/supervisor/flows/{key}/run', async ({ req, params }) => {
+    const c = deps.supervisor;
+    if (!c?.runFlow) throw new ApiError(501, 'not_implemented', 'this fwd cannot run flows by hand');
+    const p = principalOf.get(req);
+    if (p?.kind !== 'cli' && p?.kind !== 'dev_no_auth')
+      throw new ApiError(
+        403,
+        'forbidden',
+        'the Supervisor is controlled with the CLI token, not a browser session',
+      );
+    try {
+      const out = await c.runFlow(params.key ?? '');
+      return env(() => ({ data: out }));
+    } catch (e) {
+      if (e instanceof SupervisorError) throw new ApiError(404, 'not_found', e.message);
+      throw kernelError(e);
+    }
+  });
   // FW-C-035: the dial. Body { stop: draft|copilot|autopilot, confirm?: hash }.
   r.post('/v1/supervisor/flows/{key}/dial', async ({ req, params }) => {
     const body = await readJsonBody(req);

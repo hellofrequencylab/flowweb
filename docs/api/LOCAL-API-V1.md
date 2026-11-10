@@ -85,6 +85,7 @@ The Owner's writes for `GET /flows/neighborhood-activation`, under `/flows/neigh
 | `POST /supervisor/pause`, `POST /supervisor/resume` | — | Hold every flow (`supervisor_paused`) or free them. Answers the `GET /supervisor` view plus `changed`. One `system.config_changed` event per change (FW-C-033). |
 | `POST /supervisor/flows/{key}/enable`, `.../disable` | — | Turn a shipped flow on or off; unknown key 404. Same answer and event. |
 | `POST /supervisor/flows/{key}/dial` | `{ stop: draft\|copilot\|autopilot, confirm? }` | Set the flow's dial (FW-C-035). `autopilot` without the current confirm hash answers 409 with `details.confirm_hash` (a hash of the flow's channels and caps) and changes nothing; send it back as `confirm`. Same answer and event. Core never sends at any stop. |
+| `POST /supervisor/flows/{key}/run` | none | Run the flow now (FW-C-038): fires its stream by hand through the scheduler, so the Supervisor decides it like any fire. Answers `{ fire_id, outcome: fired\|held, reason? }`. A fired flow runs one cycle in fwd that leaves drafts under `$FW_HOME/flows/<key>/drafts/` for the Owner and one run report. Turning a flow on registers its stream. CLI token only. |
 
 `fw status` uses `GET /status` when fwd answers. When it does not, the CLI reports the same shape read from the database read-only, with `daemon: "down"`, `source: "database"`, `started_at: null` and `chain.head_seq` = the newest event seq; it never writes the database.
 
