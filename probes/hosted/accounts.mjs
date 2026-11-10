@@ -45,6 +45,8 @@ const NAME = 'hosted/accounts';
 const MIG = join(root, 'hosted/supabase/migrations');
 const FLOW = 'neighborhood-activation';
 const OTHER = 'local-saturation';
+// A stand-in invite token, plain on purpose so the secret scan does not take it for a real one.
+const INVITE = `fwi_${'0'.repeat(32)}`;
 
 const STUB = `
   create schema if not exists auth;
@@ -304,9 +306,6 @@ await probe(NAME, async () => {
   // 9. The hosted /v1.
   await apiChecks(ACC);
 });
-
-// A stand-in invite token, plain on purpose so the secret scan does not take it for a real one.
-const INVITE = `fwi_${'0'.repeat(32)}`;
 
 async function apiChecks(ACC) {
   const ACC2 = uid(99);
