@@ -1,4 +1,5 @@
 // Probe c0/probe-runner (WS-P0-006; backlog verify_probe devex/probe-runner). Tested through
+// probe-timeout-s: 240 (measures the real 60 s default, so it needs longer itself)
 // `pnpm probe <path>` (the runner, wherever it lives).
 // Acceptance:
 //   - a probe whose target does not exist exits nonzero (fixture c0/fixtures/target-missing)
