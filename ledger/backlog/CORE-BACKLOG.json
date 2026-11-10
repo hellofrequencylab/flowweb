@@ -4,7 +4,7 @@
     "profile": "core",
     "schema": "ledger-row/1",
     "generated": "2026-11-09",
-    "row_count": 80,
+    "row_count": 81,
     "conventions": {
       "verify_probe": "Same convention as 04-build-plan/backlog.json: 'pnpm probe <path>' runs probes/<path>.probe.ts, a Tier 0 file written before the implementation row starts and never edited by the agent doing the row. Every probe fails today because its target does not exist (a missing probe file exits 2, a missing behaviour exits 1). The probe pack for a milestone is committed by the Owner or a pair session before the milestone's rows start.",
       "status": "All rows start as open. Status lives only in the ledger database (imported with fw ledger sync), never in prose.",
@@ -28,7 +28,7 @@
       }
     },
     "full_plan_rows_included": 37,
-    "new_core_rows": 43
+    "new_core_rows": 44
   },
   "rows": [
     {
@@ -2851,6 +2851,32 @@
         "packages/adapters/src/fake/",
         "packages/adapters/test/",
         "packages/daemon/src/overseer/cycle.ts"
+      ],
+      "origin": "new Core row"
+    },
+    {
+      "id": "FW-C-044",
+      "title": "The email sender gets a claim link from Frequency before it mails a build item",
+      "core_milestone": "C1",
+      "phase": 1,
+      "epic": "C1.5 First flow",
+      "priority": "P1",
+      "size": "S",
+      "lane": "workstreams",
+      "agent_suitability": "agent",
+      "gate": "owner-approval",
+      "depends_on": [
+        "FW-C-042"
+      ],
+      "description": "Hunts with build on are held today because nothing fills the {{claim_url}} slot. The Owner asked on 10 Nov to build it: Frequency now answers a claim link for a signed build item (/api/webhooks/flowweb-claim) and never sends the message itself. senders/email.mjs gains claim: { url } in $FW_HOME/senders/email.json and reads the shared secret from FW_CLAIM_SECRET or the macOS Keychain (service flowweb-claim). A build item that is otherwise ready to send is first POSTed to that url as the outbox file's bytes, signed as hex HMAC-SHA256 of `${timestamp}.${body}` in x-flowweb-timestamp and x-flowweb-signature. built fills every slot with the claim link and the message goes out from the Owner's mailbox as before; suppressed moves the item to skipped/; refused or a 400/422 to failed/; off, a 5xx or no answer leaves it for a later pass. Without claim.url build items stay held; without the secret they wait and the sender exits non-zero.",
+      "acceptance": [
+        "Without claim.url a build item is held and nothing is posted",
+        "Without the secret build items stay in the outbox, nothing is posted, the exit is non-zero, and plain items still send",
+        "Each build item is posted once, unchanged and correctly signed; built is sent with its claim link and no slot left; suppressed is skipped; refused fails with the reason; off and a 500 stay"
+      ],
+      "verify_probe": "pnpm probe flows/claim",
+      "files_hint": [
+        "senders/"
       ],
       "origin": "new Core row"
     }
