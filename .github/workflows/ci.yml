@@ -108,8 +108,31 @@ jobs:
       - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4.4.0
         with:
           fetch-depth: 0
-      - run: echo "::warning::Secret scanner is NOT installed yet (WS-P0-005). This job is a placeholder."
-        # WS-P0-005 replaces this step (gitleaks) and adds a seeded fake-secret fixture that must fail the job.
+      - name: Install gitleaks (pinned, checksum verified)
+        env:
+          GITLEAKS_VERSION: 8.28.0
+          GITLEAKS_SHA256: a65b5253807a68ac0cafa4414031fd740aeb55f54fb7e55f386acb52e6a840eb
+        run: |
+          f="gitleaks_${GITLEAKS_VERSION}_linux_x64.tar.gz"
+          curl -sSfL -o "$RUNNER_TEMP/$f" "https://github.com/gitleaks/gitleaks/releases/download/v${GITLEAKS_VERSION}/$f"
+          echo "${GITLEAKS_SHA256}  $RUNNER_TEMP/$f" | sha256sum -c -
+          tar -xzf "$RUNNER_TEMP/$f" -C "$RUNNER_TEMP" gitleaks
+          echo "$RUNNER_TEMP" >> "$GITHUB_PATH"
+      - name: Scan the whole history
+        run: gitleaks detect --source . --config .gitleaks.toml --redact --no-banner
+      - name: Seeded fake key must be caught (fixture)
+        # Assembled at run time so no key-shaped literal lives in this file.
+        run: |
+          d="$(mktemp -d)"
+          printf 'const k = "sk-%s-api03-%s";\n' ant "$(printf 'FwCiFake0%.0s' 1 2 3 4 5 6 7 8)" > "$d/leak.ts"
+          if gitleaks detect --no-git --source "$d" --config .gitleaks.toml --redact --no-banner; then
+            echo "::error::gitleaks did not flag the seeded fake key"; exit 1
+          fi
+      - uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4.4.0
+        with:
+          node-version: 22
+      - name: Secret-scan probe (hook and config)
+        run: node probes/c0/secret-scan.mjs
 
   # Added by later rows, not here: diff-policy (WS-P0-035), e2e with the fake vendor (WS-P0-042),
   # safety chaos suite (FW-C-016), a11y (FW-C-020).

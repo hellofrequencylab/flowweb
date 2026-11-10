@@ -1,0 +1,11 @@
+#!/bin/sh
+# Refuse a commit whose staged changes hold a key-shaped string (WS-P0-005).
+# Enable once per clone: git config core.hooksPath .husky
+# gitleaks missing is a refusal, never a pass: install it (https://github.com/gitleaks/gitleaks).
+if ! command -v gitleaks >/dev/null 2>&1; then
+  echo "pre-commit: gitleaks is not installed, so the secret scan cannot run; commit refused." >&2
+  exit 1
+fi
+cfg=".gitleaks.toml"
+[ -f "$cfg" ] || { echo "pre-commit: $cfg not found; commit refused." >&2; exit 1; }
+exec gitleaks protect --staged --config "$cfg" --redact --no-banner
