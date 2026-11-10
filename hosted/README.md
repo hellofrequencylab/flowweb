@@ -82,6 +82,16 @@ To let it answer free questions with Claude, add `FW_ASSISTANT_ANTHROPIC_KEY` to
 environment (Production), using an Anthropic API key made for this site. Without it the assistant still
 guides every step and answers common questions from what it knows. Questions and answers are not stored.
 
+## AI console (FW-C-092)
+
+Every page has an AI console at the bottom right. It is told the page and flow in view, and reads what the
+relay mirrored: the Supervisor's flows and, for that flow, its page, hunts and review summary (what is
+working). It answers on the same `FW_ASSISTANT_ANTHROPIC_KEY` as the setup assistant (503 `not_configured`
+without it) through `POST /v1/assistant/console` (`hosted/server/console.mjs`). The model only proposes
+changes; a proposal is kept only when `requestOf` in `requests.mjs` accepts it, viewers get none, and a
+helper gets none outside their flows. Nothing changes until the person presses Make this change, which
+queues the same request the page's own control sends. Nothing is stored or logged on the site.
+
 ## Businesses, members and roles (FW-C-083)
 
 `supabase/migrations/0006_flowweb_accounts.sql` turns the single-owner mirror into businesses
