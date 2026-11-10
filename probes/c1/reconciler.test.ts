@@ -8,9 +8,9 @@
 //   reconcileGitHost(writer, host, { project? }) -> Promise<{ checked, changes, drift: [{ kind,
 //     external_ref, ledger_row_id }] }>; host is a GitHost with listPullRequests()
 // Acceptance (WS-P1-006):
-//   1. a PR merged outside the tool moves its row to merged (merging, with merged_sha recorded, one
-//      reconciler.drift_detected missed_webhook) and queues the probe (fw ledger close on the merged
-//      commit then runs it and moves the row on to watching)
+//   1. a PR merged outside the tool moves its row to merged (merged_sha recorded on the row, which
+//      stays in verifying, and one reconciler.drift_detected missed_webhook that says the probe is
+//      queued) and queues the probe (fw ledger close on the merged commit runs it: the row is done)
 //   2. an open PR with no row creates an orphan_pr row (a ledger row in open, owned by the Owner,
 //      linking the PR, with one ledger.row_created and one reconciler.drift_detected orphan_pr)
 //   3. a reconcile pass is idempotent: a second pass reports zero changes and adds no row, no status
@@ -76,12 +76,14 @@ describe('c1/reconciler', () => {
 
     db = await openDbReadonly(home);
     const row = db.prepare("SELECT status, merged_sha FROM ledger_rows WHERE id = 'lr_FWC967'").get() as Record<string, string>;
-    expect(row.status, 'the merged PR moves its row to merging').toBe('merging');
-    expect(row.merged_sha).toBe(merged.merged_sha);
+    expect(row.merged_sha, 'the merged PR records its merged sha on the row').toBe(merged.merged_sha);
+    expect(row.status, 'the row waits in verifying for its post-merge probe').toBe('verifying');
     const drift = (db.prepare("SELECT payload FROM events WHERE type = 'reconciler.drift_detected' ORDER BY seq").all() as { payload: string }[]).map(
       (r) => JSON.parse(r.payload),
     );
-    expect(drift.filter((d) => d.kind === 'missed_webhook' && d.ledger_row_id === 'lr_FWC967').length, 'one missed_webhook drift').toBe(1);
+    const missed = drift.filter((d) => d.kind === 'missed_webhook' && d.ledger_row_id === 'lr_FWC967');
+    expect(missed.length, 'one missed_webhook drift').toBe(1);
+    expect(missed[0].probe_queued, 'the drift event says the probe is queued').toBe(true);
 
     const orphans = db.prepare('SELECT id, status, owner_kind, links FROM ledger_rows WHERE links LIKE ?').all(`%${orphan.url}%`) as Record<string, string>[];
     if (orphans.length !== 1) fail(`expected one ledger row linking the orphan PR ${orphan.url}; found ${orphans.length}`);
@@ -112,13 +114,13 @@ describe('c1/reconciler', () => {
     db.close();
     expect(after).toEqual(before);
 
-    // The queued probe: closing on the merged commit runs it and moves the row on to watching.
+    // The queued probe: closing on the merged commit runs it and the row is done.
     git(proj.work, 'fetch', '-q', 'origin', 'main');
     git(proj.work, 'checkout', '-q', '--detach', merged.merged_sha);
     const close = fw(['ledger', 'close', 'FW-C-967', '--merged-sha', merged.merged_sha, '--json'], o);
     expect(close.status, `fw ledger close on the merged commit exited ${close.status}: ${(close.stdout + close.stderr).slice(0, 300)}`).toBe(0);
     db = await openDbReadonly(home);
-    expect(rowStatusOf(db, 'FW-C-967'), 'a passing probe on the merged commit moves merging -> watching').toBe('watching');
+    expect(rowStatusOf(db, 'FW-C-967'), 'a passing probe on the merged commit closes the row').toBe('done');
     db.close();
   });
 });
