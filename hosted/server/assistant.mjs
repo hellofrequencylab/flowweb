@@ -8,6 +8,8 @@
 //   - Without the key the site answers 503 not_configured and the page uses its built-in answers.
 // Pure apart from the injected fetch, so it is tested without a network.
 
+import { isSignInToken, refusalReason, retryWithoutBeta, SIGN_IN_TOKEN, siteKey } from './site-key.mjs';
+
 const MAX_QUESTION = 1000;
 const STAGES = ['machine', 'ai', 'fix_ai', 'next_steps', 'done'];
 export const ASSISTANT_MODEL = 'claude-opus-5-5';
@@ -71,7 +73,9 @@ export async function answerSetupQuestion(body, { env = {}, fetchImpl = fetch } 
         },
       },
     };
-  const key = String(env.FW_ASSISTANT_ANTHROPIC_KEY ?? '').trim();
+  const key = siteKey(env);
+  if (key && isSignInToken(key))
+    return { status: 500, body: { error: { code: 'upstream_failed', message: SIGN_IN_TOKEN } } };
   if (!key)
     return {
       status: 503,
@@ -100,18 +104,16 @@ export async function answerSetupQuestion(body, { env = {}, fetchImpl = fetch } 
   try {
     res = await call(true);
     // The refusal fallback is a beta; if the API turns the request down, ask once more without it.
-    if (res.status === 400) res = await call(false);
+    if (retryWithoutBeta(res.status)) res = await call(false);
   } catch {
     return { status: 502, body: { error: { code: 'unreachable', message: 'The assistant could not be reached.' } } };
   }
   if (!res.ok) {
     // One line for whoever runs the site: the HTTP status and the API's error type, never the question.
-    const type = (await res.json().catch(() => null))?.error?.type ?? 'unknown';
+    const e = (await res.json().catch(() => null))?.error;
+    const type = e?.type ?? 'unknown';
     console.warn(`setup assistant: Anthropic API answered ${res.status} (${type})`);
-    const why =
-      res.status === 401 || res.status === 403
-        ? 'The site key was turned down. Check FW_ASSISTANT_ANTHROPIC_KEY in Vercel.'
-        : 'The assistant could not answer just now.';
+    const why = refusalReason(res.status, type, 'The assistant could not answer just now.', e?.message);
     return { status: 500, body: { error: { code: 'upstream_failed', message: why, upstream_status: res.status } } };
   }
   const msg = await res.json().catch(() => null);
