@@ -155,8 +155,8 @@ export function setupReport(d: SetupDeps): SetupReport {
       required: true,
       done: briefed.length > 0,
       detail: briefed.length
-        ? `Briefed: ${briefed.map((p) => p.slug).join(', ')}.`
-        : 'No labelled project has a brief yet. The agents read it to know what the project is for.',
+        ? `Briefed: ${briefed.map((p) => p.slug).join(', ')}. Each new work order carries the brief.`
+        : 'No labelled project has a brief yet. Each new work order carries it, so the agents know what the project is for.',
       fix: briefed.length ? null : `${P} project brief ${labelled[0]?.slug ?? '<project>'}`,
     },
     {

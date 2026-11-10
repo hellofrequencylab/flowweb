@@ -9,6 +9,7 @@ import { ProjectsPage } from '../projects/ProjectsPage';
 import { RunPage } from '../runs/RunPage';
 import { RunsPage } from '../runs/RunsPage';
 import { SettingsPage } from '../settings/SettingsPage';
+import { SetupNudge, SetupPage } from '../setup/SetupPage';
 import { SpendPage } from '../spend/SpendPage';
 import { TablePage } from '../table/TablePage';
 import { GlobalBanner } from './GlobalBanner';
@@ -62,7 +63,14 @@ export function Layout({ pairedAt, onSignedOut }: { pairedAt: string; onSignedOu
   const page = pageFor(loc.path);
 
   function pageFor(p: string): ReactNode {
-    if (p === '/') return <DawnLog />;
+    if (p === '/')
+      return (
+        <>
+          <SetupNudge />
+          <DawnLog />
+        </>
+      );
+    if (p === '/setup') return <SetupPage />;
     if (p === '/table') return <TablePage />;
     const card = match('/table/:card', p);
     if (card) return <TablePage cardId={card.card} />;
