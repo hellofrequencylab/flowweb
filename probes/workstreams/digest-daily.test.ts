@@ -1,4 +1,4 @@
-// Probe for FW-C-059 (the daily digest runs by itself and the Console shows it):
+// Probe for FW-C-061 (the daily digest runs by itself and the Console shows it):
 // `pnpm probe workstreams/digest-daily`. Tier 0.
 // probe-timeout-s: 180
 // Surfaces: the daemon fwd on a fresh FW_HOME after `fw ledger sync` of a fixture project, its HTTP API

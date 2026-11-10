@@ -3353,7 +3353,7 @@
       "origin": "new Core row"
     },
     {
-      "id": "FW-C-059",
+      "id": "FW-C-061",
       "title": "The daily digest runs by itself, and the Console shows it",
       "core_milestone": "C2",
       "phase": 3,
