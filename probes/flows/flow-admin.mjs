@@ -79,7 +79,7 @@ async function startFwd(home) {
 }
 
 await probe(NAME, async () => {
-  requireFile('flows/neighborhood-activation/config.json', 'the neighborhood activation flow (FW-C-032)');
+  requireFile('flows/neighborhood-activation/config.json', 'the neighborhood activation flow this probe administers');
   const cfg = JSON.parse(readFileSync(join(root, 'flows/neighborhood-activation/config.json'), 'utf8'));
   const seed = cfg.seed_territory_id;
   const byId = Object.fromEntries(cfg.territories.map((t) => [t.id, t]));
