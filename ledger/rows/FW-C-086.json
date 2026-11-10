@@ -1,0 +1,39 @@
+{
+  "id": "FW-C-086",
+  "title": "Anyone who may change settings chooses which AI account each flow uses from Settings, instead of an env var on the Mac",
+  "core_milestone": "C1",
+  "phase": 1,
+  "epic": "C1.5 First flow",
+  "priority": "P1",
+  "size": "L",
+  "lane": "workstreams",
+  "agent_suitability": "agent",
+  "gate": "none",
+  "depends_on": [
+    "FW-C-062"
+  ],
+  "description": "The Owner wants every person using FlowWeb to have a page and a setting for every function. Which AI account a flow uses is set today only on the Owner's Mac: by FW_CLAUDE_AUTH or FW_CODEX_AUTH when fwd starts, or by the engine line in the flow's config.json. Add packages/daemon/src/overseer/ai.ts: writeFlowAi saves one of four accounts (claude_plan, anthropic_key, chatgpt_plan, openai_key) as { adapter, auth } in $FW_HOME/flows/<key>/ai.json (mode 600), and flowEngine prefers it over config.json, answering chosen: true. fwd serves POST /v1/supervisor/flows/{key}/ai { account } to the CLI token and a paired browser session, and GET /v1/supervisor shows ai { adapter, auth, chosen } per flow. The site queues it as kind flow.ai (hosted/server/requests.mjs; migration 0007 allows the kind) and the relay applies it. Settings gets an AI for each flow section (packages/web/src/settings/AiSettings.tsx) listing each flow with the four accounts, the current one checked, a note when that account failed its last test, and the choices disabled for people who may not change them. Only the choice moves; keys stay in the machine's keychain. An env var given when fwd starts still wins on that machine.",
+  "acceptance": [
+    "writeFlowAi saves only the four accounts, mode 600, and flowEngine prefers the saved choice with chosen: true",
+    "POST /v1/supervisor/flows/{key}/ai works from a paired browser session; bad accounts answer 400, unknown flows 404, no session 401",
+    "GET /v1/supervisor shows each flow's ai { adapter, auth, chosen }",
+    "The site queues flow.ai with only the account, the relay calls the same route, and migration 0007 allows flow.ai and every earlier kind",
+    "Settings lists each flow with its account checked, sends only the picked account, flags a failed test, and disables the choice when the person may not change it"
+  ],
+  "verify_probe": "pnpm probe settings/flow-ai",
+  "files_hint": [
+    "packages/daemon/src/overseer/ai.ts",
+    "packages/daemon/src/overseer/cycle.ts",
+    "packages/daemon/src/overseer/index.ts",
+    "packages/daemon/src/api/routes.ts",
+    "packages/daemon/src/daemon.ts",
+    "packages/daemon/src/index.ts",
+    "hosted/server/requests.mjs",
+    "hosted/supabase/migrations/0007_flowweb_flow_ai.sql",
+    "hosted/README.md",
+    "packages/web/src/settings/",
+    "packages/web/src/api/client.ts",
+    "packages/web/src/api/types.ts"
+  ],
+  "origin": "new Core row"
+}
