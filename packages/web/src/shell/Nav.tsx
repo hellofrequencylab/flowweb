@@ -3,11 +3,10 @@ import { Icon, type IconName } from '../ui-kit/Icon';
 import { Link, useRouter } from './router';
 import { tabOf } from './routes';
 
-/** Four pages: what to do now, what waits on you, how growth is going, and the agent work behind it. */
+/** Three pages: your flows and the Supervisor running them, what waits on you, and the agent work behind it. */
 const ITEMS: { to: string; label: string; short: string; icon: IconName; count?: boolean }[] = [
-  { to: '/', label: 'Today', short: 'Today', icon: 'console' },
-  { to: '/inbox', label: 'Inbox', short: 'Inbox', icon: 'inbox', count: true },
-  { to: '/growth', label: 'Growth', short: 'Growth', icon: 'flows' },
+  { to: '/', label: 'Flows', short: 'Flows', icon: 'flows' },
+  { to: '/inbox', label: 'Needs you', short: 'Needs you', icon: 'inbox', count: true },
   { to: '/hood', label: 'Under the hood', short: 'Hood', icon: 'logs' },
 ];
 
@@ -46,10 +45,10 @@ export function TopNav() {
   );
 }
 
-/** Bottom tab bar on phones: Today, Inbox, Growth, More. */
+/** Bottom tab bar on phones: Flows, Needs you, More. */
 export function BottomNav() {
   const { loc } = useRouter();
-  const tabs = [...ITEMS.slice(0, 3), { to: '/more', label: 'More', short: 'More', icon: 'more' as const }];
+  const tabs = [...ITEMS.slice(0, 2), { to: '/more', label: 'More', short: 'More', icon: 'more' as const }];
   const moreActive =
     tabOf(loc.path) === '/hood' || ['/settings', '/setup', '/more'].some((p) => loc.path.startsWith(p));
   return (

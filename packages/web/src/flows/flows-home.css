@@ -1,0 +1,260 @@
+/* Home: the Supervisor at the centre, its flows around it. Tokens only (check:tokens). */
+.flows-home {
+  display: grid;
+  gap: var(--space-8);
+}
+.flows-home .page-head {
+  margin-bottom: 0;
+}
+.flows-home-section {
+  display: grid;
+  gap: var(--space-5);
+  min-width: 0;
+}
+.flows-home-chips {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--space-3);
+  flex: 3 1 260px;
+}
+.flows-home-chip {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--space-3);
+  min-height: 40px;
+  padding: 0 var(--space-5);
+  border-radius: var(--radius-full);
+  background: var(--surface-raised);
+  box-shadow: var(--shadow-button);
+  color: var(--text-primary);
+  font: var(--type-small);
+  text-decoration: none;
+}
+.flows-home-lines {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+}
+
+/* ---------- Supervisor map ---------- */
+.sup-map {
+  position: relative;
+  min-height: 520px;
+  border-radius: var(--radius-flow);
+  background: var(--texture-waves), var(--surface-sheen), var(--flow-ground);
+  box-shadow: var(--shadow-card);
+  overflow: hidden;
+}
+.sup-map-lines {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+}
+.sup-map-line {
+  stroke: var(--border-strong);
+  stroke-width: 1.5;
+  stroke-dasharray: 2 5;
+}
+.is-live > .sup-map-line {
+  stroke: var(--active-fg);
+  stroke-dasharray: none;
+  stroke-width: 2;
+}
+.is-ghost > .sup-map-line {
+  opacity: 0.5;
+}
+.sup-map-spark {
+  stroke: var(--flow-spark);
+  stroke-width: 4;
+  stroke-linecap: round;
+  stroke-dasharray: 1 30;
+  filter: drop-shadow(0 0 3px var(--active-fg));
+  animation: sup-spark 1.6s linear infinite;
+}
+@keyframes sup-spark {
+  to {
+    stroke-dashoffset: -31;
+  }
+}
+.sup-map.is-stale .sup-map-line {
+  stroke-dasharray: 2 5;
+}
+
+.sup-hub {
+  margin: 0;
+  padding: 0;
+  border: 0;
+  min-width: 0;
+  position: absolute;
+  left: 50%;
+  top: 50%;
+  width: 196px;
+  height: 196px;
+  transform: translate(-50%, -50%);
+  display: grid;
+  place-items: center;
+}
+.sup-hub-slots {
+  position: absolute;
+  inset: 0;
+}
+.sup-hub-slots circle {
+  fill: none;
+  stroke: var(--border-strong);
+  stroke-width: 1.4;
+}
+.sup-hub-slots circle.is-on {
+  fill: var(--active-fg);
+  stroke: var(--active-fg);
+}
+.sup-hub-core {
+  display: grid;
+  justify-items: center;
+  align-content: center;
+  gap: var(--space-1);
+  width: 150px;
+  height: 150px;
+  border-radius: var(--radius-full);
+  background: var(--surface-sheen), var(--surface-raised);
+  box-shadow:
+    var(--shadow-raised),
+    0 0 0 10px color-mix(in srgb, var(--harbor-500) 8%, transparent);
+  text-align: center;
+}
+.sup-hub-core .icon {
+  color: var(--text-link);
+}
+.sup-hub-core strong {
+  font: var(--weight-regular) var(--text-lg) / 1.1 var(--font-display);
+}
+.sup-hub-word {
+  font: var(--weight-medium) var(--text-sm) / 1.2 var(--font-sans);
+  color: var(--text-secondary);
+}
+.sup-hub.is-running .sup-hub-word {
+  color: var(--active-fg);
+}
+.sup-hub.is-stop .sup-hub-word {
+  color: var(--stop-fg);
+}
+.sup-hub-sub {
+  font: var(--type-small);
+  color: var(--text-tertiary);
+}
+
+.sup-map-nodes {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+}
+.sup-node {
+  position: absolute;
+  left: var(--x);
+  top: var(--y);
+  width: 230px;
+  /* The ring's centre sits on the line's end. */
+  transform: translate(-50%, calc(-1 * (var(--space-4) + 38px)));
+}
+.sup-node-link {
+  display: grid;
+  justify-items: center;
+  gap: var(--space-2);
+  padding: var(--space-4);
+  border-radius: var(--radius-lg);
+  color: var(--text-primary);
+  text-align: center;
+  text-decoration: none;
+  transition: background var(--dur-fast) var(--ease-standard);
+}
+.sup-node-link:hover {
+  background: color-mix(in srgb, var(--surface-raised) 70%, transparent);
+}
+.sup-node-name {
+  font: var(--weight-medium) var(--text-base) / 1.25 var(--font-sans);
+}
+.sup-node-meta {
+  font: var(--type-small);
+  color: var(--text-tertiary);
+}
+.sup-node.is-waiting .sup-node-meta {
+  color: var(--waiting-fg);
+}
+.sup-node.is-running .sup-node-meta {
+  color: var(--active-fg);
+}
+.sup-node-add {
+  display: grid;
+  place-items: center;
+  width: 76px;
+  height: 76px;
+  border-radius: var(--radius-full);
+  border: 1.5px dashed var(--border-strong);
+  color: var(--text-tertiary);
+  font: var(--weight-regular) 30px / 1 var(--font-display);
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .sup-map-spark {
+    display: none;
+  }
+}
+:root[data-calm="on"] .sup-map-spark {
+  display: none;
+}
+
+/* Phone and narrow tablet: the map becomes a column under the hub, joined by one line. */
+@media (max-width: 767px) {
+  .sup-map {
+    min-height: 0;
+    padding: var(--space-6) var(--space-4);
+  }
+  .sup-map-lines {
+    display: none;
+  }
+  .sup-hub {
+    position: relative;
+    left: auto;
+    top: auto;
+    transform: none;
+    margin: 0 auto var(--space-4);
+    width: 170px;
+    height: 170px;
+  }
+  .sup-hub-core {
+    width: 130px;
+    height: 130px;
+  }
+  .sup-map-nodes {
+    display: grid;
+    gap: var(--space-3);
+    border-left: 2px dashed var(--border-strong);
+    margin-left: var(--space-6);
+    padding-left: var(--space-4);
+  }
+  .sup-node {
+    position: static;
+    width: auto;
+    transform: none;
+  }
+  .sup-node-link {
+    grid-template-columns: auto 1fr;
+    justify-items: start;
+    text-align: left;
+    column-gap: var(--space-4);
+    background: var(--surface-raised);
+    box-shadow: var(--shadow-button);
+  }
+  .sup-node-link > :first-child {
+    grid-row: span 2;
+  }
+  .sup-node-link .flow-ring,
+  .sup-node-link .flow-ring svg,
+  .sup-node-add {
+    width: 52px !important;
+    height: 52px !important;
+  }
+  .sup-node-link {
+    align-items: center;
+  }
+}
