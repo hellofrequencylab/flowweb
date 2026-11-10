@@ -109,6 +109,9 @@ async function snapshot() {
       // The flow's settings, which the Activation page shows. Flows without an admin API answer 404.
       const cfg = await fwd(`/flows/${encodeURIComponent(key)}/config`).catch(ifFound);
       if (cfg) put(`/flows/${key}/config`, cfg);
+      // The drafts waiting for the Owner, so the site can show them. Older fwd builds answer 404.
+      const drafts = await fwd(`/supervisor/flows/${encodeURIComponent(key)}/drafts`).catch(ifFound);
+      if (drafts) put(`/supervisor/flows/${key}/drafts`, drafts);
     }
   }
   put('/status-reports', await all('/status-reports', {}, 50));
