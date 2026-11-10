@@ -15,7 +15,7 @@ import { EvidenceView, failedScanNames, useDiff, useEvidence } from '../evidence
 import { chordPending, useKeys } from '../shell/keys';
 import { usePrefs } from '../shell/prefs';
 import { Link } from '../shell/router';
-import { Button } from '../ui-kit/Button';
+import { Button, macOnlyReason } from '../ui-kit/Button';
 import { focusOnMount } from '../ui-kit/focus';
 import { LoadError, Loading, StaleNotice } from '../ui-kit/honest';
 import { Icon } from '../ui-kit/Icon';
@@ -157,11 +157,14 @@ function CardBody({
     }
   };
 
+  // On flowweb.app fwd is not reachable, so every answer to a card is Mac-only (FW-C-073).
+  const macOnly = macOnlyReason();
   // Approve lock: the reason Approve is unavailable, or null when it is safe.
   let approveLock: string | null = null;
   if (card.variant === 'approve') {
     const e = evidence.data;
-    if (block) approveLock = block;
+    if (macOnly) approveLock = macOnly;
+    else if (block) approveLock = block;
     else if (!current) approveLock = 'This card is not current. Approve unlocks when fwd answers.';
     else if (evidence.honesty === 'loading')
       approveLock = 'Loading evidence. Approve unlocks when it is here.';
@@ -176,7 +179,7 @@ function CardBody({
     else if (diffHash && e.diff_hash && diffHash !== e.diff_hash)
       approveLock = 'The diff does not match its hash. This cannot be approved.';
   }
-  const writeLock = block ?? (!current ? 'This card is not current.' : null);
+  const writeLock = macOnly ?? block ?? (!current ? 'This card is not current.' : null);
 
   const approve = () =>
     card.variant === 'approve' &&
