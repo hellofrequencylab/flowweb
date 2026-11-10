@@ -4,6 +4,7 @@
 // business logic lives here.
 import { execFileSync } from 'node:child_process';
 import { existsSync, readFileSync } from 'node:fs';
+import type { IncomingMessage } from 'node:http';
 import { isAbsolute, join, resolve } from 'node:path';
 import { type Reader, sha256Hex } from '@fw/eventlog';
 import type { PairingStore, Principal } from '../auth.ts';
@@ -13,6 +14,7 @@ import * as naAdmin from '../flows/neighborhood-admin.ts';
 import { SupervisorError, supervisorView } from '../overseer/index.ts';
 import { type RunHost, RunHostStoppingError } from '../run-host.ts';
 import { isInside, RUN_ID_RE } from '../runtime/paths.ts';
+import { setupReport } from '../setup/index.ts';
 import { spendRollup } from '../spend.ts';
 import { rowIdOf } from './codes.ts';
 import {
@@ -76,6 +78,15 @@ export interface ApiDeps {
   runs?: RunsApi;
   /** The Supervisor's Owner controls, on fwd's writer (FW-C-033). Absent: those routes answer 501. */
   supervisor?: SupervisorControls;
+  /** FW-C-039: project writes on fwd's writer. Absent: those routes answer 501. */
+  projects?: ProjectControls;
+}
+
+/** FW-C-039: the project writes the CLI hands to fwd while fwd holds the writer. */
+export interface ProjectControls {
+  add(input: Row): unknown;
+  label(ref: string, change: { brand?: string | null; category?: string | null }): unknown;
+  brief(ref: string, answers: Row): unknown;
 }
 
 export interface SupervisorControls {
@@ -339,6 +350,12 @@ export function buildRouter(deps: ApiDeps): Router {
 
   // ---- status and policy ------------------------------------------------------------------
   r.get('/v1/status', () => env(() => ({ data: statusOf(deps) })));
+  // FW-C-039: where the Owner is in setting up. fwd answering this is the machine step itself.
+  r.get('/v1/setup', () =>
+    env(() => ({
+      data: setupReport({ reader, fwHome: deps.fwHome, repoRoot: deps.repoRoot, fwdUp: true }),
+    })),
+  );
 
   r.get('/v1/policy', () =>
     env(() => {
@@ -478,6 +495,39 @@ export function buildRouter(deps: ApiDeps): Router {
       ),
     );
   });
+
+  // FW-C-039: project writes, CLI token only (like the Supervisor controls).
+  const projectWrite = async (req: IncomingMessage, act: (c: ProjectControls, body: Row) => unknown) => {
+    const c = deps.projects;
+    if (!c) throw new ApiError(501, 'not_implemented', 'this fwd does not host project writes');
+    const p = principalOf.get(req);
+    if (p?.kind !== 'cli' && p?.kind !== 'dev_no_auth')
+      throw new ApiError(403, 'forbidden', 'projects are changed with the CLI token, not a browser session');
+    const body = await readJsonBody(req);
+    let data: unknown;
+    try {
+      data = act(c, body);
+    } catch (e) {
+      const code = (e as { code?: unknown })?.code;
+      if (code === 'ALREADY_EXISTS')
+        throw new ApiError(409, 'conflict', (e as Error).message, { fw_code: code });
+      throw kernelError(e);
+    }
+    return env(() => ({ data }));
+  };
+  const labelArg = (v: unknown) => (v === undefined ? undefined : v === null ? null : String(v));
+  r.post('/v1/projects', ({ req }) => projectWrite(req, (c, b) => c.add(b)));
+  r.post('/v1/projects/{id}/labels', ({ req, params }) =>
+    projectWrite(req, (c, b) => {
+      const change: { brand?: string | null; category?: string | null } = {};
+      if (b.brand !== undefined) change.brand = labelArg(b.brand) ?? null;
+      if (b.category !== undefined) change.category = labelArg(b.category) ?? null;
+      return c.label(params.id ?? '', change);
+    }),
+  );
+  r.post('/v1/projects/{id}/brief', ({ req, params }) =>
+    projectWrite(req, (c, b) => c.brief(params.id ?? '', b)),
+  );
 
   r.get('/v1/projects/{id}', ({ params }) =>
     env(() => {

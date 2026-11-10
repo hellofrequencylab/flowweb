@@ -13,6 +13,7 @@ import { projectCommands } from './commands/project.ts';
 import { reconcileCommands } from './commands/reconcile.ts';
 import { relayCommands } from './commands/relay.ts';
 import { runCommands } from './commands/run.ts';
+import { setupCommands } from './commands/setup.ts';
 import { spendCommands } from './commands/spend.ts';
 import { statusCommands } from './commands/status.ts';
 import { streamCommands } from './commands/stream.ts';
@@ -23,6 +24,7 @@ import { woCommands } from './commands/wo.ts';
 import { EXIT, exitCodeFor, type Io, processIo, toCliError } from './output.ts';
 
 export const COMMANDS: Command[] = [
+  ...setupCommands,
   ...ledgerCommands,
   ...woCommands,
   ...streamCommands,
