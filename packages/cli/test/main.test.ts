@@ -132,6 +132,23 @@ function fakeClient(overrides: Partial<CoreClient> = {}): CoreClient {
     supervisorStatus: async () => supervisorReport,
     supervisorControl: async () => ({ ...supervisorReport, changed: true }),
     supervisorDial: async () => ({ ...supervisorReport, changed: true }),
+    policyCheck: async () => ({
+      effect: 'ask',
+      rule_id: 'pol_0120',
+      rule_version: 1,
+      tier: 'L3',
+      reason: 'Every merge is L3',
+      source: 'rule',
+      trail: ['pol_0120'],
+      policy_path: '/p/core-policy.yaml',
+    }),
+    policyApply: async () => ({
+      rules_changed: [],
+      rules_unchanged: 12,
+      budgets_set: [],
+      budgets_unchanged: 3,
+      policy_path: '/p/core-policy.yaml',
+    }),
     gc: async () => ({
       home: '/h',
       removed: [{ run_id: 'run_done', path: '/h/runs/run_done', status: 'succeeded' }],
@@ -304,6 +321,20 @@ describe('--json', () => {
     expect(JSON.parse(r.out)).toEqual({
       error: { code: 'REFUSED_BY_DATABASE', message: e.message, details: { code: 'FW-C-001' } },
     });
+  });
+});
+
+describe('policy', () => {
+  test('fw policy check prints the effect, tier and deciding rule', async () => {
+    const r = await run(['policy', 'check', '--action', 'merge_main', '--env', 'production']);
+    expect(r.code).toBe(EXIT.OK);
+    expect(r.out).toMatch(/^ask at L3 by pol_0120 v1: Every merge is L3/);
+  });
+
+  test('fw policy apply inside a run is a policy refusal (exit 3)', async () => {
+    const e = Object.assign(new Error('Owner only'), { code: 'OWNER_ONLY' });
+    const r = await run(['policy', 'apply'], fakeClient({ policyApply: async () => Promise.reject(e) }));
+    expect(r.code).toBe(EXIT.POLICY);
   });
 });
 
