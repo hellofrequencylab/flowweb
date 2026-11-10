@@ -33,7 +33,7 @@ export function writeRows(dir: string, rows: BacklogRow[]): string {
   return dir;
 }
 
-/** Fixture row files for all 67 rows of CORE-BACKLOG.json. */
+/** Fixture row files for every row of CORE-BACKLOG.json. */
 export function fixtureRows(dir: string): string {
   return writeRows(dir, backlogRows());
 }

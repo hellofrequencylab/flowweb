@@ -247,6 +247,32 @@ export interface GcReport {
   skipped: { name: string; reason: string }[];
 }
 
+/**
+ * `fw status`: the status strip of GET /v1/status when fwd answers (`daemon: "up"`), else the same
+ * figures read from the database read-only (`daemon: "down"`, `started_at` null, `daemon_detail`
+ * saying why fwd was not asked). `chain.head_seq` is the event log head either way.
+ */
+export interface StatusReport {
+  [key: string]: unknown;
+  daemon: 'up' | 'down';
+  source: 'daemon' | 'database';
+  home: string;
+  database: boolean;
+  started_at: string | null;
+  version?: string;
+  daemon_detail?: string;
+  chain: {
+    ok: boolean | null;
+    head_seq: number | null;
+    head_hash: string | null;
+    verified_at: string | null;
+    failed_seq: number | null;
+  } | null;
+  running_runs?: number;
+  open_cards?: number;
+  kill?: { engaged: boolean | null; reason: string | null } | null;
+}
+
 /** One stored stream (`fw stream list`). */
 export interface StreamView {
   id: string;
@@ -271,7 +297,28 @@ export interface StreamAddReport {
   event_seq: number;
 }
 
+/** One project with its labels (`fw project list`). */
+export interface ProjectView {
+  id: string;
+  slug: string;
+  name: string;
+  kind: string;
+  status: string;
+  repo_url: string | null;
+  created_at: string;
+  brand: string | null;
+  category: string | null;
+}
+
+export interface ProjectLabelReport {
+  project: ProjectView;
+  changed_fields: ('brand' | 'category')[];
+  event_seq: number | null;
+}
+
 export interface CoreClient {
+  /** fwd's status, or a read-only database read when fwd is down: optional, served by the daemon package. */
+  status?(): Promise<StatusReport>;
   ledgerSync(opts?: { rowsDir?: string }): Promise<SyncReport>;
   ledgerList(opts?: { status?: string; lane?: string }): Promise<RowView[]>;
   ledgerShow(code: string): Promise<RowDetail>;
@@ -283,6 +330,12 @@ export interface CoreClient {
   /** Stream commands: optional, so a provider without the stream model still loads. */
   streamAdd?(definition: unknown, opts?: { approvalId?: string }): Promise<StreamAddReport>;
   streamList?(): Promise<StreamView[]>;
+  /** Project commands: optional, so an older provider still loads. */
+  projectList?(filter?: { brand?: string; category?: string }): Promise<ProjectView[]>;
+  projectLabel?(
+    ref: string,
+    change: { brand?: string | null; category?: string | null },
+  ): Promise<ProjectLabelReport>;
   /** Run commands: optional, because only a provider with the runtime (the daemon) serves them. */
   runStart?(code: string, opts?: RunStartOptions): Promise<RunStartReport>;
   runList?(opts?: { status?: string; limit?: number }): Promise<RunSummary[]>;

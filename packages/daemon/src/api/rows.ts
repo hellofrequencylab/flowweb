@@ -95,7 +95,8 @@ export const CARD_SELECT = `
   FROM decision_cards c`;
 
 /**
- * Per-project row counts for the web UI. "Open" is waiting to start (open, ready); "in progress" is
+ * Per-project row counts for the web UI, and each project's brand and category (settings
+ * 'project_labels', written by `fw project label`; null when unlabelled). "Open" is waiting to start (open, ready); "in progress" is
  * claimed through merging; "waiting on owner" is awaiting_approval or blocked.
  */
 export const PROJECT_SELECT = `
@@ -104,7 +105,9 @@ export const PROJECT_SELECT = `
     (SELECT COUNT(*) FROM ledger_rows l WHERE l.project_id = p.id
        AND l.status IN ('claimed','running','verifying','merging')) AS rows_in_progress,
     (SELECT COUNT(*) FROM ledger_rows l WHERE l.project_id = p.id
-       AND l.status IN ('awaiting_approval','blocked')) AS rows_waiting_on_owner
+       AND l.status IN ('awaiting_approval','blocked')) AS rows_waiting_on_owner,
+    json_extract((SELECT value FROM settings WHERE key = 'project_labels'), '$."' || p.id || '".brand') AS brand,
+    json_extract((SELECT value FROM settings WHERE key = 'project_labels'), '$."' || p.id || '".category') AS category
   FROM projects p`;
 
 export const URGENCY_ORDER = `CASE c.urgency WHEN 'now' THEN 0 WHEN 'today' THEN 1 WHEN 'this_week' THEN 2 ELSE 3 END`;

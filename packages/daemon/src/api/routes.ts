@@ -1,11 +1,14 @@
 // Route table for /v1 (docs/api/LOCAL-API-V1.md). Read routes query the database through a
-// read-only Reader; the only C0 write is POST /v1/pair. Later write routes answer 501 with the row
-// that adds them. No business logic lives here.
+// read-only Reader. Writes: POST /v1/pair, and POST /v1/runs (the CLI hands a run to fwd; the
+// pipeline itself is deps.runs). Later write routes answer 501 with the row that adds them. No
+// business logic lives here.
 import { execFileSync } from 'node:child_process';
 import { existsSync, readFileSync } from 'node:fs';
 import { isAbsolute, join, resolve } from 'node:path';
 import { type Reader, sha256Hex } from '@fw/eventlog';
 import type { PairingStore, Principal } from '../auth.ts';
+import { FLOW_KEY, flowView, loadFlow } from '../flows/local-saturation.ts';
+import { type RunHost, RunHostStoppingError } from '../run-host.ts';
 import { isInside, RUN_ID_RE } from '../runtime/paths.ts';
 import { spendRollup } from '../spend.ts';
 import { rowIdOf } from './codes.ts';
@@ -23,6 +26,7 @@ import {
   pageOf,
   readJsonBody,
   sendJson,
+  sendJsonFlushed,
 } from './http.ts';
 import { Router } from './router.ts';
 import {
@@ -52,6 +56,67 @@ export interface ApiDeps {
   sseHeartbeatMs: number;
   /** Called by the server for every open SSE response so shutdown can end them. */
   trackStream: (end: () => void) => () => void;
+  /** The pipeline fwd hosts (POST /v1/runs). Absent: the route answers 501. */
+  runs?: RunsApi;
+}
+
+/** The body of POST /v1/runs, checked. */
+export interface RunStartBody {
+  code: string;
+  repo_dir: string;
+  adapter?: string;
+  scenario?: string;
+  base?: string;
+  host?: string;
+  max_wall_clock_s?: number;
+}
+
+export interface RunsApi {
+  host: RunHost;
+  /** Runs the pipeline to its end under signal and returns the run report. */
+  start(body: RunStartBody, signal: AbortSignal): Promise<unknown>;
+}
+
+function runStartBody(body: Record<string, unknown>): RunStartBody {
+  const str = (k: string, required = false): string | undefined => {
+    const v = body[k];
+    if (v === undefined || v === null) {
+      if (required) throw invalid(`${k} is required`);
+      return undefined;
+    }
+    if (typeof v !== 'string' || v === '') throw invalid(`${k} must be a non-empty string`);
+    return v;
+  };
+  const known = ['code', 'repo_dir', 'adapter', 'scenario', 'base', 'host', 'max_wall_clock_s'];
+  const extra = Object.keys(body).filter((k) => !known.includes(k));
+  if (extra.length) throw invalid(`unknown field(s): ${extra.join(', ')}`);
+  const out: RunStartBody = { code: str('code', true)!, repo_dir: str('repo_dir', true)! };
+  if (!isAbsolute(out.repo_dir)) throw invalid('repo_dir must be an absolute path');
+  for (const k of ['adapter', 'scenario', 'base', 'host'] as const) {
+    const v = str(k);
+    if (v !== undefined) out[k] = v;
+  }
+  const wall = body.max_wall_clock_s;
+  if (wall !== undefined && wall !== null) {
+    if (typeof wall !== 'number' || !Number.isInteger(wall) || wall <= 0)
+      throw invalid('max_wall_clock_s must be a positive whole number');
+    out.max_wall_clock_s = wall;
+  }
+  return out;
+}
+
+/** A kernel error (LedgerError, PipelineError...) as an API error; its own code goes in details.fw_code. */
+function kernelError(e: unknown): ApiError {
+  if (e instanceof ApiError) return e;
+  const code = (e as { code?: unknown })?.code;
+  if (typeof code !== 'string')
+    return new ApiError(500, 'internal', 'internal error', { reason: (e as Error)?.message ?? String(e) });
+  const details = (e as { details?: unknown }).details;
+  const extra = details && typeof details === 'object' ? (details as Record<string, unknown>) : {};
+  const message = (e as Error).message;
+  if (code === 'NOT_FOUND') return new ApiError(404, 'not_found', message, { ...extra, fw_code: code });
+  if (code === 'UNAVAILABLE') return new ApiError(503, 'unavailable', message, { ...extra, fw_code: code });
+  return new ApiError(400, 'validation_failed', message, { ...extra, fw_code: code });
 }
 
 /** The principal of the current request, set by the server before the handler runs. */
@@ -211,6 +276,16 @@ export function buildRouter(deps: ApiDeps): Router {
     }),
   );
 
+  // ---- flows (read-only) ----------------------------------------------------------------
+  r.get('/v1/flows/{key}', ({ params }) =>
+    env(() => {
+      if (params.key !== FLOW_KEY) throw notFound('flow', params.key);
+      const f = loadFlow(deps.repoRoot, deps.fwHome);
+      if (!f) throw notFound('flow', params.key);
+      return { data: flowView(f.cfg, f.state, f.budget, f.stream) };
+    }),
+  );
+
   r.get('/v1/status-reports', ({ query }) => {
     const kind = oneOf(query, 'kind', REPORT_KINDS);
     const page = pageOf(query);
@@ -230,9 +305,16 @@ export function buildRouter(deps: ApiDeps): Router {
   // ---- projects -----------------------------------------------------------------------------
   r.get('/v1/projects', ({ query }) => {
     const page = pageOf(query);
+    const params = { brand: query.get('brand') || null, category: query.get('category') || null };
     return env(() =>
       paged(page, (limit, offset) =>
-        reader.all<Row>(`${PROJECT_SELECT} ORDER BY p.created_at, p.id LIMIT ? OFFSET ?`, [limit, offset]),
+        reader.all<Row>(
+          `SELECT * FROM (${PROJECT_SELECT}) x
+            WHERE (@brand IS NULL OR lower(trim(x.brand)) = lower(trim(@brand)))
+              AND (@category IS NULL OR x.category = lower(@category))
+            ORDER BY x.created_at, x.id LIMIT @limit OFFSET @offset`,
+          { ...params, limit, offset },
+        ),
       ),
     );
   });
@@ -326,6 +408,38 @@ export function buildRouter(deps: ApiDeps): Router {
   );
 
   // ---- runs ---------------------------------------------------------------------------------
+  // The CLI hands a run to fwd: the pipeline runs in the daemon (which holds the writer) and the
+  // answer is the run report once the run has ended. CLI token only, never a browser session.
+  r.post('/v1/runs', async ({ req, res }) => {
+    const runs = deps.runs;
+    if (!runs) throw new ApiError(501, 'not_implemented', 'this fwd does not host runs');
+    const p = principalOf.get(req);
+    if (p?.kind !== 'cli' && p?.kind !== 'dev_no_auth')
+      throw new ApiError(403, 'forbidden', 'runs are started with the CLI token, not a browser session');
+    if (runs.host.stopping) throw new ApiError(503, 'unavailable', 'fwd is stopping; no new runs');
+    const body = runStartBody(await readJsonBody(req));
+    try {
+      await runs.host.track(async (signal) => {
+        let status = 200;
+        let out: unknown;
+        try {
+          const report = await runs.start(body, signal);
+          out = envelope(reader, () => ({ data: report }));
+        } catch (e) {
+          const err = kernelError(e);
+          status = err.status;
+          out = { error: { code: err.code, message: err.message, details: err.details } };
+        }
+        // Tracked until the answer is flushed, so a stopping fwd still tells the CLI how it ended.
+        await sendJsonFlushed(res, status, out);
+      });
+    } catch (e) {
+      if (e instanceof RunHostStoppingError) throw new ApiError(503, 'unavailable', e.message);
+      throw e;
+    }
+    return undefined;
+  });
+
   r.get('/v1/runs', ({ query }) => {
     const status = oneOf(query, 'status', RUN_STATUSES);
     const rowId = query.get('row_id');

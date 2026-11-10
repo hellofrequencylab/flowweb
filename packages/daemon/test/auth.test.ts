@@ -73,6 +73,14 @@ describe('auth', () => {
     const me = await call(d.port, 'GET', '/v1/session', { headers: { cookie: `other=1; ${session}` } });
     expect(me.json.data).toEqual({ paired_at: ok.json.data.paired_at, device_label: 'test browser' });
 
+    // Starting a run is for the CLI token only, never a browser session.
+    const run = await call(d.port, 'POST', '/v1/runs', {
+      headers: { cookie: session },
+      body: { code: 'FW-C-001', repo_dir: '/tmp' },
+    });
+    expect(run.status).toBe(403);
+    expect(run.json.error.code).toBe('forbidden');
+
     const again = await call(d.port, 'POST', '/v1/pair', { body: { code: d.pairingCode } });
     expect(again.status).toBe(401);
     // Only the hash of the session token is stored.

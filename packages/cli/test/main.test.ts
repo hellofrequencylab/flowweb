@@ -3,7 +3,7 @@ import { mkdtempSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { describe, expect, test } from 'vitest';
-import type { CoreClient, CoreClientFactory } from '../src/client.ts';
+import type { CoreClient, CoreClientFactory, StatusReport } from '../src/client.ts';
 import { COMMANDS, EXIT, helpText, type Io, invocationCwd, main } from '../src/index.ts';
 
 const SHA = 'a'.repeat(40);
@@ -122,8 +122,11 @@ function fakeClient(overrides: Partial<CoreClient> = {}): CoreClient {
     }),
     spendRollup: async ({ by }) => (by === 'agent' ? spendByAgent : []),
     doctor: async () => doctorReport,
+    status: async () => statusUp,
     streamAdd: async () => ({ stream: {} as never, approval_id: null, event_seq: 1 }),
     streamList: async () => [],
+    projectList: async () => [],
+    projectLabel: async () => ({ project: {} as never, changed_fields: [], event_seq: null }),
     gc: async () => ({
       home: '/h',
       removed: [{ run_id: 'run_done', path: '/h/runs/run_done', status: 'succeeded' }],
@@ -301,6 +304,55 @@ describe('doctor and gc', () => {
       expect(JSON.parse(r.out).error.code).toBe('CLIENT_UNAVAILABLE');
     },
   );
+});
+
+const chainOk = { ok: true, head_seq: 42, head_hash: 'e'.repeat(64), verified_at: 'now', failed_seq: null };
+const statusUp: StatusReport = {
+  daemon: 'up',
+  source: 'daemon',
+  home: '/h',
+  database: true,
+  started_at: '2026-11-09T10:00:00.000Z',
+  version: '0.0.0',
+  chain: chainOk,
+  running_runs: 1,
+  open_cards: 0,
+  kill: { engaged: false, reason: null },
+};
+const statusDown: StatusReport = {
+  ...statusUp,
+  daemon: 'down',
+  source: 'database',
+  started_at: null,
+  daemon_detail: 'fwd not reachable on 127.0.0.1:7317: connect ECONNREFUSED',
+};
+
+describe('status', () => {
+  test('fw status with fwd up names it and its start time', async () => {
+    const r = await run(['status']);
+    expect(r.code).toBe(EXIT.OK);
+    expect(r.out).toContain('daemon: up since 2026-11-09T10:00:00.000Z');
+    expect(r.out).toMatch(/chain\s+ok, head seq 42/);
+  });
+
+  test('fw status with fwd down exits 0 and says the figures come from the database', async () => {
+    const r = await run(['status'], fakeClient({ status: async () => statusDown }));
+    expect(r.code).toBe(EXIT.OK);
+    expect(r.out).toContain('daemon: down (fwd not reachable');
+    expect(r.out).toContain('read-only');
+    expect(r.out).toMatch(/head seq 42/);
+  });
+
+  test('fw status --json is the report', async () => {
+    const r = await run(['status', '--json'], fakeClient({ status: async () => statusDown }));
+    expect(JSON.parse(r.out)).toEqual(statusDown);
+  });
+
+  test('fw status on a client without it exits 1 with CLIENT_UNAVAILABLE', async () => {
+    const r = await run(['status', '--json'], without(fakeClient(), 'status'));
+    expect(r.code).toBe(EXIT.FAILED);
+    expect(JSON.parse(r.out).error.code).toBe('CLIENT_UNAVAILABLE');
+  });
 });
 
 describe('exit codes', () => {

@@ -1,6 +1,6 @@
 # fwd local API v1 (the contract @fw/web codes against)
 
-Status: implemented in C0 for the read routes and `POST /pair` (see packages/daemon/README.md); other writes return 501 until their rows land. Owner: the Core thread. The web UI codes against this file; the daemon implements it.
+Status: implemented in C0 for the read routes and `POST /pair`, in C1 `POST /runs` for the CLI (see packages/daemon/README.md); other writes return 501 until their rows land. Owner: the Core thread. The web UI codes against this file; the daemon implements it.
 Subset of the full plan's `app-plan/03-contracts/API.md` section 5, same paths and names.
 
 ## Transport
@@ -21,7 +21,7 @@ Every GET returns:
 - `as_of`: when the daemon read the database. `head_seq`: the event log head at read time. The UI shows the age of `as_of` and shows "unknown" when the daemon is unreachable; it never fabricates state.
 - Lists are paged: `?limit=` (default 50, max 200) and `?cursor=`.
 
-Errors: `{ "error": { "code": "not_found" | "validation_failed" | "kill_switch_engaged" | "stale_hash" | "unauthorized" (401) | "forbidden" (403: bad Host or cross-origin write) | "method_not_allowed" (405) | "not_implemented" (501: route lands in a later row) | "internal", "message": "...", "details": {} } }` with matching HTTP status.
+Errors: `{ "error": { "code": "not_found" | "validation_failed" | "kill_switch_engaged" | "stale_hash" | "unauthorized" (401) | "forbidden" (403: bad Host or cross-origin write) | "method_not_allowed" (405) | "not_implemented" (501: route lands in a later row) | "unavailable" (503: fwd is stopping) | "internal", "message": "...", "details": {} } }` with matching HTTP status.
 
 ## Read routes (C0 ships the first block; C2 the rest)
 
@@ -31,7 +31,7 @@ Errors: `{ "error": { "code": "not_found" | "validation_failed" | "kill_switch_e
 | `GET /status-reports?kind=daily&limit=1` | `status_reports` rows, `body` parsed; self-check at `body.self_check {passed, failed_query_ids[]}` | Console. Empty until the digest stream (FW-C-023, C2). |
 | `GET /policy` | `{ path, commit, sha256, text }` | Read-only Settings view. |
 | `GET /session` | `{ paired_at, device_label }` | C2 with pairing. |
-| `GET /projects`, `GET /projects/{id}` | `projects` rows | |
+| `GET /projects?brand=&category=`, `GET /projects/{id}` | `projects` rows, plus `brand` and `category` | `brand` matches ignoring case and outer spaces. |
 | `GET /ledger/rows?project_id=&status=&milestone=&q=` | `ledger_rows` rows | `probe` parsed. Status lives only here. |
 | `GET /ledger/rows/{id}` | row plus `evidence: evidence_bundles[]`, `runs: runs[]` (summary) | |
 | `GET /runs?status=&row_id=`, `GET /runs/{id}` | `runs` rows (with `cost_usd`, `sandbox_level`, `artifact_verified`); `/runs/{id}` adds `artifacts[]` (`run_artifacts` rows) | |
@@ -45,6 +45,7 @@ Errors: `{ "error": { "code": "not_found" | "validation_failed" | "kill_switch_e
 | `GET /decision-cards?status=open` | `decision_cards` rows, urgency then deadline | Inbox (C1/C2). |
 | `GET /decision-cards/{id}` | card plus `approval {payload_hash, head_sha, expires_at}`, `pr {url, number, current_head_sha, head_observed_at}`, `merge_slot {held, expires_at}`, `policy {rule_id, rule_version, reason, tier}`, `files [{path, added, removed}]` | `merge_slot` and `policy` are null until C1. |
 | `GET /approvals/{id}` | `approvals` row (payload_hash, head_sha, expires_at, status) | |
+| `GET /flows/{key}` | `local-saturation` only: `{ key, name, enabled, tier, gate_on[], offer, engine, channels[], placeholders[], thresholds, open_ring, rings: [{ring, open, average, areas: [{id, name, km_from_seed, population, saturation {score, coverage, cadence, response}, signals, awaiting_owner}]}], decision {kind, summary}, plan [{area_id, reason}], steps[], budget {period, max_usd, max_turns, spent_usd, used_turns, since}, awaiting_owner_total }` | Flows page. Read from `flows/<key>/` in the repo (config may be overridden in `$FW_HOME/flows/<key>/config.json`) and `$FW_HOME/flows/<key>/state.json`. Read-only: the flow drafts, the Owner posts. |
 
 ## Write routes (the only ones the web may call)
 
@@ -58,6 +59,14 @@ Errors: `{ "error": { "code": "not_found" | "validation_failed" | "kill_switch_e
 | `DELETE /session` | | Sign out. C2. |
 
 Deny is `POST /approvals/{id}/respond` with `decision: "deny"` and a `reason_code`.
+
+## CLI-only write routes (the web never calls these)
+
+| Route | Body | Notes |
+|---|---|---|
+| `POST /runs` | `{ code, repo_dir, adapter?, scenario?, base?, host?, max_wall_clock_s? }` (`repo_dir` absolute; no other fields) | C1. `fw run start` while fwd is up: the pipeline runs inside fwd, which holds the writer. CLI token only; a browser session gets 403 `forbidden`. Answers when the run ends: the envelope with `data` = the `fw run start` report (`code, ok, run_id, status, failure_class, reason, policy_code, row_status, work_order_id, branch, worktree, pr, evidence_bundle_id, bundle_hash, sandbox_level, cost_usd, cost_estimated`); a refusal before a run starts is a report with `status: "refused"`. A kernel error answers `validation_failed` (400) or `not_found` (404) with the kernel's own code in `details.fw_code` (for example `BAD_ARGUMENT`, `NOT_FOUND`). While fwd stops it answers 503 `unavailable`, and a run in flight is interrupted: it ends `killed`, `failure_class: "killed"`, with one `run.killed` whose `detail` starts with `interrupted` (`cause: "interrupted"`), and the held request still gets that report before `system.stopped`. |
+
+`fw status` uses `GET /status` when fwd answers. When it does not, the CLI reports the same shape read from the database read-only, with `daemon: "down"`, `source: "database"`, `started_at: null` and `chain.head_seq` = the newest event seq; it never writes the database.
 
 ## Event types the UI should expect first
 
@@ -76,4 +85,5 @@ Spend screen: refused-by-cap dispatches are `dispatch.refused_budget`; a cap hit
 - No CORS headers are sent. A dev web server on another port must proxy `/v1` and rewrite `Host` to `127.0.0.1:<port>`.
 - Ledger rows: `probe_spec`, `probe_expected`, `links` and `depends_on` are returned parsed (there is no single `probe` column).
 - Fields added for the web UI (were PROPOSED in its `wire.ts`): `status.oldest_open_card_at`; projects carry `rows_open` (open, ready), `rows_in_progress` (claimed to merging) and `rows_waiting_on_owner` (awaiting_approval, blocked); `/ledger/rows/{id}` adds `last_run_id` and `events[]` (the 50 newest events whose payload names the row); runs carry `artifact_verified` and `/runs/{id}` `artifacts[]`; decision cards carry `project_name`.
+- Project labels: `brand` (free text, for example `Frequency`) and `category` (`marketing`, `product`, `ops`, `sales`, `support`, `finance`, `other`), both null when unset. They live in one JSON document in `settings('project_labels')`, keyed by project id, so they needed no schema change. Set them with `fw project label <project> --brand <b> --category <c>`; each change writes one `project.updated` event. The hosted mirror filters on both.
 - Still not served, because C0 records no data for them: row `description`, `blocked_reason`, `acceptance[]`, `last_probe_sha/target/output_ref`; run `agent_role`, `model`, `cost_estimated` (owner question 14), `verifier`; step `label`, `excerpt`, `denied_by_policy`, `untrusted`; evidence view `tests_removed_or_skipped`, `tokens`, `verifier_summary`; approval `current_head_sha`, `merge_slot`, `cost_usd`; spend `vendors_reporting/vendors_total` as counts (status already lists `vendors_reporting[]` by name).

@@ -19,6 +19,7 @@ export {
   type Daemon,
   type DaemonOptions,
   DEFAULT_PORT,
+  DEFAULT_STOP_TIMEOUT_MS,
   ensureFwHome,
   HOME_DIRS,
   LOOPBACK,
@@ -40,7 +41,18 @@ export {
   type Runner,
   type TokenScopeReport,
 } from './edge-git/index.ts';
-export { createCoreClient, type DaemonCoreClient, type RunStartRequest } from './local-client.ts';
+export {
+  FwdUnreachableError,
+  fwdEndpoint,
+  fwdError,
+  fwdRequest,
+} from './fwd-client.ts';
+export {
+  createCoreClient,
+  type DaemonCoreClient,
+  type RunStartRequest,
+  type StatusReport,
+} from './local-client.ts';
 export {
   buildEvidenceBundle,
   type EvidenceInput,
@@ -66,6 +78,7 @@ export {
   supervise,
 } from './pipeline/supervisor.ts';
 export { ORPHAN_STATES, type ReconcileReport, reconcileOnStart } from './reconciler.ts';
+export { RunHost, RunHostStoppingError } from './run-host.ts';
 export {
   type ArtifactCheck,
   type ArtifactGuardInput,

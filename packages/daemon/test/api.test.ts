@@ -2,6 +2,7 @@
 // the 501 write routes, the startup reconciler and SSE. Auth is off here (devNoAuth); auth.test.ts covers it.
 import { request } from 'node:http';
 import { sha256Hex } from '@fw/eventlog';
+import { labelProject } from '@fw/ledger';
 import { afterAll, beforeAll, describe, expect, test } from 'vitest';
 import { type Daemon, startDaemon } from '../src/daemon.ts';
 import { call, DIFF_TEXT, IDS, type Res, seed, tempHome } from './api-fixtures.ts';
@@ -125,6 +126,20 @@ describe('projects and ledger', () => {
     const miss = await get('/projects/prj_nope');
     expect(miss.status).toBe(404);
     expect(miss.json.error.code).toBe('not_found');
+  });
+
+  test('projects carry brand and category, and filter by them', async () => {
+    const before = (await get(`/projects/${IDS.project}`)).json.data;
+    expect([before.brand, before.category]).toEqual([null, null]);
+    labelProject(d.writer, IDS.project, { brand: 'Frequency', category: 'marketing' });
+    const after = (await get(`/projects/${IDS.project}`)).json.data;
+    expect([after.brand, after.category]).toEqual(['Frequency', 'marketing']);
+    const ids = async (q: string) => (await get(`/projects?${q}`)).json.data.map((p: { id: string }) => p.id);
+    expect(await ids('brand=frequency')).toEqual([IDS.project]);
+    expect(await ids('category=marketing')).toEqual([IDS.project]);
+    expect(await ids('brand=Other')).toEqual([]);
+    expect(await ids('category=ops')).toEqual([]);
+    labelProject(d.writer, IDS.project, { brand: null, category: null });
   });
 
   test('ledger rows carry code and parsed JSON columns, unchanged column names', async () => {
@@ -335,6 +350,18 @@ describe('spend, budgets, cards, approvals, reports, policy', () => {
     expect(p.text).toContain('policy_version');
     expect(p.commit === null || /^[0-9a-f]{40}$/.test(p.commit)).toBe(true);
   });
+
+  test('/flows/local-saturation returns the rings, the next move and the budget; other keys are 404', async () => {
+    const res = await get('/flows/local-saturation');
+    expect(res.status).toBe(200);
+    const f = res.json.data;
+    expect(f.key).toBe('local-saturation');
+    expect(f.rings[0].open).toBe(true);
+    expect(f.decision.kind).toBe('keep_working');
+    expect(f.budget.max_usd).toBe(5);
+    expect(f.gate_on).toEqual(['publish_external', 'outbound_email_external']);
+    expect((await get('/flows/other')).status).toBe(404);
+  });
 });
 
 describe('errors', () => {
@@ -351,6 +378,32 @@ describe('errors', () => {
     const respond = await call(d.port, 'POST', `/v1/approvals/${IDS.approval}/respond`, { body: {} });
     expect(respond.json.error.details.row).toBe('FW-C-010');
     expect((await call(d.port, 'DELETE', '/v1/session')).status).toBe(501);
+  });
+});
+
+describe('POST /v1/runs', () => {
+  const post = (body: unknown) => call(d.port, 'POST', '/v1/runs', { body });
+
+  test('checks the body before any run starts', async () => {
+    for (const [body, message] of [
+      [{ repo_dir: '/tmp' }, /code is required/],
+      [{ code: 'FW-C-001' }, /repo_dir is required/],
+      [{ code: 'FW-C-001', repo_dir: 'relative/dir' }, /absolute/],
+      [{ code: 'FW-C-001', repo_dir: '/tmp', max_wall_clock_s: 0 }, /positive whole number/],
+      [{ code: 'FW-C-001', repo_dir: '/tmp', surprise: true }, /unknown field/],
+    ] as const) {
+      const res = await post(body);
+      expect(res.status, JSON.stringify(body)).toBe(400);
+      expect(res.json.error.code).toBe('validation_failed');
+      expect(res.json.error.message).toMatch(message);
+    }
+    expect(d.runs.size).toBe(0);
+  });
+
+  test('a kernel error keeps its own code in details.fw_code', async () => {
+    const res = await post({ code: 'FW-Z-999', repo_dir: '/tmp' });
+    expect(res.status).toBe(404);
+    expect(res.json.error).toMatchObject({ code: 'not_found', details: { fw_code: 'NOT_FOUND' } });
   });
 });
 

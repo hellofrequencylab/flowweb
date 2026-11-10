@@ -1,11 +1,14 @@
 // In-process core client of the daemon: the ledger's client (every ledger, work order and audit
 // command) plus the run commands, which need the daemon's runtime. The CLI finds it through the
 // `fw.coreClient` field of this package's package.json (priority 20, above the ledger's 10), so the
-// CLI still imports only @fw/contracts. In C1 the same calls go over loopback HTTP to fwd.
+// CLI still imports only @fw/contracts.
 // One process holds one writer lock: the run commands close the ledger client's store first.
+// When fwd is running it holds the writer lock, so `runStart` hands the run to fwd over loopback HTTP
+// (POST /v1/runs, CLI token) and fwd owns it. `status` asks fwd (GET /v1/status) and, when fwd is
+// down, reads the database read-only.
 import { existsSync, mkdirSync } from 'node:fs';
 import { dirname, join, resolve } from 'node:path';
-import { openStore, type Store } from '@fw/eventlog';
+import { openStore, type Store, type Writer, WriterLockError } from '@fw/eventlog';
 import {
   createCoreClient as createLedgerClient,
   dbPath,
@@ -14,6 +17,9 @@ import {
   type LocalCoreClient,
   resolveHome,
 } from '@fw/ledger';
+import { type ChainStatus, statusOf } from './api/status.ts';
+import { VERSION } from './daemon.ts';
+import { FwdUnreachableError, fwdEndpoint, fwdError, fwdRequest } from './fwd-client.ts';
 import { listRuns, type RunDetail, type RunSummary, showRun } from './pipeline/queries.ts';
 import { type RunStartReport, runStart } from './pipeline/run-start.ts';
 import { type DoctorReport, runDoctor } from './runtime/doctor.ts';
@@ -29,7 +35,20 @@ export interface RunStartRequest {
   repoDir?: string;
 }
 
+/**
+ * `fw status`: GET /v1/status when fwd answers (`daemon: "up"`, `source: "daemon"`); otherwise the
+ * same figures read from the database read-only (`daemon: "down"`, `source: "database"`, `started_at`
+ * null). `daemon_detail` says why fwd was not asked. `database: false` when no database exists yet.
+ */
+export type StatusReport = Record<string, unknown> & {
+  daemon: 'up' | 'down';
+  source: 'daemon' | 'database';
+  home: string;
+  database: boolean;
+};
+
 export interface DaemonCoreClient extends LocalCoreClient {
+  status(): Promise<StatusReport>;
   runStart(code: string, opts?: RunStartRequest): Promise<RunStartReport>;
   runList(opts?: { status?: string; limit?: number }): Promise<RunSummary[]>;
   runShow(runId: string): Promise<RunDetail>;
@@ -49,6 +68,7 @@ export function createCoreClient(opts: LocalClientOptions): DaemonCoreClient {
   const open = (write: boolean): Store => {
     if (store && (!write || !readonly)) return store;
     store?.close();
+    store = undefined;
     ledger.close();
     if (!existsSync(path))
       throw new LedgerError('NO_DATABASE', `no ledger database at ${path} (run fw ledger sync first)`);
@@ -78,10 +98,79 @@ export function createCoreClient(opts: LocalClientOptions): DaemonCoreClient {
     ledgerClose: viaLedger(ledger.ledgerClose),
     woIssue: viaLedger(ledger.woIssue),
     auditVerify: viaLedger(ledger.auditVerify),
+    async status() {
+      const ep = fwdEndpoint(home);
+      let detail: string;
+      if (!ep.token && process.env.FW_DEV_NO_AUTH !== '1') {
+        detail = `no CLI token in ${join(home, 'pairing')} (fwd has never run in this home)`;
+      } else {
+        try {
+          const res = await fwdRequest(ep, 'GET', '/v1/status', undefined, 5000);
+          if (res.status === 200) {
+            const data = (res.body.data ?? {}) as Record<string, unknown>;
+            return {
+              ...data,
+              daemon: 'up',
+              source: 'daemon',
+              home,
+              database: true,
+              port: ep.port,
+              head_seq: res.body.head_seq ?? null,
+            } as StatusReport;
+          }
+          detail = `fwd on 127.0.0.1:${ep.port} answered HTTP ${res.status}: ${fwdError(res).message}`;
+        } catch (e) {
+          if (!(e instanceof FwdUnreachableError)) throw e;
+          detail = e.message;
+        }
+      }
+      // Fallback: a direct read-only database read. Never takes the writer lock, never writes.
+      const base = { daemon: 'down' as const, source: 'database' as const, home, daemon_detail: detail };
+      store?.close();
+      store = undefined;
+      ledger.close();
+      if (!existsSync(path)) return { ...base, database: false, started_at: null, chain: null };
+      const ro = openStore({ path, readonly: true, lockPath: join(home, 'fwd.lock') });
+      try {
+        const reader = ro.reader();
+        const v = ro.verifyChain();
+        const head = reader.get<{ s: number | null }>('SELECT MAX(seq) AS s FROM events')?.s ?? 0;
+        const chain: ChainStatus = {
+          ok: v.ok,
+          head_seq: head,
+          head_hash: v.ok && v.count > 0 ? v.head : null,
+          verified_at: new Date().toISOString(),
+          failed_seq: v.ok ? null : v.seq,
+        };
+        const stopped = reader.get<{ ts: string; payload: string }>(
+          "SELECT ts, payload FROM events WHERE type IN ('system.started','system.stopped') ORDER BY seq DESC LIMIT 1",
+        );
+        return {
+          ...statusOf({ reader, version: VERSION, startedAt: null, chain: () => chain }),
+          ...base,
+          database: true,
+          started_at: null,
+          head_seq: head,
+          last_daemon_event: stopped ? { ts: stopped.ts, ...(JSON.parse(stopped.payload) as object) } : null,
+        };
+      } finally {
+        ro.close();
+      }
+    },
     streamAdd: viaLedger(ledger.streamAdd),
     streamList: viaLedger(ledger.streamList),
+    projectList: viaLedger(ledger.projectList),
+    projectLabel: viaLedger(ledger.projectLabel),
     async runStart(code, o = {}) {
-      return runStart(open(true).writer!, code, {
+      let writer: Writer;
+      try {
+        writer = open(true).writer!;
+      } catch (e) {
+        // fwd holds the writer: hand the run to it, so fwd owns the run (and can interrupt it).
+        if (e instanceof WriterLockError) return runStartViaFwd(e, code, o);
+        throw e;
+      }
+      return runStart(writer, code, {
         home,
         repoDir: resolve(o.repoDir ?? repoDir),
         ...(o.adapter !== undefined ? { adapter: o.adapter } : {}),
@@ -120,4 +209,33 @@ export function createCoreClient(opts: LocalClientOptions): DaemonCoreClient {
       ledger.close();
     },
   };
+
+  async function runStartViaFwd(
+    lock: WriterLockError,
+    code: string,
+    o: RunStartRequest,
+  ): Promise<RunStartReport> {
+    const ep = fwdEndpoint(home);
+    let res: Awaited<ReturnType<typeof fwdRequest>>;
+    try {
+      res = await fwdRequest(ep, 'POST', '/v1/runs', {
+        code,
+        repo_dir: resolve(o.repoDir ?? repoDir),
+        ...(o.adapter !== undefined ? { adapter: o.adapter } : {}),
+        ...(o.scenario !== undefined ? { scenario: o.scenario } : {}),
+        ...(o.base !== undefined ? { base: o.base } : {}),
+        ...(o.host !== undefined ? { host: o.host } : {}),
+        ...(o.maxWallClockS !== undefined ? { max_wall_clock_s: o.maxWallClockS } : {}),
+      });
+    } catch (e) {
+      // Nothing answers on the port: whoever holds the lock is not a reachable fwd. Report the lock.
+      if (e instanceof FwdUnreachableError) {
+        lock.message = `${lock.message} (and no fwd answered on 127.0.0.1:${ep.port}; set FW_PORT to the port fwd listens on)`;
+        throw lock;
+      }
+      throw e;
+    }
+    if (res.status !== 200) throw fwdError(res);
+    return res.body.data as RunStartReport;
+  }
 }

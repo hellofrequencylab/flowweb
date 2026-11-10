@@ -577,4 +577,91 @@ describe('walking skeleton: failure cases', () => {
     expect(count('run.failed')).toBe(1);
     expect(count('run.started')).toBe(1);
   }, 90_000);
+
+  test('with fwd up, fw run start hands the run to fwd; stopping fwd records it as interrupted; fw status reads either way', async () => {
+    const w = world('hosted', ['FW-T-009']);
+    expect(w.fw('ledger', 'sync').code).toBe(0);
+    const d = await startDaemon({ fwHome: w.home, port: 0, log: () => {} });
+    const env: NodeJS.ProcessEnv = { ...process.env, FW_HOME: w.home, FW_PORT: String(d.port) };
+    delete env.INIT_CWD;
+    delete env.FW_VENDOR;
+    delete env.FW_CORE_CLIENT;
+    const fwAsync = (args: string[]) => {
+      const child = spawn(process.execPath, ['--import', 'tsx', BIN, ...args, '--repo', w.repo], {
+        cwd: ROOT,
+        env,
+      });
+      let out = '';
+      child.stdout!.on('data', (b: Buffer) => {
+        out += b.toString('utf8');
+      });
+      const code = new Promise<number | null>((ok) => child.on('exit', (c) => ok(c)));
+      return { code, out: () => out };
+    };
+    let stopped = false;
+    try {
+      const up = fwAsync(['status', '--json']);
+      expect(await up.code).toBe(0);
+      expect(JSON.parse(up.out())).toMatchObject({ daemon: 'up', source: 'daemon', started_at: d.startedAt });
+
+      const cli = fwAsync(['run', 'start', 'FW-T-009', '--adapter', 'fake', '--scenario', 'hang', '--json']);
+      let runId: string | undefined;
+      let pgid: number | undefined;
+      for (let i = 0; i < 600 && pgid === undefined; i++) {
+        await new Promise((ok) => setTimeout(ok, 50));
+        const ev = w.db((r) =>
+          r.get<{ run_id: string; payload: string }>(
+            "SELECT run_id, payload FROM events WHERE type = 'run.started'",
+          ),
+        );
+        if (ev) {
+          runId = ev.run_id;
+          pgid = JSON.parse(ev.payload).vendor_pgid as number;
+        }
+      }
+      expect(runId).toBeDefined();
+      expect(d.runs.size).toBe(1); // fwd owns the run, not the CLI process
+      expect(groupAlive(pgid!)).toBe(true);
+
+      await d.stop('signal SIGTERM');
+      stopped = true;
+      expect(groupAlive(pgid!)).toBe(false);
+      // The CLI still gets the run's ending from fwd.
+      expect(await cli.code).toBe(1);
+      expect(JSON.parse(cli.out())).toMatchObject({
+        run_id: runId,
+        status: 'killed',
+        failure_class: 'killed',
+      });
+      expect(runRow(w, runId!)).toMatchObject({ status: 'killed', failure_class: 'killed' });
+      expect(leaseStatuses(w, runId!)).toEqual(['released']);
+      const ends = eventsOf(w, runId!).filter((e) => ['run.failed', 'run.killed'].includes(e.type));
+      expect(ends).toHaveLength(1);
+      expect(JSON.parse(ends[0]!.payload)).toMatchObject({
+        cause: 'interrupted',
+        detail: expect.stringMatching(/^interrupted/),
+      });
+      const stop = w.db((r) =>
+        r.get<{ payload: string }>(
+          "SELECT payload FROM events WHERE type = 'system.stopped' ORDER BY seq DESC",
+        ),
+      );
+      expect(JSON.parse(stop!.payload)).toMatchObject({ clean: true, runs_interrupted: 1 });
+
+      const dbFile = join(w.home, 'db/fw.sqlite');
+      const before = readFileSync(dbFile);
+      const head = w.db((r) => r.get<{ s: number }>('SELECT MAX(seq) AS s FROM events')!.s);
+      const down = fwAsync(['status', '--json']);
+      expect(await down.code).toBe(0);
+      expect(JSON.parse(down.out())).toMatchObject({
+        daemon: 'down',
+        source: 'database',
+        started_at: null,
+        chain: { ok: true, head_seq: head },
+      });
+      expect(readFileSync(dbFile).equals(before)).toBe(true);
+    } finally {
+      if (!stopped) await d.stop('test done');
+    }
+  }, 90_000);
 });

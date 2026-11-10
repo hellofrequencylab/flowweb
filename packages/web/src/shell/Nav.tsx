@@ -8,6 +8,7 @@ const ITEMS: { to: string; label: string; short: string; icon: IconName; count?:
   { to: '/ledger', label: 'Logs', short: 'Logs', icon: 'logs' },
   { to: '/runs', label: 'Runs', short: 'Runs', icon: 'runs' },
   { to: '/spend', label: 'Spend', short: 'Spend', icon: 'spend' },
+  { to: '/flows', label: 'Flows', short: 'Flows', icon: 'flows' },
 ];
 
 function active(path: string, to: string) {
@@ -54,7 +55,7 @@ export function TopNav() {
 export function BottomNav() {
   const { loc } = useRouter();
   const tabs = [...ITEMS.slice(0, 3), { to: '/more', label: 'More', short: 'More', icon: 'more' as const }];
-  const moreActive = ['/runs', '/spend', '/settings', '/more'].some((p) => loc.path.startsWith(p));
+  const moreActive = ['/runs', '/spend', '/flows', '/settings', '/more'].some((p) => loc.path.startsWith(p));
   return (
     <nav className="bottomnav" aria-label="Main">
       <ul>
@@ -82,6 +83,12 @@ export function MorePage() {
   const items: { to: string; label: string; desc: string; icon: IconName }[] = [
     { to: '/runs', label: 'Runs', desc: 'Every run, live and finished', icon: 'runs' },
     { to: '/spend', label: 'Spend', desc: 'Today against the cap, and the last seven days', icon: 'spend' },
+    {
+      to: '/flows',
+      label: 'Flows',
+      desc: 'Marketing engine: rings, saturation, drafts waiting for you',
+      icon: 'flows',
+    },
     { to: '/projects', label: 'Projects', desc: 'Repositories FlowWeb works in', icon: 'logs' },
     {
       to: '/settings',

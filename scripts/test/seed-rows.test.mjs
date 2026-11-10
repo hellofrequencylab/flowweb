@@ -30,11 +30,12 @@ test('status and other state fields never reach a row file', () => {
   assert.deepEqual(Object.keys(def), ['id', 'title']);
 });
 
-test('fresh seed writes 67 files, second run changes nothing', () => {
+test('fresh seed writes one file per backlog row, second run changes nothing', () => {
   const dir = fixture();
   const first = seed({ root: dir, log: quiet });
   assert.equal(first.ok, true);
-  assert.equal(first.changed.length, 67);
+  const rows = JSON.parse(readFileSync(join(repo, 'ledger/backlog/CORE-BACKLOG.json'), 'utf8')).rows.length;
+  assert.equal(first.changed.length, rows);
   assert.ok(existsSync(join(dir, 'ledger/rows/WS-P0-044.json')));
   assert.doesNotMatch(readFileSync(join(dir, 'ledger/rows/FW-C-001.json'), 'utf8'), /"status"/);
   assert.equal(seed({ root: dir, log: quiet }).changed.length, 0);

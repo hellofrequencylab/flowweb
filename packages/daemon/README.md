@@ -35,8 +35,28 @@ On start `fwd`:
    yet) prints a pairing code, kept in `$FW_HOME/pairing/code` (0600) until used.
 7. Listens on `127.0.0.1` only and prints `listening on http://127.0.0.1:<port>/v1`.
 
-SIGINT or SIGTERM appends `system.stopped` (`clean: true`), ends open event streams, closes the
-store and exits 0.
+SIGINT or SIGTERM first stops taking runs and interrupts every run fwd hosts: its vendor process
+group is killed and the run ends `killed` with `failure_class = 'killed'` and one `run.killed`
+whose `detail` starts with `interrupted` (`cause: "interrupted"`; a run stopped before its vendor
+started ends `failed` the same way), and its lease is released. Then fwd appends `system.stopped`
+(`clean: true`, `runs_interrupted: <n>`), ends open event streams, closes the store and exits 0. A
+run that has not ended within 20 s (`stopTimeoutMs`) is left to the reconciler of the next start
+and the stop is recorded with `clean: false`.
+
+## Runs and `fw status` while fwd is up
+
+fwd holds the writer lock, so a CLI cannot write while it runs. `fw run start` then hands the run
+to fwd (`POST /v1/runs` with the CLI token; the CLI finds fwd through `FW_PORT`, default 7317, and
+`$FW_HOME/pairing/cli.token`). The pipeline runs inside fwd with fwd's environment (`FW_VENDOR`,
+`FW_GIT_HOST`, credentials), and the CLI prints the run report when the run ends. If the CLI goes
+away the run goes on; stopping fwd interrupts it as above. With no fwd answering, `fw run start`
+runs in the CLI process as before (exit 4 when some other process holds the lock).
+
+`fw status [--json]` asks fwd (`GET /v1/status`, plus `source: "daemon"`). When fwd does not
+answer it exits 0 with `daemon: "down"`, `source: "database"`, `started_at: null` and the same
+figures read from the database read-only (no writer lock, the database file is not changed),
+including `chain` (verified on the spot, `head_seq` = the newest event seq) and
+`last_daemon_event` (the newest `system.started` or `system.stopped`).
 
 ## Flags and environment
 
@@ -76,6 +96,7 @@ opaque `?cursor=`. Column names are unchanged and JSON columns are parsed.
 | Route                                                       | C0  | Notes                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                          |
 | ----------------------------------------------------------- | --- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
 | `POST /v1/pair`                                             | yes | The only C0 write.                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                             |
+| `POST /v1/runs`                                             | C1  | CLI token only (a browser session gets 403). Body `{code, repo_dir, adapter?, scenario?, base?, host?, max_wall_clock_s?}`; runs the pipeline in fwd and answers with the `fw run start` report in the envelope when the run ends. Kernel errors keep their code in `details.fw_code`; 503 `unavailable` while fwd stops.                                                                                                                                                                                                                                      |
 | `GET /v1/session`                                           | yes | `{paired_at, device_label}` of the calling session (`device_label: "cli"` for the token).                                                                                                                                                                                                                                                                                                                                                                                                                                                                      |
 | `GET /v1/status`                                            | yes | Kill switch from `settings`; chain from the cached `verifyChain`; spend today (UTC) from `spend_entries`; `daily_cap_usd` from the fleet `day` budget (null if none); breaker from `breaker.tripped`/`breaker.reset` events; `paused_by_budget` when any non-run budget is exhausted; `sandbox_level` from the latest `run.started` that recorded one (else null); `open_cards`; `running_runs` (status `running`). Kill details (`engaged_at`, `reason`, `runs_to_halt`, `runs_halted`, `keys_revoked`) come from the setting or the engage event, else null. |
 | `GET /v1/status-reports?kind=&limit=`                       | yes | Newest first, `body` parsed.                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                   |

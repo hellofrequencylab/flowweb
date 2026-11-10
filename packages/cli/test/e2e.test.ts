@@ -18,6 +18,10 @@ const home = join(dir, 'home');
 const rows = join(dir, 'rows');
 const repo = join(dir, 'repo');
 const db = join(home, 'db/fw.sqlite');
+/** Every row in CORE-BACKLOG.json; the count grows when the Owner adds a row. */
+const ROWS = (
+  JSON.parse(readFileSync(join(ROOT, 'ledger/backlog/CORE-BACKLOG.json'), 'utf8')) as { rows: unknown[] }
+).rows.length;
 
 function fw(...args: string[]) {
   const env: NodeJS.ProcessEnv = { ...process.env, FW_HOME: home };
@@ -95,24 +99,26 @@ describe('fw ledger', () => {
     expect(findProviders(ROOT).map((p) => p.package)).toContain('@fw/ledger');
   });
 
-  test('sync imports all 67 rows, reports an acyclic graph, and is idempotent', () => {
+  test('sync imports every backlog row, reports an acyclic graph, and is idempotent', () => {
     const first = fw('ledger', 'sync', '--rows', rows);
     expect(first.err).toBe('');
     expect(first.code).toBe(0);
     expect(first.out).toMatch(
-      /^ledger sync: 67 created, 0 unchanged, 0 refused \(dependency graph acyclic: 67 rows/,
+      new RegExp(
+        `^ledger sync: ${ROWS} created, 0 unchanged, 0 refused \\(dependency graph acyclic: ${ROWS} rows`,
+      ),
     );
     const hash = contentHash();
     const second = fw('ledger', 'sync', '--rows', rows, '--json');
     expect(second.code).toBe(0);
     expect(JSON.parse(second.out)).toMatchObject({ created: [], refused: [], graph: { acyclic: true } });
-    expect(JSON.parse(second.out).unchanged).toHaveLength(67);
+    expect(JSON.parse(second.out).unchanged).toHaveLength(ROWS);
     expect(contentHash()).toBe(hash);
   });
 
   test('list, show and next', () => {
     const list = JSON.parse(fw('ledger', 'list', '--json').out) as { code: string; status: string }[];
-    expect(list).toHaveLength(67);
+    expect(list).toHaveLength(ROWS);
     expect(new Set(list.map((r) => r.status))).toEqual(new Set(['open']));
     expect(fw('ledger', 'list', '--status', 'ready', '--json').out.trim()).toBe('[]');
     expect(fw('ledger', 'list', '--status', 'nonsense').code).toBe(2);

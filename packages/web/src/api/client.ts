@@ -582,6 +582,8 @@ export const api = {
         name: p.name,
         repo: p.repo_url,
         status: p.status,
+        brand: p.brand ?? null,
+        category: p.category ?? null,
         rows_open: p.rows_open,
         rows_in_progress: p.rows_in_progress,
         rows_waiting_on_owner: p.rows_waiting_on_owner,
@@ -737,6 +739,11 @@ export const api = {
         velocity_usd_per_hour: fleetDay?.breaker_velocity_usd_per_h ?? null,
       },
     };
+  },
+
+  async flow(key: string): Promise<V.Flow> {
+    const e = await get<Omit<V.Flow, 'data_as_of'>>(`/flows/${encodeURIComponent(key)}`);
+    return { data_as_of: e.as_of, ...e.data };
   },
 
   async policy(): Promise<V.PolicyFile> {
