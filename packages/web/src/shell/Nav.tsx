@@ -1,4 +1,4 @@
-import { useLive } from '../api/live';
+import { useWaiting } from '../table/waiting';
 import { Icon, type IconName } from '../ui-kit/Icon';
 import { Link, useRouter } from './router';
 import { tabOf } from './routes';
@@ -13,14 +13,14 @@ const ITEMS: { to: string; label: string; short: string; icon: IconName; count?:
 
 const active = (path: string, to: string) => tabOf(path) === to;
 
-/** Saffron count of cards waiting on the Owner. Hidden when it is not current. */
+/** Saffron count of what waits on the Owner: open decisions plus ready messages. Hidden when not known. */
 function Count() {
-  const { status, connection } = useLive();
-  if (!status || connection === 'down' || status.cards_open === 0) return null;
+  const { total } = useWaiting();
+  if (!total) return null;
   return (
     <span className="count">
-      <span aria-hidden="true">{status.cards_open}</span>
-      <span className="visually-hidden">, {status.cards_open} waiting</span>
+      <span aria-hidden="true">{total}</span>
+      <span className="visually-hidden">, {total} waiting</span>
     </span>
   );
 }
