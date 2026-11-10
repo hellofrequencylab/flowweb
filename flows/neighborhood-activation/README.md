@@ -15,8 +15,8 @@ replaces the local saturation flow (FW-C-031). Row: FW-C-032. Probe: `pnpm probe
 
 ## Regions
 
-In the Owner's order: North County San Diego (the seed), Orange County, Inland North (Temecula Valley, still a
-guess), San Diego. Borders count both ways. Only the newest opened region gets outreach. Earlier ones are in
+In the Owner's order: North County San Diego (the seed), Orange County, Inland North (the Temecula Valley, which the
+Owner confirmed), San Diego. Borders count both ways. Only the newest opened region gets outreach. Earlier ones are in
 upkeep, and turn active again after `upkeep_relapse_weeks` (2) below target.
 
 ## Fully active
