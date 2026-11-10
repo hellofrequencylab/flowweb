@@ -5,11 +5,17 @@
 // the conformance suite registered for those fixtures in packages/adapters/test/claude.test.ts.
 // The probe runs the vendor through a stub that logs every argv and then hands over to the replay
 // CLI, so it can prove what was (and was not) run. Credentials reach the adapter as
-// StartOptions.credentialEnv (the daemon injects them); the API-key lane is ANTHROPIC_API_KEY and
-// CLAUDE_CODE_OAUTH_TOKEN / ANTHROPIC_AUTH_TOKEN (subscription or OAuth kinds) are refused.
+// StartOptions.credentialEnv (the daemon injects them); the API-key lane (the default) is
+// ANTHROPIC_API_KEY and CLAUDE_CODE_OAUTH_TOKEN / ANTHROPIC_AUTH_TOKEN are refused there. The sign-in
+// lane (auth: 'signin', or FW_CLAUDE_AUTH=signin) takes CLAUDE_CODE_OAUTH_TOKEN for a Claude Pro/Max
+// plan (Owner decision 16 in docs/decisions/C0-owner-questions.md, Daniel, 2026-11-10).
 // Acceptance (WS-P0-030):
 //   - passes the conformance suite against a recorded-CLI fixture (all 8 cases)
 //   - refuses to start if the credential kind is not api_key, before the CLI runs with a prompt
+//     (default lane)
+//   - (decision 16) sign-in lane: with CLAUDE_CODE_OAUTH_TOKEN injected the run completes without
+//     --bare (which never reads OAuth), the token is not in argv and never leaves the adapter; with
+//     no token it is refused before the CLI runs with a prompt
 //   - stores session_id and resumes it in a second run: the second run passes --resume <id> and
 //     reports the same session id. Storing it on the runs row is proven by c0/run-fake-e2e.
 //   - (KICKOFF Prompt 4) preflight fails closed when --help lacks a required flag, and the fingerprint
@@ -113,6 +119,33 @@ describe('c0/claude-conformance', () => {
       ).toBe(true);
       expect(s.prompted(), 'the CLI never ran with a prompt').toEqual([]);
     }
+  });
+
+  test('sign-in lane: runs on CLAUDE_CODE_OAUTH_TOKEN without --bare; no token means refused', async () => {
+    const createClaudeAdapter = await create();
+    const s = stub();
+    const a = createClaudeAdapter({
+      command: process.execPath,
+      commandArgs: [s.bin, join(FIX, 'success.jsonl'), '--fw-commit'],
+      auth: 'signin',
+    });
+    const none = await drain(a as never, adapterInput({ scenario: 'success' }), { opts: { credentialEnv: {} } });
+    expect(none.result.status, 'no token is refused').toBe('refused');
+    expect(
+      none.events.some((e: Record<string, unknown>) => e.type === 'error' && e.code === 'credential_missing'),
+      'a typed credential_missing event',
+    ).toBe(true);
+    expect(s.prompted(), 'the CLI never ran with a prompt').toEqual([]);
+
+    const token = `oauth-${fakeSecret('anthropic')}`;
+    const ok = await drain(a as never, adapterInput({ scenario: 'success' }), {
+      opts: { credentialEnv: { CLAUDE_CODE_OAUTH_TOKEN: token } },
+    });
+    expect(ok.result.status, `with the token the run completes (summary: ${ok.result.summary})`).toBe('completed');
+    const argv = s.prompted()[0]!;
+    expect(argv, 'no --bare in the sign-in lane').not.toContain('--bare');
+    expect(argv.some((x) => x.includes(token)), 'the token is not in argv').toBe(false);
+    expect(JSON.stringify([ok.events, ok.result, ok.meta]), 'the token never leaves the adapter').not.toContain(token);
   });
 
   test('session id is stored and resumed by a second run', async () => {

@@ -35,6 +35,22 @@ if (apiKey && rest.some((a) => a.includes(apiKey))) {
   process.stderr.write('replay: credential found in argv\n');
   process.exit(99);
 }
+// The sign-in lane (no --bare): like the real CLI, --bare never reads an OAuth token, and an API key
+// would win over the subscription login, so either mix is a lane bug.
+const oauth = process.env.CLAUDE_CODE_OAUTH_TOKEN ?? '';
+if (oauth) {
+  if (rest.some((a) => a.includes(oauth))) {
+    process.stderr.write('replay: credential found in argv\n');
+    process.exit(99);
+  }
+  if (rest.includes('--bare') || apiKey) {
+    process.stderr.write('replay: OAuth token with --bare or an API key: the token would be ignored\n');
+    process.exit(97);
+  }
+} else if (!rest.includes('--bare') && !apiKey) {
+  process.stderr.write('replay: not logged in (no --bare and no credential in env)\n');
+  process.exit(96);
+}
 if (!rest.includes('--print') || !rest.includes('stream-json')) {
   process.stderr.write('replay: not invoked in headless stream-json mode\n');
   process.exit(98);
