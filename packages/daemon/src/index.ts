@@ -141,6 +141,7 @@ export {
   WorktreeManager,
   type WorktreeManagerOptions,
 } from './runtime/worktrees.ts';
+export { type Cron, CronError, parseCron } from './scheduler/cron.ts';
 export {
   SPEND_GROUP_NAMES,
   type SpendGroup,
