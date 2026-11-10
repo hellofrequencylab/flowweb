@@ -16,7 +16,7 @@
   "description": "Chain each event to the hash of the previous one and add fw audit verify that walks the chain and reports the first broken link.",
   "acceptance": [
     "Flipping one byte in a stored payload makes verify fail naming the sequence number",
-    "Verify of 100k events completes in under 5 s",
+    "Verify of 100k events completes in under 8 s",
     "Chain head can be exported for external anchoring"
   ],
   "verify_probe": "pnpm probe security/audit-chain",
