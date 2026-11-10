@@ -7,6 +7,7 @@
 // draft changes and flow controls in hosted/server/requests.mjs: the site queues them and the relay on
 // the Owner's machine applies them through fwd; the answer says it is queued, not done.
 import { resolveRead, routeOfUrl } from '../hosted/server/mirror.mjs';
+import { answerSetupQuestion } from '../hosted/server/assistant.mjs';
 import { requestOf } from '../hosted/server/requests.mjs';
 
 const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/;
@@ -232,6 +233,13 @@ async function handle(request) {
       head_seq: null,
       next_cursor: null,
     });
+  }
+
+  // FW-C-085: the setup assistant. Nothing is stored or logged; a key-shaped question is refused unsent.
+  // Before the business check: someone with no business yet is the person most likely to need it.
+  if (path === '/assistant/setup' && method === 'POST') {
+    const r = await answerSetupQuestion(await request.json().catch(() => ({})), { env: process.env });
+    return json(r.status, r.body);
   }
 
   // Everything below is about one business. A new login has none yet: the screens offer to make one.

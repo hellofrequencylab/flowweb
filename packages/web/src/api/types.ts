@@ -339,6 +339,8 @@ export interface Project {
   brand: string | null;
   /** marketing | product | ops | sales | support | finance | other; null when unlabelled. */
   category: string | null;
+  /** FW-C-087: the five brief answers, or null when there is no brief yet. */
+  brief?: ProjectBriefAnswers | null;
   rows_open?: number;
   rows_in_progress?: number;
   rows_waiting_on_owner?: number;
@@ -807,7 +809,21 @@ export interface SupervisorFlow {
   schedule?: FlowSchedule | null;
   /** FW-C-063: new people a day, and today's number after Adjust from replies. */
   intensity?: FlowIntensity;
+  /** FW-C-086: the AI account the flow's runs use; chosen when picked in Settings. Missing from an older fwd. */
+  ai?: { adapter: 'claude' | 'codex'; auth?: 'signin' | 'api_key'; chosen: boolean } | null;
 }
+
+/** FW-C-087: the five questions a project brief answers. */
+export interface ProjectBriefAnswers {
+  what: string;
+  who: string;
+  voice: string;
+  never: string;
+  done: string;
+}
+
+/** FW-C-086: the four AI accounts a flow can use. */
+export type FlowAiAccount = 'claude_plan' | 'anthropic_key' | 'chatgpt_plan' | 'openai_key';
 
 export interface Supervisor extends Envelope {
   kill_switch: boolean;

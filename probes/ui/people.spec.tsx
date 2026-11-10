@@ -1,4 +1,4 @@
-// The component checks for FW-C-087; run by probes/ui/people.mjs (not on its own). Tier 0.
+// The component checks for FW-C-088; run by probes/ui/people.mjs (not on its own). Tier 0.
 // The hosted /v1 is stood in by a fetch stub. hosted/auth.ts reads its settings and the saved session when it
 // loads, so both are put in place before any import.
 import { cleanup, fireEvent, render, screen, waitFor, within } from '@testing-library/react';

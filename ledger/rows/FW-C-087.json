@@ -1,35 +1,35 @@
 {
   "id": "FW-C-087",
-  "title": "An owner sees who shares their business on flowweb.app, invites people by link, changes roles and removes people, and anyone in two businesses can switch between them",
-  "core_milestone": "C2",
-  "phase": 4,
-  "epic": "C2.4 Accounts",
+  "title": "Anyone who may change settings writes each project's brief and sets its brand and category from Settings, instead of fw commands on the Mac",
+  "core_milestone": "C1",
+  "phase": 1,
+  "epic": "C1.5 First flow",
   "priority": "P1",
-  "size": "L",
-  "lane": "ui",
+  "size": "M",
+  "lane": "workstreams",
   "agent_suitability": "agent",
   "gate": "none",
   "depends_on": [
-    "FW-C-083"
+    "FW-C-062"
   ],
-  "description": "FW-C-083 gave the hosted /v1 businesses, members, roles and invite links, but nothing on the site shows them, so the Owner cannot add a friend without SQL. Settings on the site gains a People panel after Machines: the members of the chosen business with their roles; for owners and admins a role select and a Remove button (asks first) on everyone else, the open invites with Cancel, and an invite form (role, optional email, whole business or one flow) that answers a /join/ link to copy. Helpers and viewers see the people but no controls, and can leave. A login with no business can make one there. With more than one business a Business select picks one, and every later hosted /v1 call carries it as x-fw-account. hosted/roles.ts is the screens' copy of the server's role table and must agree with it.",
+  "description": "The Owner wants every person using FlowWeb to have a page and a setting for every function. A project's brief (the five answers every agent reads: what it is, who it is for, how it sounds, what agents must never do, what done looks like) and its brand and category are set today only on the Owner's Mac with fw project brief and fw project label. fwd lets a paired browser session call POST /v1/projects/{id}/brief and POST /v1/projects/{id}/labels (adding a project stays CLI-only), and GET /v1/projects returns each project's brief. The site queues them as kinds project.brief and project.labels (hosted/server/requests.mjs; migration 0007 allows the kinds) and the relay applies them. Settings gets a Projects section (packages/web/src/settings/ProjectSettings.tsx): each project with Edit, the five brief questions, Save brief only once all five are answered, brand and category with Save labels, and read-only fields for people who may not change them.",
   "acceptance": [
-    "Settings on the site shows a People panel after Machines and before Session, listing members and open invites",
-    "An owner or admin makes an invite link (role, optional email, whole business or one flow; admins whole business only) and can copy it",
-    "An owner or admin changes another member's role, removes them only after confirming, and cancels an invite",
-    "A helper or viewer sees no invite, role or remove controls and can leave the business",
-    "A login with no business can make one from the panel",
-    "With two businesses, the chosen one is sent as x-fw-account on every later hosted /v1 call",
-    "hosted/roles.ts can(role, action) agrees with hosted/server/accounts.mjs for every role and action"
+    "POST /v1/projects/{id}/brief and /labels work from a paired browser session; POST /v1/projects stays CLI-only",
+    "GET /v1/projects returns each project's brief",
+    "The site queues project.brief with all five answers and project.labels with brand and category only, and the relay calls the same routes",
+    "Settings saves a brief only once all five questions are answered, saves brand and category, and is read-only for people who may not change it"
   ],
-  "verify_probe": "pnpm probe ui/people",
+  "verify_probe": "pnpm probe settings/project-settings",
   "files_hint": [
-    "packages/web/src/hosted/People.tsx",
-    "packages/web/src/hosted/roles.ts",
-    "packages/web/src/hosted/auth.ts",
+    "packages/daemon/src/api/routes.ts",
+    "packages/daemon/src/api/rows.ts",
+    "hosted/server/requests.mjs",
+    "hosted/supabase/migrations/0007_flowweb_flow_ai.sql",
+    "packages/web/src/settings/",
     "packages/web/src/api/client.ts",
-    "packages/web/src/settings/SettingsPage.tsx",
-    "packages/web/src/shell/App.tsx"
+    "packages/web/src/api/types.ts",
+    "packages/web/src/api/wire.ts",
+    "packages/web/src/ui-kit/flow.css"
   ],
   "origin": "new Core row"
 }

@@ -20,7 +20,7 @@ import { can, grantable, ROLE_HELP, ROLE_NAME, type Role } from './roles';
 
 const WHOLE = '';
 
-/** Hosted mode: who shares this business, in what role, and how to invite someone (FW-C-087). */
+/** Hosted mode: who shares this business, in what role, and how to invite someone (FW-C-088). */
 export function PeoplePanel() {
   const [accounts, setAccounts] = useState<AccountSummary[] | null>(null);
   const [current, setCurrent] = useState<string | null>(chosenAccount());

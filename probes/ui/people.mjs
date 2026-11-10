@@ -1,4 +1,4 @@
-// Probe for FW-C-087 (an owner sees and manages who shares their business on flowweb.app): `pnpm probe ui/people`.
+// Probe for FW-C-088 (an owner sees and manages who shares their business on flowweb.app): `pnpm probe ui/people`.
 // probe-timeout-s: 180
 // Tier 0.
 // Surfaces: packages/web/src/hosted/People.tsx (PeoplePanel), packages/web/src/hosted/roles.ts,
@@ -37,7 +37,7 @@ await probe(NAME, async () => {
   // 1. The panel exists.
   const file = join(root, 'packages/web/src/hosted/People.tsx');
   if (!existsSync(file) || !/export\s+function\s+PeoplePanel\b/.test(readFileSync(file, 'utf8')))
-    missing('packages/web/src/hosted/People.tsx does not export PeoplePanel (row FW-C-087)');
+    missing('packages/web/src/hosted/People.tsx does not export PeoplePanel (row FW-C-088)');
   if (!existsSync(join(root, 'hosted/server/accounts.mjs')))
     missing('hosted/server/accounts.mjs is not on this branch yet (row FW-C-083)');
 

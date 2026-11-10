@@ -235,7 +235,7 @@ export function signedInUserId(): string | null {
   return memory ? (claims(memory.access_token).sub ?? null) : null;
 }
 
-// Which business the screens are about, when a login belongs to more than one (FW-C-087). Sent to the
+// Which business the screens are about, when a login belongs to more than one (FW-C-088). Sent to the
 // hosted /v1 as x-fw-account; with none chosen the server uses the login's first business.
 const CHOSEN = 'fw.hosted.account';
 let chosen: string | null = null;

@@ -2306,3 +2306,32 @@ a.flow-line:hover .flow-line-name {
 .assist-failed {
   color: var(--fail-fg);
 }
+
+/* FW-C-085: the setup assistant on Get started. */
+.setup-assistant {
+  display: grid;
+  gap: var(--space-3);
+  margin-bottom: var(--space-6);
+}
+.setup-assistant .setup-guide {
+  max-width: 100%;
+}
+.setup-assistant .setup-guide p {
+  margin: 0;
+}
+.setup-assistant .setup-pick {
+  margin: 0;
+  padding: 0;
+  border: 0;
+}
+
+/* FW-C-087: a project's brief and labels in Settings. */
+.project-setting {
+  flex-wrap: wrap;
+}
+.project-setting .project-form {
+  flex-basis: 100%;
+}
+.project-setting textarea {
+  width: 100%;
+}

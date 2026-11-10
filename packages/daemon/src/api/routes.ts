@@ -123,6 +123,8 @@ export interface SupervisorControls {
   /** FW-C-063: when the flow runs each morning, and how many new people it reaches a day. */
   setSchedule?(key: string, time: string, days: string): { changed: boolean };
   setIntensity?(key: string, body: Record<string, unknown>): { changed: boolean };
+  /** FW-C-086: which AI account the flow uses: { account: claude_plan|anthropic_key|chatgpt_plan|openai_key }. */
+  setFlowAi?(key: string, body: Record<string, unknown>): { changed: boolean };
   /** FW-C-038: fire the flow's stream by hand; the Supervisor decides it like any fire. */
   runFlow?(key: string): Promise<{ fire_id: string; outcome: string; reason?: string }>;
   /** FW-C-046: the Owner approves or rejects one cycle draft. */
@@ -622,6 +624,16 @@ export function buildRouter(deps: ApiDeps): Router {
     });
   });
 
+  // FW-C-086: which AI account the flow's runs use. The key stays in the keychain; this only picks one.
+  r.post('/v1/supervisor/flows/{key}/ai', async ({ req, params }) => {
+    const body = await readJsonBody(req);
+    return ownerControl(req, (c) => {
+      if (!c.setFlowAi)
+        throw new ApiError(501, 'not_implemented', 'this fwd cannot change a flow AI account');
+      return c.setFlowAi(params.key ?? '', body);
+    });
+  });
+
   // FW-C-046: Copilot. The Owner lists a flow's cycle drafts and approves or rejects each one
   // (FW-C-062: from the paired browser too).
   const ownerOnly = requireOwner;
@@ -727,23 +739,30 @@ export function buildRouter(deps: ApiDeps): Router {
     const params = { brand: query.get('brand') || null, category: query.get('category') || null };
     return env(() =>
       paged(page, (limit, offset) =>
-        reader.all<Row>(
-          `SELECT * FROM (${PROJECT_SELECT}) x
+        reader
+          .all<Row>(
+            `SELECT * FROM (${PROJECT_SELECT}) x
             WHERE (@brand IS NULL OR lower(trim(x.brand)) = lower(trim(@brand)))
               AND (@category IS NULL OR x.category = lower(@category))
             ORDER BY x.created_at, x.id LIMIT @limit OFFSET @offset`,
-          { ...params, limit, offset },
-        ),
+            { ...params, limit, offset },
+          )
+          .map((row) => parseJsonColumns(row, ['brief'])),
       ),
     );
   });
 
-  // FW-C-039: project writes, CLI token only (like the Supervisor controls).
-  const projectWrite = async (req: IncomingMessage, act: (c: ProjectControls, body: Row) => unknown) => {
+  // FW-C-039: project writes, CLI token only. FW-C-087: a project's labels and brief may also come from the
+  // paired browser (Settings), like the Supervisor controls; making a project stays with the CLI.
+  const projectWrite = async (
+    req: IncomingMessage,
+    act: (c: ProjectControls, body: Row) => unknown,
+    fromBrowser = false,
+  ) => {
     const c = deps.projects;
     if (!c) throw new ApiError(501, 'not_implemented', 'this fwd does not host project writes');
     const p = principalOf.get(req);
-    if (p?.kind !== 'cli' && p?.kind !== 'dev_no_auth')
+    if (p?.kind !== 'cli' && p?.kind !== 'dev_no_auth' && !(fromBrowser && p?.kind === 'session'))
       throw new ApiError(403, 'forbidden', 'projects are changed with the CLI token, not a browser session');
     const body = await readJsonBody(req);
     let data: unknown;
@@ -778,22 +797,26 @@ export function buildRouter(deps: ApiDeps): Router {
   });
   r.post('/v1/projects', ({ req }) => projectWrite(req, (c, b) => c.add(b)));
   r.post('/v1/projects/{id}/labels', ({ req, params }) =>
-    projectWrite(req, (c, b) => {
-      const change: { brand?: string | null; category?: string | null } = {};
-      if (b.brand !== undefined) change.brand = labelArg(b.brand) ?? null;
-      if (b.category !== undefined) change.category = labelArg(b.category) ?? null;
-      return c.label(params.id ?? '', change);
-    }),
+    projectWrite(
+      req,
+      (c, b) => {
+        const change: { brand?: string | null; category?: string | null } = {};
+        if (b.brand !== undefined) change.brand = labelArg(b.brand) ?? null;
+        if (b.category !== undefined) change.category = labelArg(b.category) ?? null;
+        return c.label(params.id ?? '', change);
+      },
+      true,
+    ),
   );
   r.post('/v1/projects/{id}/brief', ({ req, params }) =>
-    projectWrite(req, (c, b) => c.brief(params.id ?? '', b)),
+    projectWrite(req, (c, b) => c.brief(params.id ?? '', b), true),
   );
 
   r.get('/v1/projects/{id}', ({ params }) =>
     env(() => {
       const row = reader.get<Row>(`${PROJECT_SELECT} WHERE p.id = ?`, [params.id]);
       if (!row) throw notFound('project', params.id);
-      return { data: row };
+      return { data: parseJsonColumns(row, ['brief']) };
     }),
   );
 

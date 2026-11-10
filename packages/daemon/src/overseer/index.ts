@@ -12,7 +12,8 @@ import { loadFlow as loadLocalSaturation } from '../flows/local-saturation.ts';
 import * as neighborhood from '../flows/neighborhood-activation.ts';
 import { registerFlowProjects } from '../flows/projects.ts';
 import type { OnFire } from '../scheduler/index.ts';
-import { registerFlowStream } from './cycle.ts';
+import { type FlowAi, writeFlowAi } from './ai.ts';
+import { flowEngine, registerFlowStream } from './cycle.ts';
 import {
   type Caps,
   capUsed,
@@ -132,6 +133,11 @@ export interface FlowView {
   schedule: { time: string | null; days: Days | null; cron: string; timezone: string } | null;
   /** FW-C-063: new people a day, and today's number after auto. */
   intensity: Intensity & { today: { per_day: number; why: string } };
+  /**
+   * FW-C-086: the AI account the flow's runs use. chosen: picked in Settings; otherwise the flow's
+   * config names it. null when neither names one (routing decides).
+   */
+  ai: (Partial<FlowAi> & { chosen: boolean }) | null;
 }
 
 export interface SupervisorView {
@@ -299,6 +305,7 @@ function verdicts(d: SupervisorDeps) {
       open_asks: f.open_asks,
       schedule: streamSchedule(d.reader, key, stream),
       intensity: intensityView(set?.intensity, d.fwHome, key, now),
+      ai: aiView(d.repoRoot, d.fwHome, key),
     };
     return { view, verdict };
   });
@@ -493,6 +500,25 @@ export function setIntensity(w: Writer, repoRoot: string, key: string, body: Rec
     s.flows[key] = { ...cur, intensity: next };
     return true;
   });
+}
+
+function aiView(repoRoot: string, fwHome: string, key: string): FlowView['ai'] {
+  const e = flowEngine(repoRoot, key, fwHome);
+  if (e.adapter !== 'claude' && e.adapter !== 'codex') return null;
+  return { adapter: e.adapter, ...(e.auth ? { auth: e.auth } : {}), chosen: e.chosen === true };
+}
+
+/** FW-C-086: which AI account a flow uses, from Settings. body { account }. */
+export function setFlowAi(repoRoot: string, fwHome: string, key: string, body: Record<string, unknown>) {
+  if (!shippedFlows(repoRoot).some((f) => f.key === key))
+    throw new SupervisorError('NOT_FOUND', `no flow named ${key}`);
+  try {
+    return writeFlowAi(fwHome, key, body);
+  } catch (e) {
+    if ((e as { code?: unknown }).code === 'INVALID')
+      throw new SupervisorError('INVALID', (e as Error).message);
+    throw e;
+  }
 }
 
 export function setPaused(w: Writer, paused: boolean) {

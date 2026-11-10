@@ -82,7 +82,7 @@ export function App() {
   const joined = useCallback(
     (accountId: string) => {
       clearInvite();
-      // FW-C-087: the business just joined is the one the site shows.
+      // FW-C-088: the business just joined is the one the site shows.
       if (accountId) chooseAccount(accountId);
       void check();
     },

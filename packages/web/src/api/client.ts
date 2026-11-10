@@ -53,7 +53,7 @@ async function raw(
     // The live mirror has no cookie session; it takes the signed-in owner's token.
     const token = await accessToken();
     if (token) headers.Authorization = `Bearer ${token}`;
-    // FW-C-087: the business chosen in Settings, when the login belongs to more than one.
+    // FW-C-088: the business chosen in Settings, when the login belongs to more than one.
     const account = chosenAccount();
     if (account) headers['x-fw-account'] = account;
   }
@@ -636,6 +636,15 @@ export const api = {
         status: p.status,
         brand: p.brand ?? null,
         category: p.category ?? null,
+        brief: p.brief
+          ? {
+              what: p.brief.what,
+              who: p.brief.who,
+              voice: p.brief.voice,
+              never: p.brief.never,
+              done: p.brief.done,
+            }
+          : null,
         rows_open: p.rows_open,
         rows_in_progress: p.rows_in_progress,
         rows_waiting_on_owner: p.rows_waiting_on_owner,
@@ -903,6 +912,18 @@ export const api = {
       { per_day: i.per_day, auto: i.auto, min: i.min, max: i.max },
       onQueued,
     ),
+  /** FW-C-087: a project's brief, all five answers. */
+  setProjectBrief: (id: string, b: V.ProjectBriefAnswers, onQueued?: () => void) =>
+    ownerWrite<unknown>('POST', `/projects/${enc(id)}/brief`, { ...b }, onQueued),
+  /** FW-C-087: a project's brand and category; null clears one. */
+  setProjectLabels: (
+    id: string,
+    l: { brand: string | null; category: string | null },
+    onQueued?: () => void,
+  ) => ownerWrite<unknown>('POST', `/projects/${enc(id)}/labels`, l, onQueued),
+  /** FW-C-086: which AI account the flow's runs use. Only names one; the key stays on the machine. */
+  setFlowAi: (flow: string, account: V.FlowAiAccount, onQueued?: () => void) =>
+    ownerWrite<unknown>('POST', `/supervisor/flows/${enc(flow)}/ai`, { account }, onQueued),
   /** FW-C-062: pause or resume every flow. */
   setSupervisorPaused: (paused: boolean, onQueued?: () => void) =>
     ownerWrite<unknown>('POST', `/supervisor/${paused ? 'pause' : 'resume'}`, {}, onQueued),
@@ -910,6 +931,14 @@ export const api = {
   async supervisor(): Promise<V.Supervisor> {
     const e = await get<Omit<V.Supervisor, 'data_as_of'>>('/supervisor');
     return { data_as_of: e.as_of, ...e.data };
+  },
+
+  /**
+   * FW-C-085: ask the setup assistant a question. Only the live site answers it (with its own AI);
+   * the caller falls back to built-in answers when this fails. Never send a secret here.
+   */
+  async askSetupAssistant(question: string, stage: string): Promise<{ answer: string }> {
+    return post<{ answer: string }>('/assistant/setup', { question, stage });
   },
 
   /** FW-C-039: where setup stands. */
