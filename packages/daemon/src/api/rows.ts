@@ -107,7 +107,8 @@ export const PROJECT_SELECT = `
     (SELECT COUNT(*) FROM ledger_rows l WHERE l.project_id = p.id
        AND l.status IN ('awaiting_approval','blocked')) AS rows_waiting_on_owner,
     json_extract((SELECT value FROM settings WHERE key = 'project_labels'), '$."' || p.id || '".brand') AS brand,
-    json_extract((SELECT value FROM settings WHERE key = 'project_labels'), '$."' || p.id || '".category') AS category
+    json_extract((SELECT value FROM settings WHERE key = 'project_labels'), '$."' || p.id || '".category') AS category,
+    json_extract((SELECT value FROM settings WHERE key = 'project_briefs'), '$."' || p.id || '"') AS brief
   FROM projects p`;
 
 export const URGENCY_ORDER = `CASE c.urgency WHEN 'now' THEN 0 WHEN 'today' THEN 1 WHEN 'this_week' THEN 2 ELSE 3 END`;

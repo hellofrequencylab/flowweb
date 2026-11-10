@@ -633,6 +633,15 @@ export const api = {
         status: p.status,
         brand: p.brand ?? null,
         category: p.category ?? null,
+        brief: p.brief
+          ? {
+              what: p.brief.what,
+              who: p.brief.who,
+              voice: p.brief.voice,
+              never: p.brief.never,
+              done: p.brief.done,
+            }
+          : null,
         rows_open: p.rows_open,
         rows_in_progress: p.rows_in_progress,
         rows_waiting_on_owner: p.rows_waiting_on_owner,
@@ -900,6 +909,15 @@ export const api = {
       { per_day: i.per_day, auto: i.auto, min: i.min, max: i.max },
       onQueued,
     ),
+  /** FW-C-087: a project's brief, all five answers. */
+  setProjectBrief: (id: string, b: V.ProjectBriefAnswers, onQueued?: () => void) =>
+    ownerWrite<unknown>('POST', `/projects/${enc(id)}/brief`, { ...b }, onQueued),
+  /** FW-C-087: a project's brand and category; null clears one. */
+  setProjectLabels: (
+    id: string,
+    l: { brand: string | null; category: string | null },
+    onQueued?: () => void,
+  ) => ownerWrite<unknown>('POST', `/projects/${enc(id)}/labels`, l, onQueued),
   /** FW-C-086: which AI account the flow's runs use. Only names one; the key stays on the machine. */
   setFlowAi: (flow: string, account: V.FlowAiAccount, onQueued?: () => void) =>
     ownerWrite<unknown>('POST', `/supervisor/flows/${enc(flow)}/ai`, { account }, onQueued),
