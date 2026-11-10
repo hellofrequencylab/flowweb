@@ -1,5 +1,6 @@
 import { type ReactNode, useEffect, useState } from 'react';
 import { useLive } from '../api/live';
+import { BuildOverview } from '../dawn/BuildOverview';
 import { DawnLog } from '../dawn/DawnLog';
 import { EvidencePage } from '../evidence/EvidencePage';
 import { ActivationPage } from '../flows/ActivationPage';
@@ -13,6 +14,7 @@ import { SettingsPage } from '../settings/SettingsPage';
 import { SetupNudge, SetupPage } from '../setup/SetupPage';
 import { SpendPage } from '../spend/SpendPage';
 import { TablePage } from '../table/TablePage';
+import { PageHead } from '../ui-kit/page';
 import { Footer } from './Footer';
 import { GlobalBanner } from './GlobalBanner';
 import { KillDialog } from './KillSwitch';
@@ -96,7 +98,20 @@ export function Layout({ pairedAt, onSignedOut }: { pairedAt: string; onSignedOu
       case 'growth':
         return <ActivationPage />;
       case 'logs':
-        return hood(<LedgerPage />);
+        // /hood opens on the build overview (lanes, what landed, integrity); /ledger is every row.
+        return hood(
+          p === '/hood' ? (
+            <>
+              <PageHead
+                title="Under the hood"
+                lede="The agent work behind the growth: what is building, what landed, and whether the record is intact."
+              />
+              <BuildOverview />
+            </>
+          ) : (
+            <LedgerPage />
+          ),
+        );
       case 'row':
         return hood(<RowPage id={id} />);
       case 'runs':
