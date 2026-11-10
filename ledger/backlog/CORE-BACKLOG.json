@@ -4,7 +4,7 @@
     "profile": "core",
     "schema": "ledger-row/1",
     "generated": "2026-11-09",
-    "row_count": 124,
+    "row_count": 125,
     "conventions": {
       "verify_probe": "Same convention as 04-build-plan/backlog.json: 'pnpm probe <path>' runs probes/<path>.probe.ts, a Tier 0 file written before the implementation row starts and never edited by the agent doing the row. Every probe fails today because its target does not exist (a missing probe file exits 2, a missing behaviour exits 1). The probe pack for a milestone is committed by the Owner or a pair session before the milestone's rows start.",
       "status": "All rows start as open. Status lives only in the ledger database (imported with fw ledger sync), never in prose.",
@@ -28,7 +28,7 @@
       }
     },
     "full_plan_rows_included": 37,
-    "new_core_rows": 86
+    "new_core_rows": 87
   },
   "rows": [
     {
@@ -4369,6 +4369,39 @@
         "packages/web/src/api/client.ts",
         "packages/web/src/settings/SettingsPage.tsx",
         "packages/web/src/shell/App.tsx"
+      ],
+      "origin": "new Core row"
+    },
+    {
+      "id": "FW-C-090",
+      "title": "Anyone can read FlowWeb's Terms of Service and Privacy Policy at flowweb.app/terms and flowweb.app/privacy, signed in or not, and the homepage links to both",
+      "core_milestone": "C2",
+      "phase": 4,
+      "epic": "C2.2 Daily screens",
+      "priority": "P1",
+      "size": "M",
+      "lane": "web",
+      "agent_suitability": "agent",
+      "gate": "none",
+      "depends_on": [
+        "FW-C-081"
+      ],
+      "description": "The Owner is opening FlowWeb to friends and setting up Google sign-in, and Google's consent screen asks for a public privacy policy and terms link on the app's own domain. Today flowweb.app has neither: every address a signed-out visitor opens shows the homepage. Add packages/web/src/legal/Legal.tsx with LegalPage (page 'terms' or 'privacy') and legalRouteOf(path), and have App.tsx show LegalPage for /terms and /privacy before any sign-in check, so a visitor, a signed-in member and Google's reviewer all see the same page. Each page has one h1, a last-updated date, plain-English sections and a contact address, links to the other page and back home, and uses only the token layer. The privacy page says what FlowWeb keeps and why: sign-in runs on Supabase (a project shared with another Frequency product), Google sign-in shares name, email and profile picture and nothing from Gmail, Drive or Calendar, each business's flows, leads and drafts are kept under that business account and shown only to its members, AI runs on the Owner's own Mac with his own provider accounts, FlowWeb writes drafts and never sends, and how to get data deleted. The homepage footer and the sign-in card link to both. No em dashes.",
+      "acceptance": [
+        "packages/web/src/legal/Legal.tsx exports LegalPage and legalRouteOf; legalRouteOf maps /terms and /privacy (with or without a trailing slash) and returns null for other paths",
+        "App.tsx renders LegalPage for those paths whatever the sign-in state",
+        "Each page has exactly one h1, a Last updated line, a contact email link, a link to the other page and a link home, and no em dash",
+        "The privacy page names Google sign-in with name and email, Supabase, per-business storage, drafts only, and deletion",
+        "The terms page says FlowWeb writes drafts and the person sends them, and links to the privacy page",
+        "The signed-out homepage links to /terms and /privacy"
+      ],
+      "verify_probe": "pnpm probe ui/legal-pages",
+      "files_hint": [
+        "packages/web/src/legal/",
+        "packages/web/src/shell/App.tsx",
+        "packages/web/src/home/HomePage.tsx",
+        "packages/web/src/home/home.css",
+        "packages/web/test/"
       ],
       "origin": "new Core row"
     }
