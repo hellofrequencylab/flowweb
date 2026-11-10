@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useState } from 'react';
 import { ApiError, api, onUnauthorized } from '../api/client';
 import { LiveProvider } from '../api/live';
+import { Console } from '../console/Console';
 import {
   clearInvite,
   inviteFromPath,
@@ -133,6 +134,8 @@ function Gated() {
         <RouterProvider>
           <LiveProvider>
             <Layout pairedAt={gate.pairedAt} onSignedOut={() => setGate({ kind: 'unpaired' })} />
+            {/* FW-C-092: the AI console, bottom right on every page. */}
+            <Console />
           </LiveProvider>
         </RouterProvider>
       )}
