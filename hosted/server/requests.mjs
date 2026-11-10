@@ -24,6 +24,34 @@ const HUNT_FIELDS = ['name', 'looking_for', 'region', 'areas', 'links', 'every_d
 /** The stops the site may set. Autopilot binds to a confirm hash and is set on the Owner's machine. */
 const SITE_STOPS = ['draft', 'copilot'];
 const OUTCOMES = ['sent', 'replied', 'declined'];
+/** FW-C-087: a project's brief (the five answers) and its labels, from Settings. */
+const PROJECT = /^[A-Za-z0-9_-]{1,100}$/;
+const BRIEF_KEYS = ['what', 'who', 'voice', 'never', 'done'];
+const BRIEF_MAX = 1000;
+const LABEL_MAX = 64;
+function projectPayload(action, b) {
+  if (action === 'brief') {
+    const payload = {};
+    for (const k of BRIEF_KEYS) {
+      const v = text(b[k]);
+      if (!v) return { error: `the brief needs an answer for ${k}` };
+      if (v.length > BRIEF_MAX) return { error: `${k} is at most ${BRIEF_MAX} characters` };
+      payload[k] = v;
+    }
+    return { payload };
+  }
+  const payload = {};
+  for (const k of ['brand', 'category']) {
+    if (b[k] === undefined) continue;
+    if (b[k] !== null && typeof b[k] !== 'string') return { error: `${k} must be text` };
+    const v = b[k] === null ? null : b[k].trim();
+    if (v && v.length > LABEL_MAX) return { error: `${k} is at most ${LABEL_MAX} characters` };
+    payload[k] = v || null;
+  }
+  if (Object.keys(payload).length === 0) return { error: 'give a brand, a category or both' };
+  return { payload };
+}
+
 /** FW-C-086: the AI accounts a flow may use. Only which one; the key stays on the Owner's machine. */
 const AI_ACCOUNTS = ['claude_plan', 'anthropic_key', 'chatgpt_plan', 'openai_key'];
 
@@ -115,6 +143,13 @@ export function requestOf(method, path, body) {
     const t = tuningPayload(tune[2], b);
     return t.error ? t : { kind: `flow.${tune[2]}`, flow: tune[1], draft_id: null, payload: t.payload };
   }
+  const proj = /^\/projects\/([^/]+)\/(brief|labels)$/.exec(path);
+  if (proj) {
+    if (method !== 'POST') return null;
+    if (!PROJECT.test(proj[1])) return { error: 'unknown project' };
+    const p = projectPayload(proj[2], b);
+    return p.error ? p : { kind: `project.${proj[2]}`, flow: 'all', draft_id: proj[1], payload: p.payload };
+  }
   const ai = /^\/supervisor\/flows\/([^/]+)\/ai$/.exec(path);
   if (ai) {
     if (method !== 'POST') return null;
@@ -191,6 +226,14 @@ export function fwdCallFor(req) {
   const f = encodeURIComponent(flow);
   if (kind === 'supervisor.pause' || kind === 'supervisor.resume')
     return { method: 'POST', path: `/supervisor/${kind.slice(11)}`, body: {} };
+  if (kind === 'project.brief' || kind === 'project.labels') {
+    const id = String(req?.draft_id ?? '');
+    const action = kind.slice(8);
+    const pp = projectPayload(action, p);
+    return PROJECT.test(id) && !pp.error
+      ? { method: 'POST', path: `/projects/${encodeURIComponent(id)}/${action}`, body: pp.payload }
+      : null;
+  }
   if (!FLOW.test(flow)) return null;
   const control = Object.entries(FLOW_ACTIONS).find(([, k]) => k === kind)?.[0];
   if (control) {

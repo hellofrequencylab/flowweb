@@ -2324,3 +2324,14 @@ a.flow-line:hover .flow-line-name {
   padding: 0;
   border: 0;
 }
+
+/* FW-C-087: a project's brief and labels in Settings. */
+.project-setting {
+  flex-wrap: wrap;
+}
+.project-setting .project-form {
+  flex-basis: 100%;
+}
+.project-setting textarea {
+  width: 100%;
+}
