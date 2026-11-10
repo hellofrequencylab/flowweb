@@ -4,7 +4,7 @@
     "profile": "core",
     "schema": "ledger-row/1",
     "generated": "2026-11-09",
-    "row_count": 103,
+    "row_count": 104,
     "conventions": {
       "verify_probe": "Same convention as 04-build-plan/backlog.json: 'pnpm probe <path>' runs probes/<path>.probe.ts, a Tier 0 file written before the implementation row starts and never edited by the agent doing the row. Every probe fails today because its target does not exist (a missing probe file exits 2, a missing behaviour exits 1). The probe pack for a milestone is committed by the Owner or a pair session before the milestone's rows start.",
       "status": "All rows start as open. Status lives only in the ledger database (imported with fw ledger sync), never in prose.",
@@ -28,7 +28,7 @@
       }
     },
     "full_plan_rows_included": 37,
-    "new_core_rows": 66
+    "new_core_rows": 67
   },
   "rows": [
     {
@@ -3647,6 +3647,42 @@
         "packages/daemon/src/daemon.ts",
         "packages/daemon/src/overseer/drafts.ts",
         "packages/daemon/test/"
+      ],
+      "origin": "new Core row"
+    },
+    {
+      "id": "FW-C-073",
+      "title": "On flowweb.app a button that only works on the Owner's Mac says so before it is pressed, instead of failing after",
+      "core_milestone": "C2",
+      "phase": 4,
+      "epic": "C2.2 Daily screens",
+      "priority": "P1",
+      "size": "M",
+      "lane": "ui",
+      "agent_suitability": "agent",
+      "gate": "none",
+      "depends_on": [
+        "FW-C-062"
+      ],
+      "description": "The hosted site (flowweb.app) is a mirror of fwd. Some writes there are queued to the Owner's Mac (draft changes, flow controls, hunts), but the rest answer 501 from api/v1.mjs because only fwd on the Mac can make them: the kill switch and its release, approving, denying or answering a card. Today those buttons look live on the site; the Owner presses one and only then reads 'fwd does not support this yet'. The kill switch is worse: holding Stop for 1.5 seconds ends in a refusal, and Settings on the site hides the kill switch entirely. The diff of an evidence bundle never leaves the Mac either, so the site asks for it, gets a 404 and offers a Retry that can never work. Add a macOnly prop to the Button in packages/web/src/ui-kit/Button.tsx: on the hosted site (HOSTED from packages/web/src/hosted/auth.ts) the button is disabled and its reason, 'Only on your Mac', is shown next to it and linked with aria-describedby; on the Mac it is an ordinary button. Use it for the kill switch (the big Stop everything button, Release and the release dialog), so the site never starts a hold or sends a stop, and the top-bar Stop only opens the kill switch dialog there. Settings on the site shows the kill switch too, locked the same way. The evidence view on the site says the diff is only on your Mac and does not request it. Approve, deny and answer on cards are table/CardView.tsx and are a separate change that uses this same prop. On the Mac nothing changes.",
+      "acceptance": [
+        "On the site, a Button with macOnly is disabled and described by 'Only on your Mac'; pressing it does nothing",
+        "On the Mac, a Button with macOnly is an ordinary enabled button",
+        "On the site the kill switch's Stop everything is locked with that reason and holding the top-bar Stop never sends a stop",
+        "On the site, Release on a stopped kill switch is locked with that reason",
+        "Settings on the site shows the kill switch, locked with that reason",
+        "On the site the evidence view says the diff is only on your Mac and never requests it",
+        "On the Mac the kill switch still stops everything"
+      ],
+      "verify_probe": "pnpm probe ui/mac-only",
+      "files_hint": [
+        "packages/web/src/ui-kit/Button.tsx",
+        "packages/web/src/ui-kit/base.css",
+        "packages/web/src/shell/KillSwitch.tsx",
+        "packages/web/src/settings/SettingsPage.tsx",
+        "packages/web/src/evidence/EvidenceView.tsx",
+        "packages/web/src/evidence/EvidencePage.tsx",
+        "packages/web/test/"
       ],
       "origin": "new Core row"
     }
