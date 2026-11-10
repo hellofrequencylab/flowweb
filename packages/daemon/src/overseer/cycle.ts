@@ -644,12 +644,12 @@ function runHunts(d: CycleDeps, fire: CycleFire, dir: string, hunts: Hunt[], out
       event: k.lead.event,
       region: k.hunt.region,
       build: k.hunt.build,
-      // FW-C-050: how the Owner sends it. Only email may reach the outbox; the rest are sent by hand.
+      // FW-C-052: how the Owner sends it. Only email may reach the outbox; the rest are sent by hand.
       send_via: k.send_via,
       send_how: k.send_how,
     };
     const subject = k.lead.subject ?? `About ${k.lead.event.title || 'your event'}`;
-    // handOff holds anything that is not email (FW-C-050), so those drafts wait for the Owner.
+    // handOff holds anything that is not email (FW-C-052), so those drafts wait for the Owner.
     const res = handOff({
       writer: d.writer,
       repoRoot: d.repoRoot,

@@ -199,7 +199,7 @@ const scenarios = {
       report: { summary: `found ${leads.length} leads`, claims: [], followups: [] },
     });
   },
-  // FW-C-050: a hunt cycle that tests where and how. For every hunt in ./hunts.json, eight leads: a by
+  // FW-C-052: a hunt cycle that tests where and how. For every hunt in ./hunts.json, eight leads: a by
   // email in the US, e by a contact form and f by an Instagram profile; b (event in Canada), c (a .de
   // address), d (organizer in France), g (organizer in the UK) and h (a .ca contact form) are restricted.
   async hunt_reach() {

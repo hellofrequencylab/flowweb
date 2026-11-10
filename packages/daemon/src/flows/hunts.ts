@@ -34,9 +34,9 @@ export type HuntCounts = Record<
   'found' | 'drafted' | 'blocked' | 'not_public' | 'duplicate' | 'capped' | 'restricted',
   number
 >;
-/** FW-C-050: how the organizer can be reached, as the lead says. */
+/** FW-C-052: how the organizer can be reached, as the lead says. */
 export type ContactVia = 'email' | 'form' | 'social' | 'platform';
-/** FW-C-050: how the Owner sends a draft. Only email may go to the outbox; the rest are sent by hand. */
+/** FW-C-052: how the Owner sends a draft. Only email may go to the outbox; the rest are sent by hand. */
 export type SendVia = 'email' | 'contact_form' | 'social_dm' | 'platform_message';
 const SEND_VIA: Record<ContactVia, SendVia> = {
   email: 'email',
@@ -60,7 +60,7 @@ export type HuntLead = {
 };
 
 /**
- * FW-C-050: places where most cold messages need consent first (GDPR and ePrivacy in the EU and EEA,
+ * FW-C-052: places where most cold messages need consent first (GDPR and ePrivacy in the EU and EEA,
  * PECR in the UK, CASL in Canada). A hunt writes to nobody there.
  */
 export const RESTRICTED_COUNTRIES = new Set(
@@ -261,7 +261,7 @@ export type Kept = {
 
 /**
  * Decides who gets a message. In order: not one of the due hunts, no address (or public contact page)
- * or no public source page (not_public), in the EU or EEA, the UK or Canada (restricted, FW-C-050), on
+ * or no public source page (not_public), in the EU or EEA, the UK or Canada (restricted, FW-C-052), on
  * do-not-contact (blocked), drafted for before (duplicate), over the hunt's cap or the flow's weekly cap
  * (capped). Pure: the caller records the kept ones as contacts.
  */

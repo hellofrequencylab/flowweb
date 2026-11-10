@@ -123,7 +123,7 @@ test('the sign-off is plain text with no em dash, in the Owner name', () => {
   expect(body).toMatch(/\nDaniel Tyack\n/);
 });
 
-// FW-C-050: where a hunt may write, and how each draft is sent.
+// FW-C-052: where a hunt may write, and how each draft is sent.
 const reach = (h: Hunt, organizer: Record<string, unknown>, event: Record<string, unknown> = {}) =>
   parseLeads({
     leads: [

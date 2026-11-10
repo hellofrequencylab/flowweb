@@ -447,7 +447,7 @@ export function handOff(o: {
     outcome: 'held',
     reason: `${why}: ${words}`,
   });
-  // FW-C-050: a hunt draft for a contact form, a social profile or an event platform is sent by hand:
+  // FW-C-052: a hunt draft for a contact form, a social profile or an event platform is sent by hand:
   // those sites ban automated messages, so it never goes to the outbox, approved or not.
   const via = item.lead?.send_via;
   if (typeof via === 'string' && via !== 'email')
