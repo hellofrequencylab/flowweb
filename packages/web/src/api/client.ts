@@ -957,6 +957,10 @@ export const api = {
     return { data_as_of: e.as_of, ...e.data };
   },
 
+  /** FW-C-095: save the email sender's settings (queued on the live site, applied at once on the machine). */
+  saveSenderSettings: (values: V.SenderValues, onQueued?: () => void) =>
+    ownerWrite<unknown>('POST', '/connections/email', values, onQueued),
+
   async policy(): Promise<V.PolicyFile> {
     const e = await get<W.WPolicy>('/policy');
     return { data_as_of: e.as_of, ...e.data };

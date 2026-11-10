@@ -857,6 +857,15 @@ export interface Setup extends Envelope {
   checked_at: string;
 }
 
+/** FW-C-095: the email sender's settings Settings may change. Never a password. */
+export interface SenderValues {
+  mailboxes: { key: string; address: string; name: string }[];
+  postal: string;
+  daily_cap: number;
+  per_pass: number;
+  hours: { start: number; end: number; days: number[] };
+}
+
 /** FW-C-094: GET /v1/connections. Presence only: no secret value is ever in it. */
 export interface ConnectionPart {
   ready: boolean;
@@ -866,6 +875,8 @@ export interface ConnectionPart {
 export interface Connections extends Envelope {
   email: ConnectionPart & {
     settings: boolean;
+    /** FW-C-095: what the settings form starts from, or null with no settings file. */
+    values: SenderValues | null;
     mailboxes: { address: string; password: boolean }[];
     postal: boolean;
     claim_url: string | null;

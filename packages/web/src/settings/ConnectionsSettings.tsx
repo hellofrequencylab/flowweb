@@ -7,6 +7,7 @@ import { useResource } from '../api/resource';
 import type { ConnectionPart, Connections } from '../api/types';
 import { Copy, ResourceView } from '../ui-kit/honest';
 import { when } from '../ui-kit/time';
+import { SenderForm } from './SenderForm';
 
 function Part({
   id,
@@ -14,12 +15,14 @@ function Part({
   part,
   hint,
   children,
+  extra,
 }: {
   id: string;
   title: string;
   part: ConnectionPart;
   hint: string;
   children: ReactNode;
+  extra?: ReactNode;
 }) {
   return (
     <section className="connection" aria-labelledby={id}>
@@ -28,6 +31,7 @@ function Part({
         {part.ready ? 'Ready' : 'Needs setup'}
       </p>
       <dl className="facts">{children}</dl>
+      {extra}
       {part.fix.length > 0 && (
         <>
           <p className="setting-desc">{hint}</p>
@@ -46,7 +50,7 @@ function Part({
 
 const yes = (b: boolean) => (b ? 'Saved' : 'Not saved');
 
-function Body({ d }: { d: Connections }) {
+function Body({ d, canChange, reload }: { d: Connections; canChange: boolean; reload: () => void }) {
   const { email, frequency, ga4 } = d;
   return (
     <>
@@ -55,6 +59,7 @@ function Body({ d }: { d: Connections }) {
         title="Email sending"
         part={email}
         hint="Run these in your terminal, in the FlowWeb folder. A command that saves a password asks for it there."
+        extra={<SenderForm values={email.values ?? null} canChange={canChange} reload={reload} />}
       >
         <dt>Settings file</dt>
         <dd>{email.settings ? 'Found' : 'Not written yet'}</dd>
@@ -116,7 +121,7 @@ function Body({ d }: { d: Connections }) {
 }
 
 /** Settings, "Connections". Read only: what is set is read from the machine, and secrets stay there. */
-export function ConnectionsSettings() {
+export function ConnectionsSettings({ canChange = true }: { canChange?: boolean }) {
   const res = useResource('connections', () => api.connections(), []);
   const old = res.error instanceof ApiError && res.error.status === 404;
   return (
@@ -134,7 +139,7 @@ export function ConnectionsSettings() {
             <p>Update FlowWeb on this machine to see its connections: git pull, then restart fwd.</p>
           ) : (
             <ResourceView res={res} what="connections">
-              {(d) => <Body d={d} />}
+              {(d) => <Body d={d} canChange={canChange} reload={res.reload} />}
             </ResourceView>
           )}
         </div>

@@ -26,7 +26,7 @@ import { isInside, RUN_ID_RE } from '../runtime/paths.ts';
 import { setupReport } from '../setup/index.ts';
 import { spendRollup } from '../spend.ts';
 import { rowIdOf } from './codes.ts';
-import { connectionsOf } from './connections.ts';
+import { checkSender, connectionsOf, saveSender } from './connections.ts';
 import {
   ApiError,
   envelope,
@@ -493,6 +493,16 @@ export function buildRouter(deps: ApiDeps): Router {
 
   // FW-C-094: whether email sending, the Frequency link and Google Analytics are set up here. Presence only.
   r.get('/v1/connections', () => env(() => ({ data: connectionsOf(deps.fwHome, deps.repoRoot) })));
+  // FW-C-095: the sender's settings from Settings (a browser session or the CLI). Never a password.
+  r.post('/v1/connections/email', async ({ req }) => {
+    const p = principalOf.get(req);
+    if (p?.kind !== 'cli' && p?.kind !== 'dev_no_auth' && p?.kind !== 'session')
+      throw new ApiError(403, 'forbidden', 'sign in to change the sender settings');
+    const checked = checkSender(await readJsonBody(req));
+    if ('error' in checked) throw new ApiError(400, 'validation_failed', checked.error);
+    saveSender(deps.fwHome, checked.values);
+    return env(() => ({ data: connectionsOf(deps.fwHome, deps.repoRoot) }));
+  });
 
   r.get('/v1/policy', () =>
     env(() => {
