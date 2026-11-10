@@ -5,18 +5,19 @@ import { Link } from './router';
 
 const COLUMNS: { title: string; links: { to: string; label: string }[] }[] = [
   {
-    title: 'Work',
+    title: 'Daily',
     links: [
-      { to: '/', label: 'Console' },
-      { to: '/table', label: 'Sign-offs' },
-      { to: '/ledger', label: 'Logs' },
-      { to: '/runs', label: 'Runs' },
+      { to: '/', label: 'Today' },
+      { to: '/inbox', label: 'Inbox' },
+      { to: '/growth', label: 'Growth' },
     ],
   },
   {
-    title: 'Flows',
+    title: 'Under the hood',
     links: [
-      { to: '/flows', label: 'Neighborhood activation' },
+      { to: '/ledger', label: 'Logs' },
+      { to: '/runs', label: 'Runs' },
+      { to: '/projects', label: 'Projects' },
       { to: '/spend', label: 'Spend' },
     ],
   },
@@ -44,7 +45,7 @@ export function Footer() {
     <footer className="site-footer">
       <div className="site-footer-inner">
         <div className="site-footer-brand">
-          <Link to="/" className="brand" aria-label="FlowWeb, Console">
+          <Link to="/" className="brand" aria-label="FlowWeb, Today">
             <Logo size={26} />
           </Link>
           <p>Your agents find and draft. You decide, and you send.</p>
