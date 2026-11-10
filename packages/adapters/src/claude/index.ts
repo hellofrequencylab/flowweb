@@ -107,6 +107,8 @@ export interface ArgvContext {
   model?: string;
   permissionMode: string;
   allowedTools?: string[];
+  /** FW-C-043: allow WebSearch and WebFetch for this run. */
+  web?: boolean;
 }
 
 /** Build argv from verified flags only. Throws AdapterError('missing_flag') otherwise. */
@@ -148,7 +150,8 @@ export function buildClaudeArgv(ctx: ArgvContext): string[] {
     argv.push(need('--model'), ctx.model);
   }
   if (ctx.verified.has('--permission-prompts')) argv.push('--permission-prompts', 'none');
-  if (ctx.allowedTools?.length) argv.push(need('--allowed-tools'), ctx.allowedTools.join(','));
+  const tools = [...new Set([...(ctx.allowedTools ?? []), ...(ctx.web ? ['WebSearch', 'WebFetch'] : [])])];
+  if (tools.length) argv.push(need('--allowed-tools'), tools.join(','));
   return argv;
 }
 
@@ -242,6 +245,7 @@ export function createClaudeAdapter(options: ClaudeAdapterOptions = {}): VendorA
         ...(options.model ? { model: options.model } : {}),
         permissionMode: options.permissionMode ?? 'acceptEdits',
         ...(options.allowedTools ? { allowedTools: options.allowedTools } : {}),
+        ...(opts.web ? { web: true } : {}),
       });
       const prompt = buildPrompt(input, readInstructionFiles(input));
       return {

@@ -76,10 +76,19 @@ function ensureReporter(w: Writer): void {
   });
 }
 
-/** The engine a flow names in config.json: which adapter runs its cycles and on which sign-in lane. */
-export function flowEngine(repoRoot: string, key: string): { adapter?: string; auth?: 'signin' | 'api_key' } {
+/**
+ * The engine a flow names in config.json: which adapter runs its cycles and on which sign-in lane.
+ * The Owner's override in $FW_HOME wins over the repo's config, as it does for everything else.
+ */
+export function flowEngine(
+  repoRoot: string,
+  key: string,
+  fwHome?: string,
+): { adapter?: string; auth?: 'signin' | 'api_key' } {
   try {
-    const cfg = JSON.parse(readFileSync(join(repoRoot, 'flows', key, 'config.json'), 'utf8')) as {
+    const override = fwHome ? join(fwHome, 'flows', key, 'config.json') : '';
+    const file = override && existsSync(override) ? override : join(repoRoot, 'flows', key, 'config.json');
+    const cfg = JSON.parse(readFileSync(file, 'utf8')) as {
       engine?: { adapter?: unknown; auth?: unknown };
     };
     const e = cfg.engine ?? {};
@@ -149,13 +158,33 @@ interface Draft {
   body?: unknown;
 }
 
-function brief(key: string, stream: Record<string, unknown>, hunts: Hunt[]): string {
+/** The funnels a flow's config names (the copy in the cycle folder); empty when it names none. */
+function funnelNames(dir: string): string[] {
+  try {
+    const cfg = JSON.parse(readFileSync(join(dir, 'config.json'), 'utf8')) as { funnels?: unknown };
+    return cfg.funnels && typeof cfg.funnels === 'object' ? Object.keys(cfg.funnels) : [];
+  } catch {
+    return [];
+  }
+}
+
+function brief(key: string, stream: Record<string, unknown>, hunts: Hunt[], funnels: string[]): string {
   const lines = [
     `Run one cycle of the flow "${String(stream.name ?? key)}".`,
-    "Read README.md and config.json in the current folder (the flow's description and its settings on this machine) for the offer, territories, sources, funnels and send routes.",
-    'Find leads, score fit and timing, route each one, and draft invites and posts for the Owner to review.',
-    'Write your drafts to drafts.json in the current folder as {"drafts":[{"id","lead_id","send_via","subject","body"}]}.',
-    'Commit nothing. In your final report, list drafts.json as a file artifact.',
+    "Read README.md and config.json in the current folder (the flow's description and its settings on this machine) for the offer, territories, funnels and send routes.",
+    ...(hunts.length === 0
+      ? [
+          'You have no network access and no lead list in this cycle, so do not look for leads or contacts.',
+          funnels.length > 0
+            ? `Instead draft one template invite per funnel in config.json (${funnels.join(', ')}) for the Owner to personalize: ${funnels.length} drafts in all.`
+            : "Instead draft one template invite for the flow's offer, for the Owner to personalize.",
+          'Use lead_id "template:<funnel>", and as send_via the send route that README.md and config.json give for a first message to that funnel.',
+          'Write your drafts to drafts.json in the current folder as {"drafts":[{"id","lead_id","send_via","subject","body"}]}.',
+        ]
+      : [
+          'Write drafts.json in the current folder as {"drafts":[]}: every message in this cycle goes in leads.json, where fwd screens it.',
+        ]),
+    'This folder is scratch space, not a repository checkout: commit nothing. In your final report, say how many drafts you wrote.',
     'Never send, post or email anything: every draft waits for the Owner.',
   ];
   if (hunts.length > 0)
@@ -198,7 +227,7 @@ export async function runFlowCycle(d: CycleDeps, fire: CycleFire): Promise<void>
       if (hunts.length > 0) writeJsonAtomic(join(dir, 'hunts.json'), { hunts });
     }
     // $FW_VENDOR still wins (tests, a deliberate override); otherwise the flow's own engine, then routing.
-    const engine = flowEngine(d.repoRoot, fire.flow);
+    const engine = flowEngine(d.repoRoot, fire.flow, d.fwHome);
     adapterName =
       d.env.FW_VENDOR ??
       engine.adapter ??
@@ -229,17 +258,23 @@ export async function runFlowCycle(d: CycleDeps, fire: CycleFire): Promise<void>
       stream_id: fire.streamId,
       ledger_row_id: '',
       base_commit: '0'.repeat(40),
-      goal: brief(fire.flow, stream, hunts),
+      goal: brief(fire.flow, stream, hunts, funnelNames(dir)),
       context_links: ['README.md', 'config.json'],
       // The agent writes its own outputs only; the files fwd put there for it are read-only.
       scope: {
-        touches: ['drafts.json', 'leads.json'],
+        touches: hunts.length > 0 ? ['drafts.json', 'leads.json'] : ['drafts.json'],
         forbidden: ['README.md', 'config.json', 'hunts.json', '.git/**'],
       },
       constraints: {
+        // Nothing is committed, so there is no diff to cap; the prompt leaves the diff rule out for 0.
         max_diff_lines: 0,
         ...(ownerBrief.style ? { style: ownerBrief.style } : {}),
-        notes: ['This is a flow cycle: write drafts.json only and commit nothing.', ...ownerBrief.notes],
+        notes: [
+          hunts.length > 0
+            ? 'This is a flow cycle: write drafts.json and leads.json only, and commit nothing.'
+            : 'This is a flow cycle: write drafts.json only, and commit nothing.',
+          ...ownerBrief.notes,
+        ],
       },
       acceptance: [
         {
@@ -289,7 +324,12 @@ export async function runFlowCycle(d: CycleDeps, fire: CycleFire): Promise<void>
     };
     const scenario = adapterName === 'fake' ? d.env.FW_FAKE_SCENARIO : undefined;
     if (d.signal?.aborted) throw new Error(`interrupted before start: ${String(d.signal.reason ?? 'stop')}`);
-    const run = adapter.start(input, { credentialEnv: creds.env, ...(scenario ? { scenario } : {}) });
+    // FW-C-043: only a cycle with a hunt due may search and read the web.
+    const run = adapter.start(input, {
+      credentialEnv: creds.env,
+      ...(scenario ? { scenario } : {}),
+      ...(hunts.length > 0 ? { web: true } : {}),
+    });
     const onAbort = () => void run.kill(`interrupted: ${String(d.signal?.reason ?? 'stop')}`);
     d.signal?.addEventListener('abort', onAbort, { once: true });
     run.result.finally(() => d.signal?.removeEventListener('abort', onAbort));
@@ -321,13 +361,18 @@ export async function runFlowCycle(d: CycleDeps, fire: CycleFire): Promise<void>
       result.status === 'failed' &&
       (await run.meta)?.failure_class === 'no_artifact' &&
       existsSync(join(dir, 'drafts.json'));
-    if (result.status !== 'completed' && !draftsOnly) {
+    if (d.signal?.aborted) {
+      reason = `stopped by fwd: ${String(d.signal.reason ?? 'stop')}`;
+    } else if (result.status !== 'completed' && !draftsOnly) {
       reason = redactLiterals(`adapter ended ${result.status}: ${result.summary ?? ''}`, creds.literals);
     } else {
       const p = join(dir, 'drafts.json');
-      const drafts = existsSync(p)
-        ? ((JSON.parse(readFileSync(p, 'utf8')) as { drafts?: Draft[] }).drafts ?? [])
-        : [];
+      // In a hunt cycle every message comes from leads.json, which fwd screens (do-not-contact, no
+      // repeats, caps) and signs; drafts.json would bypass that, so it is not read.
+      const drafts =
+        hunts.length === 0 && existsSync(p)
+          ? ((JSON.parse(readFileSync(p, 'utf8')) as { drafts?: Draft[] }).drafts ?? [])
+          : [];
       const out = join(d.fwHome, 'flows', fire.flow, 'drafts');
       mkdirSync(out, { recursive: true, mode: 0o700 });
       drafts.forEach((x, i) => {
@@ -336,25 +381,31 @@ export async function runFlowCycle(d: CycleDeps, fire: CycleFire): Promise<void>
         const channel =
           typeof (x.channel ?? x.send_via) === 'string' ? String(x.channel ?? x.send_via) : null;
         // At confirmed Autopilot the draft goes to the outbox; at any other stop handOff holds it for the Owner.
-        const handed = channel
-          ? handOff({
-              writer: w,
-              repoRoot: d.repoRoot,
-              fwHome: d.fwHome,
-              flow: fire.flow,
-              item: { id, channel, body: x.body },
-            })
-          : null;
+        // A template, or a draft with no lead, has nobody to send to, so it always waits for the Owner.
+        const leadId = typeof x.lead_id === 'string' && x.lead_id.length > 0 ? x.lead_id : null;
+        const unaddressed =
+          leadId === null ? 'no_recipient' : leadId.startsWith('template:') ? 'template' : null;
+        const handed =
+          channel && !unaddressed
+            ? handOff({
+                writer: w,
+                repoRoot: d.repoRoot,
+                fwHome: d.fwHome,
+                flow: fire.flow,
+                item: { id, channel, body: x.body },
+              })
+            : null;
         const doc = {
           flow: fire.flow,
           id,
           fire_id: fire.fireId,
-          lead_id: typeof x.lead_id === 'string' ? x.lead_id : null,
+          lead_id: leadId,
           channel,
           subject: typeof x.subject === 'string' ? x.subject : null,
           body: x.body,
           status: handed?.outcome === 'queued' ? 'handed_off' : 'waiting_for_owner',
           ...(handed && handed.outcome !== 'queued' ? { held: handed.reason } : {}),
+          ...(unaddressed ? { held: unaddressed } : {}),
           created_at: nowIso(),
         };
         writeFileSync(join(out, `${id}.json`), `${JSON.stringify(doc, null, 2)}\n`, { mode: 0o600 });

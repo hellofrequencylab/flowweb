@@ -363,6 +363,11 @@ export interface StartOptions {
   homeDir?: string;
   /** Grace period between SIGTERM and SIGKILL to the process group. Default 1500 ms. */
   killGraceMs?: number;
+  /**
+   * FW-C-043: lets this one run search and read the public web (a flow cycle with a hunt due). Off by
+   * default, so ledger runs and other cycles stay offline.
+   */
+  web?: boolean;
   /** Fake adapter only: overrides the scenario tag in the work order title. */
   scenario?: string;
   /** Clock override for tests. */

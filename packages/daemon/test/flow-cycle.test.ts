@@ -6,6 +6,7 @@ import { openStore } from '@fw/eventlog';
 import { briefProject } from '@fw/ledger';
 import { afterEach, expect, test } from 'vitest';
 import { ensureFwHome, REPO_ROOT } from '../src/daemon.ts';
+import { saveHunts } from '../src/flows/hunts.ts';
 import { addFlowSpend, flowEngine, flowStream, runFlowCycle } from '../src/overseer/cycle.ts';
 import { handOff, setDial, setFlowEnabled } from '../src/overseer/index.ts';
 import { tempHome, withWriter } from './api-fixtures.ts';
@@ -130,6 +131,14 @@ test("the flow's engine picks the adapter and its sign-in lane", async () => {
     .work_order.scope;
   expect(scope.touches).toContain('drafts.json');
   expect(scope.forbidden.some((g) => g === '**/*' || g === '**' || g === 'drafts.json')).toBe(false);
+  // Without hunts or network the order asks for templates only, names one output, and never says to
+  // find leads (run 5 on the Owner's Mac refused an order that contradicted itself).
+  const wo = (r.seen.input as { work_order: { goal: string; constraints: { notes: string[] } } }).work_order;
+  expect(scope.touches).toEqual(['drafts.json']);
+  expect(wo.goal).not.toMatch(/find leads/i);
+  expect(wo.goal).toContain('template invite per funnel');
+  expect(wo.constraints.notes[0]).toBe('This is a flow cycle: write drafts.json only, and commit nothing.');
+  expect((r.seen.input as { workspace: { base_commit: string } }).workspace.base_commit).toMatch(/^0+$/);
   // Codex refuses to start outside a git repository, so the cycle folder is one.
   expect(existsSync(join(home, 'flows', KEY, 'cycles', 'fire3', '.git'))).toBe(true);
   expect(r.seen.options).toMatchObject({ codex: { auth: 'signin' }, env: { FW_CODEX_AUTH: 'signin' } });
@@ -267,7 +276,7 @@ test('aborting a cycle kills the vendor and still writes a report', async () => 
   await done;
   expect(killed).toMatch(/interrupted: fwd stopping/);
   const rpt = w.get<{ body: string }>("SELECT body FROM status_reports WHERE kind = 'run'");
-  expect(JSON.parse(rpt!.body)).toMatchObject({ outcome: 'failed', reason: expect.stringMatching(/killed/) });
+  expect(JSON.parse(rpt!.body)).toMatchObject({ outcome: 'failed', reason: 'stopped by fwd: fwd stopping' });
 });
 
 test('drafts written without a named artifact still count (a cycle commits nothing)', async () => {
@@ -292,4 +301,100 @@ test('drafts written without a named artifact still count (a cycle commits nothi
   );
   const rpt = w.get<{ body: string }>("SELECT body FROM status_reports WHERE kind = 'run'");
   expect(JSON.parse(rpt!.body)).toMatchObject({ outcome: 'drafted', drafts: 1 });
+});
+
+/** A stub adapter that writes the given drafts.json into the cycle folder and finishes. */
+function writesDrafts(dir: string, drafts: unknown[]) {
+  return (() => ({
+    start: () => {
+      writeFileSync(join(dir, 'drafts.json'), JSON.stringify({ drafts }));
+      return {
+        events: (async function* () {})(),
+        result: Promise.resolve({ status: 'completed', turns: 1, cost: { usd: 0.01 } }),
+      };
+    },
+  })) as never;
+}
+
+test('at Autopilot a template or a draft with no lead is never handed off', async () => {
+  const { home, w, streamId } = cycleHome();
+  let hash: string | undefined;
+  try {
+    setDial(w, REPO_ROOT, home, KEY, 'autopilot');
+  } catch (e) {
+    hash = (e as { details?: { confirm_hash?: string } }).details?.confirm_hash;
+  }
+  setDial(w, REPO_ROOT, home, KEY, 'autopilot', hash);
+  const factory = writesDrafts(join(home, 'flows', KEY, 'cycles', 'fire9'), [
+    { id: 't', lead_id: 'template:host', send_via: 'founder_email', body: 'Template' },
+    { id: 'n', send_via: 'founder_email', body: 'Nobody' },
+    { id: 'a', lead_id: 'lead-1', send_via: 'founder_email', body: 'Addressed' },
+  ]);
+  await runFlowCycle(
+    { writer: w, repoRoot: REPO_ROOT, fwHome: home, env: {}, keychain: false, adapterFactory: factory },
+    { flow: KEY, streamId, fireId: 'fire9' },
+  );
+  const read = (id: string) =>
+    JSON.parse(readFileSync(join(home, 'flows', KEY, 'drafts', `fire9-${id}.json`), 'utf8'));
+  expect(read('t')).toMatchObject({ status: 'waiting_for_owner', held: 'template' });
+  expect(read('n')).toMatchObject({ status: 'waiting_for_owner', held: 'no_recipient' });
+  expect(read('a')).toMatchObject({ status: 'handed_off' });
+  expect(readdirSync(join(home, 'outbox', KEY))).toEqual(['fire9-a.json']);
+});
+
+test('a hunt cycle ignores drafts.json, so every message goes through the hunt screen', async () => {
+  const { home, w, streamId } = cycleHome();
+  saveHunts(home, [
+    {
+      id: 'h1',
+      looking_for: 'yoga',
+      region: 'north-county-sd',
+      areas: [],
+      links: [],
+      every_days: 7,
+      max_sends: 5,
+      build: false,
+      enabled: true,
+      requested_at: new Date().toISOString(),
+    } as never,
+  ]);
+  const r = recorder();
+  const dir = join(home, 'flows', KEY, 'cycles', 'fire10');
+  const factory = ((name: string, options: unknown) => {
+    const inner = (
+      writesDrafts(dir, [{ id: 'x', lead_id: 'lead-1', send_via: 'founder_email', body: 'Unscreened' }]) as (
+        n: string,
+        o: unknown,
+      ) => { start: (i: unknown, o: unknown) => unknown }
+    )(name, options);
+    return {
+      start: (i: unknown, o: unknown) => {
+        r.seen.input = i;
+        return inner.start(i, o);
+      },
+    };
+  }) as never;
+  await runFlowCycle(
+    { writer: w, repoRoot: REPO_ROOT, fwHome: home, env: {}, keychain: false, adapterFactory: factory },
+    { flow: KEY, streamId, fireId: 'fire10' },
+  );
+  const goal = (r.seen.input as { work_order: { goal: string } }).work_order.goal;
+  expect(goal).toContain('{"drafts":[]}');
+  const out = join(home, 'flows', KEY, 'drafts');
+  const files = existsSync(out) ? readdirSync(out) : [];
+  expect(files.filter((f) => f.startsWith('fire10-x'))).toEqual([]);
+  const rpt = w.get<{ body: string }>("SELECT body FROM status_reports WHERE kind = 'run'");
+  expect(JSON.parse(rpt!.body)).toMatchObject({ outcome: 'dry', drafts: 0 });
+});
+
+test("the Owner's config override picks the engine", () => {
+  const h = tempHome();
+  cleanups.push(h.cleanup);
+  mkdirSync(join(h.path, 'flows', KEY), { recursive: true });
+  writeFileSync(
+    join(h.path, 'flows', KEY, 'config.json'),
+    JSON.stringify({ engine: { adapter: 'claude', auth: 'signin' } }),
+  );
+  expect(flowEngine(REPO_ROOT, KEY, h.path)).toEqual({ adapter: 'claude', auth: 'signin' });
+  expect(flowEngine(REPO_ROOT, KEY)).toEqual({ adapter: 'codex', auth: 'signin' });
 });

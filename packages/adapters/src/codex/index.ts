@@ -93,6 +93,8 @@ export interface CodexArgvContext {
   resumeSessionId: string | null;
   schemaPath: string;
   model?: string;
+  /** FW-C-043: network access and live web search for this run. */
+  web?: boolean;
 }
 
 /** Build argv from verified flags only. Throws AdapterError('missing_flag') otherwise. */
@@ -115,6 +117,13 @@ export function buildCodexArgv(ctx: CodexArgvContext): string[] {
   } else {
     argv.push(need('--json'), need('--sandbox'), 'workspace-write');
   }
+  if (ctx.web)
+    argv.push(
+      need('--config'),
+      'sandbox_workspace_write.network_access=true',
+      need('--config'),
+      'web_search="live"',
+    );
   if (ctx.verified.has('--ignore-user-config')) argv.push('--ignore-user-config');
   argv.push(need('--output-schema'), ctx.schemaPath);
   if (ctx.model) {
@@ -205,6 +214,7 @@ export function createCodexAdapter(options: CodexAdapterOptions = {}): VendorAda
         resumeSessionId: resume,
         schemaPath: schemaFile(),
         ...(options.model ? { model: options.model } : {}),
+        ...(opts.web ? { web: true } : {}),
       });
       const prompt = buildPrompt(input, readInstructionFiles(input));
       return {
