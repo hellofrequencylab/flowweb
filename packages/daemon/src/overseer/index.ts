@@ -469,9 +469,15 @@ export function handOff(o: {
     return held('unknown_channel', `${flow} does not list ${item.channel}.`);
   const dir = join(o.fwHome, 'outbox', flow);
   const path = join(dir, `${item.id}.json`);
-  if (existsSync(path)) return { outcome: 'queued', path };
-  const sha256 = createHash('sha256').update(item.body).digest('hex');
   const dedupe_key = `flow_handoff:${flow}:${item.id}`;
+  // Queued once means queued forever: a sending app may already have taken the file, so the event, not
+  // the file, decides. Writing the file again would send the item twice.
+  if (
+    existsSync(path) ||
+    w.get("SELECT 1 FROM events WHERE type = 'notification.queued' AND idempotency_key = ?", [dedupe_key])
+  )
+    return { outcome: 'queued', path };
+  const sha256 = createHash('sha256').update(item.body).digest('hex');
   mkdirSync(dir, { recursive: true, mode: 0o700 });
   const tmp = `${path}.tmp`;
   writeFileSync(
