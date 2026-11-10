@@ -1,4 +1,4 @@
-// FW-C-038: making a project that is not a code repository, and the Owner's brief for it.
+// FW-C-039: making a project that is not a code repository, and the Owner's brief for it.
 // A project made here has no repo_url; a repository project still comes from `fw ledger sync`.
 // The brief is the Owner's own answers to five plain questions, stored word for word (trimmed) in
 // settings('project_briefs') keyed by project id, so it needs no schema change. All five answers

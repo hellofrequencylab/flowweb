@@ -701,7 +701,7 @@ export interface Supervisor extends Envelope {
   next: string[];
 }
 
-/** FW-C-038: GET /v1/setup. Every step is read from real state; a step not done names its fix. */
+/** FW-C-039: GET /v1/setup. Every step is read from real state; a step not done names its fix. */
 export type SetupStepId = 'machine' | 'sign_ins' | 'project' | 'brief' | 'flow' | 'live_site';
 
 export interface SetupStep {

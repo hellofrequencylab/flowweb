@@ -766,7 +766,7 @@ export const api = {
     return { data_as_of: e.as_of, ...e.data };
   },
 
-  /** FW-C-038: where setup stands. */
+  /** FW-C-039: where setup stands. */
   async setup(): Promise<V.Setup> {
     const e = await get<Omit<V.Setup, 'data_as_of'>>('/setup');
     return { data_as_of: e.as_of, ...e.data };

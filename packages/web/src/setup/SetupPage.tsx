@@ -51,7 +51,7 @@ export function progressOf(d: Setup): { done: number; total: number } {
   return { done: req.filter((s) => s.done).length, total: req.length };
 }
 
-/** FW-C-038: the same six steps as `pnpm fw setup`, each read from real state on the machine. */
+/** FW-C-039: the same six steps as `pnpm fw setup`, each read from real state on the machine. */
 export function SetupPage() {
   const res = useResource('setup', () => api.setup(), ['runs', 'cards', 'rows']);
   return (

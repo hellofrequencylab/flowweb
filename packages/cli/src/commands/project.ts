@@ -4,7 +4,7 @@
 // id or slug). An empty value clears one ("--brand ''"). Writes one project.updated event when
 // something changed; with neither option it only prints the current labels.
 // fw project add <slug> [--name] [--kind] [--brand] [--category]: a project with no repository
-// (FW-C-038); a repository project still comes from `fw ledger sync`.
+// (FW-C-039); a repository project still comes from `fw ledger sync`.
 // fw project brief <project> [--what --who --voice --never --done]: the Owner's brief, five plain
 // answers saved word for word (all five or nothing). With no answers it prints the saved brief.
 import type { ProjectView } from '../client.ts';
