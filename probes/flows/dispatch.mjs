@@ -28,7 +28,13 @@
 //   5. With the flow turned off, running it by hand is held by flow_disabled, and no cycle runs.
 //   6. `fw supervisor run <flow> --json` (FW_PORT naming fwd's port) reaches the same route and
 //      prints the same shape.
-import { existsSync, readdirSync, readFileSync } from 'node:fs';
+//   7. The same hand run on a real engine path: a second fwd with no FW_VENDOR, so the cycle takes
+//      the flow's own engine (Codex, ChatGPT sign-in) through the real Codex adapter. The `codex` on
+//      its PATH is probes/flows/_codex-agent.mjs, which acts like Codex CLI and a careful agent:
+//      it refuses outside a git repository, writes nothing without README.md and config.json in its
+//      folder or when the prompt forbids drafts.json, and like Codex never claims an artifact. The
+//      cycle must end drafted by codex with its drafts waiting for the Owner, and spend recorded.
+import { chmodSync, existsSync, mkdirSync, readdirSync, readFileSync, writeFileSync } from 'node:fs';
 import { request } from 'node:http';
 import { createServer } from 'node:net';
 import { join } from 'node:path';
@@ -88,9 +94,8 @@ const json = (r) => {
   }
 };
 
-async function startFwd(home) {
+async function startFwd(home, env = { FW_HOME: home, FW_VENDOR: 'fake', FW_FAKE_SCENARIO: 'flow_drafts' }) {
   const port = await freePort();
-  const env = { FW_HOME: home, FW_VENDOR: 'fake', FW_FAKE_SCENARIO: 'flow_drafts' };
   const d = spawnTs(DAEMON_BIN, ['--home', home, '--port', String(port)], { env });
   kids.push(d);
   await waitFor(() => /listening on/.test(d.output()) || d.exitCode !== null, { timeoutMs: 30000, what: 'fwd to listen' });
@@ -107,6 +112,19 @@ async function rows(home, sql, ...params) {
   } finally {
     db.close();
   }
+}
+
+// A `codex` on PATH that runs the probe's stand-in agent, and a CODEX_HOME that counts as signed in.
+function codexStandIn(home) {
+  const bin = join(home, 'probe-bin');
+  const codexHome = join(home, 'probe-codex-home');
+  mkdirSync(bin, { recursive: true });
+  mkdirSync(codexHome, { recursive: true });
+  writeFileSync(join(codexHome, 'auth.json'), '{"probe":"stand-in sign-in, no token"}\n');
+  const agent = join(root, 'probes', 'flows', '_codex-agent.mjs');
+  writeFileSync(join(bin, 'codex'), `#!/bin/sh\nexec "${process.execPath}" "${agent}" "$@"\n`);
+  chmodSync(join(bin, 'codex'), 0o755);
+  return { PATH: `${bin}:${process.env.PATH ?? '/usr/bin:/bin'}`, CODEX_HOME: codexHome };
 }
 
 const reports = async (home) =>
@@ -207,6 +225,38 @@ await probe(NAME, async () => {
       cd?.outcome === 'held' && String(cd.reason ?? '').startsWith('flow_disabled') && typeof cd.fire_id === 'string',
       `fw supervisor run --json printed ${JSON.stringify(cli.json).slice(0, 200)}`,
     );
+
+    // ---- 7. a real engine path: the flow's own Codex sign-in, through the Codex adapter -------------
+    const home2 = freshHome('dispatch-codex');
+    const g = await startFwd(home2, { FW_HOME: home2, ...codexStandIn(home2) });
+    const en2 = await http(g.port, 'POST', `/v1/supervisor/flows/${KEY}/enable`, g.token);
+    check(en2.status === 200, `enabling ${KEY} on the Codex fwd answered ${en2.status}`);
+    const run2 = json(await http(g.port, 'POST', `/v1/supervisor/flows/${KEY}/run`, g.token))?.data;
+    check(run2?.outcome === 'fired', `running ${KEY} on the Codex fwd: ${JSON.stringify(run2)}, want fired`);
+    let rep2;
+    await waitFor(
+      async () => {
+        rep2 = (await reports(home2)).find((b) => b.fire_id === run2.fire_id);
+        return rep2 !== undefined;
+      },
+      { timeoutMs: 60000, everyMs: 250, what: 'the Codex cycle to write its run report' },
+    );
+    check(
+      rep2.stream_id === SID && rep2.adapter === 'codex' && rep2.outcome === 'drafted' && rep2.drafts >= 1,
+      `the Codex run report: ${JSON.stringify(rep2).slice(0, 400)}`,
+    );
+    const dir2 = join(home2, 'flows', KEY, 'drafts');
+    const files2 = existsSync(dir2) ? readdirSync(dir2).filter((x) => x.endsWith('.json')) : [];
+    check(files2.length === rep2.drafts, `draft files after the Codex cycle: ${files2.length}, the report says ${rep2.drafts}`);
+    for (const x of files2) {
+      const d2 = JSON.parse(readFileSync(join(dir2, x), 'utf8'));
+      check(
+        d2.flow === KEY && d2.fire_id === run2.fire_id && d2.status === 'waiting_for_owner' && d2.body.length > 0,
+        `the Codex draft ${x}: ${JSON.stringify(d2).slice(0, 200)}`,
+      );
+    }
+    const spend2 = await rows(home2, 'SELECT count(*) AS n FROM spend_entries WHERE stream_id = ?', SID);
+    check(Number(spend2[0].n) >= 1, `spend rows for the Codex cycle: ${spend2[0].n}, want at least 1`);
   } finally {
     for (const k of kids) if (k.exitCode === null) await killAndWait(k, 'SIGKILL');
   }
