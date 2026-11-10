@@ -9,6 +9,7 @@ import { canonicalJson, nowIso, sha256Hex } from '@fw/eventlog';
 import type { ProbeDefinition } from '../definition.ts';
 import { LedgerError } from '../errors.ts';
 import type { CorePolicy } from '../policy.ts';
+import type { BriefAnswers } from '../projects/projects.ts';
 
 /**
  * Tier 0 paths a worker never touches, merged with the policy's tier0 list: policy/tier0-paths.json,
@@ -42,6 +43,22 @@ export interface CompileInput {
   baseCommit: string;
   policy: CorePolicy;
   roles: { doer: string; verifier: string; approver: string };
+  /** The project's complete brief from the Owner (FW-C-040), copied word for word; absent when none. */
+  brief?: BriefAnswers;
+}
+
+/** The voice goes to style; the other four answers go to notes, each labelled with its question. */
+function briefConstraints(b: BriefAnswers | undefined): { style?: string[]; notes: string[] } {
+  if (!b) return { notes: [] };
+  return {
+    style: [`Voice, from the Owner's project brief: ${b.voice}`],
+    notes: [
+      `From the Owner's project brief. What the project is: ${b.what}`,
+      `Who it is for: ${b.who}`,
+      `What the agents must never do on it: ${b.never}`,
+      `What done looks like: ${b.done}`,
+    ],
+  };
 }
 
 export function workOrderHash(wo: Omit<WorkOrder, 'content_hash'> | WorkOrder): string {
@@ -88,6 +105,7 @@ export function compileWorkOrder(input: CompileInput): WorkOrder {
   const touches = input.files_hint?.length ? [...input.files_hint] : [`docs/notes/${row.code}/**`];
   const forbidden = [...new Set([...ALWAYS_FORBIDDEN, ...policy.tier0_paths])].sort();
   const claims = input.acceptance?.length ? input.acceptance : [probe.measures];
+  const brief = briefConstraints(input.brief);
   const issuedAt = nowIso(input.issuedAt);
   const expiresAt = nowIso(new Date(input.issuedAt.getTime() + rule.ttl_hours * 3600_000));
   const body: Omit<WorkOrder, 'content_hash'> = {
@@ -105,7 +123,12 @@ export function compileWorkOrder(input: CompileInput): WorkOrder {
       no_new_dependencies: true,
       max_diff_lines: policy.max_diff_lines,
       max_files: policy.max_files,
-      notes: ['Never edit, skip or loosen the row probe.', 'Edit only the paths in scope.touches.'],
+      notes: [
+        'Never edit, skip or loosen the row probe.',
+        'Edit only the paths in scope.touches.',
+        ...brief.notes,
+      ],
+      ...(brief.style ? { style: brief.style } : {}),
     },
     acceptance: claims.slice(0, 999).map((claim, i) => ({
       id: `AC${i + 1}`,
