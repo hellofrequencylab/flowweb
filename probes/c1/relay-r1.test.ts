@@ -79,7 +79,7 @@ describe('c1/relay-r1', () => {
       status: 'completed',
       exit_code: 0,
       cost: { input_tokens: 0, output_tokens: 0, usd: 0 },
-      artifacts: [],
+      artifacts: [{ kind: 'report', ref: 'pasted-from-chat' }],
       ...over,
     });
     expect(paste('none.txt', 'Done! Everything worked.').status, 'a paste with no JSON is refused').not.toBe(0);
