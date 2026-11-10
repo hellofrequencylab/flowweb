@@ -55,7 +55,7 @@ export function StatusStrip({ onStop }: { onStop: () => void }) {
   return (
     <header className="topbar">
       <div className="topbar-row">
-        <Link to="/" className="brand" aria-label="FlowWeb, Console">
+        <Link to="/" className="brand" aria-label="FlowWeb, Today">
           <Logo />
         </Link>
         <TopNav />
@@ -90,7 +90,7 @@ export function StatusStrip({ onStop }: { onStop: () => void }) {
         </span>
 
         {s && current && s.cards_open > 0 && (
-          <Link to="/table" className="needs-pill">
+          <Link to="/inbox" className="needs-pill">
             {s.cards_open} need{s.cards_open === 1 ? 's' : ''} you
           </Link>
         )}
