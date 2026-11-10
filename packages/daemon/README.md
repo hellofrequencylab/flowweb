@@ -159,8 +159,12 @@ only of such runs shows `usd: null` and prints `unknown`, never $0 (owner decisi
 Every failure ends the run in one transaction (status, `run.<status>` event, leases, work order
 back to `issued`, row back to `ready` or `blocked`) and keeps the worktree for inspection. On
 success the worktree is removed (the branch is on the host). Exit code 0 only when the PR is open
-and the row is `verifying`. A diff-policy violation sets `policy_code: "DIFF_POLICY"` on the report
-and `fw run start` exits 3 (refused by policy); every other failure exits 1.
+and the row is `verifying`. A policy refusal sets `policy_code` on the report and `fw run start`
+exits 3: `DIFF_POLICY` (the change broke the diff policy), `KILL_SWITCH` (the kill switch is engaged,
+before the run or at admission) and `BUDGET_EXHAUSTED` (a fleet, project, stream or agent budget is
+spent at admission). The code is read from database state, never from a trigger message. Every other
+refusal or failure exits 1, including a row that is not ready, a held lease and a mid-run budget hard
+stop (the run started; it fails with `failure_class: budget`).
 
 ## `fw doctor` and `fw gc` (FW-C-008)
 

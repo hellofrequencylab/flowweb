@@ -230,6 +230,26 @@ export function resolveGitHost(spec: string | undefined, repoDir: string, env: N
 
 // ---- small reads ---------------------------------------------------------------------------------
 
+/**
+ * The policy code of a dispatch refusal, read from database state (never from the trigger's message):
+ * KILL_SWITCH when the kill switch is engaged, BUDGET_EXHAUSTED when a fleet, project, stream
+ * or agent budget is spent (the scopes trg_runs_admission checks), else null: a lease, order or
+ * row-state refusal is not a policy refusal.
+ */
+function dispatchPolicyCode(
+  w: Writer,
+  run: { project: string; stream: string; agent: string },
+): string | null {
+  if (killSwitchEngaged(w)) return 'KILL_SWITCH';
+  const spent = w.get<{ n: number }>(
+    `SELECT COUNT(*) AS n FROM budget_usage WHERE max_usd IS NOT NULL AND spent_usd >= max_usd AND period <> 'run'
+       AND (scope_kind = 'fleet' OR (scope_kind = 'project' AND scope_id = ?)
+            OR (scope_kind = 'stream' AND scope_id = ?) OR (scope_kind = 'agent' AND scope_id = ?))`,
+    [run.project, run.stream, run.agent],
+  );
+  return (spent?.n ?? 0) > 0 ? 'BUDGET_EXHAUSTED' : null;
+}
+
 function killSwitchEngaged(w: Writer): boolean {
   const v = w.get<{ value: string }>("SELECT value FROM settings WHERE key = 'kill_switch'");
   try {
@@ -321,14 +341,15 @@ export async function runStart(w: Writer, code: string, opts: RunStartOptions): 
     cost_usd: null,
     cost_estimated: null,
   };
-  const refuse = (reason: string): RunStartReport => ({
+  const refuse = (reason: string, policy_code: string | null = null): RunStartReport => ({
     ...report,
     reason,
+    policy_code,
     row_status: getDbRow(w, row.id).status,
   });
 
   // ---- 1. premise ----
-  if (killSwitchEngaged(w)) return refuse('kill switch is engaged; no new runs');
+  if (killSwitchEngaged(w)) return refuse('kill switch is engaged; no new runs', 'KILL_SWITCH');
   if (row.status === 'open') {
     const p = await retestPremise(w, rowCode, { repoDir });
     if (p.outcome !== 'ready')
@@ -474,7 +495,11 @@ export async function runStart(w: Writer, code: string, opts: RunStartOptions): 
         });
     });
   } catch (e) {
-    if (e instanceof LedgerError && e.code === 'REFUSED_BY_DATABASE') return refuse(e.message);
+    if (e instanceof LedgerError && e.code === 'REFUSED_BY_DATABASE')
+      return refuse(
+        e.message,
+        dispatchPolicyCode(w, { project: row.project_id, stream: order.stream_id, agent: doer }),
+      );
     throw e;
   }
   report.run_id = runId;
@@ -510,7 +535,12 @@ export async function runStart(w: Writer, code: string, opts: RunStartOptions): 
     );
   } catch (e) {
     if (!(e instanceof LedgerError)) throw e;
-    const budget = /budget/i.test(e.message);
+    const policyCode = dispatchPolicyCode(w, {
+      project: row.project_id,
+      stream: order.stream_id,
+      agent: doer,
+    });
+    const budget = policyCode === 'BUDGET_EXHAUSTED';
     w.transaction((tx) => {
       endRun(tx, {
         run: getRun(tx, runId),
@@ -541,7 +571,7 @@ export async function runStart(w: Writer, code: string, opts: RunStartOptions): 
         });
       }
     });
-    return { ...finish(), reason: e.message };
+    return { ...finish(), reason: e.message, policy_code: policyCode };
   }
 
   // ---- 3 to 10, under one failure handler ----

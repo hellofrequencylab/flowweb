@@ -500,6 +500,23 @@ describe('exit codes', () => {
   });
 
   test.each([
+    ['KILL_SWITCH', 'kill switch is engaged; no new runs'],
+    ['BUDGET_EXHAUSTED', 'runs: budget exhausted (hard stop); dispatch refused'],
+  ])('a dispatch refused by policy (%s) exits 3; a row that is not ready exits 1', async (code, reason) => {
+    const base = await fakeClient().runStart!('FW-C-001');
+    const refused = { ...base, ok: false, status: 'refused', run_id: null, reason, pr: null };
+    const r = await run(
+      ['run', 'start', 'FW-C-001', '--json'],
+      fakeClient({ runStart: async () => ({ ...refused, policy_code: code }) }),
+    );
+    expect(r.code).toBe(EXIT.POLICY);
+    expect(JSON.parse(r.out).policy_code).toBe(code);
+    const notReady = { ...refused, reason: 'FW-C-001 is open; only a ready row can run', policy_code: null };
+    const r1 = await run(['run', 'start', 'FW-C-001'], fakeClient({ runStart: async () => notReady }));
+    expect(r1.code).toBe(EXIT.FAILED);
+  });
+
+  test.each([
     ['ROW_NOT_READY', EXIT.FAILED],
     ['ALREADY_ISSUED', EXIT.FAILED],
     ['REFUSED_BY_DATABASE', EXIT.FAILED],

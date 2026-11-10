@@ -188,6 +188,23 @@ describe('fw wo issue', () => {
   });
 });
 
+describe('fw run start', () => {
+  test('the kill switch refuses a run by policy (exit 3, KILL_SWITCH); released, an ordinary refusal exits 1', () => {
+    python(
+      `INSERT OR REPLACE INTO settings(key, value, updated_by) VALUES ('kill_switch', '{"engaged":true}', 'test')`,
+    );
+    const r = fw('run', 'start', 'FW-C-005', '--adapter', 'fake', '--json');
+    expect(r.code).toBe(3);
+    expect(JSON.parse(r.out)).toMatchObject({ ok: false, run_id: null, policy_code: 'KILL_SWITCH' });
+    python(
+      `UPDATE settings SET value = '{"engaged":false}', updated_by = 'own_test' WHERE key = 'kill_switch'`,
+    );
+    const plain = fw('run', 'start', 'FW-C-005', '--adapter', 'fake', '--json');
+    expect(plain.code).toBe(1);
+    expect(JSON.parse(plain.out).error.code).toBe('NOT_A_GIT_REPO');
+  });
+});
+
 describe('fw audit verify', () => {
   test('ok on an intact chain, exit 1 and one line on a broken one', () => {
     const ok = fw('audit', 'verify');

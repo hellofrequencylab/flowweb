@@ -9,7 +9,7 @@
 //   - fw --help lists no command that is not implemented (each listed command, run, is recognised:
 //     it never answers "unknown command" or "not implemented")
 //   - the global --home flag overrides FW_HOME
-// Exit 3 is still open in the code (decision 22: refusals exit 1), so this probe fails on that line.
+// Exit 3 is implemented (decision 22): the CLI maps error codes in POLICY_CODES, never message text.
 import { existsSync } from 'node:fs';
 import { join } from 'node:path';
 import {

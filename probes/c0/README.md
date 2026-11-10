@@ -154,7 +154,7 @@ authenticated, no network for vendors). 22 of 34 C0 probes pass (orphan-recovery
 | `c0/schema-core` | FW-C-003 | PASS | |
 | `c0/event-chain` | FW-C-004 | PASS | |
 | `c0/ledger-sync` | FW-C-005 | FAIL | sync refuses the changed probe but records no tamper event |
-| `c0/cli-skeleton` | FW-C-006 | FAIL | XL `fw wo issue` exits 1, want 3 |
+| `c0/cli-skeleton` | FW-C-006 | PASS | |
 | `c0/ledger-fsm` | WS-P0-016 | PASS | |
 | `c0/probe-exec` | WS-P0-019 | FAIL | a probe file differing from `probes/MANIFEST.sha256` runs (exit 0) |
 | `c0/premise-retest` | WS-P0-020 | PASS | |
@@ -173,7 +173,7 @@ authenticated, no network for vendors). 22 of 34 C0 probes pass (orphan-recovery
 | `c0/git-edge` | WS-P0-036 | PASS | |
 | `c0/evidence-builder` | WS-P0-038 | PASS | |
 | `c0/artifact-required` | WS-P0-039 | PASS | |
-| `c0/wo-issue` | WS-P0-040 | FAIL | XL `fw wo issue` exits 1, want 3 (everything else passes) |
+| `c0/wo-issue` | WS-P0-040 | PASS | |
 | `c0/run-fake-e2e` | WS-P0-041 | PASS | |
 | `c0/diff-policy-run` | WS-P0-041 | PASS | |
 | `c0/walking-skeleton-ci` | WS-P0-042 | FAIL | e2e passes offline in about 18 s, but asserts no cost rollup |
@@ -191,7 +191,6 @@ Each line below is a backlog acceptance line the code does not meet yet. The pro
 | FW-C-001 | typecheck with exactOptionalPropertyTypes on | `tsconfig.json`: set `exactOptionalPropertyTypes: true` and fix the resulting type errors (decision 27) |
 | WS-P0-006 | probe runs are time-limited by default (60 s) | `scripts/probe.mjs` (Tier 0): spawn with a default 60 s limit (overridable), kill the process group, exit nonzero with a message naming the timeout |
 | FW-C-005 | changed probe refused "with a tamper event" | `packages/ledger` sync: on a probe-hash mismatch, append `audit.finding_raised` (check `probe_tamper`, row named) in its own transaction, then refuse; ledger_rows stays untouched (decision 19) |
-| FW-C-006, WS-P0-040 | exit code 3 for a policy refusal | `packages/cli` exit-code mapping: map policy refusals (`SIZE_NOT_DISPATCHABLE`, self-verification refused, Tier 0 / diff-policy refusals) to 3 (decision 22) |
 | WS-P0-019 | a modified probe file is refused with `tamper_detected` | the probe executor (`runRowProbe` / `checkedProbe` in `packages/ledger`) does not read `probes/MANIFEST.sha256`; it should hash the probe file a command names and refuse on mismatch (decision 20; needs the Owner's manifest) |
 | WS-P0-025 | `fw spend --by agent` prints the rollup | `packages/cli`: add `fw spend --by agent` (and by run or row, with `--json`), the same numbers as `GET /v1/spend` |
 | WS-P0-026 | a no-op reference adapter compiles against the SDK | `packages/adapters`: add `noop` to `ADAPTER_NAMES` and `createAdapter` (implements the interface, returns a schema-valid result, spawns nothing) |

@@ -36,12 +36,17 @@ const USAGE_CODES = new Set(['BAD_ARGUMENT', 'USAGE']);
  *   SELF_VERIFY            the same agent was named as doer and verifier
  *   DIFF_POLICY            the run's change broke the diff policy (out of scope or a Tier 0 path)
  *   APPROVAL_REQUIRED      a stream tier above L2 named no recorded Owner approval
+ *   KILL_SWITCH            dispatch refused because the kill switch is engaged
+ *   BUDGET_EXHAUSTED       dispatch refused because a fleet, project, stream or agent budget is spent
+ * A row that is not ready, a held lease or an expired order is not a policy refusal and stays 1.
  */
 export const POLICY_CODES: ReadonlySet<string> = new Set([
   'SIZE_NOT_DISPATCHABLE',
   'SELF_VERIFY',
   'DIFF_POLICY',
   'APPROVAL_REQUIRED',
+  'KILL_SWITCH',
+  'BUDGET_EXHAUSTED',
 ]);
 
 export interface CliError {
