@@ -24,3 +24,18 @@ export {
   parsePatch,
   type RowSize,
 } from './diff-rules.ts';
+export {
+  type ApplyReport,
+  applyPolicy,
+  type Decision,
+  type DecisionInput,
+  decide,
+  enforce,
+  findPolicy,
+  loadPolicy,
+  type Policy,
+  type PolicyRule,
+  policyCandidates,
+  TIERS,
+  type Tier,
+} from './engine/index.ts';
