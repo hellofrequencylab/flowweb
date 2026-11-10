@@ -23,7 +23,8 @@
   "verify_probe": "pnpm probe flows/hunt-cli",
   "files_hint": [
     "packages/cli/src/",
-    "packages/daemon/src/local-client.ts"
+    "packages/daemon/src/local-client.ts",
+    "packages/daemon/src/fwd-client.ts"
   ],
   "origin": "new Core row"
 }
