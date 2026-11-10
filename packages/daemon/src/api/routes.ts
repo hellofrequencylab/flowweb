@@ -9,6 +9,7 @@ import { type Reader, sha256Hex } from '@fw/eventlog';
 import type { PairingStore, Principal } from '../auth.ts';
 import * as localSaturation from '../flows/local-saturation.ts';
 import * as neighborhoodActivation from '../flows/neighborhood-activation.ts';
+import * as naAdmin from '../flows/neighborhood-admin.ts';
 import { SupervisorError, supervisorView } from '../overseer/index.ts';
 import { type RunHost, RunHostStoppingError } from '../run-host.ts';
 import { isInside, RUN_ID_RE } from '../runtime/paths.ts';
@@ -54,7 +55,8 @@ const FLOWS: Record<string, (repoRoot: string, fwHome: string, now: Date) => unk
   },
   [neighborhoodActivation.FLOW_KEY]: (repo, home, now) => {
     const f = neighborhoodActivation.loadFlow(repo, home, now);
-    return f && neighborhoodActivation.flowView(f.cfg, f.state, f.budget, f.stream, now);
+    const view = f && neighborhoodActivation.flowView(f.cfg, f.state, f.budget, f.stream, now);
+    return view && { ...view, admin_log: naAdmin.readAdminLog(home) };
   },
 };
 
@@ -138,6 +140,63 @@ function kernelError(e: unknown): ApiError {
   if (code === 'NOT_FOUND') return new ApiError(404, 'not_found', message, { ...extra, fw_code: code });
   if (code === 'UNAVAILABLE') return new ApiError(503, 'unavailable', message, { ...extra, fw_code: code });
   return new ApiError(400, 'validation_failed', message, { ...extra, fw_code: code });
+}
+
+type NaFlow = NonNullable<ReturnType<typeof neighborhoodActivation.loadFlow>>;
+type NaWrite = (f: NaFlow, body: Row, params: Record<string, string>, now: Date) => naAdmin.Change;
+const ADMIN_CODES = { 400: 'validation_failed', 404: 'not_found', 409: 'conflict' } as const;
+/** The neighborhood activation admin writes: method, path under the flow, admin log action, change. */
+const NA_WRITES: [string, string, naAdmin.AdminAction, NaWrite][] = [
+  ['POST', 'leads', 'leads', (f, b, _p, now) => naAdmin.importLeads(f.cfg, f.state, b, now)],
+  ['POST', 'metrics', 'metrics', (f, b) => naAdmin.importMetrics(f.cfg, f.state, b)],
+  ['POST', 'leads/{id}/touches', 'touch', (f, b, p, now) => naAdmin.addTouch(f.state, p.id ?? '', b, now)],
+  ['POST', 'do-not-contact', 'do_not_contact', (f, b) => naAdmin.addDoNotContact(f.state, b)],
+  ['POST', 'open', 'open', (f, b) => naAdmin.openTerritory(f.cfg, f.state, String(b.territory_id ?? ''))],
+  ['PUT', 'config', 'config', (f, b) => naAdmin.saveConfig(f.cfg, f.state, b)],
+];
+
+/**
+ * The Owner's admin routes for the neighborhood activation flow. A write applies one pure change from
+ * flows/neighborhood-admin.ts, writes state.json or config.json atomically and appends to admin-log.jsonl.
+ * A refusal writes nothing. Reading the body is the only await, so two writes never interleave.
+ */
+function addFlowAdminRoutes(r: Router, deps: ApiDeps): void {
+  const base = `/v1/flows/${neighborhoodActivation.FLOW_KEY}`;
+  const load = (now: Date) => {
+    const f = neighborhoodActivation.loadFlow(deps.repoRoot, deps.fwHome, now);
+    if (!f) throw notFound('flow', neighborhoodActivation.FLOW_KEY);
+    return f;
+  };
+  for (const [method, path, action, change] of NA_WRITES) {
+    r.add(method, `${base}/${path}`, async ({ req, params }) => {
+      const body = await readJsonBody(req, 2 * 1024 * 1024); // uploads: up to 2 MB
+      const now = new Date();
+      let out: naAdmin.Change;
+      try {
+        out = change(load(now), body, params, now);
+      } catch (e) {
+        if (!(e instanceof naAdmin.AdminError)) throw e;
+        throw new ApiError(e.status, ADMIN_CODES[e.status], e.message, e.details);
+      }
+      const dir = naAdmin.adminDir(deps.fwHome);
+      if (out.state) naAdmin.writeJsonAtomic(join(dir, 'state.json'), out.state);
+      if (out.config) naAdmin.writeJsonAtomic(join(dir, 'config.json'), out.config);
+      if (out.state || out.config)
+        naAdmin.appendAdminLog(deps.fwHome, { at: now.toISOString(), action, summary: out.summary });
+      return envelope(deps.reader, () => ({ data: out.data }));
+    });
+  }
+  r.get(`${base}/config`, () => envelope(deps.reader, () => ({ data: load(new Date()).cfg })));
+  r.get(`${base}/leads.csv`, ({ req, res }) => {
+    const now = new Date();
+    const f = load(now);
+    const text = naAdmin.leadsCsv(f.cfg, f.state, now);
+    const file = `attachment; filename="${neighborhoodActivation.FLOW_KEY}-leads.csv"`;
+    const type = { 'content-type': 'text/csv; charset=utf-8', 'content-disposition': file };
+    res.writeHead(200, { ...type, 'cache-control': 'no-store', 'content-length': Buffer.byteLength(text) });
+    res.end(req.method === 'HEAD' ? undefined : text);
+    return undefined;
+  });
 }
 
 /** The principal of the current request, set by the server before the handler runs. */
@@ -305,6 +364,7 @@ export function buildRouter(deps: ApiDeps): Router {
       return { data: view };
     }),
   );
+  addFlowAdminRoutes(r, deps);
 
   // ---- supervisor (FW-C-033) ----------------------------------------------------------------
   r.get('/v1/supervisor', () =>

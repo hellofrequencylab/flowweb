@@ -8,6 +8,7 @@ export type ErrorCode =
   | 'validation_failed'
   | 'kill_switch_engaged'
   | 'stale_hash'
+  | 'conflict'
   | 'unauthorized'
   | 'internal'
   | 'not_implemented'
@@ -99,7 +100,8 @@ export function envelope(
 const MAX_BODY = 16 * 1024;
 
 /** Reads a small JSON object body. Requires `content-type: application/json` (a plain form post cannot send it). */
-export async function readJsonBody(req: IncomingMessage): Promise<Record<string, unknown>> {
+// `max` stays 16 KB unless a route that takes uploads passes more.
+export async function readJsonBody(req: IncomingMessage, max = MAX_BODY): Promise<Record<string, unknown>> {
   const type = (req.headers['content-type'] ?? '').split(';')[0]!.trim().toLowerCase();
   if (type !== 'application/json') throw invalid('content-type must be application/json');
   const chunks: Buffer[] = [];
@@ -107,7 +109,7 @@ export async function readJsonBody(req: IncomingMessage): Promise<Record<string,
   for await (const chunk of req) {
     const b = chunk as Buffer;
     size += b.length;
-    if (size > MAX_BODY) throw invalid('request body too large');
+    if (size > max) throw invalid('request body too large');
     chunks.push(b);
   }
   let parsed: unknown;

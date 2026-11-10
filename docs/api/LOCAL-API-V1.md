@@ -62,6 +62,21 @@ Errors: `{ "error": { "code": "not_found" | "validation_failed" | "kill_switch_e
 
 Deny is `POST /approvals/{id}/respond` with `decision: "deny"` and a `reason_code`.
 
+### Neighborhood activation admin (FW-C-034)
+
+The Owner's writes for `GET /flows/neighborhood-activation`, under `/flows/neighborhood-activation`. They need the CLI token or a paired browser session like every write (401 without). Each accepted write changes `$FW_HOME/flows/neighborhood-activation/state.json` (or `config.json`) through a temp file and a rename, and appends `{at, action, summary}` to `admin-log.jsonl` in the same folder; `action` is `leads`, `metrics`, `touch`, `do_not_contact`, `open` or `config`. A refusal writes nothing. No event is recorded in the database. fwd still never sends anything. Bodies may be up to 2 MB here (16 KB elsewhere). The GET view adds `admin_log`: the newest 50 entries, newest first. A 409 answers with code `conflict`.
+
+| Route | Body | Answers |
+|---|---|---|
+| `POST /flows/neighborhood-activation/leads` | `{format: "csv" \| "json", data}`. CSV header: `name,kind,territory_id,sub_area,channel,source,url,fit,timing` (optional `timing_at`, `found_at`); JSON: an array of objects with those keys | `{added, updated, skipped: [{row, reason}]}`. `row` counts data rows from 1, after the header. A row is skipped when the name is empty, the kind is not host, venue, builder or resident, the region or sub-area is unknown, the source is not one of the flow's sources, the url is not http(s), fit or timing is outside 0 to 1, or a date does not parse. A url already known updates that lead (touches and `found_at` kept); the lead id is `ld_` plus the first 12 hex of the url's sha256. `timing_at` and `found_at` default to now. 400 when the format, data or header is wrong. |
+| `POST /flows/neighborhood-activation/metrics` | `{format, data}`. CSV header: `territory_id,hosts_active_28d,events_next_14d,sub_areas_covered_14d,wam`, optional `weeks_at_threshold,weeks_below` | `{updated, skipped: [{row, reason}]}`. Measures must be numbers of 0 or more; week counts whole numbers. |
+| `POST /flows/neighborhood-activation/leads/{id}/touches` | `{via: "founder_email" \| "frequency", at?}` | `{lead_id, touch: {at, via}}`. Records a send the Owner made. 404 unknown lead, 409 lead on do-not-contact, 400 bad `via` or an `at` that is not a date or is in the future. |
+| `POST /flows/neighborhood-activation/do-not-contact` | `{lead_id, reason}` or `{url, reason}` | `{blocked, already}`. Stores the lead's url (or the url given). 404 unknown lead; 400 without a reason or with both or neither target. |
+| `POST /flows/neighborhood-activation/open` | `{territory_id}` | `{opened}`. Appends the region to `opened`, so it becomes the active one. 404 unknown region; 409 when it is already open or borders no open region. |
+| `PUT /flows/neighborhood-activation/config` | the whole config | `{saved: true}`, written to `$FW_HOME/flows/neighborhood-activation/config.json`, which overrides the repo copy. 400 `validation_failed` with `details.errors[]` when the seed is not a region, a border names no other region, a region has fewer than 2 sub-areas, an activation number is not positive, a funnel is missing for a kind, `offer.url` is not a url, a required section is dropped, or an open region is removed. |
+| `GET /flows/neighborhood-activation/config` | | The config in force: the Owner override when there is one, else the repo copy. Edit it and send it back with `PUT`. |
+| `GET /flows/neighborhood-activation/leads.csv` | | `text/csv`: a header row, then one line per lead. The upload columns come first, so the file can be edited and uploaded again; then `timing_at, found_at, id, stage, send_via, touches, last_touch_at`. Fields are quoted when needed and a text cell starting with `= + - @` gets a leading `'`. |
+
 ## CLI-only write routes (the web never calls these)
 
 | Route | Body | Notes |
