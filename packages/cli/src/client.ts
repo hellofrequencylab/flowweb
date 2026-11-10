@@ -486,6 +486,7 @@ export interface SupervisorDraft {
   status: string;
   held?: string;
   created_at: string | null;
+  edited_at?: string;
 }
 
 /** What `fw supervisor run` prints. */
@@ -541,6 +542,12 @@ export interface CoreClient {
   /** FW-C-046: Copilot. A flow's cycle drafts, and the Owner's approve or reject of one. */
   supervisorDrafts?(flow: string): Promise<SupervisorDraft[]>;
   supervisorDraft?(action: 'approve' | 'reject', flow: string, id: string): Promise<SupervisorDraft>;
+  /** FW-C-050: change a draft's subject and text before it goes out. */
+  supervisorEditDraft?(
+    flow: string,
+    id: string,
+    edit: { subject?: string; body?: string },
+  ): Promise<SupervisorDraft>;
   /** FW-C-039: where setup stands; served by the daemon package. */
   setup?(): Promise<SetupReport>;
   /** The policy engine: optional, served by the daemon package (the CLI never imports @fw/policy). */

@@ -19,6 +19,7 @@ export interface DraftView {
   created_at: string | null;
   approved_at?: string;
   rejected_at?: string;
+  edited_at?: string;
 }
 
 const ID = /^[A-Za-z0-9_-]{1,100}$/;
@@ -43,6 +44,7 @@ function view(doc: Record<string, unknown>): DraftView {
     created_at: str('created_at'),
     ...(str('approved_at') ? { approved_at: str('approved_at') as string } : {}),
     ...(str('rejected_at') ? { rejected_at: str('rejected_at') as string } : {}),
+    ...(str('edited_at') ? { edited_at: str('edited_at') as string } : {}),
   };
 }
 
@@ -120,6 +122,48 @@ export function rejectDraft(o: { repoRoot: string; fwHome: string; flow: string;
   if (doc.status === 'handed_off')
     throw conflict('handed_off', 'This draft is already in the outbox and cannot be taken back.');
   const next = { ...doc, status: 'rejected', rejected_at: new Date().toISOString() };
+  save(path, next);
+  return view(next);
+}
+
+/** Longest subject or body an edit may write. */
+export const MAX_DRAFT_FIELD = 20_000;
+
+/**
+ * FW-C-050: the Owner changes a draft's subject and text before it goes out. The status stays as it
+ * was; edited_at says when. A draft already in the outbox is refused (CONFLICT handed_off) so the
+ * outbox file is never changed after the hand-off.
+ */
+export function editDraft(o: {
+  repoRoot: string;
+  fwHome: string;
+  flow: string;
+  id: string;
+  subject?: unknown;
+  body?: unknown;
+}): DraftView {
+  const has = (v: unknown) => v !== undefined;
+  if (!has(o.subject) && !has(o.body)) throw new SupervisorError('INVALID', 'give a subject, a body or both');
+  for (const [name, v] of [
+    ['subject', o.subject],
+    ['body', o.body],
+  ] as const) {
+    if (!has(v)) continue;
+    if (typeof v !== 'string') throw new SupervisorError('INVALID', `${name} must be text`);
+    if (v.length > MAX_DRAFT_FIELD)
+      throw new SupervisorError('INVALID', `${name} is longer than ${MAX_DRAFT_FIELD} characters`);
+  }
+  if (has(o.body) && (o.body as string).trim() === '')
+    throw new SupervisorError('INVALID', 'body cannot be empty');
+  const { path, doc } = load(o.repoRoot, o.fwHome, o.flow, o.id);
+  if (doc.status === 'handed_off')
+    throw conflict('handed_off', 'This draft is already in the outbox and cannot be changed.');
+  const next = {
+    ...doc,
+    ...(has(o.subject) ? { subject: o.subject as string } : {}),
+    ...(has(o.body) ? { body: o.body as string } : {}),
+    edited_at: new Date().toISOString(),
+  };
   save(path, next);
   return view(next);
 }

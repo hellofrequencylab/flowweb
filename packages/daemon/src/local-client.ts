@@ -87,6 +87,11 @@ export interface DaemonCoreClient extends LocalCoreClient {
   flowApi(method: 'GET' | 'POST' | 'DELETE', path: string, body?: unknown): Promise<unknown>;
   supervisorDrafts(flow: string): Promise<DraftView[]>;
   supervisorDraft(action: 'approve' | 'reject', flow: string, id: string): Promise<DraftView>;
+  supervisorEditDraft(
+    flow: string,
+    id: string,
+    edit: { subject?: string; body?: string },
+  ): Promise<DraftView>;
   spendRollup(opts: { by: string }): Promise<(SpendRow & { unknown_runs?: number })[]>;
   policyCheck(input: DecisionInput): Promise<Decision & { policy_path: string }>;
   policyApply(): Promise<ApplyReport & { policy_path: string }>;
@@ -411,6 +416,10 @@ export function createCoreClient(opts: LocalClientOptions): DaemonCoreClient {
     async supervisorDraft(action, flow, id) {
       const path = `/v1/supervisor/flows/${encodeURIComponent(flow)}/drafts/${encodeURIComponent(id)}/${action}`;
       return (await fwdData('POST', path, {})) as DraftView;
+    },
+    async supervisorEditDraft(flow, id, edit) {
+      const path = `/v1/supervisor/flows/${encodeURIComponent(flow)}/drafts/${encodeURIComponent(id)}/edit`;
+      return (await fwdData('POST', path, edit)) as DraftView;
     },
     close() {
       store?.close();
