@@ -2224,3 +2224,54 @@ a.flow-line:hover .flow-line-name {
 .flow-ctl [role="radiogroup"] > label:has(input:checked) strong {
   color: var(--flow-teal);
 }
+
+/* FW-C-076: the AI assistant's conversation on a draft. */
+.assist-log {
+  display: grid;
+  gap: var(--space-3);
+  margin: 0;
+  padding: 0;
+  list-style: none;
+  max-height: 420px;
+  overflow-y: auto;
+}
+.assist-turn {
+  display: grid;
+  gap: var(--space-2);
+}
+.assist-ask {
+  justify-self: end;
+  max-width: 85%;
+  margin: 0;
+  padding: var(--space-2) var(--space-3);
+  border-radius: var(--radius-md);
+  background: color-mix(in srgb, var(--flow-teal) 14%, var(--surface-soft));
+}
+.assist-reply {
+  display: grid;
+  gap: var(--space-2);
+  justify-items: start;
+  max-width: 92%;
+  margin: 0;
+  padding: var(--space-3);
+  border-radius: var(--radius-md);
+  background: var(--surface-raised);
+  box-shadow: 0 0 0 1px var(--border-subtle);
+}
+.assist-who {
+  font: var(--type-small);
+  font-weight: 600;
+  color: var(--text-tertiary);
+}
+.assist-subject {
+  margin: 0;
+  font-weight: 600;
+}
+.assist-body {
+  margin: 0;
+  white-space: pre-wrap;
+  font: inherit;
+}
+.assist-failed {
+  color: var(--fail-fg);
+}

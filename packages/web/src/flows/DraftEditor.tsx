@@ -3,13 +3,13 @@ import { api } from '../api/client';
 import type { FlowDraft } from '../api/types';
 import { Button } from '../ui-kit/Button';
 import { Icon } from '../ui-kit/Icon';
-
-const QUICK = ['Shorter', 'Warmer and more personal', 'More specific about their event', 'Fix grammar only'];
+import { DraftAssistant } from './DraftAssistant';
 
 type Mode = 'view' | 'edit';
 
 /**
- * One draft: read it, copy it, change it by hand or ask AI to rewrite it, approve it (at Copilot) or reject it.
+ * One draft: read it, copy it, change it by hand or with the AI assistant (DraftAssistant, FW-C-076),
+ * approve it (at Copilot) or reject it.
  * Nothing here sends anything. On the live site each change is applied on your Mac.
  */
 export function DraftEditor({
@@ -25,7 +25,6 @@ export function DraftEditor({
   const [mode, setMode] = useState<Mode>('view');
   const [subject, setSubject] = useState(draft.subject ?? '');
   const [body, setBody] = useState(draft.body);
-  const [instruction, setInstruction] = useState('');
   const [busy, setBusy] = useState<string | null>(null);
   const [note, setNote] = useState<{ tone: 'ok' | 'fail'; text: string } | null>(null);
   const [copied, setCopied] = useState(false);
@@ -57,28 +56,6 @@ export function DraftEditor({
         setMode('view');
         setNote({ tone: 'ok', text: 'Saved.' });
         onChanged();
-      },
-    );
-
-  const rewrite = (how: string) =>
-    act(
-      'Rewriting with AI.',
-      (q) =>
-        api.draftChange<{ subject: string | null; body: string }>(
-          flow,
-          draft.id,
-          'rewrite',
-          { instruction: how, ...(mode === 'edit' ? { subject, body } : {}) },
-          q,
-        ),
-      (r) => {
-        if (r.subject != null) setSubject(r.subject);
-        setBody(r.body);
-        setMode('edit');
-        setNote({
-          tone: 'ok',
-          text: 'Here is the rewrite. Change anything, then Save, or Cancel to keep the old text.',
-        });
       },
     );
 
@@ -177,6 +154,21 @@ export function DraftEditor({
         )}
       </div>
 
+      {!locked && (
+        <DraftAssistant
+          flow={flow}
+          draft={draft}
+          current={mode === 'edit' ? { subject, body } : { subject: draft.subject ?? '', body: draft.body }}
+          blocked={busy}
+          onText={(t) => {
+            setSubject(t.subject);
+            setBody(t.body);
+            setNote(null);
+            setMode('edit');
+          }}
+        />
+      )}
+
       {draft.status !== 'rejected' && (
         <div className="draft-ai draft-after">
           <span className="field-label">
@@ -217,43 +209,6 @@ export function DraftEditor({
           </div>
           <p className="muted draft-ai-hint">
             This only records what happened, so the flow learns. Nothing is sent.
-          </p>
-        </div>
-      )}
-
-      {!locked && (
-        <div className="draft-ai draft-rewrite">
-          <span className="field-label">
-            <Icon name="sparkles" /> Rewrite with AI
-          </span>
-          <div className="draft-actions">
-            {QUICK.map((q) => (
-              <Button key={q} className="btn-small" onClick={() => rewrite(q)} disabledReason={busy}>
-                {q}
-              </Button>
-            ))}
-          </div>
-          <div className="draft-ai-ask">
-            <input
-              type="text"
-              aria-label="Tell AI how to rewrite this draft"
-              placeholder="Or say how, e.g. mention our Carlsbad Circles"
-              value={instruction}
-              onChange={(e) => setInstruction(e.target.value)}
-              maxLength={2000}
-              onKeyDown={(e) => {
-                if (e.key === 'Enter' && instruction.trim() && !busy) rewrite(instruction.trim());
-              }}
-            />
-            <Button
-              onClick={() => rewrite(instruction.trim())}
-              disabledReason={busy ?? (instruction.trim() ? null : 'Say how to rewrite it first.')}
-            >
-              Rewrite
-            </Button>
-          </div>
-          <p className="muted draft-ai-hint">
-            AI runs on your Mac with your plan. You see the rewrite before anything is saved.
           </p>
         </div>
       )}
