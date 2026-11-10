@@ -1,7 +1,7 @@
 // Probe c1/daemon-lifecycle (WS-P1-001; backlog verify_probe kernel/daemon-lifecycle).
 // Surfaces: the daemon fwd (packages/daemon/src/bin.ts, started as one node process), the fw CLI,
 // GET /v1/status (docs/api/LOCAL-API-V1.md, the health figure is `daemon: "up"`) with the CLI token
-// fwd prints ("CLI token file: <path>"), Linux /proc (fwd's own listening sockets), and the database
+// fwd prints ("CLI token file: <path>"), the process table (fwd's own listening sockets: Linux /proc, lsof elsewhere), and the database
 // at $FW_HOME/db/fw.sqlite read with node:sqlite read-only.
 // Acceptance (WS-P1-001):
 //   1. the daemon starts, reports healthy, and stops cleanly on SIGTERM with in-flight runs recorded
@@ -26,7 +26,7 @@
 //     database, and leaves the database file byte-identical.
 // Today `fw status` does not exist, and `fw run start` refuses while fwd holds the writer (exit 4).
 import { createHash } from 'node:crypto';
-import { readdirSync, readFileSync, readlinkSync } from 'node:fs';
+import { readFileSync } from 'node:fs';
 import { request } from 'node:http';
 import { createConnection, createServer } from 'node:net';
 import { networkInterfaces } from 'node:os';
@@ -38,7 +38,9 @@ import {
   fixtureProject,
   fw,
   groupAlive,
+  isLoopbackAddress,
   killAndWait,
+  listeningTcp,
   missing,
   openDbReadonly,
   pipelineEnv,
@@ -124,40 +126,6 @@ async function sigterm(child, timeoutMs) {
   return { ...res, ms: Date.now() - t0 };
 }
 
-/** Listening TCP sockets owned by pid: [{ family, addrHex, port }] (Linux /proc). */
-function listeningSockets(pid) {
-  const inodes = new Set();
-  for (const fd of readdirSync(`/proc/${pid}/fd`)) {
-    try {
-      const m = /^socket:\[(\d+)\]$/.exec(readlinkSync(`/proc/${pid}/fd/${fd}`));
-      if (m) inodes.add(m[1]);
-    } catch {}
-  }
-  const out = [];
-  for (const family of ['tcp', 'tcp6']) {
-    let text = '';
-    try {
-      text = readFileSync(`/proc/${pid}/net/${family}`, 'utf8');
-    } catch {
-      continue;
-    }
-    for (const line of text.trim().split('\n').slice(1)) {
-      const f = line.trim().split(/\s+/);
-      const [addrHex, portHex] = f[1].split(':');
-      if (f[3] === '0A' && inodes.has(f[9])) out.push({ family, addrHex, port: Number.parseInt(portHex, 16) });
-    }
-  }
-  return out;
-}
-
-/** True for 127.0.0.0/8 (tcp) and ::1 or ::ffff:127.x.x.x (tcp6), in /proc/net's little-endian hex. */
-function isLoopbackHex(family, hex) {
-  const h = hex.toUpperCase();
-  if (family === 'tcp') return h.slice(6, 8) === '7F';
-  if (h === '00000000000000000000000001000000') return true;
-  return h.slice(0, 24) === '0000000000000000FFFF0000' && h.slice(30, 32) === '7F';
-}
-
 /** Every value under a key named k anywhere in a JSON document. */
 function valuesOf(doc, k, out = []) {
   if (doc && typeof doc === 'object') {
@@ -186,10 +154,10 @@ await probe('c1/daemon-lifecycle', async () => {
     const st = JSON.parse(health.body);
     check((st.data ?? st).daemon === 'up', `GET /v1/status does not report daemon "up": ${health.body.slice(0, 200)}`);
 
-    const socks = listeningSockets(a.d.pid);
+    const socks = listeningTcp(a.d.pid);
     check(socks.some((s) => s.port === port1), `fwd (pid ${a.d.pid}) owns no listening socket on its port ${port1}`);
     for (const s of socks) {
-      check(isLoopbackHex(s.family, s.addrHex), `fwd listens on a non-loopback address (${s.family} ${s.addrHex}:${s.port})`);
+      check(isLoopbackAddress(s.address), `fwd listens on a non-loopback address (${s.address}:${s.port})`);
     }
     for (const addrs of Object.values(networkInterfaces())) {
       for (const n of addrs ?? []) {

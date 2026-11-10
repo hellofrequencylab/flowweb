@@ -1,4 +1,5 @@
 // Probe c0/cli-skeleton (FW-C-006; backlog verify_probe cli/skeleton).
+// probe-timeout-s: 240 (about 30 s on Linux and 57 s on macOS, too close to the 60 s default)
 // Surface: the fw CLI. `fw --help --json` prints { commands: [{ usage, summary }] }; a command's
 // name is its usage up to the first <arg> or [option].
 // Acceptance:

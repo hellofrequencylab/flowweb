@@ -1,4 +1,5 @@
 // Probe c0/walking-skeleton-ci (WS-P0-042; backlog verify_probe e2e/walking-skeleton-ci).
+// probe-timeout-s: 240 (about 34 s on Linux and over 60 s on macOS)
 // Surface: the CI end-to-end test e2e/walking-skeleton.test.ts (vitest.config.ts includes e2e/, and
 // CI runs it through `pnpm test`), run with vitest exactly as CI would, plus the probe c0/run-fake-e2e
 // under the same conditions.

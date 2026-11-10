@@ -4,13 +4,13 @@
 // 31), so "kill -9 the daemon mid-run" is played as: kill -9 the process running the pipeline (the
 // CLI) mid-run, then start fwd, whose reconciler settles the orphan on start.
 // Surfaces: `fw run start <ID> --adapter fake --scenario hang` as a child process, the daemon fwd
-// (tsx packages/daemon/src/bin.ts), the database, /proc.
+// (tsx packages/daemon/src/bin.ts), the database, the process table (Linux /proc, ps and lsof elsewhere).
 // Acceptance:
 //   - after the kill and a restart the orphaned run is failed (failure_class killed), its lease is
 //     released, its vendor process group is gone, the row is back to ready, and the run is never
 //     started or failed twice (a second restart reconciles nothing)
 //   - (WS-P0-029) while the vendor runs, the credential is not in its argv
-import { mkdirSync, readdirSync, readFileSync, readlinkSync, writeFileSync } from 'node:fs';
+import { mkdirSync, writeFileSync } from 'node:fs';
 import { join } from 'node:path';
 import {
   CLI_BIN,
@@ -26,6 +26,9 @@ import {
   pipelineEnv,
   pipelineHome,
   probe,
+  processArgv,
+  processCwds,
+  processTable,
   rowStatusOf,
   sleep,
   spawnTs,
@@ -36,20 +39,10 @@ const kids = [];
 
 /** "pid:state:cwd" of every process in the group, for the failure message. */
 function groupMembers(pgid) {
-  const out = [];
-  for (const name of readdirSync('/proc')) {
-    if (!/^\d+$/.test(name)) continue;
-    try {
-      const stat = readFileSync(`/proc/${name}/stat`, 'utf8');
-      const rest = stat.slice(stat.lastIndexOf(')') + 2).split(' ');
-      if (Number(rest[2]) !== pgid) continue;
-      let cwd = '?';
-      try {
-        cwd = readlinkSync(`/proc/${name}/cwd`);
-      } catch {}
-      out.push(`${name}:${rest[0]}:${cwd}`);
-    } catch {}
-  }
+  const cwds = processCwds();
+  const out = processTable()
+    .filter((p) => p.pgid === pgid)
+    .map((p) => `${p.pid}:${p.zombie ? 'Z' : 'live'}:${cwds.get(p.pid) ?? '?'}`);
   return out.join(' ') || 'none';
 }
 function stopAll() {
@@ -106,7 +99,7 @@ await probe('c0/orphan-recovery', async () => {
     pgid = JSON.parse(started.payload).vendor_pgid;
     check(Number.isInteger(pgid), 'run.started does not record the vendor process group');
     check(groupAlive(pgid), 'the vendor is not running');
-    const argv = readFileSync(`/proc/${pgid}/cmdline`, 'utf8');
+    const argv = processArgv(pgid);
     check(!argv.includes(secret), 'the credential is in the vendor argv');
 
     await killAndWait(cli);

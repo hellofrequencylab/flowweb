@@ -28,7 +28,7 @@
 //     branch head
 //   - WS-P0-023: fw audit verify is clean at the end
 import { spawnSync } from 'node:child_process';
-import { existsSync, mkdirSync, readdirSync, readFileSync, writeFileSync } from 'node:fs';
+import { existsSync, mkdirSync, readdirSync, readFileSync, realpathSync, writeFileSync } from 'node:fs';
 import { join, resolve } from 'node:path';
 import {
   branches,
@@ -127,15 +127,29 @@ await probe('c0/run-fake-e2e', async () => {
   const leases = db.prepare('SELECT status FROM leases WHERE run_id = ?').all(fr.id).map((l) => l.status);
   check(leases.length === 1 && leases[0] === 'released', `the failed run's lease is ${leases.join(',')}, want released`);
   check(rowStatusOf(db, 'FW-C-903') === 'ready', `the row of the failed run is ${rowStatusOf(db, 'FW-C-903')}, want ready`);
-  const recorded = new Set(db.prepare('SELECT workspace_path FROM runs').all().map((x) => resolve(x.workspace_path)));
+  // Paths are compared after resolving symlinks: on macOS $TMPDIR (/var/folders/...) is a link to
+  // /private/var/folders/..., and fwd and git may each report either spelling of the same directory.
+  const real = (x) => {
+    try {
+      return realpathSync(x);
+    } catch {
+      return resolve(x);
+    }
+  };
+  const recorded = new Set(db.prepare('SELECT workspace_path FROM runs').all().map((x) => real(x.workspace_path)));
   db.close();
   check(fr.workspace_path === bad.json.worktree, 'the failed run worktree is not its recorded workspace_path');
   check(existsSync(bad.json.worktree), 'the failed run worktree was not kept for inspection (decision 34)');
-  const known = git(proj.work, 'worktree', 'list', '--porcelain');
+  const known = new Set(
+    git(proj.work, 'worktree', 'list', '--porcelain')
+      .split('\n')
+      .filter((l) => l.startsWith('worktree '))
+      .map((l) => real(l.slice('worktree '.length))),
+  );
   for (const d of readdirSafe(join(home, 'worktrees'))) {
-    const p = resolve(home, 'worktrees', d);
+    const p = real(resolve(home, 'worktrees', d));
     check(recorded.has(p), `${p} is a worktree directory no run owns (dangling)`);
-    check(known.includes(p), `${p} is not registered with git (stale)`);
+    check(known.has(p), `${p} is not registered with git (stale)`);
   }
   check(git(proj.work, 'worktree', 'prune', '--dry-run', '-v') === '', 'git has stale worktree metadata');
 
