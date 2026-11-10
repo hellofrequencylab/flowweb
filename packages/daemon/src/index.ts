@@ -143,6 +143,17 @@ export {
 } from './runtime/worktrees.ts';
 export { type Cron, CronError, parseCron } from './scheduler/cron.ts';
 export {
+  createScheduler,
+  type FireRecord,
+  type FireRequest,
+  type FireVerdict,
+  type OnFire,
+  type Scheduler,
+  type SchedulerClock,
+  type SchedulerOptions,
+  systemClock,
+} from './scheduler/index.ts';
+export {
   SPEND_GROUP_NAMES,
   type SpendGroup,
   type SpendQuery,
