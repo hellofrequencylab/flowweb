@@ -761,6 +761,12 @@ export const api = {
     return { data_as_of: e.as_of, ...e.data };
   },
 
+  /** FW-C-048: the paid ads flow, read only. */
+  async adsFlow(): Promise<V.AdsFlow> {
+    const e = await get<Omit<V.AdsFlow, 'data_as_of'>>('/flows/paid-ads');
+    return { data_as_of: e.as_of, ...e.data };
+  },
+
   /** The drafts a flow's cycles wrote, newest first. fwd answers these to the CLI token only. */
   async flowDrafts(key: string): Promise<V.FlowDrafts> {
     const e = await get<V.FlowDraft[]>(`/supervisor/flows/${encodeURIComponent(key)}/drafts`);
