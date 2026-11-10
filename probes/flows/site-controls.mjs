@@ -1,9 +1,11 @@
 // Probe for FW-C-062 (the Owner runs a flow from the web and from flowweb.app): `pnpm probe flows/site-controls`.
-// probe-timeout-s: 420
+// probe-timeout-s: 240
 // Tier 0.
 // Surfaces: hosted/server/requests.mjs (pure: which site calls become queued requests, and which fwd call
 // the relay makes for each), hosted/supabase/migrations/0004_flowweb_flow_controls.sql, a real fwd on a
-// fresh FW_HOME with a paired browser session (cookie), and the built web UI served by that fwd.
+// fresh FW_HOME with a paired browser session (cookie), and packages/web's FlowControls component on the
+// Flows page (its checks are in probes/flows/site-controls.spec.tsx, run with vitest in jsdom against a
+// fetch stub standing in for fwd, as probes/ui/hunts.mjs does).
 //
 // The surface this probe expects:
 //   requestOf(method, path, body) -> { kind, flow, draft_id, payload } | { error } | null
@@ -17,8 +19,10 @@
 //   fwdCallFor(request) -> { method, path, body } naming the same fwd route (under /v1) the site call named.
 //   Migration 0004 allows every one of those kinds and lets draft_id be empty.
 //   fwd answers the Supervisor controls to the paired browser session as well as the CLI token.
-//   The Flows page (/flows) has, per flow, a button named "Turn on <flow name>" (or "Turn off <flow name>")
-//   and a radio group named "Dial for <flow name>" with the radios Draft, Copilot and Autopilot.
+//   packages/web/src/flows exports FlowControls, and ActivationPage (the /flows page) renders it. Inside a
+//   LiveProvider it reads GET /v1/supervisor and shows, per flow, a button named "Turn on <flow name>" (or
+//   "Turn off <flow name>"), a "Run <flow name> now" button and a radio group named "Dial for <flow name>"
+//   with the radios Draft, Copilot and Autopilot.
 //
 // Proves, in order:
 //   1. Every site control becomes a queued request of the right kind; Autopilot and unknown paths do not.
@@ -26,18 +30,18 @@
 //   3. Migration 0004 allows every kind requestOf can produce and lets draft_id be empty.
 //   4. A paired browser session can turn a flow on and set it to Copilot; Autopilot without the confirm
 //      hash answers 409; with no session or token the control answers 401.
-//   5. On the Flows page, the Owner turns Neighborhood activation off and on again and moves its dial to
-//      Draft, and GET /v1/supervisor shows each change.
-import { existsSync, readFileSync } from 'node:fs';
+//   5. The Flows page renders FlowControls, and the component checks pass: Turn off posts .../disable,
+//      Run now posts .../run, choosing Draft posts .../dial { stop: 'draft' }, and Autopilot asks for the
+//      Owner's confirm (from fwd's 409 confirm_hash) before it posts the hash.
+import { spawnSync } from 'node:child_process';
+import { existsSync, readFileSync, writeFileSync } from 'node:fs';
 import { join } from 'node:path';
 import { pathToFileURL } from 'node:url';
-import { check, freshHome, missing, probe, root } from '../c0/_lib.mjs';
-import { api, pair } from '../lib/fwd.mjs';
-import { browser, pairedPage, startUi } from '../lib/web.mjs';
+import { check, freshHome, missing, probe, root, tmpDir } from '../c0/_lib.mjs';
+import { api, pair, startFwd } from '../lib/fwd.mjs';
 
 const NAME = 'flows/site-controls';
 const KEY = 'neighborhood-activation';
-const FLOW_NAME = 'Neighborhood activation';
 const MIGRATION = 'hosted/supabase/migrations/0004_flowweb_flow_controls.sql';
 
 const flowOf = (sup) => (sup?.flows ?? []).find((f) => f.key === KEY);
@@ -135,51 +139,55 @@ await probe(NAME, async () => {
     check(sql.includes(`'${k}'`), `${MIGRATION} does not allow the kind ${k}`);
   check(/draft_id\s+drop\s+not\s+null/i.test(sql), `${MIGRATION} does not let draft_id be empty`);
 
-  // 4 and 5. A real fwd, its paired browser session, and the Flows page.
+  // 4. A real fwd and its paired browser session.
   const home = freshHome('site-controls');
-  const ui = await startUi(home, { env: { FW_VENDOR: 'fake' } });
-  const br = await browser();
+  const fwd = await startFwd(home, { env: { FW_VENDOR: 'fake' } });
   try {
-    const sup = async () => (await api(ui.port, 'GET', '/v1/supervisor', { auth: ui.token })).json?.data;
-    const none = await api(ui.port, 'POST', `/v1${S}/enable`, { body: {} });
+    const sup = async () => (await api(fwd.port, 'GET', '/v1/supervisor', { auth: fwd.token })).json?.data;
+    const none = await api(fwd.port, 'POST', `/v1${S}/enable`, { body: {} });
     check(none.status === 401, `enable without a session or token answered ${none.status}, want 401`);
-
-    const { cookie } = await pair(ui.port, ui.pairingCode);
-    const on = await api(ui.port, 'POST', `/v1${S}/enable`, { auth: { cookie }, body: {} });
+    const { cookie } = await pair(fwd.port, fwd.pairingCode);
+    const on = await api(fwd.port, 'POST', `/v1${S}/enable`, { auth: { cookie }, body: {} });
     check(on.status === 200, `enable with the browser session answered ${on.status}: ${on.text.slice(0, 200)}`);
     check(flowOf(await sup())?.enabled === true, 'after enable the Supervisor does not list the flow as on');
-    const co = await api(ui.port, 'POST', `/v1${S}/dial`, { auth: { cookie }, body: { stop: 'copilot' } });
+    const co = await api(fwd.port, 'POST', `/v1${S}/dial`, { auth: { cookie }, body: { stop: 'copilot' } });
     check(co.status === 200, `dial copilot with the browser session answered ${co.status}: ${co.text.slice(0, 200)}`);
     check(flowOf(await sup())?.dial === 'copilot', 'after dial copilot the Supervisor does not show Copilot');
-    const auto = await api(ui.port, 'POST', `/v1${S}/dial`, { auth: { cookie }, body: { stop: 'autopilot' } });
+    const auto = await api(fwd.port, 'POST', `/v1${S}/dial`, { auth: { cookie }, body: { stop: 'autopilot' } });
     check(auto.status === 409, `Autopilot without the confirm hash answered ${auto.status}, want 409`);
-
-    const page = await pairedPage(ui, br, { width: 1280, height: 900 });
-    await page.goto(`${ui.base}/flows`);
-    await page.locator('main').first().waitFor({ timeout: 15000 });
-    await page.waitForLoadState('networkidle');
-    const off = page.getByRole('button', { name: `Turn off ${FLOW_NAME}` });
-    if ((await off.count()) === 0) missing(`the Flows page has no "Turn off ${FLOW_NAME}" button (row FW-C-062)`);
-    await off.first().click();
-    await page.getByRole('button', { name: `Turn on ${FLOW_NAME}` }).first().waitFor({ timeout: 15000 });
-    check(flowOf(await sup())?.enabled === false, 'after "Turn off" on the Flows page the flow is still on');
-    await page.getByRole('button', { name: `Turn on ${FLOW_NAME}` }).first().click();
-    await page.getByRole('button', { name: `Turn off ${FLOW_NAME}` }).first().waitFor({ timeout: 15000 });
-    check(flowOf(await sup())?.enabled === true, 'after "Turn on" on the Flows page the flow is still off');
-
-    const dial = page.getByRole('radiogroup', { name: `Dial for ${FLOW_NAME}` }).first();
-    check((await dial.count()) === 1, `the Flows page has no "Dial for ${FLOW_NAME}" radio group`);
-    for (const word of ['Draft', 'Copilot', 'Autopilot'])
-      check((await dial.getByRole('radio', { name: word }).count()) === 1, `the dial has no ${word} radio`);
-    await dial.getByRole('radio', { name: 'Draft' }).click();
-    const until = Date.now() + 15000;
-    while (flowOf(await sup())?.dial !== 'draft' && Date.now() < until) await page.waitForTimeout(250);
-    check(flowOf(await sup())?.dial === 'draft', 'after choosing Draft on the Flows page the dial did not move');
-    const errs = page.fwErrors ?? [];
-    check(errs.length === 0, `the Flows page threw: ${errs.join('; ').slice(0, 300)}`);
-    await page.context().close();
+    const off = await api(fwd.port, 'POST', `/v1${S}/disable`, { auth: { cookie }, body: {} });
+    check(off.status === 200 && flowOf(await sup())?.enabled === false, 'disable with the browser session did not turn the flow off');
   } finally {
-    await br.close();
-    await ui.stop();
+    await fwd.stop();
   }
+
+  // 5. The Flows page and its controls.
+  const page = join(root, 'packages/web/src/flows/ActivationPage.tsx');
+  check(/<FlowControls\b/.test(readFileSync(page, 'utf8')), 'the Flows page does not render <FlowControls>');
+  const mods = join(root, 'packages/web/node_modules');
+  const cfg = join(tmpDir('site-controls'), 'vitest.config.mjs');
+  writeFileSync(
+    cfg,
+    `export default ${JSON.stringify({
+      root: join(root, 'packages/web'),
+      esbuild: { jsx: 'automatic' },
+      test: { environment: 'jsdom', include: [join(root, 'probes/flows/site-controls.spec.tsx')], testTimeout: 30000 },
+    }).replace(/}$/, '')}, resolve: { alias: [
+      { find: /^react(\\/.*)?$/, replacement: ${JSON.stringify(`${mods}/react`)} + '$1' },
+      { find: /^react-dom(\\/.*)?$/, replacement: ${JSON.stringify(`${mods}/react-dom`)} + '$1' },
+      { find: '@testing-library/react', replacement: ${JSON.stringify(`${mods}/@testing-library/react`)} },
+    ] } };\n`,
+  );
+  const r = spawnSync(join(root, 'node_modules/.bin/vitest'), ['run', '--config', cfg], {
+    cwd: root,
+    encoding: 'utf8',
+    timeout: 120000,
+    env: { ...process.env, CI: '1', NO_COLOR: '1' },
+  });
+  const out = `${r.stdout ?? ''}${r.stderr ?? ''}`;
+  if (/does not provide an export named 'FlowControls'|FlowControls is not/.test(out))
+    missing('packages/web/src/flows does not export FlowControls (row FW-C-062)');
+  const failed = out.split('\n').filter((l) => /✗|×|FAIL|AssertionError|Error:/.test(l)).slice(0, 8);
+  check(r.status === 0, `the FlowControls checks failed (exit ${r.status}):\n${failed.join('\n') || out.slice(-800)}`);
+  check(/Tests\s+4 passed/.test(out), `expected 4 FlowControls checks to pass:\n${out.slice(-400)}`);
 });
