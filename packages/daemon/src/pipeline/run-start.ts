@@ -14,7 +14,6 @@ import {
   type AdapterEvent,
   type AdapterName,
   createAdapter,
-  DEFAULT_ADAPTER,
   isAdapterName,
   type RunStep,
   type VendorAdapter,
@@ -66,6 +65,7 @@ import {
   releaseLeases,
   SUPERVISOR,
 } from './records.ts';
+import { chooseAdapter } from './route.ts';
 import { type SupervisedOutcome, type SupervisedRun, startSupervised } from './supervisor.ts';
 
 export const LEASE_RESOURCE_KIND = 'branch';
@@ -311,7 +311,14 @@ export async function runStart(w: Writer, code: string, opts: RunStartOptions): 
   const repoDir = resolve(opts.repoDir);
   for (const d of ['worktrees', 'runs']) mkdirSync(join(fwHome, d), { recursive: true, mode: 0o700 });
 
-  const adapterName = opts.adapter ?? env.FW_VENDOR ?? DEFAULT_ADAPTER;
+  const choice = chooseAdapter({
+    ...(opts.adapter !== undefined ? { adapter: opts.adapter } : {}),
+    env,
+    fwHome,
+    repoDir,
+    ...(opts.keychain !== undefined ? { keychain: opts.keychain } : {}),
+  });
+  const adapterName = choice.name;
   if (!isAdapterName(adapterName))
     throw new PipelineError('BAD_ARGUMENT', `unknown adapter ${JSON.stringify(adapterName)}`);
   if (opts.scenario !== undefined && adapterName !== 'fake')
@@ -486,7 +493,14 @@ export async function runStart(w: Writer, code: string, opts: RunStartOptions): 
         type: 'run.queued',
         run_id: runId,
         idempotency_key: runId,
-        payload: { run_id: runId, work_order_id: woId, agent_id: doer, vendor: adapter.vendor, attempt },
+        payload: {
+          run_id: runId,
+          work_order_id: woId,
+          agent_id: doer,
+          vendor: adapter.vendor,
+          attempt,
+          ...(choice.route_fallback ? { route_fallback: choice.route_fallback } : {}),
+        },
       });
       if (getDbRow(tx, row.id).status === 'ready')
         transitionRow(tx, row.id, 'claimed', {

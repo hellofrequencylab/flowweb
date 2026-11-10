@@ -11,7 +11,15 @@ import {
 import { CODEX_API_KEY_ENV, type CodexAdapterOptions, createCodexAdapter } from './codex/index.ts';
 import { createFakeAdapter, type FakeAdapterOptions } from './fake/index.ts';
 import { createNoopAdapter } from './noop/index.ts';
-import type { VendorAdapter } from './sdk/types.ts';
+import {
+  parseRoutingTable,
+  type Route,
+  type RouteOptions,
+  type RouteRequest,
+  type RoutingTable,
+  routeWith,
+} from './sdk/registry.ts';
+import type { AdapterCapabilities, VendorAdapter } from './sdk/types.ts';
 
 export const PACKAGE = '@fw/adapters';
 
@@ -151,4 +159,34 @@ export function createAdapter(name: AdapterName, options: CreateAdapterOptions =
     default:
       throw new Error(`unknown adapter: ${String(name)}`);
   }
+}
+
+export type {
+  Capability,
+  CostTier,
+  PrivacyTier,
+  Route,
+  RouteOptions,
+  RouteRequest,
+  RoutingTable,
+} from './sdk/registry.ts';
+export { COST_TIERS, findRoutingTable, PRIVACY_TIERS, routingTableCandidates } from './sdk/registry.ts';
+
+/** Reads config/routing.json (or another table) and refuses unknown adapters or tiers. */
+export function loadRoutingTable(path: string): RoutingTable {
+  return parseRoutingTable(path, ADAPTER_NAMES);
+}
+
+/** The real adapters and the capabilities each declares. */
+export function adapterRegistry(): { name: AdapterName; capabilities: AdapterCapabilities }[] {
+  return ADAPTER_NAMES.map((name) => ({ name, capabilities: createAdapter(name).capabilities }));
+}
+
+/** Picks an adapter for a request; see sdk/registry.ts. The registry defaults to the real adapters. */
+export function routeAdapter(
+  table: RoutingTable,
+  request: RouteRequest,
+  opts: Partial<RouteOptions> = {},
+): Route {
+  return routeWith(table, request, { ...opts, registry: opts.registry ?? adapterRegistry() });
 }
