@@ -536,6 +536,8 @@ export interface CoreClient {
   supervisorDial?(flow: string, stop: string, confirm?: string): Promise<SupervisorReport>;
   /** FW-C-038: fire a flow by hand; the Supervisor decides it like any fire. */
   supervisorRun?(flow: string): Promise<SupervisorRunReport>;
+  /** FW-C-048: one call to a flow route on fwd (CLI token); the data fwd answers. Needs fwd up. */
+  flowApi?(method: 'GET' | 'POST' | 'DELETE', path: string, body?: unknown): Promise<unknown>;
   /** FW-C-046: Copilot. A flow's cycle drafts, and the Owner's approve or reject of one. */
   supervisorDrafts?(flow: string): Promise<SupervisorDraft[]>;
   supervisorDraft?(action: 'approve' | 'reject', flow: string, id: string): Promise<SupervisorDraft>;

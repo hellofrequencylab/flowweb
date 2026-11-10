@@ -84,6 +84,7 @@ export interface DaemonCoreClient extends LocalCoreClient {
   supervisorControl(action: SupervisorAction, flow?: string): Promise<SupervisorReport>;
   supervisorDial(flow: string, stop: string, confirm?: string): Promise<SupervisorReport>;
   supervisorRun(flow: string): Promise<SupervisorRunReport>;
+  flowApi(method: 'GET' | 'POST' | 'DELETE', path: string, body?: unknown): Promise<unknown>;
   supervisorDrafts(flow: string): Promise<DraftView[]>;
   supervisorDraft(action: 'approve' | 'reject', flow: string, id: string): Promise<DraftView>;
   spendRollup(opts: { by: string }): Promise<(SpendRow & { unknown_runs?: number })[]>;
@@ -386,6 +387,22 @@ export function createCoreClient(opts: LocalClientOptions): DaemonCoreClient {
     async supervisorRun(flow) {
       const path = `/v1/supervisor/flows/${encodeURIComponent(flow)}/run`;
       return (await supervisorPost(path, {})) as unknown as SupervisorRunReport;
+    },
+    async flowApi(method, path, body) {
+      // FW-C-048: hunts and do-not-contact live with fwd, so these calls need it running.
+      const ep = fwdEndpoint(home);
+      let res: Awaited<ReturnType<typeof fwdRequest>>;
+      try {
+        res = await fwdRequest(ep, method, path, body, 30000);
+      } catch (e) {
+        if (e instanceof FwdUnreachableError)
+          throw Object.assign(new Error(`this goes through fwd, and fwd is not running: ${e.message}`), {
+            code: 'UNAVAILABLE',
+          });
+        throw e;
+      }
+      if (res.status < 200 || res.status > 299) throw fwdError(res);
+      return res.body.data;
     },
     // FW-C-046: Copilot. fwd holds the drafts' writer, so these always go through it.
     async supervisorDrafts(flow) {
