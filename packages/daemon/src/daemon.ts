@@ -11,7 +11,15 @@ import { ApiError, sendError } from './api/http.ts';
 import { buildRouter, principalOf, type RunStartBody } from './api/routes.ts';
 import type { ChainStatus } from './api/status.ts';
 import { hostAllowed, PairingStore, writeOriginAllowed } from './auth.ts';
-import { createSupervisorOnFire, setDial, setFlowEnabled, setPaused } from './overseer/index.ts';
+import { runFlowCycle } from './overseer/cycle.ts';
+import {
+  createSupervisorOnFire,
+  SupervisorError,
+  setDial,
+  setFlowEnabled,
+  setPaused,
+  shippedFlows,
+} from './overseer/index.ts';
 import { runStart } from './pipeline/run-start.ts';
 import { type ReconcileReport, reconcileOnStart } from './reconciler.ts';
 import { RunHost } from './run-host.ts';
@@ -228,6 +236,16 @@ export async function startDaemon(opts: DaemonOptions): Promise<Daemon> {
       setFlowEnabled: (key, enabled) => setFlowEnabled(writer, REPO_ROOT, key, enabled),
       setPaused: (paused) => setPaused(writer, paused),
       setDial: (key, stop, confirm) => setDial(writer, REPO_ROOT, fwHome, key, stop, confirm),
+      runFlow: async (key) => {
+        const s = writer.get<{ id: string }>('SELECT id FROM streams WHERE key = ?', [key]);
+        if (!s || !shippedFlows(REPO_ROOT).some((f) => f.key === key))
+          throw new SupervisorError(
+            'NOT_FOUND',
+            `no flow named ${key} with a registered stream (turn it on first)`,
+          );
+        const rec = await scheduler.fireNow(s.id);
+        return { fire_id: rec.fire_id, outcome: rec.outcome, ...(rec.reason ? { reason: rec.reason } : {}) };
+      },
     },
   });
 
@@ -316,7 +334,22 @@ export async function startDaemon(opts: DaemonOptions): Promise<Daemon> {
   port = typeof addr === 'object' && addr ? addr.port : opts.port;
 
   // FW-C-036: by default the Supervisor decides every fire of a flow (a hold names its gate).
-  const onFire = opts.onFire ?? createSupervisorOnFire({ reader: writer, repoRoot: REPO_ROOT, fwHome });
+  const supervise = createSupervisorOnFire({ reader: writer, repoRoot: REPO_ROOT, fwHome });
+  // FW-C-038: an admitted fire of a flow runs one cycle, after the fire is recorded.
+  const onFire: OnFire =
+    opts.onFire ??
+    (async (f) => {
+      const v = await supervise(f);
+      if (v.outcome === 'admit' && shippedFlows(REPO_ROOT).some((x) => x.key === f.streamKey))
+        setImmediate(() => {
+          if (stopped) return;
+          void runFlowCycle(
+            { writer, repoRoot: REPO_ROOT, fwHome, env: process.env, log },
+            { flow: f.streamKey, streamId: f.streamId, fireId: f.fireId },
+          );
+        });
+      return v;
+    });
   const scheduler = createScheduler({ writer, log, onFire });
 
   const stop = async (reason = 'stop requested'): Promise<void> => {
