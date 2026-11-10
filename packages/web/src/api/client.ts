@@ -4,7 +4,7 @@
  * the view models the screens use (types.ts). Screens never see wire shapes,
  * so when FW-C-018 generates the typed client only this file changes.
  */
-import { accessToken, HOSTED, signOutHosted, UNREACHABLE } from '../hosted/auth';
+import { accessToken, chosenAccount, HOSTED, signOutHosted, UNREACHABLE } from '../hosted/auth';
 import { parseUnifiedDiff, sha256Hex } from './diff';
 import type * as V from './types';
 import type * as W from './wire';
@@ -53,6 +53,9 @@ async function raw(
     // The live mirror has no cookie session; it takes the signed-in owner's token.
     const token = await accessToken();
     if (token) headers.Authorization = `Bearer ${token}`;
+    // FW-C-087: the business chosen in Settings, when the login belongs to more than one.
+    const account = chosenAccount();
+    if (account) headers['x-fw-account'] = account;
   }
   try {
     res = await fetch(API_BASE + path, {
