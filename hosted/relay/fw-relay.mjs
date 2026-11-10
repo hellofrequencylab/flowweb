@@ -54,7 +54,11 @@ async function fwd(path, params = {}) {
   const res = await fetch(url, {
     headers: { accept: 'application/json', authorization: `Bearer ${CLI_TOKEN}` },
   });
-  if (!res.ok) throw new Error(`fwd ${path}: HTTP ${res.status}`);
+  if (!res.ok) {
+    const e = new Error(`fwd ${path}: HTTP ${res.status}`);
+    e.status = res.status;
+    throw e;
+  }
   return res.json();
 }
 
@@ -90,13 +94,17 @@ async function snapshot() {
   const status = await fwd('/status');
   put('/status', status);
   for (const p of ['/policy', '/budgets']) put(p, await fwd(p));
-  // The Supervisor and each flow's view. Older fwd builds have neither, so a miss is skipped.
-  const supervisor = await fwd('/supervisor').catch(() => null);
+  // The Supervisor and each flow's view. Older fwd builds have neither: skip a 404, fail on anything else.
+  const ifFound = (e) => {
+    if (e?.status === 404) return null;
+    throw e;
+  };
+  const supervisor = await fwd('/supervisor').catch(ifFound);
   if (supervisor) {
     put('/supervisor', supervisor);
     const keys = (supervisor.data?.flows ?? []).map((f) => f?.key).filter(Boolean);
     for (const key of new Set(keys)) {
-      const view = await fwd(`/flows/${encodeURIComponent(key)}`).catch(() => null);
+      const view = await fwd(`/flows/${encodeURIComponent(key)}`).catch(ifFound);
       if (view) put(`/flows/${key}`, view);
     }
   }

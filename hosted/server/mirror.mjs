@@ -6,14 +6,14 @@
 
 /**
  * The /v1 path and query of a request rewritten by vercel.json (`/v1/:path*` -> `/api/v1?__p=:path*`).
- * Vercel also copies the named segment into the query (as `path=...`); that copy is not part of
+ * Vercel also copies the named segment into the query as `path=...`; that copy is not part of
  * the caller's query and must not reach the mirror key, or every detail read misses.
  */
 export function routeOfUrl(href) {
   const url = new URL(href);
   const p = url.searchParams.get('__p') ?? '';
   url.searchParams.delete('__p');
-  for (const [k, v] of [...url.searchParams]) if (v === p) url.searchParams.delete(k);
+  if (url.searchParams.get('path') === p) url.searchParams.delete('path');
   const path = `/${p}`.replace(/\/+/g, '/').replace(/\/$/, '') || '/';
   return { path, params: url.searchParams };
 }
