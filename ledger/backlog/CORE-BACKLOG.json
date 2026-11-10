@@ -4,7 +4,7 @@
     "profile": "core",
     "schema": "ledger-row/1",
     "generated": "2026-11-09",
-    "row_count": 115,
+    "row_count": 116,
     "conventions": {
       "verify_probe": "Same convention as 04-build-plan/backlog.json: 'pnpm probe <path>' runs probes/<path>.probe.ts, a Tier 0 file written before the implementation row starts and never edited by the agent doing the row. Every probe fails today because its target does not exist (a missing probe file exits 2, a missing behaviour exits 1). The probe pack for a milestone is committed by the Owner or a pair session before the milestone's rows start.",
       "status": "All rows start as open. Status lives only in the ledger database (imported with fw ledger sync), never in prose.",
@@ -28,7 +28,7 @@
       }
     },
     "full_plan_rows_included": 37,
-    "new_core_rows": 77
+    "new_core_rows": 78
   },
   "rows": [
     {
@@ -4027,6 +4027,40 @@
         "packages/web/src/ui-kit/flow.css",
         "packages/web/src/dawn/today.css",
         "packages/web/src/**/*.css"
+      ],
+      "origin": "new Core row"
+    },
+    {
+      "id": "FW-C-081",
+      "title": "A visitor to flowweb.app sees a clean public homepage that says what FlowWeb is and signs them in or up there: email and password a password manager can save, an emailed link, or Google",
+      "core_milestone": "C2",
+      "phase": 4,
+      "epic": "C2.2 Daily screens",
+      "priority": "P1",
+      "size": "L",
+      "lane": "web",
+      "agent_suitability": "agent",
+      "gate": "none",
+      "depends_on": [],
+      "description": "The Owner wants FlowWeb to be something he can hand to friends or market, so the signed-out flowweb.app should be a homepage that doubles as the login portal, not a bare one-field card. Today a signed-out visitor sees hosted/SignIn.tsx: a centred card that only sends a one-time email link to an existing owner. Replace it with packages/web/src/home/HomePage.tsx, built only from the FlowWeb token layer (12px cards, 8px inner panes, 6 to 8px controls): a short pitch of what FlowWeb does with a quiet visual of a flow, and an account card with Sign in and Create account. Sign in takes email and password (autocomplete username/email and current-password, a show-password toggle), Create account takes email and a new password (autocomplete new-password) and says to check email when confirmation is needed, plus Email me a sign-in link, Continue with Google (hidden when authMethods.google is false), and Forgot password, which sends a reset email. When a reset link lands, the same page shows Choose a new password. Errors show our own sentence in an alert. The auth calls come from hosted/auth.ts (row FW-C-080); this row builds no auth backend. No em dashes in the copy.",
+      "acceptance": [
+        "packages/web/src/home/HomePage.tsx exports HomePage, and App.tsx shows it to a signed-out visitor on the site in place of SignIn",
+        "The page has one h1, a Sign in path and a Create account path, and no em dash anywhere in its text",
+        "Sign in has an email field with autocomplete username or email and a password field with autocomplete current-password, a show-password toggle, and calls signInWithPassword(email, password)",
+        "Create account has a password field with autocomplete new-password, calls signUp(email, password), and says to check email when it resolves needsConfirm",
+        "Email me a sign-in link calls sendLink(email) and Forgot password calls sendPasswordReset(email); both then say to check email",
+        "Continue with Google calls signInWithGoogle() and is not shown when authMethods.google is false",
+        "A thrown error's message shows in an alert; a notice passed in shows on the page",
+        "With recovery set, the page shows Choose a new password with a new-password field and calls setPassword"
+      ],
+      "verify_probe": "pnpm probe ui/home-portal",
+      "files_hint": [
+        "packages/web/src/home/",
+        "packages/web/src/shell/App.tsx",
+        "packages/web/src/hosted/SignIn.tsx",
+        "packages/web/src/ui-kit/base.css",
+        "packages/web/src/ui-kit/tokens.css",
+        "packages/web/test/"
       ],
       "origin": "new Core row"
     },
