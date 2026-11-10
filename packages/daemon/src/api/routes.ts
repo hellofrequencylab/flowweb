@@ -12,6 +12,7 @@ import * as hunts from '../flows/hunts.ts';
 import * as localSaturation from '../flows/local-saturation.ts';
 import * as neighborhoodActivation from '../flows/neighborhood-activation.ts';
 import * as naAdmin from '../flows/neighborhood-admin.ts';
+import { type DraftView, listDrafts } from '../overseer/drafts.ts';
 import { SupervisorError, supervisorView } from '../overseer/index.ts';
 import { type RunHost, RunHostStoppingError } from '../run-host.ts';
 import { isInside, RUN_ID_RE } from '../runtime/paths.ts';
@@ -97,6 +98,9 @@ export interface SupervisorControls {
   setDial(key: string, stop: string, confirm?: string): { changed: boolean };
   /** FW-C-038: fire the flow's stream by hand; the Supervisor decides it like any fire. */
   runFlow?(key: string): Promise<{ fire_id: string; outcome: string; reason?: string }>;
+  /** FW-C-046: the Owner approves or rejects one cycle draft. */
+  approveDraft?(key: string, id: string): DraftView;
+  rejectDraft?(key: string, id: string): DraftView;
 }
 
 /** The body of POST /v1/runs, checked. */
@@ -522,6 +526,46 @@ export function buildRouter(deps: ApiDeps): Router {
     const confirm = typeof body.confirm === 'string' ? body.confirm : undefined;
     return ownerControl(req, (c) => c.setDial(params.key ?? '', stop, confirm));
   });
+
+  // FW-C-046: Copilot. The Owner lists a flow's cycle drafts and approves or rejects each one.
+  const ownerOnly = (req: object) => {
+    const p = principalOf.get(req);
+    if (p?.kind !== 'cli' && p?.kind !== 'dev_no_auth')
+      throw new ApiError(
+        403,
+        'forbidden',
+        'cycle drafts are handled with the CLI token, not a browser session',
+      );
+  };
+  const draftError = (e: unknown) => {
+    if (!(e instanceof SupervisorError)) return kernelError(e);
+    if (e.code === 'CONFLICT') return new ApiError(409, 'conflict', e.message, { reason: e.message });
+    if (e.code === 'INVALID') return new ApiError(400, 'validation_failed', e.message);
+    return new ApiError(404, 'not_found', e.message);
+  };
+  r.get('/v1/supervisor/flows/{key}/drafts', ({ req, params }) => {
+    ownerOnly(req);
+    try {
+      const data = listDrafts(deps.repoRoot, deps.fwHome, params.key ?? '');
+      return env(() => ({ data }));
+    } catch (e) {
+      throw draftError(e);
+    }
+  });
+  for (const action of ['approve', 'reject'] as const)
+    r.post(`/v1/supervisor/flows/{key}/drafts/{id}/${action}`, ({ req, params }) => {
+      ownerOnly(req);
+      const c = deps.supervisor;
+      const act = action === 'approve' ? c?.approveDraft : c?.rejectDraft;
+      if (!c || !act)
+        throw new ApiError(501, 'not_implemented', 'this fwd does not host the Copilot controls');
+      try {
+        const data = act.call(c, params.key ?? '', params.id ?? '');
+        return env(() => ({ data }));
+      } catch (e) {
+        throw draftError(e);
+      }
+    });
 
   r.get('/v1/status-reports', ({ query }) => {
     const kind = oneOf(query, 'kind', REPORT_KINDS);
