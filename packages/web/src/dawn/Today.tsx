@@ -11,7 +11,11 @@ import { age, clock } from '../ui-kit/time';
 import './today.css';
 
 /** Where each ask is worked: drafts and decisions both wait in the Inbox. */
-export const TODAY_LINKS = { drafts: '/inbox', decisions: '/inbox', flows: '/growth' } as const;
+export const TODAY_LINKS = {
+  drafts: '/inbox',
+  decisions: '/inbox',
+  flows: '/flows/neighborhood-activation',
+} as const;
 
 const num = (n: number) => n.toLocaleString('en-US');
 const pct = (x: number) => `${Math.round(Math.max(0, Math.min(1, x)) * 100)}%`;
@@ -123,7 +127,7 @@ function Ask({
 }
 
 /** The open region against each of its targets. */
-function RegionProgress({ res }: { res: Resource<ActivationFlow> }) {
+export function RegionProgress({ res }: { res: Resource<ActivationFlow> }) {
   const flow = res.honesty === 'current' ? res.data : null;
   const t = flow?.territories.find((x) => x.status === 'active') ?? null;
   return (
@@ -174,7 +178,7 @@ function RegionProgress({ res }: { res: Resource<ActivationFlow> }) {
         </ul>
       )}
       <Link to={TODAY_LINKS.flows} className="small">
-        Regions and leads on Flows
+        Regions and leads in Neighborhood activation
       </Link>
     </section>
   );
