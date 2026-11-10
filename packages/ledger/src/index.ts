@@ -105,6 +105,14 @@ export {
   readLabels,
 } from './projects/labels.ts';
 export {
+  findQuery,
+  QUERIES,
+  type QueryParams,
+  type QueryResult,
+  type RegisteredQuery,
+  runQuery,
+} from './queries/index.ts';
+export {
   type EvidenceView,
   type ListFilter,
   listRows,
@@ -113,14 +121,6 @@ export {
   retestCandidates,
   showRow,
 } from './queries.ts';
-export {
-  findQuery,
-  QUERIES,
-  type QueryParams,
-  type QueryResult,
-  type RegisteredQuery,
-  runQuery,
-} from './queries/index.ts';
 export {
   type DbRow,
   getDbRow,
