@@ -9,6 +9,7 @@ import {
   newHunt,
   onDoNotContact,
   parseLeads,
+  restrictedLead,
   screenLeads,
 } from '../src/flows/hunts.ts';
 import { type FlowConfig, initialState } from '../src/flows/neighborhood-activation.ts';
@@ -106,11 +107,64 @@ describe('hunts', () => {
 test('the sign-off is plain text with no em dash, in the Owner name', () => {
   const body = composeBody(cfg, hunt({ build: false }), {
     hunt_id: 'h',
-    event: { title: 'T', starts_at: null, url: 'https://e.example/x' },
-    organizer: { name: null, email: 'a@example.com', source_url: 'https://e.example/x' },
+    event: { title: 'T', starts_at: null, url: 'https://e.example/x', country: null },
+    organizer: {
+      name: null,
+      email: 'a@example.com',
+      source_url: 'https://e.example/x',
+      country: null,
+      contact_via: 'email',
+      contact_url: null,
+    },
     subject: null,
     body: 'Hi.',
   });
   expect(body.includes('\u2014')).toBe(false);
   expect(body).toMatch(/\nDaniel Tyack\n/);
+});
+
+// FW-C-052: where a hunt may write, and how each draft is sent.
+const reach = (h: Hunt, organizer: Record<string, unknown>, event: Record<string, unknown> = {}) =>
+  parseLeads({
+    leads: [
+      {
+        hunt_id: h.id,
+        event: { title: 'Bath', url: 'https://example.com/e', ...event },
+        organizer: { source_url: 'https://example.com/o', ...organizer },
+        body: 'Hi!',
+      },
+    ],
+  })[0]!;
+
+test('EU, EEA, UK and Canadian leads are restricted, by country or by domain', () => {
+  const h = hunt();
+  expect(restrictedLead(reach(h, { email: 'a@example.com', country: 'us' }))).toBe(false);
+  expect(restrictedLead(reach(h, { email: 'a@example.com', country: 'de' }))).toBe(true);
+  expect(restrictedLead(reach(h, { email: 'a@example.com' }, { country: 'CA' }))).toBe(true);
+  expect(restrictedLead(reach(h, { email: 'a@example.com', country: 'NO' }))).toBe(true);
+  expect(restrictedLead(reach(h, { email: 'a@shop.co.uk' }))).toBe(true);
+  expect(restrictedLead(reach(h, { email: 'a@example.eu' }))).toBe(true);
+  expect(
+    restrictedLead(reach(h, { email: 'a@example.com', source_url: 'https://events.example.ie/x' })),
+  ).toBe(true);
+  expect(restrictedLead(reach(h, { email: 'a@example.io' }))).toBe(false);
+});
+
+test('a form or profile lead is drafted without an address and says how to send it', () => {
+  const h = hunt();
+  const state = initialState(now);
+  const leads = [
+    reach(h, { email: 'a@example.com' }),
+    reach(h, { contact_via: 'form', contact_url: 'https://example.com/contact' }),
+    reach(h, { contact_via: 'platform', contact_url: 'https://www.meetup.com/g/x' }),
+    reach(h, { contact_via: 'social', contact_url: 'http://insecure.example.com/p' }),
+    reach(h, { contact_via: 'form', contact_url: 'https://example.com/contact' }),
+    reach(h, { email: 'b@example.com', country: 'FR' }),
+  ];
+  const { kept, counts } = screenLeads({ cfg, state, hunts: [h], leads, now });
+  expect(kept.map((k) => k.send_via)).toEqual(['email', 'contact_form', 'platform_message']);
+  expect(kept[0]!.send_how).toContain('a@example.com');
+  expect(kept[1]!.send_how).toContain('https://example.com/contact');
+  expect(kept[1]!.body).toMatch(/how to reach you on https:\/\/example\.com\/o\..*reply "no"/i);
+  expect(counts[h.id]).toMatchObject({ drafted: 3, not_public: 1, duplicate: 1, restricted: 1 });
 });

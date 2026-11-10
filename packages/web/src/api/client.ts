@@ -761,6 +761,12 @@ export const api = {
     return { data_as_of: e.as_of, ...e.data };
   },
 
+  /** The drafts a flow's cycles wrote, newest first. fwd answers these to the CLI token only. */
+  async flowDrafts(key: string): Promise<V.FlowDrafts> {
+    const e = await get<V.FlowDraft[]>(`/supervisor/flows/${encodeURIComponent(key)}/drafts`);
+    return { data_as_of: e.as_of, drafts: Array.isArray(e.data) ? e.data : [] };
+  },
+
   async supervisor(): Promise<V.Supervisor> {
     const e = await get<Omit<V.Supervisor, 'data_as_of'>>('/supervisor');
     return { data_as_of: e.as_of, ...e.data };
@@ -833,4 +839,45 @@ export const flowAdmin = {
   saveConfig: (config: FlowConfigJson) => send<unknown>('PUT', `${NA}/config`, config),
   /** A plain link works: the paired browser's session cookie goes with it. */
   leadsCsvUrl: `${API_BASE}${NA}/leads.csv`,
+};
+
+/** FW-C-049: a saved lead hunt, as fwd keeps it in hunts.json. */
+export interface LeadHunt {
+  id: string;
+  name: string;
+  looking_for: string;
+  region: string;
+  areas: string[];
+  links: string[];
+  every_days: number;
+  max_sends: number;
+  build: boolean;
+  enabled: boolean;
+  created_at: string;
+  last_run_at: string | null;
+}
+export interface LeadHuntInput {
+  name: string;
+  looking_for: string;
+  region: string;
+  links: string[];
+  every_days: number;
+  max_sends: number;
+  build: boolean;
+}
+
+/** The Owner's lead hunts and do-not-contact by address, through fwd's hunt routes. */
+export const leadHunts = {
+  list: async () => (await get<LeadHunt[]>(`${NA}/hunts`)).data ?? [],
+  save: (input: LeadHuntInput) => post<LeadHunt>(`${NA}/hunts`, input),
+  run: (id: string) =>
+    post<{ hunt_id: string; fire_id: string; outcome: string; reason?: string }>(
+      `${NA}/hunts/${enc(id)}/run`,
+      {},
+    ),
+  remove: async (id: string) => {
+    await raw('DELETE', `${NA}/hunts/${enc(id)}`);
+  },
+  block: (email: string, reason: string) =>
+    send<{ blocked: string; already: boolean }>('POST', `${NA}/do-not-contact`, { email, reason }),
 };

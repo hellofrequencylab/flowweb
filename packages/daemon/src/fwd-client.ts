@@ -44,7 +44,7 @@ export interface FwdResponse {
  */
 export function fwdRequest(
   ep: FwdEndpoint,
-  method: 'GET' | 'POST',
+  method: 'GET' | 'POST' | 'DELETE',
   path: string,
   body?: unknown,
   timeoutMs = 0,

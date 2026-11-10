@@ -1540,3 +1540,23 @@ a.flow-line:hover .flow-line-name {
     display: none;
   }
 }
+
+/* Activation page: drafts the flow wrote, shown as plain text to copy. */
+.drafts-list {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+}
+.draft-body {
+  margin: 0;
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
+  font: inherit;
+}
+.draft-group-title {
+  margin: 0;
+  font-size: var(--text-md, 1rem);
+}
+.draft-group-hint {
+  margin: 0 0 var(--space-2);
+}
