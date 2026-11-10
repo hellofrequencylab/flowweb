@@ -4,7 +4,7 @@
     "profile": "core",
     "schema": "ledger-row/1",
     "generated": "2026-11-09",
-    "row_count": 98,
+    "row_count": 99,
     "conventions": {
       "verify_probe": "Same convention as 04-build-plan/backlog.json: 'pnpm probe <path>' runs probes/<path>.probe.ts, a Tier 0 file written before the implementation row starts and never edited by the agent doing the row. Every probe fails today because its target does not exist (a missing probe file exits 2, a missing behaviour exits 1). The probe pack for a milestone is committed by the Owner or a pair session before the milestone's rows start.",
       "status": "All rows start as open. Status lives only in the ledger database (imported with fw ledger sync), never in prose.",
@@ -28,7 +28,7 @@
       }
     },
     "full_plan_rows_included": 37,
-    "new_core_rows": 61
+    "new_core_rows": 62
   },
   "rows": [
     {
@@ -3460,6 +3460,54 @@
         "packages/web/src/api/types.ts",
         "packages/web/test/",
         "packages/web/mock/",
+        "docs/api/LOCAL-API-V1.md"
+      ],
+      "origin": "new Core row"
+    },
+    {
+      "id": "FW-C-063",
+      "title": "The Owner sets when a flow runs each morning and how many people it reaches a day, and can let reply rates tune that number",
+      "core_milestone": "C1",
+      "phase": 1,
+      "epic": "C1.5 First flow",
+      "priority": "P1",
+      "size": "L",
+      "lane": "workstreams",
+      "agent_suitability": "agent",
+      "gate": "owner-approval",
+      "depends_on": [
+        "FW-C-062"
+      ],
+      "description": "A flow's run time is fixed in its shipped stream.json (neighborhood activation runs at 07:00 on weekdays) and how many new people a run reaches is only each hunt's max_sends plus the weekly cap, so the Owner cannot run the flow earlier to catch organizers early, run it every day, or turn its intensity up or down, and nothing ties that number to whether people reply. fwd gains POST /v1/supervisor/flows/{key}/schedule { time: 'HH:MM', days: 'daily' | 'weekdays' }, which stores the choice in the Supervisor settings and rewrites the flow's stream trigger cron (version + 1, a new definition_hash and a stream.updated event) so the scheduler fires at the new time; a flow whose stream is not registered yet gets the time when it is. fwd gains POST /v1/supervisor/flows/{key}/intensity { per_day: 1-25, auto: boolean, min, max } (min <= per_day <= max). Each run drafts for at most that many new people a day (counted over the last 20 hours, so the next morning starts fresh); the weekly cap and each hunt's max_sends still apply. With auto on, today's number is worked out in plain code from the last 14 days of sent drafts: with fewer than 20 sent it stays as set; 10% or more declined halves it; 8% or more responded (a reply or a signup) raises it by half; under 2% responded lowers it by a quarter; it never leaves min..max, and the reason is shown. GET /v1/supervisor shows, per flow, schedule { time, days, cron, timezone } read from the stream and intensity { per_day, auto, min, max, today: { per_day, why } }. The Flows page Controls gain, per flow, a morning run time, Every day or Weekdays, a leads-per-day slider and an Adjust from replies switch. On flowweb.app the same controls queue flow.schedule and flow.intensity requests that the relay applies through fwd; migration hosted/supabase/migrations/0005_flowweb_morning_intensity.sql allows the two kinds, and the Owner applies it. Nothing here sends anything or touches the dial.",
+      "acceptance": [
+        "scheduleCron turns a time and Every day or Weekdays into a five-field cron and refuses anything else",
+        "effectivePerDay keeps the Owner's number when auto is off or too few were sent, and moves it with declines and responses within min and max, saying why",
+        "screenLeads drafts for at most per_day new people in the last 20 hours, on top of the existing caps",
+        "From the paired browser session, a new schedule changes the flow's stream cron and shows in GET /v1/supervisor, with a stream.updated event; an intensity shows there with today's number; bad values answer 400; no session answers 401",
+        "flowweb.app queues flow.schedule and flow.intensity and the relay calls the same fwd route with the same body; migration 0005 allows both kinds and every earlier one",
+        "On the Flows page the Owner saves a morning time and days, and a leads-per-day number with Adjust from replies, and sees today's number and why"
+      ],
+      "verify_probe": "pnpm probe flows/morning-intensity",
+      "files_hint": [
+        "packages/daemon/src/overseer/intensity.ts",
+        "packages/daemon/src/overseer/index.ts",
+        "packages/daemon/src/overseer/cycle.ts",
+        "packages/daemon/src/flows/hunts.ts",
+        "packages/daemon/src/index.ts",
+        "packages/daemon/src/daemon.ts",
+        "packages/daemon/src/api/routes.ts",
+        "packages/daemon/test/",
+        "packages/ledger/src/streams/streams.ts",
+        "packages/ledger/src/index.ts",
+        "packages/ledger/test/",
+        "hosted/server/requests.mjs",
+        "hosted/supabase/migrations/0005_flowweb_morning_intensity.sql",
+        "hosted/test/",
+        "hosted/README.md",
+        "packages/web/src/flows/FlowControls.tsx",
+        "packages/web/src/api/client.ts",
+        "packages/web/src/api/types.ts",
+        "packages/web/test/",
         "docs/api/LOCAL-API-V1.md"
       ],
       "origin": "new Core row"
