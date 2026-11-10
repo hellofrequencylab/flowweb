@@ -227,3 +227,40 @@ test('at confirmed Autopilot a cycle hands its drafts to the outbox, once', asyn
   expect(again.outcome).toBe('queued');
   expect(existsSync(join(outbox, files[0]!))).toBe(false);
 });
+
+test('aborting a cycle kills the vendor and still writes a report', async () => {
+  const { home, w, streamId } = cycleHome();
+  let killed: string | undefined;
+  let finish: (r: unknown) => void = () => {};
+  const factory = (() => ({
+    start: () => ({
+      events: (async function* () {})(),
+      result: new Promise((ok) => {
+        finish = ok;
+      }),
+      kill: async (why: string) => {
+        killed = why;
+        finish({ status: 'killed', summary: why, turns: 0, cost: { usd: 0 } });
+      },
+    }),
+  })) as never;
+  const ac = new AbortController();
+  const done = runFlowCycle(
+    {
+      writer: w,
+      repoRoot: REPO_ROOT,
+      fwHome: home,
+      env: {},
+      keychain: false,
+      adapterFactory: factory,
+      signal: ac.signal,
+    },
+    { flow: KEY, streamId, fireId: 'fire7' },
+  );
+  await new Promise((ok) => setTimeout(ok, 20));
+  ac.abort('fwd stopping');
+  await done;
+  expect(killed).toMatch(/interrupted: fwd stopping/);
+  const rpt = w.get<{ body: string }>("SELECT body FROM status_reports WHERE kind = 'run'");
+  expect(JSON.parse(rpt!.body)).toMatchObject({ outcome: 'failed', reason: expect.stringMatching(/killed/) });
+});

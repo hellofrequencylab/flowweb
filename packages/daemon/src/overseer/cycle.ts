@@ -125,6 +125,8 @@ export interface CycleDeps {
   log?: (line: string) => void;
   /** Keychain override for tests (see creds); the real one otherwise. */
   keychain?: Parameters<typeof injectCredentials>[1]['keychain'];
+  /** Aborting it kills the vendor process group; the cycle still ends in a report. */
+  signal?: AbortSignal;
   /** Builds the adapter (tests pass a stub); createAdapter otherwise. */
   adapterFactory?: (
     name: AdapterName,
@@ -281,7 +283,11 @@ export async function runFlowCycle(d: CycleDeps, fire: CycleFire): Promise<void>
       planner_text_is_data: true,
     };
     const scenario = adapterName === 'fake' ? d.env.FW_FAKE_SCENARIO : undefined;
+    if (d.signal?.aborted) throw new Error(`interrupted before start: ${String(d.signal.reason ?? 'stop')}`);
     const run = adapter.start(input, { credentialEnv: creds.env, ...(scenario ? { scenario } : {}) });
+    const onAbort = () => void run.kill(`interrupted: ${String(d.signal?.reason ?? 'stop')}`);
+    d.signal?.addEventListener('abort', onAbort, { once: true });
+    run.result.finally(() => d.signal?.removeEventListener('abort', onAbort));
     for await (const _ of run.events) {
       // drain: the result settles after the events end
     }

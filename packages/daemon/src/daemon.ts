@@ -348,14 +348,19 @@ export async function startDaemon(opts: DaemonOptions): Promise<Daemon> {
       if (v.outcome === 'admit' && shippedFlows(REPO_ROOT).some((x) => x.key === f.streamKey))
         setImmediate(() => {
           if (stopped) return;
-          void runFlowCycle(
-            { writer, repoRoot: REPO_ROOT, fwHome, env: process.env, log },
+          const ac = new AbortController();
+          const done = runFlowCycle(
+            { writer, repoRoot: REPO_ROOT, fwHome, env: process.env, log, signal: ac.signal },
             { flow: f.streamKey, streamId: f.streamId, fireId: f.fireId },
-          );
+          ).finally(() => cycles.delete(entry));
+          const entry = { ac, done };
+          cycles.add(entry);
         });
       return v;
     });
   const scheduler = createScheduler({ writer, log, onFire });
+  /** Flow cycles in flight: a stop kills each one and waits for its report before closing the store. */
+  const cycles = new Set<{ ac: AbortController; done: Promise<void> }>();
 
   const stop = async (reason = 'stop requested'): Promise<void> => {
     if (stopped) return;
@@ -372,6 +377,20 @@ export async function startDaemon(opts: DaemonOptions): Promise<Daemon> {
         `stop: ${drained.interrupted} run(s) did not end in time; the reconciler fails them on the next start`,
       );
     else if (drained.interrupted > 0) log(`stop: interrupted ${drained.interrupted} run(s)`);
+    if (cycles.size > 0) {
+      const inFlight = [...cycles];
+      for (const c of inFlight) c.ac.abort(`fwd stopping (${reason})`);
+      const timeout = new Promise<'timeout'>((ok) =>
+        setTimeout(() => ok('timeout'), opts.stopTimeoutMs ?? DEFAULT_STOP_TIMEOUT_MS).unref(),
+      );
+      const end = await Promise.race([
+        Promise.all(inFlight.map((c) => c.done)).then(() => 'ok' as const),
+        timeout,
+      ]);
+      log(
+        `stop: interrupted ${inFlight.length} flow cycle(s)${end === 'timeout' ? ', not all ended in time' : ''}`,
+      );
+    }
     clearInterval(chainTimer);
     clearInterval(decisionTimer);
     for (const end of [...streams]) end();
