@@ -258,6 +258,16 @@ async function once() {
     return;
   }
   const r = await push(entries, report);
+  // FW-C-038: `fw setup` counts the live site as working only from an accepted push. No secret here.
+  try {
+    writeFileSync(
+      join(FW_HOME, 'relay-last-push.json'),
+      JSON.stringify({ synced_at: r.synced_at ?? new Date().toISOString(), site: SITE, stored: r.stored }),
+      { mode: 0o600 },
+    );
+  } catch (e) {
+    console.error(`fw-relay: could not record the push in ${FW_HOME}: ${e.message}`);
+  }
   console.log(`fw-relay: pushed ${r.stored} entries at ${r.synced_at} (head_seq ${report.head_seq})`);
 }
 

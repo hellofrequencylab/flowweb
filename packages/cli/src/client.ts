@@ -346,6 +346,24 @@ export interface ProjectBriefReport {
   event_seq: number | null;
 }
 
+/** FW-C-038: `fw setup` / GET /v1/setup. Every step is read from real state. */
+export interface SetupStep {
+  id: 'machine' | 'sign_ins' | 'project' | 'brief' | 'flow' | 'live_site';
+  title: string;
+  required: boolean;
+  done: boolean;
+  detail: string;
+  fix: string | null;
+}
+
+export interface SetupReport {
+  ready: boolean;
+  next: SetupStep['id'] | null;
+  fwd: 'up' | 'down';
+  steps: SetupStep[];
+  checked_at: string;
+}
+
 export type SupervisorAction = 'pause' | 'resume' | 'enable' | 'disable';
 
 /** GET /v1/supervisor, plus where it was read from (FW-C-033). */
@@ -470,6 +488,8 @@ export interface CoreClient {
   supervisorControl?(action: SupervisorAction, flow?: string): Promise<SupervisorReport>;
   /** FW-C-035: set a flow's dial; autopilot needs the confirm hash fwd names. */
   supervisorDial?(flow: string, stop: string, confirm?: string): Promise<SupervisorReport>;
+  /** FW-C-038: where setup stands; served by the daemon package. */
+  setup?(): Promise<SetupReport>;
   /** The policy engine: optional, served by the daemon package (the CLI never imports @fw/policy). */
   policyCheck?(input: PolicyCheckInput): Promise<PolicyDecision>;
   policyApply?(): Promise<PolicyApplyReport>;

@@ -44,6 +44,7 @@ import {
 } from './relay/src/index.ts';
 import { type DoctorReport, runDoctor } from './runtime/doctor.ts';
 import { type GcReport, gcRunDirs } from './runtime/gc.ts';
+import { type SetupReport, setupReport } from './setup/index.ts';
 import { SPEND_GROUP_NAMES, type SpendGroup, type SpendRow, spendRollup } from './spend.ts';
 
 export interface RunStartRequest {
@@ -88,6 +89,8 @@ export interface DaemonCoreClient extends LocalCoreClient {
   relayResult(runId: string, text: string): Promise<RelayResult>;
   doctor(): Promise<DoctorReport>;
   gc(): Promise<GcReport>;
+  /** FW-C-038: GET /v1/setup from fwd, or the same report read here when fwd is down. */
+  setup(): Promise<SetupReport>;
 }
 
 class OwnerOnlyError extends Error {
@@ -190,6 +193,29 @@ export function createCoreClient(opts: LocalClientOptions): DaemonCoreClient {
           head_seq: head,
           last_daemon_event: stopped ? { ts: stopped.ts, ...(JSON.parse(stopped.payload) as object) } : null,
         };
+      } finally {
+        ro.close();
+      }
+    },
+    async setup() {
+      const ep = fwdEndpoint(home);
+      if (ep.token || process.env.FW_DEV_NO_AUTH === '1') {
+        try {
+          const res = await fwdRequest(ep, 'GET', '/v1/setup', undefined, 5000);
+          if (res.status === 200) return { ...(res.body.data as SetupReport), fwd: 'up' as const };
+        } catch (e) {
+          if (!(e instanceof FwdUnreachableError)) throw e;
+        }
+      }
+      // fwd is down (or this home never ran it): the same report, read-only, with the machine step open.
+      store?.close();
+      store = undefined;
+      ledger.close();
+      const deps = { fwHome: home, repoRoot: REPO_ROOT, fwdUp: false, port: ep.port };
+      if (!existsSync(path)) return setupReport({ ...deps, reader: null });
+      const ro = openStore({ path, readonly: true, lockPath: join(home, 'fwd.lock') });
+      try {
+        return setupReport({ ...deps, reader: ro.reader() });
       } finally {
         ro.close();
       }
