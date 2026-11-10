@@ -14,6 +14,7 @@ import { gitHead } from '../git.ts';
 import { codeFromRowId } from '../ids.ts';
 import { loadCorePolicy } from '../policy.ts';
 import { checkedProbe } from '../probe.ts';
+import { BRIEF_KEYS, type BriefAnswers, isCompleteBrief, readBriefs } from '../projects/projects.ts';
 import { type DbRow, getDbRow } from '../rows.ts';
 import { assertNotSelfVerify, compileWorkOrder, dispatchRule } from './compile.ts';
 
@@ -47,6 +48,11 @@ function checkAgent(w: Writer, id: string, role: 'worker' | 'verifier', what: st
     throw new LedgerError('AGENT_INVALID', `${what} ${id} has role ${a.role}; it must be ${role}`);
   if (a.status !== 'active')
     throw new LedgerError('AGENT_INVALID', `${what} ${id} is ${a.status}, not active`);
+}
+
+/** Only the five answers: the saved brief also carries when it was updated, which no order needs. */
+function pickBrief(b: BriefAnswers): BriefAnswers {
+  return Object.fromEntries(BRIEF_KEYS.map((k) => [k, b[k]])) as BriefAnswers;
 }
 
 /** files_hint and acceptance from the row file, only when its probe matches the one the ledger holds. */
@@ -111,6 +117,7 @@ export function issueWorkOrder(w: Writer, code: string, opts: IssueOptions): Iss
   const actor = opts.actor ?? ownerActor(w);
   const probe = checkedProbe(w, row, actor);
   const extras = definitionExtras(row, opts.rowsDir ?? join(opts.repoDir, 'ledger', 'rows'));
+  const brief = readBriefs(w)[row.project_id];
   const version =
     (w.get<{ v: number | null }>('SELECT MAX(version) AS v FROM work_orders WHERE ledger_row_id = ?', [
       row.id,
@@ -132,6 +139,7 @@ export function issueWorkOrder(w: Writer, code: string, opts: IssueOptions): Iss
     baseCommit,
     policy,
     roles: { doer, verifier, approver: ownerId(w) },
+    ...(isCompleteBrief(brief) ? { brief: pickBrief(brief) } : {}),
   });
 
   return w.transaction((tx) => {

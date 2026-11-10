@@ -3,6 +3,7 @@ import { join } from 'node:path';
 import { validate } from '@fw/contracts';
 import { describe, expect, test } from 'vitest';
 import {
+  briefProject,
   type CompileInput,
   compileWorkOrder,
   DEFAULT_AGENTS,
@@ -77,6 +78,17 @@ describe('fw wo issue', () => {
     store.close();
   });
 
+  test('FW-C-040: an order carries the project brief once the Owner saves one', async () => {
+    const { store, w, repo, rowsDir } = await readyRow('brief');
+    const projectId = getDbRow(w, 'FW-C-940')!.project_id;
+    const slug = w.get<{ slug: string }>('SELECT slug FROM projects WHERE id = ?', [projectId])!.slug;
+    briefProject(w, slug, { what: 'W', who: 'Who', voice: 'Calm', never: 'Never X', done: 'Done Y' });
+    const r = issueWorkOrder(w, 'FW-C-940', { repoDir: repo.dir, home, rowsDir });
+    expect(r.work_order.constraints.style).toEqual(["Voice, from the Owner's project brief: Calm"]);
+    expect(r.work_order.constraints.notes).toContain('What the agents must never do on it: Never X');
+    store.close();
+  });
+
   test('self-verification is refused', async () => {
     const { store, w, repo, rowsDir } = await readyRow('self');
     expect(() =>
@@ -140,6 +152,24 @@ describe('compileWorkOrder', () => {
     policy,
     roles: { doer: 'agt_worker0001', verifier: 'agt_verifier0001', approver: 'own_local' },
   };
+
+  test('FW-C-040: a brief goes in word for word (voice as style); no brief changes nothing', () => {
+    const brief = {
+      what: 'A spring push',
+      who: 'Lapsed neighbors',
+      voice: 'Warm, plain',
+      never: 'No discounts',
+      done: '40 sign-ups',
+    };
+    const plain = compileWorkOrder(input);
+    expect(plain.constraints.style).toBeUndefined();
+    const wo = compileWorkOrder({ ...input, brief });
+    expect(validate('work-order', wo).errors).toEqual([]);
+    expect(wo.constraints.style).toEqual(["Voice, from the Owner's project brief: Warm, plain"]);
+    const notes = wo.constraints.notes!.join('\n');
+    for (const a of [brief.what, brief.who, brief.never, brief.done]) expect(notes).toContain(a);
+    expect(wo.content_hash).not.toBe(plain.content_hash);
+  });
 
   test('is deterministic for the same inputs', () => {
     expect(JSON.stringify(compileWorkOrder(input))).toBe(JSON.stringify(compileWorkOrder({ ...input })));
