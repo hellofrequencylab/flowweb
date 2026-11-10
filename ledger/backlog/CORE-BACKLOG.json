@@ -4,7 +4,7 @@
     "profile": "core",
     "schema": "ledger-row/1",
     "generated": "2026-11-09",
-    "row_count": 75,
+    "row_count": 76,
     "conventions": {
       "verify_probe": "Same convention as 04-build-plan/backlog.json: 'pnpm probe <path>' runs probes/<path>.probe.ts, a Tier 0 file written before the implementation row starts and never edited by the agent doing the row. Every probe fails today because its target does not exist (a missing probe file exits 2, a missing behaviour exits 1). The probe pack for a milestone is committed by the Owner or a pair session before the milestone's rows start.",
       "status": "All rows start as open. Status lives only in the ledger database (imported with fw ledger sync), never in prose.",
@@ -28,7 +28,7 @@
       }
     },
     "full_plan_rows_included": 37,
-    "new_core_rows": 38
+    "new_core_rows": 39
   },
   "rows": [
     {
@@ -2676,6 +2676,47 @@
         "packages/adapters/test/",
         "packages/ledger/src/index.ts",
         "docs/api/LOCAL-API-V1.md"
+      ],
+      "origin": "new Core row"
+    },
+    {
+      "id": "FW-C-041",
+      "title": "Saved event lead hunts that find organizers and draft a personal message for each",
+      "core_milestone": "C1",
+      "phase": 1,
+      "epic": "C1.5 First flow",
+      "priority": "P1",
+      "size": "L",
+      "lane": "workstreams",
+      "agent_suitability": "agent",
+      "gate": "owner-approval",
+      "depends_on": [
+        "FW-C-037",
+        "FW-C-038"
+      ],
+      "description": "Let the Owner save hunts in the neighborhood activation flow, as he asked on 10 Nov: a hunt names what to look for, the region and areas, links to search first (event listing pages, at most 20), how often (every_days), a cap on messages per run (max_sends, at most 25) and whether to build Frequency resources with a claim link (build). Hunts are saved under $FW_HOME/flows/neighborhood-activation/hunts.json through POST, GET and DELETE /v1/flows/neighborhood-activation/hunts, and POST .../hunts/{id}/run asks for one in the next cycle and fires the flow by hand through the scheduler, so the Supervisor still decides it. A cycle writes the hunts due in it to hunts.json in its folder; the adapter searches public listings, starting with the hunt's links, and answers leads.json with each event, its organizer and the public page the contact was found on, plus a draft. fwd, not the model, then decides who gets a message: the contact must name its public source page, must not be on the do-not-contact list (which now also takes an email or an @domain), must not have been drafted for before, and each hunt keeps at most max_sends per run. fwd ends every message with the Owner's sign-off, the page the address came from and a one-line opt-out, plus the host funnel link with src=hunt, or the {{claim_url}} slot the sender fills when build is on. Kept leads become drafts that wait for the Owner at Draft and Copilot; at confirmed Autopilot they go through handOff to the outbox on the frequency channel with the lead attached. Core still never sends. The sender that reads the outbox and Frequency's side (sending, suppression, building and claim links) are later rows.",
+      "acceptance": [
+        "Hunt routes need the CLI token; a bad hunt (no region, unknown region, nothing to look for, max_sends over 25, a link that is not http or https) is refused with 400 and saves nothing",
+        "A saved hunt lists with its links and defaults (every_days 1, max_sends 10, build false, enabled, last_run_at null)",
+        "A cycle writes the due hunts, with their links, to hunts.json in its folder",
+        "A run drafts only leads with a public source page, not on do-not-contact, not drafted before, and at most max_sends per hunt, and the run report counts found, drafted, blocked, not_public, duplicate and capped",
+        "Every hunt draft ends with the sign-off, its source page and a reply-no opt-out, and carries the funnel link with src=hunt, or the {{claim_url}} slot when build is on",
+        "Running the same hunt again never drafts the same address twice",
+        "At confirmed Autopilot hunt drafts are handed to the outbox on the frequency channel with the lead, and read handed_off; at Draft nothing reaches the outbox",
+        "A deleted hunt is gone, and running it answers 404"
+      ],
+      "verify_probe": "pnpm probe flows/hunts",
+      "files_hint": [
+        "packages/daemon/src/flows/",
+        "packages/daemon/src/overseer/",
+        "packages/daemon/src/api/routes.ts",
+        "packages/daemon/src/daemon.ts",
+        "packages/daemon/src/index.ts",
+        "packages/daemon/test/",
+        "packages/adapters/src/fake/",
+        "packages/adapters/src/codex/",
+        "packages/cli/src/",
+        "flows/neighborhood-activation/"
       ],
       "origin": "new Core row"
     }
