@@ -40,7 +40,7 @@ export function StatusStrip({ onStop }: { onStop: () => void }) {
   if (prefs.calm) conditions.push({ icon: 'paused', text: 'Calm mode' });
   if (s?.paused_by_budget) conditions.push({ icon: 'paused', text: 'Paused: budget', tone: 'warn' });
   if (s?.breaker?.tripped) conditions.push({ icon: 'warn', text: 'Breaker tripped', tone: 'warn' });
-  if (s && s.sandbox_egress !== 'enforced')
+  if (s?.sandbox_egress && s.sandbox_egress !== 'enforced')
     conditions.push({
       icon: 'warn',
       text: `Sandbox egress ${s.sandbox_egress === 'best_effort' ? 'best effort' : 'none'}`,
