@@ -25,6 +25,7 @@ import {
   File,
   FileMinus,
   FilePlus,
+  Gauge as GaugeIcon,
   Hand,
   Info,
   Keyboard,
@@ -34,6 +35,7 @@ import {
   LogOut,
   type LucideIcon,
   MessageCircleWarning,
+  Moon,
   OctagonX,
   Pencil,
   Radar,
@@ -49,6 +51,7 @@ import {
   Terminal,
   TriangleAlert,
   WifiOff,
+  Workflow,
   X,
 } from 'lucide-react';
 
@@ -89,6 +92,9 @@ const ICONS = {
   spend: Coins,
   settings: Settings,
   more: Ellipsis,
+  moon: Moon,
+  gauge: GaugeIcon,
+  flow: Workflow,
   // actions and details
   search: Search,
   copy: Copy,
