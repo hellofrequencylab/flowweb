@@ -3,11 +3,11 @@
 // This is not fwd. It serves a read-only mirror of the Owner's local fwd, pushed by the relay.
 // It holds no secrets: it forwards the signed-in Owner's own Supabase token to PostgREST, and
 // row-level security decides what that token may read. Writes that only fwd can make (approve,
-// kill switch, answer a card) are refused with 501 and a reason, never faked. The one exception is
-// a draft change (edit, reject, AI rewrite): the site queues it and the relay on the Owner's machine
-// applies it through fwd (hosted/server/requests.mjs); the answer says it is queued, not done.
+// kill switch, answer a card) are refused with 501 and a reason, never faked. The exceptions are the
+// draft changes and flow controls in hosted/server/requests.mjs: the site queues them and the relay on
+// the Owner's machine applies them through fwd; the answer says it is queued, not done.
 import { resolveRead, routeOfUrl } from '../hosted/server/mirror.mjs';
-import { draftRequestOf } from '../hosted/server/requests.mjs';
+import { requestOf } from '../hosted/server/requests.mjs';
 
 const SUPABASE_URL = (process.env.SUPABASE_URL ?? process.env.VITE_SUPABASE_URL ?? '').replace(/\/$/, '');
 const ANON_KEY = process.env.SUPABASE_ANON_KEY ?? process.env.VITE_SUPABASE_ANON_KEY ?? '';
@@ -134,8 +134,11 @@ async function handle(request) {
     return new Response(null, { status: 204 });
   }
 
-  // A draft change: queued here, applied on the Owner's machine by the relay.
-  const asked = method === 'POST' ? draftRequestOf(method, path, await request.json().catch(() => ({}))) : null;
+  // A draft change or a flow control (FW-C-062): queued here, applied on the Owner's machine by the relay.
+  const asked =
+    method === 'POST' || method === 'DELETE'
+      ? requestOf(method, path, method === 'POST' ? await request.json().catch(() => ({})) : {})
+      : null;
   if (asked?.error) return err(400, 'validation_failed', asked.error);
   if (asked) {
     const r = await supa('/rest/v1/rpc/fw_request', {
