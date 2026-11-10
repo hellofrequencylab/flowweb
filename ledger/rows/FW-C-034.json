@@ -1,0 +1,40 @@
+{
+  "id": "FW-C-034",
+  "title": "Flow admin: upload leads and metrics, edit regions, open regions, mark sends",
+  "core_milestone": "C1",
+  "phase": 1,
+  "epic": "C1.5 First flow",
+  "priority": "P1",
+  "size": "L",
+  "lane": "workstreams",
+  "agent_suitability": "agent",
+  "gate": "none",
+  "depends_on": [
+    "FW-C-032"
+  ],
+  "description": "Give the Owner upload and admin functions for the neighborhood activation flow, in fwd and on the Flows page. Upload leads and region metrics as CSV or JSON, with bad rows skipped and explained and repeat uploads updating by url. Mark a send on a lead with its route, add people to the do-not-contact list, open a bordering region, edit regions and targets with validation, and export leads as CSV. Every accepted write is kept in an admin log the view returns. Writes need the CLI token or a paired browser session. fwd still never posts or sends anything.",
+  "acceptance": [
+    "A write without a token answers 401 and changes nothing",
+    "Lead upload adds new leads, skips bad rows with a reason, and updates a lead whose url is already known",
+    "Metrics upload sets a region's measures, so its progress is known",
+    "Marking a send records a touch with its route; unknown leads answer 404 and do-not-contact leads answer 409",
+    "Opening a region that borders nothing open answers 409; opening a bordering one makes it the active region",
+    "An invalid config answers 400 and changes nothing; a valid one changes the targets",
+    "Leads export as CSV, and every accepted write appears in the admin log",
+    "The Flows page offers each of these actions, and works with no horizontal scroll at 390 px"
+  ],
+  "verify_probe": "pnpm probe flows/flow-admin",
+  "files_hint": [
+    "flows/neighborhood-activation/",
+    "packages/daemon/src/flows/",
+    "packages/daemon/src/api/routes.ts",
+    "packages/daemon/src/api/http.ts",
+    "packages/daemon/test/",
+    "packages/web/src/flows/",
+    "packages/web/src/api/",
+    "packages/web/src/ui-kit/base.css",
+    "packages/web/mock/",
+    "docs/api/LOCAL-API-V1.md"
+  ],
+  "origin": "new Core row"
+}
