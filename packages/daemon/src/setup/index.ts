@@ -124,7 +124,13 @@ export function setupReport(d: SetupDeps): SetupReport {
       flows = [];
     }
   }
-  const on = flows.filter((f) => f.enabled);
+  // A flow counts as on only once its stream is registered: an enabled flow whose project fwd does not
+  // know never runs (the scheduler has nothing to fire), so it must not tick the step.
+  const registered = new Set(
+    d.reader ? d.reader.all<{ key: string }>('SELECT key FROM streams').map((r) => r.key) : [],
+  );
+  const on = flows.filter((f) => f.enabled && registered.has(f.key));
+  const stuck = flows.filter((f) => f.enabled && !registered.has(f.key));
   const push = readJson(join(d.fwHome, RELAY_PUSH_FILE));
   const pushedAt = typeof push?.synced_at === 'string' ? Date.parse(push.synced_at) : Number.NaN;
   const fresh = Number.isFinite(pushedAt) && now.getTime() - pushedAt <= LIVE_SITE_FRESH_MS;
@@ -166,9 +172,11 @@ export function setupReport(d: SetupDeps): SetupReport {
       done: on.length > 0,
       detail: on.length
         ? `On: ${on.map((f) => f.key).join(', ')}.`
-        : flows.length
-          ? `Flows here: ${flows.map((f) => f.key).join(', ')}. None is on.`
-          : 'No flow found yet.',
+        : stuck.length
+          ? `${stuck.map((f) => f.key).join(', ')} ${stuck.length === 1 ? 'is' : 'are'} on but cannot run yet: fwd has no project for ${stuck.length === 1 ? 'it' : 'them'} (flows/<key>/project.json).`
+          : flows.length
+            ? `Flows here: ${flows.map((f) => f.key).join(', ')}. None is on.`
+            : 'No flow found yet.',
       fix: on.length ? null : `${P} supervisor enable ${flows[0]?.key ?? '<flow>'}`,
     },
     {
