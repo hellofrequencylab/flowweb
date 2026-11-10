@@ -41,7 +41,7 @@ const adminView = {
     { id: 'north-county-sd', name: 'North County San Diego', status: 'active' },
     { id: 'orange-county', name: 'Orange County', status: 'waiting' },
   ],
-  decision: { kind: 'keep_working', territory_id: 'north-county-sd', summary: 'Working North County.' },
+  decision: { kind: 'propose_expansion', territory_id: 'orange-county', summary: 'North County held its targets.' },
   leads: [],
   admin_log: [],
 };
