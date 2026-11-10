@@ -7,6 +7,7 @@ import { parseArgs } from 'node:util';
 import { type CoreClient, type CoreClientFactory, loadCoreClientFactory } from './client.ts';
 import { accountsCommands } from './commands/accounts.ts';
 import { auditCommands } from './commands/audit.ts';
+import { backupCommands } from './commands/backup.ts';
 import { doctorCommands } from './commands/doctor.ts';
 import { ledgerCommands } from './commands/ledger.ts';
 import { policyCommands } from './commands/policy.ts';
@@ -37,6 +38,7 @@ export const COMMANDS: Command[] = [
   ...runCommands,
   ...spendCommands,
   ...auditCommands,
+  ...backupCommands,
   ...doctorCommands,
   ...systemCommands,
   ...statusCommands,

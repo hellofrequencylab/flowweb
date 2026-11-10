@@ -15,4 +15,6 @@ After a `git pull`, restart it: `launchctl kickstart -k gui/$(id -u)/app.flowweb
 `journalctl --user -u fwd` (Linux).
 
 If fwd is killed while a run is in flight, the next start marks that run interrupted. `pnpm fw doctor`
-checks the setup and exits nonzero when something is broken.
+checks the setup and exits nonzero when something is broken. `pnpm fw backup --out <file>` writes the
+database, config, policy and flows to one tar file (never your keys); `pnpm fw restore <file>` puts it
+back into a fresh home.
