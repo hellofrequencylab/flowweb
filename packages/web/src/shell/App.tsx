@@ -1,8 +1,16 @@
 import { useCallback, useEffect, useState } from 'react';
 import { ApiError, api, onUnauthorized } from '../api/client';
 import { LiveProvider } from '../api/live';
+import {
+  clearInvite,
+  inviteFromPath,
+  JoinInvite,
+  NameBusiness,
+  pendingInvite,
+  rememberInvite,
+} from '../home/firstRun';
 import { HomePage } from '../home/HomePage';
-import { consumeRedirect, HOSTED, signOutHosted } from '../hosted/auth';
+import { accessToken, consumeRedirect, HOSTED, listAccounts } from '../hosted/auth';
 import { Logo } from '../ui-kit/Logo';
 import { Layout } from './Layout';
 import { Pairing } from './Pairing';
@@ -13,6 +21,8 @@ type Gate =
   | { kind: 'checking' }
   | { kind: 'unpaired'; notice?: string | null }
   | { kind: 'recovery' }
+  | { kind: 'join'; token: string }
+  | { kind: 'name' }
   | { kind: 'paired'; pairedAt: string }
   | { kind: 'unreachable' };
 
@@ -22,20 +32,31 @@ type Gate =
  */
 export function App() {
   // A reset link lands signed in, but must choose a new password before anything else shows.
-  const [landing] = useState(() => consumeRedirect());
+  const [landing] = useState(() => {
+    // An invite link, /join/<token>, is kept through sign-in and the address goes back to the homepage.
+    const invite = HOSTED ? inviteFromPath(location.pathname) : null;
+    if (invite) {
+      rememberInvite(invite);
+      history.replaceState(null, '', '/');
+    }
+    return consumeRedirect();
+  });
   const linkError = landing.error;
   const [gate, setGate] = useState<Gate>(() =>
     landing.kind === 'recovery' ? { kind: 'recovery' } : { kind: 'checking' },
   );
 
-  const check = useCallback(() => {
+  const session = useCallback(() => {
     api
       .session()
       .then((s) => setGate({ kind: 'paired', pairedAt: s.paired_at }))
       .catch((e) => {
+        // On the site a 403 means "not a member of the business you picked"; there is no owner-only gate now.
         if (HOSTED && e instanceof ApiError && e.status === 403) {
-          void signOutHosted();
-          setGate({ kind: 'unpaired', notice: 'That account is not the owner of this FlowWeb.' });
+          setGate({
+            kind: 'unpaired',
+            notice: 'You are not part of that business. Ask its owner for an invite.',
+          });
           return;
         }
         setGate(
@@ -48,8 +69,23 @@ export function App() {
       });
   }, [linkError]);
 
+  /** Signed in on the site: join a pending invite first, then name a business if there is none yet. */
+  const check = useCallback(async () => {
+    if (HOSTED && (await accessToken())) {
+      const invite = pendingInvite();
+      if (invite) return setGate({ kind: 'join', token: invite });
+      const accounts = await listAccounts().catch(() => null);
+      if (accounts && accounts.length === 0) return setGate({ kind: 'name' });
+    }
+    session();
+  }, [session]);
+  const joined = useCallback(() => {
+    clearInvite();
+    void check();
+  }, [check]);
+
   useEffect(() => {
-    if (landing.kind !== 'recovery') check();
+    if (landing.kind !== 'recovery') void check();
     const off = onUnauthorized(() => setGate({ kind: 'unpaired' }));
     return () => {
       off();
@@ -63,10 +99,16 @@ export function App() {
           {HOSTED ? 'Checking your sign-in.' : 'Checking this browser is paired with fwd.'}
         </p>
       )}
-      {gate.kind === 'unreachable' && <Unreachable onRetry={check} />}
+      {gate.kind === 'unreachable' && <Unreachable onRetry={() => void check()} />}
       {gate.kind === 'unpaired' &&
-        (HOSTED ? <HomePage notice={gate.notice} onSignedIn={check} /> : <Pairing onPaired={check} />)}
-      {gate.kind === 'recovery' && <HomePage recovery onSignedIn={check} />}
+        (HOSTED ? (
+          <HomePage notice={gate.notice} invite={pendingInvite() !== null} onSignedIn={() => void check()} />
+        ) : (
+          <Pairing onPaired={() => void check()} />
+        ))}
+      {gate.kind === 'recovery' && <HomePage recovery onSignedIn={() => void check()} />}
+      {gate.kind === 'join' && <JoinInvite token={gate.token} onJoined={joined} />}
+      {gate.kind === 'name' && <NameBusiness onDone={() => session()} />}
       {gate.kind === 'paired' && (
         <RouterProvider>
           <LiveProvider>
