@@ -20,6 +20,7 @@ import { groupDrafts } from './drafts';
 import { FlowAdmin } from './FlowAdmin';
 import { MeasureDials, PipelineBar, RegionPath } from './FlowVisuals';
 import { LeadHunts } from './LeadHunts';
+import { PaidAdsPanel } from './PaidAdsPanel';
 import { SupervisorPanel } from './SupervisorPanel';
 
 const pct = (x: number) => `${Math.round(x * 100)}%`;
@@ -351,6 +352,7 @@ export function ActivationPage() {
           </div>
         )}
       </ResourceView>
+      <PaidAdsPanel />
     </>
   );
 }
