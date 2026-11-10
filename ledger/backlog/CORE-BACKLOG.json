@@ -4,7 +4,7 @@
     "profile": "core",
     "schema": "ledger-row/1",
     "generated": "2026-11-09",
-    "row_count": 114,
+    "row_count": 115,
     "conventions": {
       "verify_probe": "Same convention as 04-build-plan/backlog.json: 'pnpm probe <path>' runs probes/<path>.probe.ts, a Tier 0 file written before the implementation row starts and never edited by the agent doing the row. Every probe fails today because its target does not exist (a missing probe file exits 2, a missing behaviour exits 1). The probe pack for a milestone is committed by the Owner or a pair session before the milestone's rows start.",
       "status": "All rows start as open. Status lives only in the ledger database (imported with fw ledger sync), never in prose.",
@@ -28,7 +28,7 @@
       }
     },
     "full_plan_rows_included": 37,
-    "new_core_rows": 76
+    "new_core_rows": 77
   },
   "rows": [
     {
@@ -4027,6 +4027,38 @@
         "packages/web/src/ui-kit/flow.css",
         "packages/web/src/dawn/today.css",
         "packages/web/src/**/*.css"
+      ],
+      "origin": "new Core row"
+    },
+    {
+      "id": "FW-C-080",
+      "title": "Anyone can make a FlowWeb login and get back in: email and password a password manager can save, a magic link, or Google, with a password reset, and every error in our own plain words",
+      "core_milestone": "C2",
+      "phase": 4,
+      "epic": "C2.4 Accounts",
+      "priority": "P1",
+      "size": "M",
+      "lane": "web",
+      "agent_suitability": "agent",
+      "gate": "none",
+      "depends_on": [],
+      "description": "The Owner wants FlowWeb to be something friends can use and that can be marketed, so flowweb.app needs real logins instead of an owner-only magic link. packages/web/src/hosted/auth.ts today only sends a magic link with create_user false and shows Supabase's error text verbatim, so a crafted link can put anyone's words on the page. Give auth.ts the sign-in functions the new sign-in screens (row FW-C-081) build on, through Supabase Auth's REST API: signInWithPassword, signUp (resolves needsConfirm when the email must be confirmed first), sendLink (creates the user if new), googleUrl and signInWithGoogle, sendPasswordReset, setPassword (after a reset link lands), signOut, plus authMethods (Google only when the VITE_FW_AUTH_GOOGLE switch is on) and the hosted /v1 calls listAccounts, createAccount and acceptInvite. consumeRedirect returns { kind: 'signin' | 'recovery' | null, error } so the screens can show 'Choose a new password'. Every error a person sees comes from a closed set of our own sentences, never from the link or from Supabase's message. Accounts and roles themselves are row FW-C-083.",
+      "acceptance": [
+        "authMethods is { password: true, link: true, google: false } unless VITE_FW_AUTH_GOOGLE is on, then google is true",
+        "signInWithPassword posts the email and password to /auth/v1/token?grant_type=password and keeps the session; wrong credentials throw a plain sentence that is not Supabase's text",
+        "signUp posts to /auth/v1/signup and resolves { needsConfirm: true } when no session comes back; an email already in use throws a plain sentence",
+        "sendLink posts to /auth/v1/otp with create_user true; sendPasswordReset posts to /auth/v1/recover; setPassword puts the new password to /auth/v1/user with the session's token",
+        "googleUrl() is /auth/v1/authorize?provider=google with redirect_to back to the site",
+        "consumeRedirect() answers kind 'recovery' for a reset link, 'signin' for any other sign-in link, and null with no link; an error link answers one of our sentences and never its error_description",
+        "Too many attempts (HTTP 429) throws a plain sentence",
+        "listAccounts, createAccount and acceptInvite call GET /v1/accounts, POST /v1/accounts and POST /v1/invites/<token>/accept with the session's token",
+        "signOut posts /auth/v1/logout and forgets the session"
+      ],
+      "verify_probe": "pnpm probe ui/sign-in-methods",
+      "files_hint": [
+        "packages/web/src/hosted/auth.ts",
+        "packages/web/src/shell/App.tsx",
+        "hosted/README.md"
       ],
       "origin": "new Core row"
     }
