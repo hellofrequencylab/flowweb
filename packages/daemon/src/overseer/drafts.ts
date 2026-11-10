@@ -25,6 +25,10 @@ export interface DraftView {
   sent_at?: string;
   replied_at?: string;
   declined_at?: string;
+  /** FW-C-065: who the draft goes to (email leads), and what Frequency's CRM last said about them. */
+  to?: string;
+  name?: string;
+  crm?: Record<string, unknown>;
 }
 
 const ID = /^[A-Za-z0-9_-]{1,100}$/;
@@ -51,10 +55,13 @@ function view(doc: Record<string, unknown>): DraftView {
     ...(str('rejected_at') ? { rejected_at: str('rejected_at') as string } : {}),
     ...(str('edited_at') ? { edited_at: str('edited_at') as string } : {}),
     ...Object.fromEntries(
-      (['tag', 'sent_at', 'replied_at', 'declined_at'] as const).flatMap((k) =>
+      (['tag', 'sent_at', 'replied_at', 'declined_at', 'to', 'name'] as const).flatMap((k) =>
         str(k) ? [[k, str(k)]] : [],
       ),
     ),
+    ...(doc.crm && typeof doc.crm === 'object' && !Array.isArray(doc.crm)
+      ? { crm: doc.crm as Record<string, unknown> }
+      : {}),
   };
 }
 
