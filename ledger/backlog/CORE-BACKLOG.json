@@ -4,7 +4,7 @@
     "profile": "core",
     "schema": "ledger-row/1",
     "generated": "2026-11-09",
-    "row_count": 107,
+    "row_count": 108,
     "conventions": {
       "verify_probe": "Same convention as 04-build-plan/backlog.json: 'pnpm probe <path>' runs probes/<path>.probe.ts, a Tier 0 file written before the implementation row starts and never edited by the agent doing the row. Every probe fails today because its target does not exist (a missing probe file exits 2, a missing behaviour exits 1). The probe pack for a milestone is committed by the Owner or a pair session before the milestone's rows start.",
       "status": "All rows start as open. Status lives only in the ledger database (imported with fw ledger sync), never in prose.",
@@ -28,7 +28,7 @@
       }
     },
     "full_plan_rows_included": 37,
-    "new_core_rows": 69
+    "new_core_rows": 71
   },
   "rows": [
     {
@@ -3751,6 +3751,54 @@
       "files_hint": [
         "packages/web/src/flows/",
         "packages/web/test/supervisor.test.tsx"
+      ],
+      "origin": "new Core row"
+    },
+    {
+      "id": "FW-C-071",
+      "title": "Copilot and Autopilot are only offered when a sender on the Owner's Mac reads the outbox; without one, approving becomes Copy and send",
+      "core_milestone": "C1",
+      "phase": 1,
+      "epic": "C1.5 First flow",
+      "priority": "P1",
+      "size": "L",
+      "lane": "workstreams",
+      "agent_suitability": "agent",
+      "gate": "owner-approval",
+      "depends_on": [
+        "FW-C-062",
+        "FW-C-066"
+      ],
+      "description": "Copilot says approved drafts go to your sending app and Autopilot hands finished drafts to it, but the Owner chose drafts only and has no sender installed (senders/email.mjs), so Approve drops a draft into an outbox that nothing reads and the dial promises something that does not happen. The sender writes a heartbeat at the end of every pass that loaded its settings: $FW_HOME/senders/email/last-pass.json { at, ok, sent }. A pass that cannot load its settings writes none. fwd reads it and reports sender { installed, last_pass_at } on GET /v1/status and at the top of GET /v1/supervisor; installed is true only when the last pass was in the last 24 hours, and last_pass_at is shown even when it is older. The hosted relay copies both answers as they are, so flowweb.app sees the same. A move to Copilot or Autopilot queued from flowweb.app with no installed sender is refused by the relay on the Owner's Mac (senderHold in hosted/server/requests.mjs gives the reason, which names the sender) and never reaches fwd; Draft is always allowed. fw supervisor dial in the Owner's terminal still works, because that is a deliberate choice at the Mac and several earlier probes set the dial that way. On the Flows page, with no installed sender, the Copilot and Autopilot stops are disabled with the reason 'Needs a sender on your Mac' and a link to the steps in senders/README.md, and a ready draft shows Copy and send instead of Approve: it copies the subject and text so the Owner sends it from his own mail, then marks it sent. With a sender installed everything is as before. Nothing here sends anything, adds a sender or widens what one may send; Resend is never used for outreach.",
+      "acceptance": [
+        "A sender pass that loads its settings writes $FW_HOME/senders/email/last-pass.json with the time of the pass; a pass with no settings writes none",
+        "GET /v1/status and GET /v1/supervisor report sender { installed, last_pass_at }: not installed with no heartbeat or one older than 24 hours, installed with a fresh one",
+        "A site request to move the dial to Copilot or Autopilot with no installed sender is held with a reason naming the sender, and the relay never calls fwd for it; Draft and other requests are not held",
+        "On the Flows page with no installed sender the Copilot and Autopilot stops are disabled and say Needs a sender on your Mac with a link to the sender steps; with one they are enabled",
+        "With no installed sender a ready draft shows Copy and send, which copies its subject and text and approves nothing; with one it shows Approve"
+      ],
+      "verify_probe": "pnpm probe flows/sender-honest",
+      "files_hint": [
+        "senders/email.mjs",
+        "senders/README.md",
+        "packages/daemon/src/overseer/sender.ts",
+        "packages/daemon/src/overseer/index.ts",
+        "packages/daemon/src/api/status.ts",
+        "packages/daemon/src/api/routes.ts",
+        "packages/daemon/src/local-client.ts",
+        "packages/daemon/test/",
+        "packages/web/src/api/types.ts",
+        "packages/web/src/api/wire.ts",
+        "packages/web/src/api/client.ts",
+        "packages/web/src/flows/FlowControls.tsx",
+        "packages/web/src/flows/DraftEditor.tsx",
+        "packages/web/src/flows/DraftsInbox.tsx",
+        "packages/web/test/",
+        "hosted/README.md",
+        "docs/api/LOCAL-API-V1.md",
+        "hosted/server/requests.mjs",
+        "hosted/relay/fw-relay.mjs",
+        "hosted/test/"
       ],
       "origin": "new Core row"
     },
