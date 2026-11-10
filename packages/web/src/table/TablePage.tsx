@@ -6,6 +6,7 @@ import { TableCleared } from '../rewards/Rewards';
 import { chordPending, useKeys } from '../shell/keys';
 import { usePrefs } from '../shell/prefs';
 import { useRouter } from '../shell/router';
+import { FlowRing, hueFor } from '../ui-kit/flow';
 import { AsOf, Empty, LoadError, Loading, StaleNotice } from '../ui-kit/honest';
 import { Icon } from '../ui-kit/Icon';
 import { PageHead } from '../ui-kit/page';
@@ -191,7 +192,13 @@ export function TablePage({ cardId }: { cardId?: string }) {
                     onClick={() => go(`/table/${c.id}`)}
                   >
                     <span className="queue-kind">
-                      <Icon name="waiting" size={13} />
+                      <FlowRing
+                        hue={hueFor(c.project_name ?? c.row_id ?? c.id)}
+                        at={3}
+                        state="waiting"
+                        size={20}
+                        title=""
+                      />
                       {VARIANT_LABEL[c.variant]}
                       {c.row_id ? ` · ${c.row_id}` : ''}
                     </span>
