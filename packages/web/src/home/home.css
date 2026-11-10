@@ -68,6 +68,10 @@
   font: var(--weight-light) clamp(38px, 6vw, 60px) / 1.04 var(--font-display);
   letter-spacing: var(--tracking-tight);
 }
+.home-invite {
+  max-width: 46ch;
+  margin-top: var(--space-7);
+}
 .home-lede {
   max-width: 46ch;
   margin: var(--space-7) 0 0;
