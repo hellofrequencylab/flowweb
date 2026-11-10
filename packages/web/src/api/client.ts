@@ -751,6 +751,11 @@ export const api = {
     return { data_as_of: e.as_of, ...e.data };
   },
 
+  async supervisor(): Promise<V.Supervisor> {
+    const e = await get<Omit<V.Supervisor, 'data_as_of'>>('/supervisor');
+    return { data_as_of: e.as_of, ...e.data };
+  },
+
   async policy(): Promise<V.PolicyFile> {
     const e = await get<W.WPolicy>('/policy');
     return { data_as_of: e.as_of, ...e.data };

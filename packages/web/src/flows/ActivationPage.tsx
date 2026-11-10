@@ -12,6 +12,7 @@ import { AsOf, ResourceView } from '../ui-kit/honest';
 import { Figures, PageHead } from '../ui-kit/page';
 import { StatusLabel, type StatusSpec } from '../ui-kit/status';
 import { usd } from '../ui-kit/time';
+import { SupervisorPanel } from './SupervisorPanel';
 
 const pct = (x: number) => `${Math.round(x * 100)}%`;
 const num = (n: number) => n.toLocaleString('en-US');
@@ -107,6 +108,7 @@ export function ActivationPage() {
           />
         }
       />
+      <SupervisorPanel />
       <ResourceView res={res} what="this flow">
         {(f) => (
           <div className="stack-lg">

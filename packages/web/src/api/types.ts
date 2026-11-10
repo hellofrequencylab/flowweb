@@ -652,3 +652,45 @@ export interface EventItem {
 
 /** Resources a live event can invalidate. Derived from the event type in live.tsx. */
 export type Topic = 'status' | 'cards' | 'dawn' | 'rows' | 'runs' | 'spend';
+
+/** GET /v1/supervisor (FW-C-033): every shipped flow, ready or held by exactly one named gate. */
+export type SupervisorGate =
+  | 'kill_switch'
+  | 'supervisor_paused'
+  | 'flow_disabled'
+  | 'no_engine'
+  | 'budget'
+  | 'open_asks'
+  | 'dormant'
+  | 'stalled'
+  | 'wip'
+  | 'not_due'
+  | 'machine_busy';
+
+export interface SupervisorFlow {
+  key: string;
+  name: string;
+  enabled: boolean;
+  tier: string;
+  state: 'ready' | 'held' | 'running';
+  gate: SupervisorGate | null;
+  reason: string;
+  open_asks: number;
+  budget: {
+    max_usd: number | null;
+    max_turns: number | null;
+    period: string;
+    spent_usd: number | null;
+    used_turns: number | null;
+  } | null;
+}
+
+export interface Supervisor extends Envelope {
+  kill_switch: boolean;
+  paused: boolean;
+  max_concurrent: number;
+  running: number;
+  gates: SupervisorGate[];
+  flows: SupervisorFlow[];
+  next: string[];
+}
