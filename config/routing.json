@@ -1,0 +1,10 @@
+{
+  "version": 1,
+  "prefer": ["claude", "codex"],
+  "adapters": {
+    "claude": { "cost_tier": "high", "privacy_tier": "vendor_no_training" },
+    "codex": { "cost_tier": "medium", "privacy_tier": "vendor_no_training" },
+    "fake": { "cost_tier": "low", "privacy_tier": "local" },
+    "noop": { "cost_tier": "low", "privacy_tier": "local" }
+  }
+}
