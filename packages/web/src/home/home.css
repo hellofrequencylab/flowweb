@@ -382,3 +382,16 @@
 .home-foot p {
   margin: 0;
 }
+.home-foot-links {
+  display: flex;
+  gap: var(--space-6);
+}
+.home-foot-links a,
+.home-legal a {
+  color: var(--text-link);
+}
+.home-legal {
+  margin: 0;
+  font: var(--type-small);
+  color: var(--text-tertiary);
+}

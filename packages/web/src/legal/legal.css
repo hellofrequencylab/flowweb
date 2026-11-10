@@ -1,0 +1,67 @@
+/* Terms of Service and Privacy Policy (FW-C-090). A single readable column on the page background. */
+
+.legal {
+  min-height: 100vh;
+  background: var(--surface-page);
+  color: var(--text-primary);
+}
+.legal-top,
+.legal-body,
+.legal-foot {
+  width: min(68ch, calc(100% - 32px));
+  margin-inline: auto;
+}
+.legal-top {
+  padding-block: var(--space-7);
+}
+.legal-top a {
+  display: inline-flex;
+  text-decoration: none;
+}
+.legal-body h1 {
+  margin: var(--space-6) 0 var(--space-3);
+}
+.legal-lede {
+  margin: 0;
+  font: var(--weight-regular) var(--text-md) / var(--leading-body) var(--font-sans);
+  color: var(--text-secondary);
+}
+.legal-date {
+  margin: var(--space-3) 0 var(--space-8);
+  font: var(--type-small);
+  color: var(--text-tertiary);
+}
+.legal-body section {
+  margin-bottom: var(--space-8);
+}
+.legal-body h2 {
+  margin: 0 0 var(--space-3);
+  font-size: var(--text-lg);
+}
+.legal-body p,
+.legal-body li {
+  line-height: var(--leading-body);
+  color: var(--text-secondary);
+}
+.legal-body strong {
+  color: var(--text-primary);
+}
+.legal-body ul {
+  padding-left: var(--space-7);
+}
+.legal-body a,
+.legal-foot a {
+  color: var(--text-link);
+}
+.legal-body a:hover,
+.legal-foot a:hover {
+  color: var(--text-link-hover);
+}
+.legal-foot {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--space-7);
+  padding-block: var(--space-8) var(--space-10);
+  border-top: var(--border-width) solid var(--border-default);
+  font: var(--type-small);
+}

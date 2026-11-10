@@ -11,6 +11,7 @@ import {
 } from '../home/firstRun';
 import { HomePage } from '../home/HomePage';
 import { accessToken, chooseAccount, consumeRedirect, HOSTED, listAccounts } from '../hosted/auth';
+import { LegalPage, legalRouteOf } from '../legal/Legal';
 import { Logo } from '../ui-kit/Logo';
 import { Layout } from './Layout';
 import { Pairing } from './Pairing';
@@ -31,6 +32,13 @@ type Gate =
  * the same gate shows the public homepage, which is also where people sign in or up.
  */
 export function App() {
+  // Terms and Privacy open for anyone, signed in or not (FW-C-090).
+  const legal = legalRouteOf(location.pathname);
+  if (legal) return <LegalPage page={legal} />;
+  return <Gated />;
+}
+
+function Gated() {
   // A reset link lands signed in, but must choose a new password before anything else shows.
   const [landing] = useState(() => {
     // An invite link, /join/<token>, is kept through sign-in and the address goes back to the homepage.

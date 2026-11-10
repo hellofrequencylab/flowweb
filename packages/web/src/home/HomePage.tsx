@@ -83,6 +83,10 @@ export function HomePage({
       <footer className="home-foot">
         <Logo size={22} />
         <p>Drafts only. FlowWeb never sends on its own.</p>
+        <nav className="home-foot-links" aria-label="Legal">
+          <a href="/terms">Terms of Service</a>
+          <a href="/privacy">Privacy Policy</a>
+        </nav>
       </footer>
     </div>
   );
@@ -361,6 +365,11 @@ function AccountCard({
             </>
           )}
         </>
+      )}
+      {(mode === 'signin' || mode === 'signup') && !sent && (
+        <p className="home-legal">
+          By continuing you agree to the <a href="/terms">Terms</a> and <a href="/privacy">Privacy Policy</a>.
+        </p>
       )}
     </section>
   );
