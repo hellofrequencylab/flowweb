@@ -1,0 +1,32 @@
+{
+  "id": "FW-C-037",
+  "title": "Hand finished Autopilot items to a sending app through an outbox",
+  "core_milestone": "C1",
+  "phase": 1,
+  "epic": "C1.5 First flow",
+  "priority": "P1",
+  "size": "M",
+  "lane": "workstreams",
+  "agent_suitability": "agent",
+  "gate": "owner-approval",
+  "depends_on": [
+    "FW-C-035"
+  ],
+  "description": "Give Autopilot its hand-off, as the Owner chose on 10 Nov: Core stays a drafter and never sends, and a sending app outside Core picks up finished items. fwd gets one function, handOff, that takes one finished item of a flow (an id, one of the flow's channels and the body). The item is queued only when the flow is on, at Autopilot, and its confirm hash still matches its channels and caps. Queued means one JSON file at $FW_HOME/outbox/<flow>/<id>.json, holding the flow, the channel, the body, the confirm hash the Owner approved and the sha256 of the body, plus one notification.queued event of kind flow_handoff. That event type already exists, so there is no schema change. Handing off the same item again changes nothing. Otherwise the item is held, and the reason starts with why: kill_switch, supervisor_paused, no_engine, flow_disabled, needs_owner (at Draft and Copilot every item waits for the Owner), dial_unapproved or unknown_channel. Writing the file is the whole hand-off: no network, no run and no approval. Calling handOff when a flow finishes a cycle comes with dispatch. Showing Draft and Copilot items to the Owner as decision cards, and the sending app itself, are later work.",
+  "acceptance": [
+    "At Draft and at Copilot an item is held by needs_owner, and no file appears in the outbox",
+    "At confirmed Autopilot an item for one of the flow's channels is queued as one file in $FW_HOME/outbox/<flow>/ with the flow, channel, body, confirm hash and sha256, and one notification.queued event of kind flow_handoff",
+    "Handing off the same item twice writes one file and one event",
+    "An item for a channel the flow does not list is held by unknown_channel",
+    "After the flow's channels change, items are held by dial_unapproved until the Owner confirms again",
+    "A flow that is off holds its items by flow_disabled, and the kill switch holds them by kill_switch",
+    "A hand-off writes no run, no approval and no event other than notification.queued"
+  ],
+  "verify_probe": "pnpm probe flows/handoff",
+  "files_hint": [
+    "packages/daemon/src/overseer/",
+    "packages/daemon/src/index.ts",
+    "packages/daemon/test/"
+  ],
+  "origin": "new Core row"
+}
