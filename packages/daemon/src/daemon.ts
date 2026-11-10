@@ -11,7 +11,7 @@ import { ApiError, sendError } from './api/http.ts';
 import { buildRouter, principalOf, type RunStartBody } from './api/routes.ts';
 import type { ChainStatus } from './api/status.ts';
 import { hostAllowed, PairingStore, writeOriginAllowed } from './auth.ts';
-import { runFlowCycle } from './overseer/cycle.ts';
+import { reapOrphanCycles, runFlowCycle } from './overseer/cycle.ts';
 import { approveDraft, rejectDraft } from './overseer/drafts.ts';
 import {
   createSupervisorOnFire,
@@ -136,6 +136,12 @@ export async function startDaemon(opts: DaemonOptions): Promise<Daemon> {
     log(
       `reconciler: failed ${reconcile.runs_failed.length} orphaned run(s), released ${reconcile.leases_released.length} lease(s), expired ${reconcile.leases_expired.length} lease(s)`,
     );
+  }
+  // FW-C-045: a flow cycle is not a ledger run, so the reconciler does not see one a crash interrupted.
+  try {
+    reapOrphanCycles(writer, REPO_ROOT, fwHome, log);
+  } catch (e) {
+    log(`supervisor: reaping orphaned cycles failed: ${(e as Error)?.message ?? e}`);
   }
   opts.beforeListen?.(writer);
 
