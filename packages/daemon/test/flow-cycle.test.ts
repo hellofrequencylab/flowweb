@@ -124,6 +124,8 @@ test("the flow's engine picks the adapter and its sign-in lane", async () => {
     { flow: KEY, streamId, fireId: 'fire3' },
   );
   expect(r.seen.name).toBe('codex');
+  // Codex refuses to start outside a git repository, so the cycle folder is one.
+  expect(existsSync(join(home, 'flows', KEY, 'cycles', 'fire3', '.git'))).toBe(true);
   expect(r.seen.options).toMatchObject({ codex: { auth: 'signin' }, env: { FW_CODEX_AUTH: 'signin' } });
   const rpt = w.get<{ body: string }>("SELECT body FROM status_reports WHERE kind = 'run'");
   expect(JSON.parse(rpt!.body)).toMatchObject({ adapter: 'codex', outcome: 'dry' });

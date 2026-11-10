@@ -4,6 +4,7 @@
 // and writes drafts.json there. fwd turns each draft into one file under drafts/, records the spend
 // against the flow's stream and writes one run report. Core never sends: every draft waits for the
 // Owner (handing Autopilot items to the outbox is FW-C-037).
+import { execFileSync } from 'node:child_process';
 import { existsSync, mkdirSync, readFileSync, writeFileSync } from 'node:fs';
 import { join } from 'node:path';
 import { type AdapterName, createAdapter, isAdapterName, type VendorAdapterInput } from '@fw/adapters';
@@ -132,6 +133,9 @@ export async function runFlowCycle(d: CycleDeps, fire: CycleFire): Promise<void>
   let creds: InjectedCredentials | null = null;
   try {
     mkdirSync(dir, { recursive: true, mode: 0o700 });
+    // Vendor CLIs such as Codex refuse to run outside a git repository, so the cycle folder is one.
+    // Nothing is ever committed or pushed from it.
+    if (!existsSync(join(dir, '.git'))) execFileSync('git', ['init', '-q'], { cwd: dir, stdio: 'ignore' });
     // $FW_VENDOR still wins (tests, a deliberate override); otherwise the flow's own engine, then routing.
     const engine = flowEngine(d.repoRoot, fire.flow);
     adapterName =
