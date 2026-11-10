@@ -13,6 +13,7 @@ import { SetupNudge, SetupPage } from '../setup/SetupPage';
 import { SpendPage } from '../spend/SpendPage';
 import { TablePage } from '../table/TablePage';
 import { GlobalBanner } from './GlobalBanner';
+import { Footer } from './Footer';
 import { KillDialog } from './KillSwitch';
 import { chord, chordPending, useKeys } from './keys';
 import { BottomNav, MorePage } from './Nav';
@@ -110,6 +111,7 @@ export function Layout({ pairedAt, onSignedOut }: { pairedAt: string; onSignedOu
       <main id="main" className="main">
         {page}
       </main>
+      <Footer />
       <BottomNav />
       {sheet && <ShortcutSheet onClose={() => setSheet(false)} />}
       {killOpen && <KillDialog onClose={() => setKillOpen(false)} />}
