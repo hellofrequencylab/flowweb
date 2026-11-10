@@ -39,6 +39,22 @@ First invites to hosts, venues and builders go by **founder email** (one to one,
 are, "reply no and I won't write again"). Resident posts and follow-ups go by **Frequency messaging**
 (adds unsubscribe and postal address). Neither is automatic: fwd never sends.
 
+## Lead hunts (FW-C-041)
+
+A hunt is a saved search the Owner sets up: what to look for, the region and areas, links to search
+first (up to 20 listing pages), how often (`every_days`), a cap per run (`max_sends`, at most 25) and
+`build` (Frequency builds a page for the event and the message carries its claim link). Routes:
+`GET|POST /v1/flows/neighborhood-activation/hunts`, `DELETE .../hunts/{id}`, `POST .../hunts/{id}/run`.
+
+A due hunt runs inside the flow's cycle. fwd writes `hunts.json` to the cycle folder; the agent answers
+`leads.json` with each event, its organizer and the public page the address was found on. fwd, not the
+model, decides who gets a message: a public source page is required, the do-not-contact list (URLs,
+addresses or `@domain`) wins, nobody is written to twice (`state.json` `hunt_contacts`), and each hunt
+keeps at most `max_sends` per run inside the weekly `max_new_invites_per_week`. Every message ends with
+the host funnel link (`src=hunt`) or the `{{claim_url}}` slot, the sign-off in `config.json` `hunts`,
+the source page and "Reply "no" and I won't write again". At Draft and Copilot drafts wait for the
+Owner; at confirmed Autopilot they go to the outbox on the `frequency` channel with the lead attached.
+
 ## Spend cap and engine
 
 `max_usd` 5 and `max_turns` 200 per week; a used-up cap pauses the flow first. Engine: ChatGPT sign-in
