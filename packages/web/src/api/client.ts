@@ -689,6 +689,44 @@ export const api = {
     return { data_as_of: e.as_of, events: e.data.map(mapEvent) };
   },
 
+  /** FW-C-075: flow cycles and daily digests, which fwd keeps as status reports, not runs. */
+  async flowRuns(): Promise<V.FlowRunList> {
+    const [cycles, digests] = await Promise.all([
+      get<W.WFlowCycleReport[]>(`/status-reports${qs({ kind: 'run', limit: 200 })}`),
+      get<W.WStatusReport[]>(`/status-reports${qs({ kind: 'daily', limit: 30 })}`),
+    ]);
+    const flowRuns: V.FlowRun[] = [
+      ...cycles.data.map((r): V.FlowRun => {
+        const b = r.body ?? {};
+        return {
+          id: r.id,
+          kind: 'cycle',
+          flow: b.flow ?? 'flow',
+          outcome: b.outcome ?? 'unknown',
+          drafts: b.drafts ?? 0,
+          found: (b.hunts ?? []).reduce((n, h) => n + (h.found ?? 0), 0),
+          engine: b.adapter,
+          reason: b.reason,
+          started_at: r.period_from,
+          ended_at: r.period_to,
+        };
+      }),
+      ...digests.data.map(
+        (r): V.FlowRun => ({
+          id: r.id,
+          kind: 'digest',
+          flow: 'digest',
+          outcome: 'published',
+          drafts: 0,
+          found: 0,
+          started_at: r.created_at,
+          ended_at: r.created_at,
+        }),
+      ),
+    ].sort((a, b) => b.started_at.localeCompare(a.started_at));
+    return { data_as_of: [cycles.as_of, digests.as_of].sort()[0], flow_runs: flowRuns };
+  },
+
   async runs(f: { status?: string; row_id?: string } = {}): Promise<V.RunList> {
     const e = await get<W.WRun[]>(`/runs${qs({ status: f.status, row_id: f.row_id, limit: 200 })}`);
     return { data_as_of: e.as_of, runs: e.data.map(mapRun) };

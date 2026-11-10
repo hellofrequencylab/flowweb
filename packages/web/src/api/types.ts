@@ -439,6 +439,29 @@ export interface RunList extends Envelope {
   runs: RunSummary[];
 }
 
+/**
+ * FW-C-075: work a flow did, which fwd records as a status report rather than a run: one flow cycle
+ * (kind run) or one daily digest (kind daily).
+ */
+export interface FlowRun {
+  id: string;
+  kind: 'cycle' | 'digest';
+  /** The flow's key, for example neighborhood-activation; "digest" for the digest. */
+  flow: string;
+  outcome: 'drafted' | 'dry' | 'failed' | 'published' | 'unknown';
+  drafts: number;
+  /** Leads found by the hunts that ran inside this cycle. */
+  found: number;
+  engine?: string;
+  reason?: string;
+  started_at: Iso;
+  ended_at: Iso;
+}
+
+export interface FlowRunList extends Envelope {
+  flow_runs: FlowRun[];
+}
+
 export interface RunDetail extends Envelope {
   run: RunSummary & {
     exit_code?: number | null;
