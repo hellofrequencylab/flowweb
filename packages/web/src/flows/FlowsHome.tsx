@@ -20,11 +20,11 @@ export const FLOW_STAGES = ['Find', 'Draft', 'You check', 'Sent', 'Replies'] as 
 /** Where one flow is worked: its own page. */
 export const flowHref = (key: string) => `/flows/${encodeURIComponent(key)}`;
 
-type Counts = { ready: number; blanks: number; sent: number; replied: number; total: number };
-type DraftCounts = Envelope & { byFlow: Record<string, Counts | null> };
+export type Counts = { ready: number; blanks: number; sent: number; replied: number; total: number };
+export type DraftCounts = Envelope & { byFlow: Record<string, Counts | null> };
 
 /** Drafts per flow, counted by state. A flow whose drafts fwd did not answer for is null, never zero. */
-async function draftCounts(): Promise<DraftCounts> {
+export async function draftCounts(): Promise<DraftCounts> {
   const s = await api.supervisor();
   const byFlow: Record<string, Counts | null> = {};
   const asOf: string[] = [s.data_as_of];
