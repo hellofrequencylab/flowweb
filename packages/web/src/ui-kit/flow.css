@@ -1888,6 +1888,12 @@ a.flow-line:hover .flow-line-name {
   white-space: pre-wrap;
   overflow-wrap: anywhere;
 }
+.draft-logo {
+  display: block;
+  width: 32px;
+  height: 32px;
+  margin: 0 0 6px;
+}
 .draft-fields {
   display: grid;
   gap: var(--space-4);

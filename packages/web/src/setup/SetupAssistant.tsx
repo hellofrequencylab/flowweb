@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState } from 'react';
-import { api } from '../api/client';
+import { ApiError, api } from '../api/client';
 import { useResource } from '../api/resource';
 import { Link } from '../shell/router';
 import { Button } from '../ui-kit/Button';
@@ -104,14 +104,20 @@ export function SetupAssistant({ hosted }: { hosted: boolean }) {
     add({ who: 'you', text: q });
     setBusy(true);
     let answer = '';
+    let trouble = '';
     if (hosted) {
       try {
         answer = (await api.askSetupAssistant(q, stage)).answer?.trim() ?? '';
-      } catch {
+      } catch (e) {
+        // Say when the live AI failed, so a built-in answer is not mistaken for it. No AI set up is not a failure.
+        if (e instanceof ApiError && e.code !== 'not_configured') trouble = e.message;
         answer = '';
       }
     }
-    add({ who: 'ai', text: answer || builtInAnswer(q) });
+    add({
+      who: 'ai',
+      text: answer || (trouble ? `${trouble} Meanwhile: ${builtInAnswer(q)}` : builtInAnswer(q)),
+    });
     setBusy(false);
   };
 

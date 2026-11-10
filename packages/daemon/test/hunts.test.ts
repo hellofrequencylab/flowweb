@@ -82,7 +82,11 @@ describe('hunts', () => {
     const plain = composeBody(cfg, hunt(), lead(hunt(), 'a@example.com'));
     expect(plain).toMatch(/\/start\/host\?persona=practitioner&region=north-county-sd&src=hunt/);
     expect(plain).toMatch(/https:\/\/example\.com\/o/);
-    expect(plain).toMatch(/Reply "no"/);
+    expect(plain).toMatch(/reply "no"/);
+    // FW-C-089: the Owner's own sign-off, then a P.S. with where he is, the source page and the opt-out.
+    expect(plain).toContain(
+      "\n\nDaniel Tyack\nFounder\nfrequencylocal.com\n\nP.S. I'm local to San Diego (North County) and found your address on https://example.com/o",
+    );
     expect(composeBody(cfg, hunt({ build: true }), lead(hunt(), 'a@example.com'))).toContain('{{claim_url}}');
   });
 
