@@ -154,7 +154,14 @@ export function createCoreClient(opts: LocalClientOptions): DaemonCoreClient {
     ledgerShow: viaLedger(ledger.ledgerShow),
     ledgerNext: viaLedger(ledger.ledgerNext),
     ledgerRetest: viaLedger(ledger.ledgerRetest),
-    ledgerClose: viaLedger(ledger.ledgerClose),
+    // fwd holds the writer while it runs (as a service it restarts if stopped), so close goes to it.
+    ledgerClose: (code, o) =>
+      viaFwdWhenLocked(
+        () => viaLedger(ledger.ledgerClose)(code, o),
+        'POST',
+        `/v1/ledger/rows/${encodeURIComponent(code)}/close`,
+        { merged_sha: o.mergedSha, repo_dir: resolve(o.repoDir ?? repoDir) },
+      ),
     woIssue: viaLedger(ledger.woIssue),
     auditVerify: viaLedger(ledger.auditVerify),
     async status() {
