@@ -17,6 +17,7 @@ import * as outcomes from '../flows/outcomes.ts';
 import * as paidAds from '../flows/paid-ads.ts';
 import * as adsPull from '../flows/paid-ads-ga4.ts';
 import * as review from '../flows/review.ts';
+import { reviewSummary } from '../flows/review-summary.ts';
 import { type DraftView, editDraft, listDrafts, markDraft } from '../overseer/drafts.ts';
 import { readSettings, SupervisorError, supervisorView } from '../overseer/index.ts';
 import type { RewriteProposal } from '../overseer/rewrite.ts';
@@ -508,6 +509,14 @@ export function buildRouter(deps: ApiDeps): Router {
   );
 
   // ---- flows (read-only) ----------------------------------------------------------------
+  // FW-C-072: what's working, from the flow's latest weekly review.
+  r.get('/v1/flows/{key}/review/summary', ({ params }) =>
+    env(() => {
+      const key = params.key ?? '';
+      if (!Object.hasOwn(FLOWS, key)) throw notFound('flow', params.key);
+      return { data: reviewSummary(deps.fwHome, key) };
+    }),
+  );
   r.get('/v1/flows/{key}', ({ params }) =>
     env(() => {
       const key = params.key ?? '';

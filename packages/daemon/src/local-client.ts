@@ -212,7 +212,7 @@ export function createCoreClient(opts: LocalClientOptions): DaemonCoreClient {
           "SELECT ts, payload FROM events WHERE type IN ('system.started','system.stopped') ORDER BY seq DESC LIMIT 1",
         );
         return {
-          ...statusOf({ reader, version: VERSION, startedAt: null, chain: () => chain }),
+          ...statusOf({ reader, version: VERSION, startedAt: null, chain: () => chain, fwHome: home }),
           ...base,
           database: true,
           started_at: null,

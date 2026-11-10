@@ -35,7 +35,17 @@ const snippet = (d: FlowDraft) => {
   return rest.length > 110 ? `${rest.slice(0, 108)}…` : rest;
 };
 
-function Inbox({ flow, drafts, onChanged }: { flow: string; drafts: FlowDraft[]; onChanged: () => void }) {
+function Inbox({
+  flow,
+  drafts,
+  sender,
+  onChanged,
+}: {
+  flow: string;
+  drafts: FlowDraft[];
+  sender: boolean;
+  onChanged: () => void;
+}) {
   const ordered = useMemo(() => inboxOrder(drafts), [drafts]);
   const [filter, setFilter] = useState<Filter>('all');
   const shown = ordered.filter((d) => FILTERS.find((f) => f.key === filter)?.has(stateOf(d)));
@@ -145,7 +155,13 @@ function Inbox({ flow, drafts, onChanged }: { flow: string; drafts: FlowDraft[];
                   {selected.channel ? ` · send by ${CHANNEL[selected.channel] ?? selected.channel}` : ''}
                 </span>
               </header>
-              <DraftEditor key={selected.id} flow={flow} draft={selected} onChanged={onChanged} />
+              <DraftEditor
+                key={selected.id}
+                flow={flow}
+                draft={selected}
+                sender={sender}
+                onChanged={onChanged}
+              />
             </>
           ) : (
             <div className="viewer-empty">
@@ -162,6 +178,9 @@ function Inbox({ flow, drafts, onChanged }: { flow: string; drafts: FlowDraft[];
 /** The drafts panel on the Flows page: a header with recent activity, then the two-pane inbox. */
 export function DraftsInbox({ flow }: { flow: string }) {
   const res = useResource(`flow-drafts:${flow}`, () => api.flowDrafts(flow), ['runs']);
+  // FW-C-071: Approve only when a sender on the Mac reads the outbox; until it is known, assume none.
+  const sup = useResource('supervisor', () => api.supervisor(), ['runs', 'cards']);
+  const sender = sup.data?.sender?.installed === true;
   const head = useId();
   const all = res.data?.drafts ?? [];
   const ready = all.filter((d) => stateOf(d) === 'Ready').length;
@@ -205,7 +224,7 @@ export function DraftsInbox({ flow }: { flow: string }) {
                 <p className="muted">No drafts yet. They appear here after the flow runs.</p>
               </div>
             ) : (
-              <Inbox flow={flow} drafts={d.drafts} onChanged={res.reload} />
+              <Inbox flow={flow} drafts={d.drafts} sender={sender} onChanged={res.reload} />
             )
           }
         </ResourceView>

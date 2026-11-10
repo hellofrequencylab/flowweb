@@ -37,8 +37,10 @@ import {
   recentResults,
   scheduleCron,
 } from './intensity.ts';
+import { type SenderStatus, senderStatus } from './sender.ts';
 
 export * from './gates.ts';
+export { type SenderStatus, senderStatus } from './sender.ts';
 
 export const SETTINGS_KEY = 'supervisor';
 /**
@@ -141,6 +143,8 @@ export interface SupervisorView {
   flows: FlowView[];
   /** Flows that would start now, in order. Nothing starts them until the scheduler lands. */
   next: string[];
+  /** FW-C-071: whether a sender on this Mac reads the outbox. */
+  sender: SenderStatus;
 }
 
 const KEY_RE = /^[a-z0-9][a-z0-9-]{0,62}$/;
@@ -233,6 +237,7 @@ export function supervisorView(d: SupervisorDeps): SupervisorView {
       flows.map((x) => ({ key: x.view.key, verdict: x.verdict })),
       sup,
     ),
+    sender: senderStatus(d.fwHome, d.now?.() ?? new Date()),
   };
 }
 

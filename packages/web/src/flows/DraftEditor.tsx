@@ -15,10 +15,13 @@ type Mode = 'view' | 'edit';
 export function DraftEditor({
   flow,
   draft,
+  sender = false,
   onChanged,
 }: {
   flow: string;
   draft: FlowDraft;
+  /** FW-C-071: a sender on the Mac reads the outbox. Without one, Approve becomes Copy and send. */
+  sender?: boolean;
   onChanged: () => void;
 }) {
   const locked = draft.status === 'handed_off';
@@ -92,9 +95,16 @@ export function DraftEditor({
       await navigator.clipboard.writeText(`${draft.subject ? `${draft.subject}\n\n` : ''}${draft.body}`);
       setCopied(true);
       setTimeout(() => setCopied(false), 2000);
+      return true;
     } catch {
       setNote({ tone: 'fail', text: 'Your browser did not allow copying. Select the text instead.' });
+      return false;
     }
+  };
+  // FW-C-071: with no sender to read the outbox, the Owner sends it from his own mail.
+  const copyToSend = async () => {
+    if (await copy())
+      setNote({ tone: 'ok', text: 'Copied. Send it from your own mail, then press I sent it below.' });
   };
 
   const why = busy ?? (locked ? 'This draft is already in the outbox.' : null);
@@ -127,7 +137,7 @@ export function DraftEditor({
           )}
         </div>
         <div className="draft-toolbar-group draft-toolbar-end">
-          {canApprove && (
+          {canApprove && sender && (
             <Button
               variant="primary"
               onClick={approve}
@@ -135,6 +145,15 @@ export function DraftEditor({
               title="Needs the flow at Copilot"
             >
               Approve
+            </Button>
+          )}
+          {canApprove && !sender && (
+            <Button
+              variant="primary"
+              onClick={copyToSend}
+              title="No sender on your Mac reads the outbox, so you send this one"
+            >
+              Copy and send
             </Button>
           )}
           {draft.status !== 'rejected' && (

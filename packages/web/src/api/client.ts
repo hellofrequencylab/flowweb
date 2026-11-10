@@ -198,6 +198,7 @@ export function mapStatus(s: W.WStatus, asOf: string): V.Status {
       failed_at_seq: s.chain.failed_seq,
     },
     last_seq: s.chain.head_seq,
+    sender: s.sender,
   };
 }
 
@@ -840,6 +841,14 @@ export const api = {
   /** FW-C-048: the paid ads flow, read only. */
   async adsFlow(): Promise<V.AdsFlow> {
     const e = await get<Omit<V.AdsFlow, 'data_as_of'>>('/flows/paid-ads');
+    return { data_as_of: e.as_of, ...e.data };
+  },
+
+  /** FW-C-072: what's working, from the flow's latest weekly review. */
+  async reviewSummary(key: string): Promise<V.ReviewSummary> {
+    const e = await get<Omit<V.ReviewSummary, 'data_as_of'>>(
+      `/flows/${encodeURIComponent(key)}/review/summary`,
+    );
     return { data_as_of: e.as_of, ...e.data };
   },
 

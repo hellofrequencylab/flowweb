@@ -7,6 +7,7 @@ export type Route =
   | 'card'
   | 'evidence'
   | 'growth'
+  | 'growth-admin'
   | 'logs'
   | 'row'
   | 'runs'
@@ -23,6 +24,7 @@ const EXACT: Record<string, Route> = {
   '/table': 'inbox',
   '/growth': 'growth',
   '/flows': 'growth',
+  '/growth/admin': 'growth-admin',
   '/hood': 'logs',
   '/ledger': 'logs',
   '/runs': 'runs',
@@ -69,6 +71,7 @@ export function tabOf(path: string): Tab | null {
     case 'evidence':
       return '/inbox';
     case 'growth':
+    case 'growth-admin':
       return '/growth';
     case 'logs':
     case 'row':

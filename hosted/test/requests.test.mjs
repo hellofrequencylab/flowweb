@@ -1,6 +1,6 @@
 import assert from 'node:assert/strict';
 import { test } from 'node:test';
-import { draftRequestOf, fwdCallFor, requestOf } from '../server/requests.mjs';
+import { draftRequestOf, fwdCallFor, requestOf, senderHold } from '../server/requests.mjs';
 
 const P = '/supervisor/flows/neighborhood-activation/drafts/hnt_1-a';
 
@@ -118,4 +118,17 @@ test('a morning run time and people a day become requests, checked like fwd chec
     assert.ok(requestOf('POST', path, body).error, `${path} ${JSON.stringify(body)} should be refused`);
   assert.equal(requestOf('GET', `${S}/schedule`, {}), null);
   assert.equal(fwdCallFor({ kind: 'flow.intensity', flow: 'neighborhood-activation', payload: { per_day: 99 } }), null);
+});
+
+test('FW-C-071: a site move to Copilot or Autopilot waits for a sender on the Mac', () => {
+  const dial = (stop) => ({ kind: 'flow.dial', flow: 'neighborhood-activation', draft_id: null, payload: { stop } });
+  const none = { installed: false, last_pass_at: null };
+  const here = { installed: true, last_pass_at: '2026-11-10T17:40:00Z' };
+  for (const stop of ['copilot', 'autopilot']) {
+    assert.match(senderHold(dial(stop), none), /Needs a sender on your Mac/);
+    assert.match(senderHold(dial(stop), undefined), /sender/);
+    assert.equal(senderHold(dial(stop), here), null);
+  }
+  assert.equal(senderHold(dial('draft'), none), null);
+  assert.equal(senderHold({ kind: 'draft.reject', flow: 'neighborhood-activation', payload: {} }, none), null);
 });

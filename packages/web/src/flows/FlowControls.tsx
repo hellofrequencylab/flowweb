@@ -23,6 +23,11 @@ const STOPS: { stop: SupervisorDial; hint: string }[] = [
   { stop: 'autopilot', hint: 'Hands finished drafts to your sending app without asking.' },
 ];
 
+/** FW-C-071: where the Owner sets up a sender, the one thing that reads the outbox. */
+export const SENDER_STEPS =
+  'https://github.com/hellofrequencylab/flowweb/blob/main/senders/README.md#set-up-once';
+export const NEEDS_SENDER = 'Needs a sender on your Mac.';
+
 const message = (e: unknown) => (e instanceof Error ? e.message : String(e));
 
 /** One write at a time, with what happened (or that the Mac has not answered yet) shown below. */
@@ -175,7 +180,18 @@ const ROW = {
   gap: 'var(--space-4)',
 } as const;
 
-function FlowRow({ f, stopped, reload }: { f: SupervisorFlow; stopped: boolean; reload: () => void }) {
+function FlowRow({
+  f,
+  stopped,
+  sender,
+  reload,
+}: {
+  f: SupervisorFlow;
+  stopped: boolean;
+  /** FW-C-071: a sender on the Mac read the outbox in the last day. */
+  sender: boolean;
+  reload: () => void;
+}) {
   const { busy, run, setNote, shown } = useWrite(reload);
   const [confirm, setConfirm] = useState<string | null>(null);
   const group = useId();
@@ -241,22 +257,35 @@ function FlowRow({ f, stopped, reload }: { f: SupervisorFlow; stopped: boolean; 
           </Button>
         </div>
         <div role="radiogroup" aria-label={`Dial for ${f.name}`} className="stack">
-          {STOPS.map(({ stop, hint }) => (
-            <label key={stop} className="row">
-              <input
-                type="radio"
-                name={group}
-                value={stop}
-                checked={f.dial === stop}
-                disabled={Boolean(why)}
-                onChange={() => (stop === 'autopilot' ? askAutopilot() : dial(stop))}
-              />
-              <span>
-                <strong>{DIAL[stop]}</strong> <span className="muted small">{hint}</span>
-              </span>
-            </label>
-          ))}
+          {STOPS.map(({ stop, hint }) => {
+            const noSender = stop !== 'draft' && !sender;
+            return (
+              <label key={stop} className="row">
+                <input
+                  type="radio"
+                  name={group}
+                  value={stop}
+                  checked={f.dial === stop}
+                  disabled={Boolean(why) || noSender}
+                  onChange={() => (stop === 'autopilot' ? askAutopilot() : dial(stop))}
+                />
+                <span>
+                  <strong>{DIAL[stop]}</strong>{' '}
+                  <span className="muted small">{noSender ? NEEDS_SENDER : hint}</span>
+                </span>
+              </label>
+            );
+          })}
         </div>
+        {!sender && (
+          <p className="muted small">
+            Copilot and Autopilot hand drafts to a sender on your Mac, and none has run there in the last day.
+            Until one does, copy each draft and send it from your own mail.{' '}
+            <a href={SENDER_STEPS} target="_blank" rel="noreferrer">
+              How to set up a sender
+            </a>
+          </p>
+        )}
         <Tuning f={f} why={why} reload={reload} />
         {confirm && (
           <div className="callout callout-attention stack">
@@ -309,7 +338,13 @@ export function Controls({ s, reload }: { s: Supervisor; reload: () => void }) {
       {shown}
       <ul className="plain-list stack" aria-label="Flows">
         {s.flows.map((f) => (
-          <FlowRow key={f.key} f={f} stopped={s.kill_switch} reload={reload} />
+          <FlowRow
+            key={f.key}
+            f={f}
+            stopped={s.kill_switch}
+            sender={s.sender?.installed === true}
+            reload={reload}
+          />
         ))}
       </ul>
       {HOSTED && (

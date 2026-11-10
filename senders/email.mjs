@@ -14,6 +14,8 @@ import tls from 'node:tls';
 const HOME = process.env.FW_HOME || join(process.env.HOME ?? '.', '.flowweb');
 const LOG_DIR = join(HOME, 'senders', 'email');
 const SENT_LOG = join(LOG_DIR, 'sent.jsonl');
+// FW-C-071: written at the end of every pass that loaded its settings, so fwd can tell a sender is here.
+const LAST_PASS = join(LOG_DIR, 'last-pass.json');
 const SLOT = '{{claim_url}}';
 const say = (s) => process.stdout.write(`${s}\n`);
 const stop = (s) => {
@@ -327,6 +329,7 @@ async function main() {
     }
   }
   if (!open) say('outside the sending hours: nothing sent');
+  writeFileSync(LAST_PASS, `${JSON.stringify({ at: new Date().toISOString(), ok: !noPass, sent })}\n`);
   if (noPass) process.exit(1);
 }
 

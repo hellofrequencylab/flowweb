@@ -20,7 +20,7 @@ import { readFileSync, writeFileSync } from 'node:fs';
 import { homedir, hostname } from 'node:os';
 import { join } from 'node:path';
 import { mirrorKey } from '../server/mirror.mjs';
-import { fwdCallFor } from '../server/requests.mjs';
+import { fwdCallFor, senderHold } from '../server/requests.mjs';
 
 const VERSION = '0.1.0';
 const FW_HOME = process.env.FW_HOME ?? join(homedir(), '.flowweb');
@@ -139,6 +139,9 @@ async function snapshot() {
       // The flow's saved lead hunts. Only flows with hunts answer; the rest answer 404.
       const hunts = await fwd(`/flows/${encodeURIComponent(key)}/hunts`).catch(ifFound);
       if (hunts) put(`/flows/${key}/hunts`, hunts);
+      // FW-C-072: what's working, from the flow's latest weekly review. Older fwd builds answer 404.
+      const summary = await fwd(`/flows/${encodeURIComponent(key)}/review/summary`).catch(ifFound);
+      if (summary) put(`/flows/${key}/review/summary`, summary);
     }
   }
   // The paid ads flow is read only and not run by the Supervisor, so it is not in the list above.
@@ -330,7 +333,13 @@ async function applyRequests() {
     let ok = false;
     let result = null;
     let error = null;
+    // FW-C-071: Copilot and Autopilot only when a sender here reads the outbox.
+    const hold =
+      call && req.kind === 'flow.dial'
+        ? senderHold(req, await fwd('/status').then((s) => s?.data?.sender, () => undefined))
+        : null;
     if (!call) error = `not a change the site may ask for: ${String(req.kind)}`;
+    else if (hold) error = hold;
     else {
       try {
         const r = await fwdCall(call.method, call.path, call.body);
