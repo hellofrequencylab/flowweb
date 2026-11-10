@@ -4,7 +4,7 @@
     "profile": "core",
     "schema": "ledger-row/1",
     "generated": "2026-11-09",
-    "row_count": 101,
+    "row_count": 103,
     "conventions": {
       "verify_probe": "Same convention as 04-build-plan/backlog.json: 'pnpm probe <path>' runs probes/<path>.probe.ts, a Tier 0 file written before the implementation row starts and never edited by the agent doing the row. Every probe fails today because its target does not exist (a missing probe file exits 2, a missing behaviour exits 1). The probe pack for a milestone is committed by the Owner or a pair session before the milestone's rows start.",
       "status": "All rows start as open. Status lives only in the ledger database (imported with fw ledger sync), never in prose.",
@@ -28,7 +28,7 @@
       }
     },
     "full_plan_rows_included": 37,
-    "new_core_rows": 63
+    "new_core_rows": 65
   },
   "rows": [
     {
@@ -3545,6 +3545,73 @@
         "packages/web/src/ui-kit/flow.css",
         "packages/web/src/ui-kit/base.css",
         "packages/web/src/ui-kit/Icon.tsx",
+        "packages/web/test/",
+        "packages/web/mock/"
+      ],
+      "origin": "new Core row"
+    },
+    {
+      "id": "FW-C-075",
+      "title": "The Runs page shows the flow runs that actually happen: each flow cycle and the daily digest, counted in the last 24 hours",
+      "core_milestone": "C1",
+      "phase": 1,
+      "epic": "C1.5 First flow",
+      "priority": "P1",
+      "size": "M",
+      "lane": "workstreams",
+      "agent_suitability": "agent",
+      "gate": "none",
+      "depends_on": [
+        "FW-C-038"
+      ],
+      "description": "On the Owner's machine the Runs page and flowweb.app/runs say 0 runs and 'No runs started in the last 24 hours' while the neighborhood activation flow ran ten cycles that day, its lead hunt ran inside one, and the daily digest published. The Runs page only reads GET /v1/runs, which lists ledger-row agent runs (work orders); a flow cycle is recorded by fwd as a status report of kind 'run' (body: stream_id, flow, fire_id, adapter, outcome drafted | dry | failed, drafts, hunts, reason) and the digest as a status report of kind 'daily', so neither ever reaches the page. Both are already served by GET /v1/status-reports?kind= and copied to the hosted mirror. The Runs page also reads those two kinds and shows them as flow runs: a 'Flow runs' section listing each one with its flow, what it did (Drafted with the number of drafts, Nothing drafted, Failed with the reason, Published for the digest), leads found by any hunt, the engine, when it started and how long it took. The 'Last 24 hours' panel and the summary count include them, so the page never says no runs happened when flows ran. Agent runs are shown as before. No fwd, schema or mirror change.",
+      "acceptance": [
+        "With no agent runs and three flow reports in the last 24 hours, the Last 24 hours panel counts 3 runs and does not say no runs started",
+        "A 'Flow runs' section lists every flow cycle and digest report with Drafted and the number of drafts, Nothing drafted, Failed with its reason, Published, and leads found by a hunt",
+        "The summary count includes flow runs",
+        "Agent runs from GET /v1/runs still show in the runs table"
+      ],
+      "verify_probe": "pnpm probe flows/runs-page-flows",
+      "files_hint": [
+        "packages/web/src/runs/RunsPage.tsx",
+        "packages/web/src/runs/RunsTimeline.tsx",
+        "packages/web/src/runs/FlowRuns.tsx",
+        "packages/web/src/api/client.ts",
+        "packages/web/src/api/types.ts",
+        "packages/web/src/api/wire.ts",
+        "packages/web/src/ui-kit/base.css",
+        "packages/web/test/"
+      ],
+      "origin": "new Core row"
+    },
+    {
+      "id": "FW-C-069",
+      "title": "The home page answers what to do now: drafts ready, decisions waiting, the open region's progress and each flow's state, problems first",
+      "core_milestone": "C2",
+      "phase": 4,
+      "epic": "C2.2 Daily screens",
+      "priority": "P1",
+      "size": "M",
+      "lane": "ui",
+      "agent_suitability": "agent",
+      "gate": "none",
+      "depends_on": [
+        "FW-C-024",
+        "FW-C-062"
+      ],
+      "description": "The home page (/, the Console) is a build tracker: lanes, every change in flight, rows landed, rows watching, integrity and a run outcomes donut. The Owner opens it to learn what to do next and has to read it all to find out. Make it a Today summary that answers that in about five seconds. First any problem (fwd unreachable, kill switch, budget pause or breaker). Then a Today block: how many drafts are ready to send across the flows (from each flow's drafts) and how many decisions are waiting (open cards), each a link to where the Owner acts on them; the open region's progress toward each of its targets, from GET /v1/flows/neighborhood-activation; and each flow from GET /v1/supervisor with its state word (Running, Ready, Held) and, when held, its one reason. Today's digest headline stays as one line. Anything fwd did not answer reads Unknown, never zero. Move the build-tracker sections into an exported dawn/BuildOverview.tsx so another page can mount it. api.dawn() keeps its shape.",
+      "acceptance": [
+        "The home page shows the number of drafts ready to send and of decisions waiting, each as a link to where they are worked",
+        "The home page shows the open region's name and each of its measures as a value of its target, and Unknown when fwd has no measures",
+        "The home page lists every flow with Running, Ready or Held and, when held, its reason",
+        "With the kill switch engaged or the budget pause on, the problem shows before the Today summary",
+        "With fwd unreachable the page says so and the counts read Unknown, not zero",
+        "The build-tracker sections are not on the home page; dawn/BuildOverview.tsx exports BuildOverview, which shows them; the digest headline shows once"
+      ],
+      "verify_probe": "pnpm probe ui/today",
+      "files_hint": [
+        "packages/web/src/dawn/",
+        "packages/web/src/ui-kit/base.css",
         "packages/web/test/",
         "packages/web/mock/"
       ],
