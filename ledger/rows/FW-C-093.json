@@ -1,0 +1,30 @@
+{
+  "id": "FW-C-093",
+  "title": "Each flow's page opens with where that flow is: a large ring through its five stages, its state, dial, reason and draft counts, and a link back to all flows",
+  "core_milestone": "C2",
+  "phase": 4,
+  "epic": "C2.2 Daily screens",
+  "priority": "P1",
+  "size": "M",
+  "lane": "web",
+  "agent_suitability": "agent",
+  "gate": "none",
+  "depends_on": [
+    "FW-C-091"
+  ],
+  "description": "FW-C-091 made the home page the Supervisor and its flows, and each flow opens at /flows/<key>. The flow page still starts with the old Growth header, so opening a flow from the map does not show where that flow is, and /flows/paid-ads looks like the neighborhood page. Add packages/web/src/flows/FlowHero.tsx: a region named Where this flow is with a link All flows back to /, and the flow GET /v1/supervisor lists under the key as a large FlowRing through Find, Draft, You check, Sent and Replies (positioned with positionOf from FlowsHome, from fwd data only), its name, state word, dial word, the Supervisor's reason, and draft counts from its drafts. No stage shows a count FlowWeb does not have (finds are not counted, so no zero). ActivationPage renders FlowHero for the flow in the address (its flow prop, defaulting to neighborhood-activation). With fwd unreachable the flow reads Unknown. Tokens only. No em dashes.",
+  "acceptance": [
+    "FlowHero shows a region Where this flow is with an All flows link to /",
+    "It shows the named flow's name, state word, dial word and reason, and the five stage names",
+    "It shows the flow named in the address, not always the first flow",
+    "It shows draft counts (<n> to check) and no made-up zero for finds",
+    "With fwd unreachable the flow reads Unknown",
+    "ActivationPage renders FlowHero with the flow from /flows/<key>"
+  ],
+  "verify_probe": "pnpm probe ui/flow-hero",
+  "files_hint": [
+    "packages/web/src/flows/",
+    "packages/web/test/"
+  ],
+  "origin": "new Core row"
+}
