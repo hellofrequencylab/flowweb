@@ -1,22 +1,17 @@
 import { useLive } from '../api/live';
 import { Icon, type IconName } from '../ui-kit/Icon';
 import { Link, useRouter } from './router';
+import { tabOf } from './routes';
 
+/** Four pages: what to do now, what waits on you, how growth is going, and the agent work behind it. */
 const ITEMS: { to: string; label: string; short: string; icon: IconName; count?: boolean }[] = [
-  { to: '/', label: 'Console', short: 'Console', icon: 'console' },
-  { to: '/table', label: 'Sign-offs', short: 'Sign-offs', icon: 'signoffs', count: true },
-  { to: '/ledger', label: 'Logs', short: 'Logs', icon: 'logs' },
-  { to: '/runs', label: 'Runs', short: 'Runs', icon: 'runs' },
-  { to: '/spend', label: 'Spend', short: 'Spend', icon: 'spend' },
-  { to: '/flows', label: 'Flows', short: 'Flows', icon: 'flows' },
+  { to: '/', label: 'Today', short: 'Today', icon: 'console' },
+  { to: '/inbox', label: 'Inbox', short: 'Inbox', icon: 'inbox', count: true },
+  { to: '/growth', label: 'Growth', short: 'Growth', icon: 'flows' },
+  { to: '/hood', label: 'Under the hood', short: 'Hood', icon: 'logs' },
 ];
 
-function active(path: string, to: string) {
-  if (to === '/') return path === '/';
-  if (to === '/ledger') return path.startsWith('/ledger') || path.startsWith('/projects');
-  if (to === '/table') return path.startsWith('/table') || path.startsWith('/evidence');
-  return path.startsWith(to);
-}
+const active = (path: string, to: string) => tabOf(path) === to;
 
 /** Saffron count of cards waiting on the Owner. Hidden when it is not current. */
 function Count() {
@@ -51,13 +46,12 @@ export function TopNav() {
   );
 }
 
-/** Bottom tab bar on phones: Console, Sign-offs, Logs, More. */
+/** Bottom tab bar on phones: Today, Inbox, Growth, More. */
 export function BottomNav() {
   const { loc } = useRouter();
   const tabs = [...ITEMS.slice(0, 3), { to: '/more', label: 'More', short: 'More', icon: 'more' as const }];
-  const moreActive = ['/runs', '/spend', '/flows', '/settings', '/setup', '/more'].some((p) =>
-    loc.path.startsWith(p),
-  );
+  const moreActive =
+    tabOf(loc.path) === '/hood' || ['/settings', '/setup', '/more'].some((p) => loc.path.startsWith(p));
   return (
     <nav className="bottomnav" aria-label="Main">
       <ul>
@@ -83,13 +77,11 @@ export function BottomNav() {
 
 export function MorePage() {
   const items: { to: string; label: string; desc: string; icon: IconName }[] = [
-    { to: '/runs', label: 'Runs', desc: 'Every run, live and finished', icon: 'runs' },
-    { to: '/spend', label: 'Spend', desc: 'Today against the cap, and the last seven days', icon: 'spend' },
     {
-      to: '/flows',
-      label: 'Flows',
-      desc: 'Marketing engine: rings, saturation, drafts waiting for you',
-      icon: 'flows',
+      to: '/hood',
+      label: 'Under the hood',
+      desc: 'Logs, runs, projects and spend: the agent work behind the growth',
+      icon: 'logs',
     },
     {
       to: '/setup',
@@ -97,7 +89,6 @@ export function MorePage() {
       desc: 'Machine, sign-ins, project, brief, first flow, live site',
       icon: 'done',
     },
-    { to: '/projects', label: 'Projects', desc: 'Repositories FlowWeb works in', icon: 'logs' },
     {
       to: '/settings',
       label: 'Settings and kill switch',
