@@ -20,6 +20,19 @@ export {
   type ProbeEvidence,
 } from './close.ts';
 export {
+  type CreateDecisionItemInput,
+  createDecisionItem,
+  DECISION_STATUSES,
+  DECISION_VARIANTS,
+  type DecisionItem,
+  type DecisionOptions,
+  type DecisionStatus,
+  type DecisionVariant,
+  type ExpiredDecisionItem,
+  expireDecisionItems,
+  listDecisionItems,
+} from './decisions/index.ts';
+export {
   contractProbe,
   DEFAULT_PROBE_TIMEOUT_S,
   type DefinitionCheck,
