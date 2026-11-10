@@ -7,7 +7,8 @@ import { existsSync, readFileSync } from 'node:fs';
 import { isAbsolute, join, resolve } from 'node:path';
 import { type Reader, sha256Hex } from '@fw/eventlog';
 import type { PairingStore, Principal } from '../auth.ts';
-import { FLOW_KEY, flowView, loadFlow } from '../flows/local-saturation.ts';
+import * as localSaturation from '../flows/local-saturation.ts';
+import * as neighborhoodActivation from '../flows/neighborhood-activation.ts';
 import { SupervisorError, supervisorView } from '../overseer/index.ts';
 import { type RunHost, RunHostStoppingError } from '../run-host.ts';
 import { isInside, RUN_ID_RE } from '../runtime/paths.ts';
@@ -44,6 +45,18 @@ import {
 } from './rows.ts';
 import { streamEvents } from './sse.ts';
 import { type ChainStatus, statusOf } from './status.ts';
+
+/** Flows GET /v1/flows/{key} serves, by key. Each loads from disk and returns its view, or null. */
+const FLOWS: Record<string, (repoRoot: string, fwHome: string, now: Date) => unknown> = {
+  [localSaturation.FLOW_KEY]: (repo, home, now) => {
+    const f = localSaturation.loadFlow(repo, home, now);
+    return f && localSaturation.flowView(f.cfg, f.state, f.budget, f.stream);
+  },
+  [neighborhoodActivation.FLOW_KEY]: (repo, home, now) => {
+    const f = neighborhoodActivation.loadFlow(repo, home, now);
+    return f && neighborhoodActivation.flowView(f.cfg, f.state, f.budget, f.stream, now);
+  },
+};
 
 export interface ApiDeps {
   reader: Reader;
@@ -287,10 +300,9 @@ export function buildRouter(deps: ApiDeps): Router {
   // ---- flows (read-only) ----------------------------------------------------------------
   r.get('/v1/flows/{key}', ({ params }) =>
     env(() => {
-      if (params.key !== FLOW_KEY) throw notFound('flow', params.key);
-      const f = loadFlow(deps.repoRoot, deps.fwHome);
-      if (!f) throw notFound('flow', params.key);
-      return { data: flowView(f.cfg, f.state, f.budget, f.stream) };
+      const view = FLOWS[params.key ?? '']?.(deps.repoRoot, deps.fwHome, new Date());
+      if (!view) throw notFound('flow', params.key);
+      return { data: view };
     }),
   );
 

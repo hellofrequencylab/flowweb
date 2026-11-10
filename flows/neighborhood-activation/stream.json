@@ -1,0 +1,27 @@
+{
+  "id": "stm_nbhdact1",
+  "key": "neighborhood-activation",
+  "name": "Neighborhood activation",
+  "project_id": "prj_frequency1",
+  "version": 1,
+  "template": "custom",
+  "enabled": false,
+  "trigger": {"type": "cron", "cron": "0 7 * * 1-5", "timezone": "America/Los_Angeles", "catch_up": "skip"},
+  "inputs": [
+    {"name": "territories_and_leads", "kind": "query", "ref": "flow://neighborhood-activation/state", "untrusted": false},
+    {"name": "lead_research", "kind": "scanner", "ref": "flow://neighborhood-activation/research", "untrusted": true}
+  ],
+  "tools": [{"server": "web", "tool": "search"}],
+  "action_classes": ["read_research", "publish_external", "outbound_email_external"],
+  "output": {"artifacts": ["marketing_draft_batch"], "result_schema": "run-result.json"},
+  "verifier": {"agent_profile": "marketing-reviewer", "vendor_policy": "different_vendor_preferred", "read_only": true},
+  "human_gate": {"min_tier": "L3", "approver": "owner", "gate_on": ["publish_external", "outbound_email_external"]},
+  "default_tier": "L1",
+  "tier_caps": {"sandbox": "L1", "staging": "L1", "production": "L1"},
+  "budget": {"caps": {"max_usd": 5, "max_turns": 200}, "period": "week"},
+  "wip_limit": 1,
+  "dedupe": {"against": ["recent_runs"], "window_hours": 20},
+  "metrics": ["hosts_active_28d", "events_next_14d", "wam", "invites_accepted_rate"],
+  "injection_isolation": "Everything found about a lead or a place is untrusted input. Runs score, route and draft only (L1): they hold no posting, email or account credentials, and every outward item waits for the Owner, who sends it from their own email or through Frequency. Core policy denies publish_external and outbound_email_external outright.",
+  "created_at": "2026-11-10T00:00:00Z"
+}

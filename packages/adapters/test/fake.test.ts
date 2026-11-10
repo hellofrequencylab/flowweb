@@ -353,10 +353,10 @@ describe('fake adapter: selection, preflight, refusal', () => {
     expect(fp.help_sha256).toMatch(/^[0-9a-f]{64}$/);
   });
 
-  test('registry: fake and claude resolve, codex is a C1 stub', () => {
+  test('registry: fake, claude and codex resolve', () => {
     expect(createAdapter('fake').name).toBe('fake');
     expect(createAdapter('claude').name).toBe('claude-headless');
-    expect(() => createAdapter('codex')).toThrow(/not implemented in C0/);
+    expect(createAdapter('codex').name).toBe('codex-exec');
   });
 });
 
