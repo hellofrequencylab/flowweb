@@ -10,18 +10,18 @@ import type {
   SendVia,
   Supervisor,
 } from '../api/types';
+import { Link } from '../shell/router';
 import { Gauge, IconTile } from '../ui-kit/flow';
 import { AsOf, ResourceView } from '../ui-kit/honest';
 import { PageHead } from '../ui-kit/page';
 import { StatusLabel, type StatusSpec } from '../ui-kit/status';
 import { usd } from '../ui-kit/time';
 import { DraftsInbox } from './DraftsInbox';
-import { FlowAdmin } from './FlowAdmin';
 import { FlowControls } from './FlowControls';
 import { FlowPulse, MeasureDials, PipelineBar, type PulseState, RegionPath } from './FlowVisuals';
+import { flowSpec } from './flowState';
 import { LeadHunts } from './LeadHunts';
 import { PaidAdsPanel } from './PaidAdsPanel';
-import { flowSpec, SupervisorPanel } from './SupervisorPanel';
 
 const pct = (x: number) => `${Math.round(x * 100)}%`;
 const num = (n: number) => n.toLocaleString('en-US');
@@ -246,9 +246,6 @@ export function ActivationPage() {
                   </ul>
                 </Fold>
               )}
-              <Fold label="Supervisor and dial" hint="which flows run, and why the rest are held">
-                <SupervisorPanel />
-              </Fold>
             </section>
 
             <ChapterHead
@@ -280,8 +277,9 @@ export function ActivationPage() {
               n={4}
               id="na-reach"
               title="Reach"
-              lede="Who the flow has found, and what the ads bring in."
+              lede="Who the flow has found, and what is working."
             />
+            {/* FW-C-070: mount spot for the weekly review's card, <WhatsWorking flow={KEY} />, once it exists. */}
             <section className="panel" aria-labelledby="na-leads">
               <div className="panel-head">
                 <h2 id="na-leads">Lead pipeline</h2>
@@ -334,13 +332,19 @@ export function ActivationPage() {
               </Fold>
             </section>
 
+            <ChapterHead
+              n={5}
+              id="na-ads"
+              title="Paid ads"
+              lede="Its own flow: one Google Ads campaign, read only. You change the campaign in Google Ads."
+            />
             <PaidAdsPanel />
 
             <ChapterHead
-              n={5}
+              n={6}
               id="na-runs"
               title="How it runs"
-              lede="The rules, the engine and the admin tools."
+              lede="The rules and the engine behind this flow."
             />
             <section className="panel" aria-labelledby="na-how">
               <h2 id="na-how">How this flow works</h2>
@@ -403,12 +407,14 @@ export function ActivationPage() {
             </section>
 
             <section aria-labelledby="na-admin" className="panel">
-              <h2 id="na-admin">Uploads and admin</h2>
-              <Fold label="Upload leads or metrics, edit targets" hint="also raw config and the admin log">
-                <div className="stack">
-                  <FlowAdmin flow={f} refresh={res.reload} />
-                </div>
-              </Fold>
+              <div className="panel-head">
+                <h2 id="na-admin">Admin</h2>
+                <Link to="/growth/admin">Open admin</Link>
+              </div>
+              <p className="small muted">
+                Upload leads or metrics, open the next region, change targets, edit the raw config and read
+                the admin log. These live on their own page so this one stays a daily view.
+              </p>
             </section>
           </div>
         )}

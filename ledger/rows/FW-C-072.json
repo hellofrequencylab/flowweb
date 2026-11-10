@@ -1,0 +1,39 @@
+{
+  "id": "FW-C-072",
+  "title": "The Owner sees what's working from the flow's weekly review: the best and worst source, hunt, funnel, sub-area and message angle, in a few plain lines",
+  "core_milestone": "C1",
+  "phase": 1,
+  "epic": "C1.5 First flow",
+  "priority": "P1",
+  "size": "L",
+  "lane": "workstreams",
+  "agent_suitability": "agent",
+  "gate": "none",
+  "depends_on": [
+    "FW-C-056"
+  ],
+  "description": "The weekly review (FW-C-056) writes review.json with a scorecard per hunt and a few learnings lines, but no page shows it: the Owner cannot see which hunts, sources or funnels draw replies without reading files. The review also scores only hunts, while the Owner asked which source, funnel, sub-area and message angle work too. The review now also scores its sent drafts by source (the draft's source, or the host of its source_url), hunt, funnel (the draft's funnel, its template:<funnel> lead, or for a hunt draft host or claim page), sub-area (the draft's sub_area, or the hunt's one area) and message angle (the draft's angle): sent, replied and signed up (a member or host on the draft's tag) per value. fwd answers GET /v1/flows/{key}/review/summary with the latest review's week, the reply and signup rates with their sample sizes across the flow, and per dimension the best and worst value among those with at least 8 sent, whether any value met that minimum sample, and whether the dimension is tracked at all; plus the review's learnings. It answers state none before any review and thin when no value has 8 sent. The hosted relay copies it so flowweb.app shows it. A WhatsWorking component in packages/web/src/flows shows it as three or four plain lines, such as \"Best hunt: Sound baths, 6 of 12 replied\", and says so honestly when there is no review yet, when the sample is too small, and which dimensions are not tracked yet. The Growth page mounts it (another row). Nothing here changes a hunt, a cap or the dial.",
+  "acceptance": [
+    "GET /v1/flows/{key}/review/summary answers state none before the first review, and 404 for a flow that does not exist",
+    "With fewer than 8 sent for every value it answers state thin, sample_ok false and no best value",
+    "After a review with enough sent it answers state ready, the review's at and ISO week, flow totals with reply and signup rates, and per dimension (source, hunt, funnel, sub_area, angle) the best and worst value with sent, replied and signups",
+    "The hosted relay snapshot carries each flow's review summary",
+    "WhatsWorking shows the best lines with counts, and says when there is no review yet, when the sample is too small, and which dimensions are not tracked yet"
+  ],
+  "verify_probe": "pnpm probe flows/whats-working",
+  "files_hint": [
+    "packages/daemon/src/flows/review.ts",
+    "packages/daemon/src/flows/review-summary.ts",
+    "packages/daemon/src/api/routes.ts",
+    "packages/daemon/test/",
+    "packages/web/src/flows/WhatsWorking.tsx",
+    "packages/web/src/flows/index.ts",
+    "packages/web/src/api/client.ts",
+    "packages/web/src/api/types.ts",
+    "packages/web/src/ui-kit/flow.css",
+    "packages/web/test/",
+    "packages/web/mock/",
+    "hosted/relay/fw-relay.mjs"
+  ],
+  "origin": "new Core row"
+}
