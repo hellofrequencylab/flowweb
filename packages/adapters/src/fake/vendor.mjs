@@ -15,7 +15,7 @@ Reads a JSON request on stdin and plays a scripted scenario.
 Options:
   --version   Print the version
   --help      Print this help
-Scenarios: success, fail, hang, secret_leak, prompt_injection, over_budget,
+Scenarios: success, flow_drafts, fail, hang, secret_leak, prompt_injection, over_budget,
   forbidden_path, malformed_output, fabricated_claim
 `;
 
@@ -114,6 +114,40 @@ function okResult(summary, extraReport = {}) {
 }
 
 const scenarios = {
+  // FW-C-038: a flow cycle. Writes drafts.json in the cycle folder (cwd) and commits nothing.
+  async flow_drafts() {
+    session();
+    out({
+      t: 'turn',
+      id: 'msg_1',
+      text: 'Reading the cycle brief and drafting.',
+      usage: { input_tokens: 900, output_tokens: 300, cached_tokens: 0 },
+    });
+    const drafts = [
+      {
+        id: 'd1',
+        lead_id: 'fake-host-1',
+        send_via: 'founder_email',
+        subject: 'A Circle near you',
+        body: 'Hi, would you host a small Circle?',
+      },
+      {
+        id: 'd2',
+        lead_id: 'fake-venue-1',
+        send_via: 'founder_email',
+        subject: 'Hosting local Circles',
+        body: 'Hi, could your space host a Circle?',
+      },
+    ];
+    writeFileSync(join(process.cwd(), 'drafts.json'), JSON.stringify({ drafts }, null, 2));
+    out({
+      t: 'result',
+      ok: true,
+      usd: 0.0123,
+      artifacts: [{ kind: 'file', ref: 'drafts.json' }],
+      report: { summary: 'drafted 2 items', claims: [], followups: [] },
+    });
+  },
   async success() {
     session();
     out({
