@@ -1,25 +1,30 @@
-import { cleanup, render, screen } from '@testing-library/react';
+import { cleanup, render, screen, within } from '@testing-library/react';
 import { afterEach, describe, expect, it } from 'vitest';
 import fixture from '../mock/fixtures/supervisor.json';
 import type { Supervisor } from '../src/api/types';
-import { flowSpec, SupervisorFlows } from '../src/flows/SupervisorPanel';
+import { Controls } from '../src/flows/FlowControls';
+import { flowSpec } from '../src/flows/flowState';
 
 afterEach(cleanup);
 
 const s = { data_as_of: new Date().toISOString(), ...fixture } as Supervisor;
+const show = (sup: Supervisor) => render(<Controls s={sup} reload={() => {}} />);
 
-describe('the Supervisor panel', () => {
+describe('the flow controls table (the Supervisor folded in)', () => {
   it('names the one gate holding each flow, in words', () => {
-    render(<SupervisorFlows s={s} />);
+    show(s);
     expect(screen.getByText('Off')).toBeTruthy();
     expect(screen.getByText('On, nothing due')).toBeTruthy();
     expect(screen.getByText(/Runs up to 4 at once/)).toBeTruthy();
   });
 
   it("shows each flow's dial", () => {
-    render(<SupervisorFlows s={s} />);
-    expect(screen.getByText('Draft')).toBeTruthy();
-    expect(screen.getByText('Copilot')).toBeTruthy();
+    show(s);
+    for (const f of s.flows) {
+      const row = within(screen.getByRole('group', { name: f.name }));
+      const on = row.getAllByRole('radio').find((r) => (r as HTMLInputElement).checked);
+      expect(on?.getAttribute('value')).toBe(f.dial);
+    }
   });
 
   it('every gate fwd publishes has a word, and the kill switch says so first', () => {
@@ -27,8 +32,8 @@ describe('the Supervisor panel', () => {
       const spec = flowSpec({ ...s.flows[0], state: 'held', gate });
       expect(spec.word).not.toBe('Held');
     }
-    render(<SupervisorFlows s={{ ...s, kill_switch: true, paused: true }} />);
-    expect(screen.getByText(/kill switch is engaged/)).toBeTruthy();
+    show({ ...s, kill_switch: true, paused: true });
+    expect(screen.getAllByText(/kill switch is engaged/).length).toBeGreaterThan(0);
   });
 
   it('an uncapped flow says so, and an unknown spend is never shown as zero', () => {
@@ -37,8 +42,8 @@ describe('the Supervisor panel', () => {
       { ...f, key: 'a', name: 'A', budget: { ...f.budget!, max_usd: null } },
       { ...f, key: 'b', name: 'B', budget: { ...f.budget!, spent_usd: null } },
     ];
-    render(<SupervisorFlows s={{ ...s, flows }} />);
+    show({ ...s, flows });
     expect(screen.getByText(/no cap/)).toBeTruthy();
-    expect(screen.getByText(/^Unknown of/)).toBeTruthy();
+    expect(within(screen.getByRole('group', { name: 'B' })).getByText(/Unknown of/)).toBeTruthy();
   });
 });
