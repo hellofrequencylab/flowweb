@@ -1,16 +1,28 @@
 // The changes the Owner may ask for from the hosted site, and how the relay applies them.
 //
 // The site stores a request (fw_requests); the relay on the Owner's machine takes it and calls the
-// matching fwd route with the CLI token. Only draft edits, rejects, AI rewrites and marks (what the
-// Owner did by hand: sent, replied, declined) exist here: a request can never approve, send, or change
-// a flow, a budget or a policy. Pure functions, tested.
+// matching fwd route with the CLI token. Draft changes (edit, reject, AI rewrite, mark, approve), the
+// flow controls (on, off, run now, the Draft or Copilot dial, Supervisor pause and resume), hunts and
+// do-not-contact exist here (FW-C-062). A request can never set Autopilot, send anything, release the
+// kill switch, or change a budget or a policy. Approving only hands a draft to the outbox; Core never
+// sends. Pure functions, tested.
 
 const FLOW = /^[a-z0-9][a-z0-9-]{0,63}$/;
 const DRAFT = /^[A-Za-z0-9_-]{1,100}$/;
 const MAX_FIELD = 20_000;
 const MAX_INSTRUCTION = 2_000;
 
-const ACTIONS = { edit: 'draft.edit', reject: 'draft.reject', rewrite: 'draft.rewrite', mark: 'draft.mark' };
+const ACTIONS = {
+  edit: 'draft.edit',
+  reject: 'draft.reject',
+  rewrite: 'draft.rewrite',
+  mark: 'draft.mark',
+  approve: 'draft.approve',
+};
+const HUNT = /^hnt_[a-f0-9]{4,32}$/;
+const HUNT_FIELDS = ['name', 'looking_for', 'region', 'areas', 'links', 'every_days', 'max_sends', 'build'];
+/** The stops the site may set. Autopilot binds to a confirm hash and is set on the Owner's machine. */
+const SITE_STOPS = ['draft', 'copilot'];
 const OUTCOMES = ['sent', 'replied', 'declined'];
 
 /**
@@ -18,7 +30,7 @@ const OUTCOMES = ['sent', 'replied', 'declined'];
  * Answers { error } for a draft change with bad input.
  */
 export function draftRequestOf(method, path, body) {
-  const m = /^\/supervisor\/flows\/([^/]+)\/drafts\/([^/]+)\/(edit|reject|rewrite|mark)$/.exec(path);
+  const m = /^\/supervisor\/flows\/([^/]+)\/drafts\/([^/]+)\/(edit|reject|rewrite|mark|approve)$/.exec(path);
   if (!m || method !== 'POST') return null;
   const [, flow, draftId, action] = m;
   if (!FLOW.test(flow) || !DRAFT.test(draftId)) return { error: 'unknown flow or draft' };
@@ -53,18 +65,119 @@ export function draftRequestOf(method, path, body) {
   return { kind: ACTIONS[action], flow, draft_id: draftId, payload };
 }
 
-/** The fwd call for a request the relay took, or null for anything not on the list. */
+/** The flow controls, by the last part of /supervisor/flows/{key}/<action>. */
+const FLOW_ACTIONS = { enable: 'flow.enable', disable: 'flow.disable', run: 'flow.run', dial: 'flow.dial' };
+
+const text = (v) => (typeof v === 'string' ? v.trim() : '');
+
+/** A hunt's fields as the Owner sent them, in their order; fwd checks the values. */
+function huntPayload(b) {
+  const payload = {};
+  for (const [k, v] of Object.entries(b)) if (HUNT_FIELDS.includes(k)) payload[k] = v;
+  if (!text(payload.name) || !text(payload.looking_for) || !text(payload.region))
+    return { error: 'a hunt needs a name, what to look for and a region' };
+  if (JSON.stringify(payload).length > MAX_FIELD) return { error: 'that hunt is too long' };
+  return { payload };
+}
+
+/**
+ * The request a site call asks for (FW-C-062): { kind, flow, draft_id, payload }, { error } for a
+ * known control with bad input, or null when the path is not one the site may ask for.
+ */
+export function requestOf(method, path, body) {
+  const b = body && typeof body === 'object' ? body : {};
+  const drafted = draftRequestOf(method, path, b);
+  if (drafted) return drafted;
+  const sup = /^\/supervisor\/(pause|resume)$/.exec(path);
+  if (sup) return method === 'POST' ? { kind: `supervisor.${sup[1]}`, flow: 'all', draft_id: null, payload: {} } : null;
+  const ctl = /^\/supervisor\/flows\/([^/]+)\/(enable|disable|run|dial)$/.exec(path);
+  if (ctl) {
+    const [, flow, action] = ctl;
+    if (method !== 'POST') return null;
+    if (!FLOW.test(flow)) return { error: 'unknown flow' };
+    const payload = {};
+    if (action === 'dial') {
+      if (!SITE_STOPS.includes(b.stop))
+        return {
+          error:
+            b.stop === 'autopilot'
+              ? 'Autopilot is set on your Mac: fw supervisor dial <flow> autopilot'
+              : 'stop must be draft or copilot',
+        };
+      payload.stop = b.stop;
+    }
+    return { kind: FLOW_ACTIONS[action], flow, draft_id: null, payload };
+  }
+  const hunts = /^\/flows\/([^/]+)\/hunts(?:\/([^/]+)(\/run)?)?$/.exec(path);
+  if (hunts) {
+    const [, flow, id, run] = hunts;
+    if (!FLOW.test(flow)) return { error: 'unknown flow' };
+    if (!id) {
+      if (method !== 'POST') return null;
+      const h = huntPayload(b);
+      return h.error ? h : { kind: 'hunt.save', flow, draft_id: null, payload: h.payload };
+    }
+    if (!HUNT.test(id)) return { error: 'unknown hunt' };
+    if (run) return method === 'POST' ? { kind: 'hunt.run', flow, draft_id: id, payload: {} } : null;
+    return method === 'DELETE' ? { kind: 'hunt.remove', flow, draft_id: id, payload: {} } : null;
+  }
+  const block = /^\/flows\/([^/]+)\/do-not-contact$/.exec(path);
+  if (block) {
+    if (method !== 'POST') return null;
+    if (!FLOW.test(block[1])) return { error: 'unknown flow' };
+    const reason = text(b.reason);
+    const email = text(b.email);
+    const lead = text(b.lead_id);
+    if (!reason) return { error: 'give a reason' };
+    if (!email && !lead) return { error: 'give an email address, an @domain or a lead' };
+    if (reason.length > MAX_INSTRUCTION || email.length > 320 || lead.length > 200)
+      return { error: 'that is too long' };
+    const payload = email ? { email, reason } : { lead_id: lead, reason };
+    return { kind: 'flow.block', flow: block[1], draft_id: null, payload };
+  }
+  return null;
+}
+
+/** The fwd call ({ method, path, body }) for a request the relay took, or null for anything not on the list. */
 export function fwdCallFor(req) {
-  const action = Object.entries(ACTIONS).find(([, k]) => k === req?.kind)?.[0];
-  if (!action || !FLOW.test(String(req.flow)) || !DRAFT.test(String(req.draft_id))) return null;
-  const p = req.payload && typeof req.payload === 'object' ? req.payload : {};
+  const kind = String(req?.kind ?? '');
+  const flow = String(req?.flow ?? '');
+  const p = req?.payload && typeof req.payload === 'object' ? req.payload : {};
+  const f = encodeURIComponent(flow);
+  if (kind === 'supervisor.pause' || kind === 'supervisor.resume')
+    return { method: 'POST', path: `/supervisor/${kind.slice(11)}`, body: {} };
+  if (!FLOW.test(flow)) return null;
+  const control = Object.entries(FLOW_ACTIONS).find(([, k]) => k === kind)?.[0];
+  if (control) {
+    if (control !== 'dial') return { method: 'POST', path: `/supervisor/flows/${f}/${control}`, body: {} };
+    return SITE_STOPS.includes(p.stop)
+      ? { method: 'POST', path: `/supervisor/flows/${f}/dial`, body: { stop: p.stop } }
+      : null;
+  }
+  if (kind === 'hunt.save') {
+    const h = huntPayload(p);
+    return h.error ? null : { method: 'POST', path: `/flows/${f}/hunts`, body: h.payload };
+  }
+  if (kind === 'hunt.run' || kind === 'hunt.remove') {
+    const id = String(req.draft_id ?? '');
+    if (!HUNT.test(id)) return null;
+    return kind === 'hunt.run'
+      ? { method: 'POST', path: `/flows/${f}/hunts/${id}/run`, body: {} }
+      : { method: 'DELETE', path: `/flows/${f}/hunts/${id}`, body: undefined };
+  }
+  if (kind === 'flow.block') {
+    const asked = requestOf('POST', `/flows/${flow}/do-not-contact`, p);
+    return asked && !asked.error ? { method: 'POST', path: `/flows/${f}/do-not-contact`, body: asked.payload } : null;
+  }
+  const action = Object.entries(ACTIONS).find(([, k]) => k === kind)?.[0];
+  if (!action || !DRAFT.test(String(req.draft_id))) return null;
   const body =
     action === 'edit'
-      ? Object.fromEntries(['subject', 'body'].filter((f) => typeof p[f] === 'string').map((f) => [f, p[f]]))
+      ? Object.fromEntries(['subject', 'body'].filter((x) => typeof p[x] === 'string').map((x) => [x, p[x]]))
       : action === 'rewrite'
         ? {
             instruction: String(p.instruction ?? ''),
-            ...Object.fromEntries(['subject', 'body'].filter((f) => typeof p[f] === 'string').map((f) => [f, p[f]])),
+            ...Object.fromEntries(['subject', 'body'].filter((x) => typeof p[x] === 'string').map((x) => [x, p[x]])),
           }
         : action === 'mark'
           ? OUTCOMES.includes(p.outcome)
@@ -73,7 +186,8 @@ export function fwdCallFor(req) {
           : {};
   if (!body) return null;
   return {
-    path: `/supervisor/flows/${encodeURIComponent(req.flow)}/drafts/${encodeURIComponent(req.draft_id)}/${action}`,
+    method: 'POST',
+    path: `/supervisor/flows/${f}/drafts/${encodeURIComponent(req.draft_id)}/${action}`,
     body,
   };
 }

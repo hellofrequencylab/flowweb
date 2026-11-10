@@ -1,9 +1,9 @@
 // FW-C-049: the Owner's lead hunts on the flow page. Lists the saved hunts with Run and Delete, saves a
 // new one (with the pages to search first, one per line), and adds an address or an @domain to
 // do-not-contact, for an organizer who replied "no". Every write goes through fwd, which does the checking.
-import { type FormEvent, useCallback, useEffect, useId, useState } from 'react';
+// FW-C-062: on flowweb.app the same writes are queued and applied on the Owner's Mac by the relay.
+import { type FormEvent, useCallback, useEffect, useId, useRef, useState } from 'react';
 import { type LeadHunt, leadHunts } from '../api/client';
-import { HOSTED } from '../hosted/auth';
 import { Button } from '../ui-kit/Button';
 import { when } from '../ui-kit/time';
 
@@ -11,6 +11,7 @@ type Region = { id: string; name: string };
 type Said = { tone: 'ok' | 'warn'; text: string } | null;
 
 const message = (e: unknown) => (e instanceof Error ? e.message : String(e));
+const QUEUED: Said = { tone: 'ok', text: 'Sent to your Mac. Waiting for it to answer.' };
 
 function Outcome({ said }: { said: Said }) {
   if (!said) return null;
@@ -41,7 +42,13 @@ export function LeadHunts({ regions }: { regions: Region[] }) {
   }, [load]);
 
   const regionName = (r: string) => regions.find((x) => x.id === r)?.name ?? r;
+  const wasQueued = useRef(false);
+  const queued = () => {
+    wasQueued.current = true;
+    setListSaid(QUEUED);
+  };
   const act = async (fn: () => Promise<string>) => {
+    wasQueued.current = false;
     setListSaid(null);
     try {
       setListSaid({ tone: 'ok', text: await fn() });
@@ -49,16 +56,18 @@ export function LeadHunts({ regions }: { regions: Region[] }) {
       setListSaid({ tone: 'warn', text: message(e) });
     }
     await load();
+    // On the live site the list is a copy the Mac refreshes right after a change.
+    if (wasQueued.current) window.setTimeout(() => void load(), 8000);
   };
   const runNow = (h: LeadHunt) =>
     act(async () => {
-      const r = await leadHunts.run(h.id);
+      const r = await leadHunts.run(h.id, queued);
       return `${h.name}: ${r.outcome}${r.reason ? `, ${r.reason}` : ''}.`;
     });
   const remove = (h: LeadHunt) => {
     if (!window.confirm(`Delete the hunt "${h.name}"? Drafts it already made stay.`)) return;
     void act(async () => {
-      await leadHunts.remove(h.id);
+      await leadHunts.remove(h.id, queued);
       return `Deleted ${h.name}.`;
     });
   };
@@ -85,36 +94,25 @@ export function LeadHunts({ regions }: { regions: Region[] }) {
                   {` · last run ${h.last_run_at ? when(h.last_run_at) : 'never'}`}
                 </span>
               </div>
-              {!HOSTED && (
-                <div className="row">
-                  <Button
-                    className="btn-small"
-                    onClick={() => void runNow(h)}
-                    aria-label={`Run ${h.name} now`}
-                  >
-                    Run now
-                  </Button>
-                  <Button
-                    className="btn-small"
-                    variant="quiet"
-                    onClick={() => remove(h)}
-                    aria-label={`Delete ${h.name}`}
-                  >
-                    Delete
-                  </Button>
-                </div>
-              )}
+              <div className="row">
+                <Button className="btn-small" onClick={() => void runNow(h)} aria-label={`Run ${h.name} now`}>
+                  Run now
+                </Button>
+                <Button
+                  className="btn-small"
+                  variant="quiet"
+                  onClick={() => remove(h)}
+                  aria-label={`Delete ${h.name}`}
+                >
+                  Delete
+                </Button>
+              </div>
             </li>
           ))}
         </ul>
       )}
       <Outcome said={listSaid} />
-      {HOSTED ? (
-        // The live site is a read-only mirror: a save here would be refused, so offer the command instead.
-        <p className="muted small">
-          Add, run or remove a hunt, or block an address, on your Mac with <code>pnpm fw hunt</code>.
-        </p>
-      ) : (
+      {
         <>
           <details className="fold">
             <summary>
@@ -135,7 +133,7 @@ export function LeadHunts({ regions }: { regions: Region[] }) {
             </div>
           </details>
         </>
-      )}
+      }
     </section>
   );
 }
@@ -159,18 +157,21 @@ function NewHunt({ regions, saved }: { regions: Region[]; saved: () => Promise<v
     setBusy(true);
     setSaid(null);
     try {
-      const h = await leadHunts.save({
-        name: v.name.trim(),
-        looking_for: v.looking_for.trim(),
-        region: v.region,
-        links: v.links
-          .split('\n')
-          .map((l) => l.trim())
-          .filter(Boolean),
-        every_days: Number(v.every),
-        max_sends: Number(v.max),
-        build,
-      });
+      const h = await leadHunts.save(
+        {
+          name: v.name.trim(),
+          looking_for: v.looking_for.trim(),
+          region: v.region,
+          links: v.links
+            .split('\n')
+            .map((l) => l.trim())
+            .filter(Boolean),
+          every_days: Number(v.every),
+          max_sends: Number(v.max),
+          build,
+        },
+        () => setSaid(QUEUED),
+      );
       setSaid({ tone: 'ok', text: `Saved ${h.name}.` });
       setV({ ...v, name: '', looking_for: '', links: '' });
       setBuild(false);
@@ -239,7 +240,7 @@ function Block() {
     setBusy(true);
     setSaid(null);
     try {
-      const r = await leadHunts.block(address.trim(), reason.trim());
+      const r = await leadHunts.block(address.trim(), reason.trim(), () => setSaid(QUEUED));
       setSaid({
         tone: 'ok',
         text: `${r.blocked} ${r.already ? 'was already' : 'is now'} on the do-not-contact list.`,
