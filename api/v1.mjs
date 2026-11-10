@@ -4,7 +4,7 @@
 // It holds no secrets: it forwards the signed-in Owner's own Supabase token to PostgREST, and
 // row-level security decides what that token may read. Writes that only fwd can make (approve,
 // kill switch, answer a card) are refused with 501 and a reason, never faked.
-import { resolveRead } from '../hosted/server/mirror.mjs';
+import { resolveRead, routeOfUrl } from '../hosted/server/mirror.mjs';
 
 const SUPABASE_URL = (process.env.SUPABASE_URL ?? process.env.VITE_SUPABASE_URL ?? '').replace(/\/$/, '');
 const ANON_KEY = process.env.SUPABASE_ANON_KEY ?? process.env.VITE_SUPABASE_ANON_KEY ?? '';
@@ -17,11 +17,7 @@ const json = (status, body, extra = {}) =>
 const err = (status, code, message, details = {}) => json(status, { error: { code, message, details } });
 
 function routeOf(request) {
-  const url = new URL(request.url);
-  const p = url.searchParams.get('__p') ?? '';
-  url.searchParams.delete('__p');
-  const path = `/${p}`.replace(/\/+/g, '/').replace(/\/$/, '') || '/';
-  return { path, params: url.searchParams };
+  return routeOfUrl(request.url);
 }
 
 function bearer(request) {

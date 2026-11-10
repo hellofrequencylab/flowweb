@@ -4,6 +4,20 @@
 // always the time fwd read its own database, never the time the mirror was read, so the UI
 // shows true data age.
 
+/**
+ * The /v1 path and query of a request rewritten by vercel.json (`/v1/:path*` -> `/api/v1?__p=:path*`).
+ * Vercel also copies the named segment into the query (as `path=...`); that copy is not part of
+ * the caller's query and must not reach the mirror key, or every detail read misses.
+ */
+export function routeOfUrl(href) {
+  const url = new URL(href);
+  const p = url.searchParams.get('__p') ?? '';
+  url.searchParams.delete('__p');
+  for (const [k, v] of [...url.searchParams]) if (v === p) url.searchParams.delete(k);
+  const path = `/${p}`.replace(/\/+/g, '/').replace(/\/$/, '') || '/';
+  return { path, params: url.searchParams };
+}
+
 /** Sorted query string so the relay and the server agree on keys. */
 export function mirrorKey(path, params) {
   const p = new URLSearchParams(params);
