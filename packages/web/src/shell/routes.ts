@@ -23,7 +23,7 @@ const EXACT: Record<string, Route> = {
   '/inbox': 'inbox',
   '/table': 'inbox',
   '/growth': 'growth',
-  '/flows': 'growth',
+  '/flows': 'today',
   '/growth/admin': 'growth-admin',
   '/hood': 'logs',
   '/ledger': 'logs',
@@ -36,6 +36,7 @@ const EXACT: Record<string, Route> = {
 };
 
 const PARAM: [string, Route][] = [
+  ['/flows/:key', 'growth'],
   ['/inbox/:card', 'card'],
   ['/table/:card', 'card'],
   ['/evidence/:id', 'evidence'],
@@ -61,18 +62,17 @@ export function paramOf(path: string): string {
 }
 
 /** Which of the four nav tabs an address belongs to. Settings and Get started belong to none. */
-export type Tab = '/' | '/inbox' | '/growth' | '/hood';
+export type Tab = '/' | '/inbox' | '/hood';
 export function tabOf(path: string): Tab | null {
   switch (routeOf(path)) {
     case 'today':
+    case 'growth':
+    case 'growth-admin':
       return '/';
     case 'inbox':
     case 'card':
     case 'evidence':
       return '/inbox';
-    case 'growth':
-    case 'growth-admin':
-      return '/growth';
     case 'logs':
     case 'row':
     case 'runs':
