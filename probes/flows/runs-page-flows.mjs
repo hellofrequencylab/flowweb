@@ -1,4 +1,4 @@
-// Probe for FW-C-065 (flow runs on the Runs page): `pnpm probe flows/runs-page-flows`.
+// Probe for FW-C-075 (flow runs on the Runs page): `pnpm probe flows/runs-page-flows`.
 // probe-timeout-s: 180
 // Tier 0.
 // Surface: packages/web/src/runs/RunsPage.tsx (the /runs page). Its checks are in
@@ -31,7 +31,7 @@ await probe(NAME, async () => {
   // 1. The page (or the client it calls) reads flow reports.
   const client = readFileSync(join(root, 'packages/web/src/api/client.ts'), 'utf8');
   if (!/status-reports[^\n]*kind:\s*'run'/.test(client))
-    missing('the web client never asks fwd for flow cycle reports (status-reports kind run) (row FW-C-065)');
+    missing('the web client never asks fwd for flow cycle reports (status-reports kind run) (row FW-C-075)');
 
   // 2. The component checks.
   const mods = join(root, 'packages/web/node_modules');
