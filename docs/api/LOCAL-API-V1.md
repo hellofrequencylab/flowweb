@@ -28,7 +28,7 @@ Errors: `{ "error": { "code": "not_found" | "validation_failed" | "kill_switch_e
 | Route | Returns | Notes |
 |---|---|---|
 | `GET /status` | `{ daemon: "up", version, started_at, kill: {engaged, engaged_at, reason, runs_to_halt, runs_halted, keys_revoked}, chain: {ok, head_seq, head_hash, verified_at, failed_seq}, spend: {today_usd, daily_cap_usd, vendors_reporting[]}, breaker: {tripped, reason}, paused_by_budget, sandbox_level, open_cards, oldest_open_card_at, running_runs }` | Status strip. Cheap; poll or use SSE. The UI says Stopping until `runs_halted == runs_to_halt`. |
-| `GET /status-reports?kind=daily&limit=1` | `status_reports` rows, `body` parsed; self-check at `body.self_check {passed, failed_query_ids[]}` | Dawn Log. Empty until the digest stream (FW-C-023, C2). |
+| `GET /status-reports?kind=daily&limit=1` | `status_reports` rows, `body` parsed; self-check at `body.self_check {passed, failed_query_ids[]}` | Console. Empty until the digest stream (FW-C-023, C2). |
 | `GET /policy` | `{ path, commit, sha256, text }` | Read-only Settings view. |
 | `GET /session` | `{ paired_at, device_label }` | C2 with pairing. |
 | `GET /projects?brand=&category=`, `GET /projects/{id}` | `projects` rows, plus `brand` and `category` | `brand` matches ignoring case and outer spaces. |
@@ -36,7 +36,7 @@ Errors: `{ "error": { "code": "not_found" | "validation_failed" | "kill_switch_e
 | `GET /ledger/rows/{id}` | row plus `evidence: evidence_bundles[]`, `runs: runs[]` (summary) | |
 | `GET /runs?status=&row_id=`, `GET /runs/{id}` | `runs` rows (with `cost_usd`, `sandbox_level`, `artifact_verified`); `/runs/{id}` adds `artifacts[]` (`run_artifacts` rows) | |
 | `GET /runs/{id}/steps` | `run_steps` rows, seq order | Platform-written trace. |
-| `GET /evidence-bundles/{id}` | `evidence_bundles` row; `body` parsed (exactly `evidence-bundle.json`), plus a derived `view`: `probe {exit_code, output_tail (last 4 KB, redacted), duration_ms}`, `diff {hash, files: [{path, added, removed}]}`, `policy [{rule, verdict, detail}]`, `sandbox {level, controls}`, `adapter {name, version, help_sha256}` | The Captain's Table evidence view. `view` is computed from `body.automated_evidence`, `body.intent_payload` and `body.provenance`; any part the bundle does not prove is null. |
+| `GET /evidence-bundles/{id}` | `evidence_bundles` row; `body` parsed (exactly `evidence-bundle.json`), plus a derived `view`: `probe {exit_code, output_tail (last 4 KB, redacted), duration_ms}`, `diff {hash, files: [{path, added, removed}]}`, `policy [{rule, verdict, detail}]`, `sandbox {level, controls}`, `adapter {name, version, help_sha256}` | The Sign-offs evidence view. `view` is computed from `body.automated_evidence`, `body.intent_payload` and `body.provenance`; any part the bundle does not prove is null. |
 | `GET /evidence-bundles/{id}/diff` | `text/x-diff`: the exact bytes whose sha256 is `body.intent_payload.payload_hash` (= `view.diff.hash`) | Covered by the approval's `payload_hash`. |
 | `GET /events?after_seq=&type=&run_id=` | `events` rows | Payloads are already redacted. |
 | `GET /events/stream` | SSE; `event: fw` lines carrying the event row; `id:` = seq; honors `Last-Event-ID` | Live updates. Heartbeat comment every 15 s. |

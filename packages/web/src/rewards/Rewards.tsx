@@ -27,7 +27,7 @@ export function TableCleared({
       </span>
       <div>
         <p style={{ margin: 0 }}>
-          <strong>Table cleared.</strong>{' '}
+          <strong>All signed off.</strong>{' '}
           {still
             ? ''
             : `Cleared ${count} decision${count === 1 ? '' : 's'} in ${minutes} minute${minutes === 1 ? '' : 's'}.`}
@@ -50,8 +50,8 @@ function seen(): Set<string> {
   }
 }
 
-/** Cargo landed: a row's probe passed on the merged code. Shown once per row per browser. */
-export function CargoLanded({
+/** Landed and proven: a row's probe passed on the merged code. Shown once per row per browser. */
+export function LandedProven({
   rowId,
   ledgerRowId,
   title,
@@ -81,7 +81,7 @@ export function CargoLanded({
         <Icon name="done" size={16} />
       </span>
       <span className="reward-text">
-        <strong>Cargo landed.</strong>{' '}
+        <strong>Landed and proven.</strong>{' '}
         <span className="visually-hidden">
           {rowId} {title}.{' '}
         </span>
@@ -92,7 +92,7 @@ export function CargoLanded({
         type="button"
         className="icon-btn"
         onClick={() => setShow(false)}
-        aria-label={`Dismiss cargo landed for ${rowId}`}
+        aria-label={`Dismiss landed and proven for ${rowId}`}
       >
         <Icon name="x" size={16} />
       </button>

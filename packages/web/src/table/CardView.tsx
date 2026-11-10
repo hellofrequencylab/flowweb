@@ -522,7 +522,7 @@ function StaleChange({ card }: { card: ApproveCard }) {
         </Link>
       ) : (
         <p className="small">
-          A new request will appear on the table when fwd has collected evidence for the new code.
+          A new request will appear in Sign-offs when fwd has collected evidence for the new code.
         </p>
       )}
     </div>

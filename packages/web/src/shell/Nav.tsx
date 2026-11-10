@@ -3,9 +3,9 @@ import { Icon, type IconName } from '../ui-kit/Icon';
 import { Link, useRouter } from './router';
 
 const ITEMS: { to: string; label: string; short: string; icon: IconName; count?: boolean }[] = [
-  { to: '/', label: 'Dawn Log', short: 'Dawn', icon: 'dawn' },
-  { to: '/table', label: "Captain's Table", short: 'Table', icon: 'table', count: true },
-  { to: '/ledger', label: 'Projects and ledger', short: 'Ledger', icon: 'ledger' },
+  { to: '/', label: 'Console', short: 'Console', icon: 'console' },
+  { to: '/table', label: 'Sign-offs', short: 'Sign-offs', icon: 'signoffs', count: true },
+  { to: '/ledger', label: 'Logs', short: 'Logs', icon: 'logs' },
   { to: '/runs', label: 'Runs', short: 'Runs', icon: 'runs' },
   { to: '/spend', label: 'Spend', short: 'Spend', icon: 'spend' },
   { to: '/flows', label: 'Flows', short: 'Flows', icon: 'flows' },
@@ -51,7 +51,7 @@ export function TopNav() {
   );
 }
 
-/** Bottom tab bar on phones: Dawn, Table, Ledger, More. */
+/** Bottom tab bar on phones: Console, Sign-offs, Logs, More. */
 export function BottomNav() {
   const { loc } = useRouter();
   const tabs = [...ITEMS.slice(0, 3), { to: '/more', label: 'More', short: 'More', icon: 'more' as const }];
@@ -89,7 +89,7 @@ export function MorePage() {
       desc: 'Marketing engine: rings, saturation, drafts waiting for you',
       icon: 'flows',
     },
-    { to: '/projects', label: 'Projects', desc: 'Repositories FlowWeb works in', icon: 'ledger' },
+    { to: '/projects', label: 'Projects', desc: 'Repositories FlowWeb works in', icon: 'logs' },
     {
       to: '/settings',
       label: 'Settings and kill switch',

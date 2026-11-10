@@ -114,7 +114,7 @@ export function TablePage({ cardId }: { cardId?: string }) {
     <>
       <PageHead
         overline="Decisions waiting on you"
-        title="Captain's Table"
+        title="Sign-offs"
         lede={
           <>
             {list.honesty === 'current' && cards.length > 0
@@ -136,7 +136,7 @@ export function TablePage({ cardId }: { cardId?: string }) {
         </div>
       )}
 
-      {list.honesty === 'loading' && <Loading what="the table" />}
+      {list.honesty === 'loading' && <Loading what="sign-offs" />}
       {!list.data && list.honesty !== 'loading' && (
         <LoadError what="the decision cards" error={list.error} onRetry={list.reload} />
       )}
@@ -148,7 +148,7 @@ export function TablePage({ cardId }: { cardId?: string }) {
           {cleared && prefs.rewards && prefs.rewardTableCleared ? (
             <TableCleared count={cleared.count} minutes={cleared.minutes} checkedAt={list.asOf!} />
           ) : (
-            <Empty title="Table's clear.">
+            <Empty title="All signed off.">
               Nothing needs you. <span className="muted">Checked {clock(list.asOf)}.</span>
             </Empty>
           )}

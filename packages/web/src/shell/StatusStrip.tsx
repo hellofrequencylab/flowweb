@@ -51,7 +51,7 @@ export function StatusStrip({ onStop }: { onStop: () => void }) {
   return (
     <header className="topbar">
       <div className="topbar-row">
-        <Link to="/" className="brand" aria-label="FlowWeb, Dawn Log">
+        <Link to="/" className="brand" aria-label="FlowWeb, Console">
           <Logo />
         </Link>
         <TopNav />

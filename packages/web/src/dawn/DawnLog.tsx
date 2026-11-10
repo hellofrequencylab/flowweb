@@ -3,7 +3,7 @@ import { useLive, useStatusResource } from '../api/live';
 import { useResource } from '../api/resource';
 import type { DawnLog as Dawn, Status } from '../api/types';
 import { UNREACHABLE } from '../hosted/auth';
-import { CargoLanded } from '../rewards/Rewards';
+import { LandedProven } from '../rewards/Rewards';
 import { usePrefs } from '../shell/prefs';
 import { Link } from '../shell/router';
 import { AsOf, Empty, Fact, LoadError, Loading, StaleNotice } from '../ui-kit/honest';
@@ -60,7 +60,7 @@ export function DawnLog() {
     <>
       <PageHead
         script={greeting(now)}
-        title="Dawn Log"
+        title="Console"
         lede={
           <>
             {d ? <Summary d={d} s={s} honest={honest} /> : <span>Summary unknown until fwd answers.</span>}
@@ -89,7 +89,7 @@ export function DawnLog() {
 
           {isQuiet(d, s) && dawn.honesty === 'current' ? (
             <Empty title="All quiet">
-              Nothing changed since {clock(d.since)}. Checked: ledger, runs, spend, decision cards.
+              Nothing changed since {clock(d.since)}. Checked: logs, runs, spend, sign-offs.
             </Empty>
           ) : null}
 
@@ -101,7 +101,7 @@ export function DawnLog() {
               meta={`${d.rows_done.length} row${d.rows_done.length === 1 ? '' : 's'}`}
             />
             {d.rows_done.length === 0 ? (
-              <Empty>No rows reached Done. Checked the ledger at {clock(d.data_as_of)}.</Empty>
+              <Empty>No rows reached Done. Checked the logs at {clock(d.data_as_of)}.</Empty>
             ) : (
               <ul className="item-list">
                 {d.rows_done.map((r) => (
@@ -120,7 +120,7 @@ export function DawnLog() {
                         </Link>
                       </span>
                       {rewards && r.probe_status === 'pass' && r.merged_sha && (
-                        <CargoLanded
+                        <LandedProven
                           rowId={r.row_id}
                           ledgerRowId={r.ledger_row_id}
                           title={r.title}
@@ -285,7 +285,7 @@ function NeedsStrip({ res, now }: { res: ReturnType<typeof useStatusResource>; n
         )}
       </span>
       <Link to="/table" className="btn btn-primary">
-        Open the Table <Icon name="arrow-right" />
+        Open Sign-offs <Icon name="arrow-right" />
       </Link>
     </section>
   );

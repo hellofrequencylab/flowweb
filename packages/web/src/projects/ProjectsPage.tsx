@@ -215,7 +215,7 @@ export function ProjectsPage() {
         }}
       </ResourceView>
       <p>
-        <Link to="/ledger">Open the ledger</Link>
+        <Link to="/ledger">Open Logs</Link>
       </p>
     </>
   );

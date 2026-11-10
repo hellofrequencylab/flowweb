@@ -78,7 +78,7 @@ export interface Integrity {
   failed_at_seq?: number | null;
 }
 
-/* ---------- Dawn Log ---------- */
+/* ---------- Console ---------- */
 
 export interface DawnLog extends Envelope {
   /** null when no digest exists yet, or it failed its own check: the screen shows live counts, labelled. */
@@ -106,7 +106,7 @@ export interface LandedRow {
   probe_at?: Iso;
 }
 
-/* ---------- Captain's Table ---------- */
+/* ---------- Sign-offs ---------- */
 
 export type CardVariant = 'approve' | 'choose' | 'answer' | 'review' | 'unblock';
 export type Urgency = 'now' | 'today' | 'this_week' | 'whenever';
