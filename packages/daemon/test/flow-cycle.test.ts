@@ -125,6 +125,11 @@ test("the flow's engine picks the adapter and its sign-in lane", async () => {
     { flow: KEY, streamId, fireId: 'fire3' },
   );
   expect(r.seen.name).toBe('codex');
+  // The order lets the agent write drafts.json: nothing it must write is forbidden.
+  const scope = (r.seen.input as { work_order: { scope: { touches: string[]; forbidden: string[] } } })
+    .work_order.scope;
+  expect(scope.touches).toContain('drafts.json');
+  expect(scope.forbidden.some((g) => g === '**/*' || g === '**' || g === 'drafts.json')).toBe(false);
   // Codex refuses to start outside a git repository, so the cycle folder is one.
   expect(existsSync(join(home, 'flows', KEY, 'cycles', 'fire3', '.git'))).toBe(true);
   expect(r.seen.options).toMatchObject({ codex: { auth: 'signin' }, env: { FW_CODEX_AUTH: 'signin' } });
@@ -226,4 +231,65 @@ test('at confirmed Autopilot a cycle hands its drafts to the outbox, once', asyn
   });
   expect(again.outcome).toBe('queued');
   expect(existsSync(join(outbox, files[0]!))).toBe(false);
+});
+
+test('aborting a cycle kills the vendor and still writes a report', async () => {
+  const { home, w, streamId } = cycleHome();
+  let killed: string | undefined;
+  let finish: (r: unknown) => void = () => {};
+  const factory = (() => ({
+    start: () => ({
+      events: (async function* () {})(),
+      result: new Promise((ok) => {
+        finish = ok;
+      }),
+      kill: async (why: string) => {
+        killed = why;
+        finish({ status: 'killed', summary: why, turns: 0, cost: { usd: 0 } });
+      },
+    }),
+  })) as never;
+  const ac = new AbortController();
+  const done = runFlowCycle(
+    {
+      writer: w,
+      repoRoot: REPO_ROOT,
+      fwHome: home,
+      env: {},
+      keychain: false,
+      adapterFactory: factory,
+      signal: ac.signal,
+    },
+    { flow: KEY, streamId, fireId: 'fire7' },
+  );
+  await new Promise((ok) => setTimeout(ok, 20));
+  ac.abort('fwd stopping');
+  await done;
+  expect(killed).toMatch(/interrupted: fwd stopping/);
+  const rpt = w.get<{ body: string }>("SELECT body FROM status_reports WHERE kind = 'run'");
+  expect(JSON.parse(rpt!.body)).toMatchObject({ outcome: 'failed', reason: expect.stringMatching(/killed/) });
+});
+
+test('drafts written without a named artifact still count (a cycle commits nothing)', async () => {
+  const { home, w, streamId } = cycleHome();
+  const dir = join(home, 'flows', KEY, 'cycles', 'fire8');
+  const factory = (() => ({
+    start: () => {
+      writeFileSync(
+        join(dir, 'drafts.json'),
+        JSON.stringify({ drafts: [{ id: 'a', send_via: 'founder_email', body: 'Hello' }] }),
+      );
+      return {
+        events: (async function* () {})(),
+        result: Promise.resolve({ status: 'failed', turns: 1, cost: { usd: 0.01 } }),
+        meta: Promise.resolve({ failure_class: 'no_artifact' }),
+      };
+    },
+  })) as never;
+  await runFlowCycle(
+    { writer: w, repoRoot: REPO_ROOT, fwHome: home, env: {}, keychain: false, adapterFactory: factory },
+    { flow: KEY, streamId, fireId: 'fire8' },
+  );
+  const rpt = w.get<{ body: string }>("SELECT body FROM status_reports WHERE kind = 'run'");
+  expect(JSON.parse(rpt!.body)).toMatchObject({ outcome: 'drafted', drafts: 1 });
 });
