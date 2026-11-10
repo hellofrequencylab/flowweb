@@ -37,6 +37,13 @@ import { runStart } from './pipeline/run-start.ts';
 import { type ReconcileReport, reconcileOnStart } from './reconciler.ts';
 import { RunHost } from './run-host.ts';
 import { createScheduler, type OnFire, type Scheduler } from './scheduler/index.ts';
+import {
+  DIGEST_STREAM_KEY,
+  digestDue,
+  digestStreams,
+  publishForStream,
+  registerDigestStreams,
+} from './streams/digest/index.ts';
 
 export const DEFAULT_PORT = 7317;
 /** How long a stop waits for interrupted runs to be recorded before it gives up (clean: false). */
@@ -434,6 +441,18 @@ export async function startDaemon(opts: DaemonOptions): Promise<Daemon> {
     opts.onFire ??
     (async (f) => {
       const v = await supervise(f);
+      // FW-C-061: an admitted fire of a digest stream publishes that project's digest.
+      if (v.outcome === 'admit' && f.streamKey === DIGEST_STREAM_KEY)
+        setImmediate(() => {
+          if (stopped) return;
+          try {
+            const r = publishForStream(writer, f.streamId, f.dueAt);
+            if (r && !r.published)
+              log(`digest: not published, it failed its check (${r.problems.length} problem(s))`);
+          } catch (e) {
+            log(`digest: publish failed: ${(e as Error)?.message ?? e}`);
+          }
+        });
       if (v.outcome === 'admit' && shippedFlows(REPO_ROOT).some((x) => x.key === f.streamKey))
         setImmediate(() => {
           if (stopped) return;
@@ -505,11 +524,19 @@ export async function startDaemon(opts: DaemonOptions): Promise<Daemon> {
   };
 
   try {
+    // FW-C-061: every project with a ledger gets its daily digest stream before the timers are armed.
+    registerDigestStreams(writer, { log });
     await scheduler.start();
   } catch (e) {
     await stop(`scheduler failed to start: ${(e as Error).message}`);
     throw e;
   }
+  // A digest missed while fwd was off or asleep is published now, not tomorrow.
+  for (const s of digestStreams(writer))
+    if (digestDue(writer, s))
+      scheduler
+        .fireNow(s.id, { ref: 'catch-up' })
+        .catch((e) => log(`digest: catch-up fire failed: ${(e as Error)?.message ?? e}`));
 
   return {
     fwHome,
