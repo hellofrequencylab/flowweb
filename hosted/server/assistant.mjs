@@ -71,49 +71,61 @@ export async function answerSetupQuestion(body, { env = {}, fetchImpl = fetch } 
         },
       },
     };
-  const key = env.FW_ASSISTANT_ANTHROPIC_KEY;
+  const key = String(env.FW_ASSISTANT_ANTHROPIC_KEY ?? '').trim();
   if (!key)
     return {
       status: 503,
       body: { error: { code: 'not_configured', message: 'The setup assistant has no AI on this site yet.' } },
     };
   const stage = STAGES.includes(b.stage) ? b.stage : 'unknown';
-  let res;
-  try {
-    res = await fetchImpl('https://api.anthropic.com/v1/messages', {
+  const call = (withFallback) =>
+    fetchImpl('https://api.anthropic.com/v1/messages', {
       method: 'POST',
       headers: {
         'x-api-key': key,
         'anthropic-version': '2023-06-01',
-        'anthropic-beta': 'server-side-fallback-2026-07-01',
+        ...(withFallback ? { 'anthropic-beta': 'server-side-fallback-2026-07-01' } : {}),
         'content-type': 'application/json',
       },
       body: JSON.stringify({
         model: ASSISTANT_MODEL,
         max_tokens: 2000,
         output_config: { effort: 'low' },
-        fallbacks: 'default',
+        ...(withFallback ? { fallbacks: 'default' } : {}),
         system: SYSTEM_PROMPT,
         messages: [{ role: 'user', content: `(Where they are in setup: ${stage}.)\n\n${question}` }],
       }),
     });
+  let res;
+  try {
+    res = await call(true);
+    // The refusal fallback is a beta; if the API turns the request down, ask once more without it.
+    if (res.status === 400) res = await call(false);
   } catch {
     return { status: 502, body: { error: { code: 'unreachable', message: 'The assistant could not be reached.' } } };
   }
-  if (!res.ok)
-    return { status: 502, body: { error: { code: 'upstream_failed', message: 'The assistant could not answer just now.' } } };
+  if (!res.ok) {
+    // One line for whoever runs the site: the HTTP status and the API's error type, never the question.
+    const type = (await res.json().catch(() => null))?.error?.type ?? 'unknown';
+    console.warn(`setup assistant: Anthropic API answered ${res.status} (${type})`);
+    const why =
+      res.status === 401 || res.status === 403
+        ? 'The site key was turned down. Check FW_ASSISTANT_ANTHROPIC_KEY in Vercel.'
+        : 'The assistant could not answer just now.';
+    return { status: 500, body: { error: { code: 'upstream_failed', message: why, upstream_status: res.status } } };
+  }
   const msg = await res.json().catch(() => null);
   if (!msg || msg.stop_reason === 'refusal')
-    return { status: 502, body: { error: { code: 'no_answer', message: 'The assistant could not answer that.' } } };
+    return { status: 500, body: { error: { code: 'no_answer', message: 'The assistant could not answer that.' } } };
   const answer = (msg.content ?? [])
     .filter((c) => c?.type === 'text')
     .map((c) => c.text)
     .join('')
     .trim();
   if (!answer)
-    return { status: 502, body: { error: { code: 'no_answer', message: 'The assistant could not answer that.' } } };
+    return { status: 500, body: { error: { code: 'no_answer', message: 'The assistant could not answer that.' } } };
   // An answer never carries a secret back either.
   if (looksLikeSecret(answer))
-    return { status: 502, body: { error: { code: 'no_answer', message: 'The assistant could not answer that.' } } };
+    return { status: 500, body: { error: { code: 'no_answer', message: 'The assistant could not answer that.' } } };
   return { status: 200, body: { data: { answer }, as_of: new Date().toISOString(), head_seq: null, next_cursor: null } };
 }
