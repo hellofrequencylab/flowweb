@@ -12,6 +12,7 @@ import * as hunts from '../flows/hunts.ts';
 import * as localSaturation from '../flows/local-saturation.ts';
 import * as neighborhoodActivation from '../flows/neighborhood-activation.ts';
 import * as naAdmin from '../flows/neighborhood-admin.ts';
+import * as outcomes from '../flows/outcomes.ts';
 import * as paidAds from '../flows/paid-ads.ts';
 import { type DraftView, editDraft, listDrafts, markDraft } from '../overseer/drafts.ts';
 import { SupervisorError, supervisorView } from '../overseer/index.ts';
@@ -216,6 +217,23 @@ function addFlowAdminRoutes(r: Router, deps: ApiDeps): void {
   }
   r.get(`${base}/config`, () => envelope(deps.reader, () => ({ data: load(new Date()).cfg })));
   addHuntRoutes(r, deps, base, load);
+  // FW-C-055: what became of the people the flow reached, pulled from Frequency (daily, or now).
+  r.get(`${base}/outcomes`, () =>
+    envelope(deps.reader, () => ({ data: outcomes.readOutcomes(deps.fwHome) })),
+  );
+  r.post(`${base}/outcomes/pull`, async () => {
+    try {
+      const data = await outcomes.pullOutcomes({
+        repoRoot: deps.repoRoot,
+        fwHome: deps.fwHome,
+        env: process.env,
+      });
+      return envelope(deps.reader, () => ({ data }));
+    } catch (e) {
+      if (!(e instanceof outcomes.PullError)) throw e;
+      throw new ApiError(e.status, e.status === 409 ? 'conflict' : 'unavailable', e.message);
+    }
+  });
   r.get(`${base}/leads.csv`, ({ req, res }) => {
     const now = new Date();
     const f = load(now);
