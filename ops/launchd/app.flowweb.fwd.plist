@@ -1,0 +1,37 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<!--
+  FW-C-029: keeps fwd running at login and starts it again if it stops or crashes. See ops/README.md.
+  Replace YOU with your macOS user name and NODE with the absolute path of a Node 22 binary
+  (for nvm: ~/.nvm/versions/node/v22.x.y/bin/node). Keep FW_CLAUDE_AUTH / FW_CODEX_AUTH only for
+  the sign-ins `pnpm fw accounts check` says work; delete the lines you do not use.
+  Never put a key or token in this file: fwd reads credentials from FW_HOME/creds.
+  Install: cp to ~/Library/LaunchAgents/, then
+    launchctl bootstrap gui/$(id -u) ~/Library/LaunchAgents/app.flowweb.fwd.plist
+  After a git pull: launchctl kickstart -k gui/$(id -u)/app.flowweb.fwd
+-->
+<plist version="1.0">
+<dict>
+  <key>Label</key><string>app.flowweb.fwd</string>
+  <key>ProgramArguments</key>
+  <array>
+    <string>NODE</string>
+    <string>--import</string>
+    <string>tsx</string>
+    <string>packages/daemon/src/bin.ts</string>
+  </array>
+  <key>WorkingDirectory</key><string>/Users/YOU/flowweb</string>
+  <key>EnvironmentVariables</key>
+  <dict>
+    <key>FW_HOME</key><string>/Users/YOU/.flowweb</string>
+    <key>FW_CLAUDE_AUTH</key><string>signin</string>
+    <key>FW_CODEX_AUTH</key><string>signin</string>
+    <key>PATH</key><string>/usr/local/bin:/opt/homebrew/bin:/usr/bin:/bin:/usr/sbin:/sbin</string>
+  </dict>
+  <key>RunAtLoad</key><true/>
+  <key>KeepAlive</key><true/>
+  <key>ThrottleInterval</key><integer>10</integer>
+  <key>StandardOutPath</key><string>/Users/YOU/.flowweb/logs/fwd.log</string>
+  <key>StandardErrorPath</key><string>/Users/YOU/.flowweb/logs/fwd.log</string>
+</dict>
+</plist>

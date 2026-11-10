@@ -1,0 +1,37 @@
+{
+  "id": "FW-C-050",
+  "title": "The Owner edits a flow draft's subject and text before it goes out",
+  "core_milestone": "C1",
+  "phase": 1,
+  "epic": "C1.5 First flow",
+  "priority": "P1",
+  "size": "M",
+  "lane": "workstreams",
+  "agent_suitability": "agent",
+  "gate": "owner-approval",
+  "depends_on": [
+    "FW-C-046"
+  ],
+  "description": "Drafts a flow cycle writes can be listed, approved and rejected (FW-C-046) but not changed, so the Owner rewrites them by hand outside FlowWeb. Add POST /v1/supervisor/flows/{key}/drafts/{id}/edit with { subject?, body? }, CLI token only. It rewrites the draft file atomically, keeps its status, stamps edited_at, and answers the draft. It answers 400 when neither field is given, a field is not a string, the body is empty, or a field is over 20,000 characters, and 409 with a reason starting handed_off once the draft is in the outbox (the outbox file is never changed). Approving an edited draft hands off the edited text. The CLI gains fw supervisor edit <flow> <id> [--subject <s>] [--body <b> | --body-file <path>] with --json. The list route answers edited_at when set.",
+  "acceptance": [
+    "Editing needs the CLI token (401 without)",
+    "An edit changes the subject and body the list shows, keeps the status and stamps edited_at",
+    "No fields, an empty body or a non-string field answers 400 and changes nothing",
+    "Approving an edited draft hands off the edited body; editing it afterwards answers 409 handed_off and leaves the outbox file as it was",
+    "fw supervisor edit <flow> <id> --subject .. --body .. --json edits a draft the same way"
+  ],
+  "verify_probe": "pnpm probe flows/draft-edit",
+  "files_hint": [
+    "packages/daemon/src/overseer/drafts.ts",
+    "packages/daemon/src/daemon.ts",
+    "packages/daemon/src/api/routes.ts",
+    "packages/daemon/src/local-client.ts",
+    "packages/daemon/src/overseer/index.ts",
+    "packages/daemon/test/",
+    "packages/cli/src/client.ts",
+    "packages/cli/src/commands/supervisor.ts",
+    "packages/cli/test/",
+    "docs/api/LOCAL-API-V1.md"
+  ],
+  "origin": "new Core row"
+}

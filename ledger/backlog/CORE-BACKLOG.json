@@ -4,7 +4,7 @@
     "profile": "core",
     "schema": "ledger-row/1",
     "generated": "2026-11-09",
-    "row_count": 83,
+    "row_count": 89,
     "conventions": {
       "verify_probe": "Same convention as 04-build-plan/backlog.json: 'pnpm probe <path>' runs probes/<path>.probe.ts, a Tier 0 file written before the implementation row starts and never edited by the agent doing the row. Every probe fails today because its target does not exist (a missing probe file exits 2, a missing behaviour exits 1). The probe pack for a milestone is committed by the Owner or a pair session before the milestone's rows start.",
       "status": "All rows start as open. Status lives only in the ledger database (imported with fw ledger sync), never in prose.",
@@ -28,7 +28,7 @@
       }
     },
     "full_plan_rows_included": 37,
-    "new_core_rows": 46
+    "new_core_rows": 52
   },
   "rows": [
     {
@@ -2944,6 +2944,204 @@
         "packages/cli/src/commands/supervisor.ts",
         "packages/cli/test/",
         "docs/api/LOCAL-API-V1.md"
+      ],
+      "origin": "new Core row"
+    },
+    {
+      "id": "FW-C-047",
+      "title": "The email sender never sends one message twice when Gmail's answer is lost",
+      "core_milestone": "C1",
+      "phase": 1,
+      "epic": "C1.5 First flow",
+      "priority": "P1",
+      "size": "S",
+      "lane": "workstreams",
+      "agent_suitability": "agent",
+      "gate": "owner-approval",
+      "depends_on": [
+        "FW-C-042"
+      ],
+      "description": "An audit on 10 Nov found that senders/email.mjs treats a timeout or a dropped connection after the message text as temporary and tries the item again. If Gmail kept the message but its answer never arrived, the organizer gets the same message twice, which is the thing the sender promises never to do. A connection the server closes without a word also leaves the pass waiting forever. The sender writes a line for the item to sent.jsonl just before it hands over the message text, so from then on the item and its address count as written to. A confirmed send moves to sent/ as before. A drop or timeout after the message text moves the item to failed/ with a reason that says it may have been delivered, so the Owner can check his Sent folder; it is never tried again. A drop before the message text still leaves the item for a later pass, and every pass ends.",
+      "acceptance": [
+        "A drop after the message text moves the item to failed/ saying it may have been delivered, and sent.jsonl names it",
+        "A drop at RCPT leaves the item in the outbox and it sends on the next pass",
+        "A new item to an address whose answer was lost is skipped; that address receives the message text exactly once",
+        "A pass ends on its own when the server closes the connection without answering"
+      ],
+      "verify_probe": "pnpm probe flows/sender-once",
+      "files_hint": [
+        "senders/"
+      ],
+      "origin": "new Core row"
+    },
+    {
+      "id": "FW-C-048",
+      "title": "The Owner saves, lists, runs and removes lead hunts, and blocks an address, from fw hunt",
+      "core_milestone": "C1",
+      "phase": 1,
+      "epic": "C1.5 First flow",
+      "priority": "P1",
+      "size": "M",
+      "lane": "workstreams",
+      "agent_suitability": "agent",
+      "gate": "owner-approval",
+      "depends_on": [
+        "FW-C-041"
+      ],
+      "description": "On 10 Nov the Owner chose to add hunts, and the pages they search first, from the CLI (`fw hunt add --link`) and the local app. Today the hunt routes exist in fwd but nothing in fw calls them, and an organizer who replies \"no\" can only be blocked with a raw API call. fw gains `fw hunt add` (--name, --looking-for, --region, repeatable --area and --link, --every, --max, --build), `fw hunt list`, `fw hunt run <id>`, `fw hunt remove <id>` and `fw hunt block <address or @domain> --reason <text>`. Each goes through fwd with the CLI token, using the existing hunt and do-not-contact routes; fwd's checks stay the only checks. With fwd down each exits non-zero and says fwd is not running. --json prints what fwd answers.",
+      "acceptance": [
+        "With fwd down, fw hunt list exits non-zero and says fwd is not running",
+        "fw hunt add saves a hunt with repeated --link and --area, --every, --max and --build; a link fwd refuses saves nothing and exits non-zero",
+        "fw hunt list prints the saved hunts, as JSON and as text",
+        "fw hunt block adds an address or an @domain to the flow's do-not-contact list; anything else is refused; --reason is required",
+        "fw hunt run fires the flow for that hunt; fw hunt remove deletes one"
+      ],
+      "verify_probe": "pnpm probe flows/hunt-cli",
+      "files_hint": [
+        "packages/cli/src/",
+        "packages/cli/test/",
+        "packages/daemon/src/local-client.ts",
+        "packages/daemon/src/fwd-client.ts"
+      ],
+      "origin": "new Core row"
+    },
+    {
+      "id": "FW-C-049",
+      "title": "The Owner saves, runs and deletes lead hunts, and blocks an address, on the local flow page",
+      "core_milestone": "C1",
+      "phase": 1,
+      "epic": "C1.5 First flow",
+      "priority": "P1",
+      "size": "M",
+      "lane": "workstreams",
+      "agent_suitability": "agent",
+      "gate": "owner-approval",
+      "depends_on": [
+        "FW-C-041"
+      ],
+      "description": "On 10 Nov the Owner chose to add hunts, and the pages they search first, on the local FlowWeb page as well as from fw. The flow page has no hunts section today, and an organizer who replies \"no\" can only be blocked by lead or url, not by address. packages/web gains a LeadHunts section on the flow page (/flows): the saved hunts with a run and a delete button each, a form for a new hunt (name, what to look for, region, pages to search first one per line, every how many days, most messages per run, and whether to build a page they can claim), and a form that adds an address or an @domain to do-not-contact with a reason. Everything goes through fwd's existing hunt and do-not-contact routes; fwd's refusal is shown as it came.",
+      "acceptance": [
+        "The flow page renders the Lead hunts section with the flow's regions",
+        "Saved hunts are listed with Run and Delete; Delete asks first",
+        "Saving posts name, looking_for, region, links (one per line, blanks dropped), every_days, max_sends and build, and reloads the list",
+        "fwd's refusal shows in an alert and the form keeps what was typed",
+        "An address or @domain with a reason goes to do-not-contact"
+      ],
+      "verify_probe": "pnpm probe ui/hunts",
+      "files_hint": [
+        "packages/web/src/flows/",
+        "packages/web/src/api/client.ts",
+        "packages/web/src/styles.css",
+        "packages/web/test/"
+      ],
+      "origin": "new Core row"
+    },
+    {
+      "id": "FW-C-050",
+      "title": "The Owner edits a flow draft's subject and text before it goes out",
+      "core_milestone": "C1",
+      "phase": 1,
+      "epic": "C1.5 First flow",
+      "priority": "P1",
+      "size": "M",
+      "lane": "workstreams",
+      "agent_suitability": "agent",
+      "gate": "owner-approval",
+      "depends_on": [
+        "FW-C-046"
+      ],
+      "description": "Drafts a flow cycle writes can be listed, approved and rejected (FW-C-046) but not changed, so the Owner rewrites them by hand outside FlowWeb. Add POST /v1/supervisor/flows/{key}/drafts/{id}/edit with { subject?, body? }, CLI token only. It rewrites the draft file atomically, keeps its status, stamps edited_at, and answers the draft. It answers 400 when neither field is given, a field is not a string, the body is empty, or a field is over 20,000 characters, and 409 with a reason starting handed_off once the draft is in the outbox (the outbox file is never changed). Approving an edited draft hands off the edited text. The CLI gains fw supervisor edit <flow> <id> [--subject <s>] [--body <b> | --body-file <path>] with --json. The list route answers edited_at when set.",
+      "acceptance": [
+        "Editing needs the CLI token (401 without)",
+        "An edit changes the subject and body the list shows, keeps the status and stamps edited_at",
+        "No fields, an empty body or a non-string field answers 400 and changes nothing",
+        "Approving an edited draft hands off the edited body; editing it afterwards answers 409 handed_off and leaves the outbox file as it was",
+        "fw supervisor edit <flow> <id> --subject .. --body .. --json edits a draft the same way"
+      ],
+      "verify_probe": "pnpm probe flows/draft-edit",
+      "files_hint": [
+        "packages/daemon/src/overseer/drafts.ts",
+        "packages/daemon/src/daemon.ts",
+        "packages/daemon/src/api/routes.ts",
+        "packages/daemon/src/local-client.ts",
+        "packages/daemon/src/overseer/index.ts",
+        "packages/daemon/test/",
+        "packages/cli/src/client.ts",
+        "packages/cli/src/commands/supervisor.ts",
+        "packages/cli/test/",
+        "docs/api/LOCAL-API-V1.md"
+      ],
+      "origin": "new Core row"
+    },
+    {
+      "id": "FW-C-051",
+      "title": "AI rewrites a flow draft from the Owner's instruction, for the Owner to review",
+      "core_milestone": "C1",
+      "phase": 1,
+      "epic": "C1.5 First flow",
+      "priority": "P1",
+      "size": "M",
+      "lane": "workstreams",
+      "agent_suitability": "agent",
+      "gate": "owner-approval",
+      "depends_on": [
+        "FW-C-050"
+      ],
+      "description": "The Owner can edit a draft (FW-C-050) but has no help rewriting it. Add POST /v1/supervisor/flows/{key}/drafts/{id}/rewrite with { instruction, subject?, body? }, CLI token only. fwd runs the flow's own engine (the same adapter, sign-in lane and credentials as its cycles) once in $FW_HOME/flows/<key>/rewrites/<id>-<time>/, with draft.json (the passed subject and body, else the draft's) and the instruction; the agent writes rewrite.json { subject, body }. fwd answers { id, subject, body, instruction } as a proposal and never changes the draft: the Owner saves it with an edit. The model spend is recorded in spend_entries (idempotency key flow_rewrite:<flow>:<id>:<time>) and counts toward the flow's weekly budget. It answers 400 for a missing or empty instruction (max 2,000 characters) and 409 with a reason when the draft is handed_off, the kill switch is on (kill_switch), the Supervisor is paused (paused), the flow's budget is spent (budget), or the engine fails or writes no body (engine_failed). The fake vendor gains a draft_rewrite scenario. The CLI gains fw supervisor rewrite <flow> <id> --how <text> [--json].",
+      "acceptance": [
+        "Rewriting needs the CLI token (401 without); a missing or empty instruction answers 400",
+        "A rewrite answers a proposed subject and body from the flow's engine and leaves the draft unchanged",
+        "A subject and body passed in are what gets rewritten",
+        "Each rewrite records model spend for the flow (spend_entries flow_rewrite:...)",
+        "A handed-off draft answers 409 handed_off; while the Supervisor is paused a rewrite answers 409 paused",
+        "fw supervisor rewrite <flow> <id> --how <text> --json answers a proposal"
+      ],
+      "verify_probe": "pnpm probe flows/draft-rewrite",
+      "files_hint": [
+        "packages/daemon/src/overseer/",
+        "packages/daemon/src/daemon.ts",
+        "packages/daemon/src/api/routes.ts",
+        "packages/daemon/src/local-client.ts",
+        "packages/daemon/test/",
+        "packages/adapters/src/fake/",
+        "packages/adapters/test/",
+        "packages/cli/src/client.ts",
+        "packages/cli/src/commands/supervisor.ts",
+        "packages/cli/test/",
+        "docs/api/LOCAL-API-V1.md"
+      ],
+      "origin": "new Core row"
+    },
+    {
+      "id": "FW-C-052",
+      "title": "Hunts skip organizers in the EU, the UK and Canada, and label each draft with how to send it",
+      "core_milestone": "C1",
+      "phase": 1,
+      "epic": "C1.5 First flow",
+      "priority": "P1",
+      "size": "M",
+      "lane": "workstreams",
+      "agent_suitability": "agent",
+      "gate": "owner-approval",
+      "depends_on": [
+        "FW-C-041"
+      ],
+      "description": "On 10 Nov the Owner said hunts must follow the rules, and asked to send each message the way the organizer can be reached. Today a hunt drafts for any organizer with a public address, wherever they are, and every lead must have an email, so an organizer who only lists a contact form or a social profile is dropped, and nothing tells the Owner how to send a draft. EU and EEA, UK and Canadian law (GDPR and ePrivacy, PECR, CASL) need consent for most cold messages, so fwd, not the model, now drops those leads: a lead whose event or organizer country is in the EU or EEA, the UK or Canada, or whose address, contact page, source page or event page is on one of their country domains (or .eu), is counted as restricted and gets no draft. A lead also says how the organizer can be reached (contact_via: email, form, social or platform, with a contact_url for the last three), and each kept draft carries send_via (email, contact_form, social_dm or platform_message) and one sentence saying how to send it. The Owner is on drafts only, so this is a label: a draft that is not an email never goes to the outbox, even at confirmed Autopilot, because form and platform rules ban automated sending. The cycle brief asks the adapter for country, contact_via and contact_url.",
+      "acceptance": [
+        "A lead in the EU or EEA, the UK or Canada, by country or by domain, gets no draft and counts as restricted in the run report",
+        "A lead reachable only by a public contact form or social profile is drafted with send_via contact_form or social_dm and a sentence naming the page to send it on; an email lead reads send_via email",
+        "Every draft still names the page the contact came from and has the reply no opt-out",
+        "At confirmed Autopilot only email drafts reach the outbox; the others wait for the Owner",
+        "The hunts and hunt-cli probes still pass"
+      ],
+      "verify_probe": "pnpm probe flows/hunt-reach",
+      "files_hint": [
+        "packages/daemon/src/flows/hunts.ts",
+        "packages/daemon/src/overseer/cycle.ts",
+        "packages/daemon/src/overseer/index.ts",
+        "packages/daemon/test/",
+        "packages/adapters/src/fake/",
+        "packages/adapters/test/"
       ],
       "origin": "new Core row"
     }

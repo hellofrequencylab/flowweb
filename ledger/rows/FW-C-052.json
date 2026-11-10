@@ -1,0 +1,33 @@
+{
+  "id": "FW-C-052",
+  "title": "Hunts skip organizers in the EU, the UK and Canada, and label each draft with how to send it",
+  "core_milestone": "C1",
+  "phase": 1,
+  "epic": "C1.5 First flow",
+  "priority": "P1",
+  "size": "M",
+  "lane": "workstreams",
+  "agent_suitability": "agent",
+  "gate": "owner-approval",
+  "depends_on": [
+    "FW-C-041"
+  ],
+  "description": "On 10 Nov the Owner said hunts must follow the rules, and asked to send each message the way the organizer can be reached. Today a hunt drafts for any organizer with a public address, wherever they are, and every lead must have an email, so an organizer who only lists a contact form or a social profile is dropped, and nothing tells the Owner how to send a draft. EU and EEA, UK and Canadian law (GDPR and ePrivacy, PECR, CASL) need consent for most cold messages, so fwd, not the model, now drops those leads: a lead whose event or organizer country is in the EU or EEA, the UK or Canada, or whose address, contact page, source page or event page is on one of their country domains (or .eu), is counted as restricted and gets no draft. A lead also says how the organizer can be reached (contact_via: email, form, social or platform, with a contact_url for the last three), and each kept draft carries send_via (email, contact_form, social_dm or platform_message) and one sentence saying how to send it. The Owner is on drafts only, so this is a label: a draft that is not an email never goes to the outbox, even at confirmed Autopilot, because form and platform rules ban automated sending. The cycle brief asks the adapter for country, contact_via and contact_url.",
+  "acceptance": [
+    "A lead in the EU or EEA, the UK or Canada, by country or by domain, gets no draft and counts as restricted in the run report",
+    "A lead reachable only by a public contact form or social profile is drafted with send_via contact_form or social_dm and a sentence naming the page to send it on; an email lead reads send_via email",
+    "Every draft still names the page the contact came from and has the reply no opt-out",
+    "At confirmed Autopilot only email drafts reach the outbox; the others wait for the Owner",
+    "The hunts and hunt-cli probes still pass"
+  ],
+  "verify_probe": "pnpm probe flows/hunt-reach",
+  "files_hint": [
+    "packages/daemon/src/flows/hunts.ts",
+    "packages/daemon/src/overseer/cycle.ts",
+    "packages/daemon/src/overseer/index.ts",
+    "packages/daemon/test/",
+    "packages/adapters/src/fake/",
+    "packages/adapters/test/"
+  ],
+  "origin": "new Core row"
+}

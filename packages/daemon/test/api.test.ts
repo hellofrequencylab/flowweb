@@ -63,6 +63,8 @@ describe('startup', () => {
     const failed = (await get(`/events?type=run.failed&run_id=${IDS.orphan}`)).json.data;
     expect(failed).toHaveLength(1);
     expect(failed[0].payload.previous_status).toBe('running');
+    // FW-C-029: the reason says the run was interrupted, so a restart after a crash reads as one.
+    expect(failed[0].payload.detail).toMatch(/^interrupted: /);
     const leases = d.writer.all<{ id: string; status: string }>('SELECT id, status FROM leases ORDER BY id');
     expect(Object.fromEntries(leases.map((l) => [l.id, l.status]))).toEqual({
       [IDS.lease]: 'active',

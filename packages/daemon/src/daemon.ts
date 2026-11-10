@@ -11,7 +11,8 @@ import { ApiError, sendError } from './api/http.ts';
 import { buildRouter, principalOf, type RunStartBody } from './api/routes.ts';
 import type { ChainStatus } from './api/status.ts';
 import { hostAllowed, PairingStore, writeOriginAllowed } from './auth.ts';
-import { runFlowCycle } from './overseer/cycle.ts';
+import { reapOrphanCycles, runFlowCycle } from './overseer/cycle.ts';
+import { approveDraft, rejectDraft } from './overseer/drafts.ts';
 import {
   createSupervisorOnFire,
   SupervisorError,
@@ -136,6 +137,12 @@ export async function startDaemon(opts: DaemonOptions): Promise<Daemon> {
       `reconciler: failed ${reconcile.runs_failed.length} orphaned run(s), released ${reconcile.leases_released.length} lease(s), expired ${reconcile.leases_expired.length} lease(s)`,
     );
   }
+  // FW-C-045: a flow cycle is not a ledger run, so the reconciler does not see one a crash interrupted.
+  try {
+    reapOrphanCycles(writer, REPO_ROOT, fwHome, log);
+  } catch (e) {
+    log(`supervisor: reaping orphaned cycles failed: ${(e as Error)?.message ?? e}`);
+  }
   opts.beforeListen?.(writer);
 
   // ---- chain check, cached ---------------------------------------------------------------
@@ -236,6 +243,8 @@ export async function startDaemon(opts: DaemonOptions): Promise<Daemon> {
       setFlowEnabled: (key, enabled) => setFlowEnabled(writer, REPO_ROOT, key, enabled),
       setPaused: (paused) => setPaused(writer, paused),
       setDial: (key, stop, confirm) => setDial(writer, REPO_ROOT, fwHome, key, stop, confirm),
+      approveDraft: (key, id) => approveDraft({ writer, repoRoot: REPO_ROOT, fwHome, flow: key, id }),
+      rejectDraft: (key, id) => rejectDraft({ repoRoot: REPO_ROOT, fwHome, flow: key, id }),
       runFlow: async (key) => {
         const s = writer.get<{ id: string }>('SELECT id FROM streams WHERE key = ?', [key]);
         if (!s || !shippedFlows(REPO_ROOT).some((f) => f.key === key))

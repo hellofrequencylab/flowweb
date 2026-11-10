@@ -280,10 +280,10 @@ export function createSupervisorOnFire(d: SupervisorDeps): OnFire {
 
 export class SupervisorError extends Error {
   // A plain field, not a parameter property: fwd runs this file with Node's type stripping.
-  readonly code: 'NOT_FOUND' | 'INVALID' | 'CONFIRM_REQUIRED';
+  readonly code: 'NOT_FOUND' | 'INVALID' | 'CONFIRM_REQUIRED' | 'CONFLICT';
   readonly details: Record<string, unknown>;
   constructor(
-    code: 'NOT_FOUND' | 'INVALID' | 'CONFIRM_REQUIRED',
+    code: 'NOT_FOUND' | 'INVALID' | 'CONFIRM_REQUIRED' | 'CONFLICT',
     message: string,
     details: Record<string, unknown> = {},
   ) {
@@ -435,6 +435,8 @@ export function handOff(o: {
   item: HandOffItem;
   engines?: Record<string, Engine>;
   now?: Date;
+  /** FW-C-046: the Owner approved this item (Copilot or Autopilot), so the autopilot gate does not apply. */
+  approved?: boolean;
 }): HandOffResult {
   const { writer: w, flow, item } = o;
   if (!shippedFlows(o.repoRoot).some((f) => f.key === flow))
@@ -445,6 +447,11 @@ export function handOff(o: {
     outcome: 'held',
     reason: `${why}: ${words}`,
   });
+  // FW-C-052: a hunt draft for a contact form, a social profile or an event platform is sent by hand:
+  // those sites ban automated messages, so it never goes to the outbox, approved or not.
+  const via = item.lead?.send_via;
+  if (typeof via === 'string' && via !== 'email')
+    return held('send_by_hand', `This draft is for ${via.replace('_', ' ')}, which the Owner sends by hand.`);
   if (killSwitch(w)) return held('kill_switch', 'The kill switch is engaged.');
   const s = readSettings(w);
   if (s.paused) return held('supervisor_paused', 'The Owner paused the Supervisor.');
@@ -457,14 +464,24 @@ export function handOff(o: {
   if (!facts) return held('no_engine', 'The flow has no working logic.');
   const set = s.flows[flow];
   if (set?.enabled !== true) return held('flow_disabled', 'The Owner has not turned this flow on.');
-  if ((set.dial ?? 'draft') !== 'autopilot')
-    return held('needs_owner', `At ${set.dial ?? 'draft'} every item waits for the Owner.`);
+  const stop = set.dial ?? 'draft';
   const hash = confirmHash(flow, facts);
-  if (set.dial_hash !== hash)
-    return held(
-      'dial_unapproved',
-      "The flow's channels or caps changed since the Owner confirmed Autopilot.",
-    );
+  if (o.approved) {
+    // FW-C-046: the Owner approved this one item. Copilot and Autopilot both allow that; at Draft the
+    // Owner sends by hand, so nothing goes to the outbox.
+    if (stop === 'draft')
+      return held(
+        'needs_copilot',
+        'At draft the Owner sends each item by hand; set the flow to copilot to approve items here.',
+      );
+  } else {
+    if (stop !== 'autopilot') return held('needs_owner', `At ${stop} every item waits for the Owner.`);
+    if (set.dial_hash !== hash)
+      return held(
+        'dial_unapproved',
+        "The flow's channels or caps changed since the Owner confirmed Autopilot.",
+      );
+  }
   if (!channelKeys(facts.outward).includes(item.channel))
     return held('unknown_channel', `${flow} does not list ${item.channel}.`);
   const dir = join(o.fwHome, 'outbox', flow);

@@ -1,0 +1,31 @@
+{
+  "id": "FW-C-048",
+  "title": "The Owner saves, lists, runs and removes lead hunts, and blocks an address, from fw hunt",
+  "core_milestone": "C1",
+  "phase": 1,
+  "epic": "C1.5 First flow",
+  "priority": "P1",
+  "size": "M",
+  "lane": "workstreams",
+  "agent_suitability": "agent",
+  "gate": "owner-approval",
+  "depends_on": [
+    "FW-C-041"
+  ],
+  "description": "On 10 Nov the Owner chose to add hunts, and the pages they search first, from the CLI (`fw hunt add --link`) and the local app. Today the hunt routes exist in fwd but nothing in fw calls them, and an organizer who replies \"no\" can only be blocked with a raw API call. fw gains `fw hunt add` (--name, --looking-for, --region, repeatable --area and --link, --every, --max, --build), `fw hunt list`, `fw hunt run <id>`, `fw hunt remove <id>` and `fw hunt block <address or @domain> --reason <text>`. Each goes through fwd with the CLI token, using the existing hunt and do-not-contact routes; fwd's checks stay the only checks. With fwd down each exits non-zero and says fwd is not running. --json prints what fwd answers.",
+  "acceptance": [
+    "With fwd down, fw hunt list exits non-zero and says fwd is not running",
+    "fw hunt add saves a hunt with repeated --link and --area, --every, --max and --build; a link fwd refuses saves nothing and exits non-zero",
+    "fw hunt list prints the saved hunts, as JSON and as text",
+    "fw hunt block adds an address or an @domain to the flow's do-not-contact list; anything else is refused; --reason is required",
+    "fw hunt run fires the flow for that hunt; fw hunt remove deletes one"
+  ],
+  "verify_probe": "pnpm probe flows/hunt-cli",
+  "files_hint": [
+    "packages/cli/src/",
+    "packages/cli/test/",
+    "packages/daemon/src/local-client.ts",
+    "packages/daemon/src/fwd-client.ts"
+  ],
+  "origin": "new Core row"
+}

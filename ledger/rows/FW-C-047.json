@@ -1,0 +1,27 @@
+{
+  "id": "FW-C-047",
+  "title": "The email sender never sends one message twice when Gmail's answer is lost",
+  "core_milestone": "C1",
+  "phase": 1,
+  "epic": "C1.5 First flow",
+  "priority": "P1",
+  "size": "S",
+  "lane": "workstreams",
+  "agent_suitability": "agent",
+  "gate": "owner-approval",
+  "depends_on": [
+    "FW-C-042"
+  ],
+  "description": "An audit on 10 Nov found that senders/email.mjs treats a timeout or a dropped connection after the message text as temporary and tries the item again. If Gmail kept the message but its answer never arrived, the organizer gets the same message twice, which is the thing the sender promises never to do. A connection the server closes without a word also leaves the pass waiting forever. The sender writes a line for the item to sent.jsonl just before it hands over the message text, so from then on the item and its address count as written to. A confirmed send moves to sent/ as before. A drop or timeout after the message text moves the item to failed/ with a reason that says it may have been delivered, so the Owner can check his Sent folder; it is never tried again. A drop before the message text still leaves the item for a later pass, and every pass ends.",
+  "acceptance": [
+    "A drop after the message text moves the item to failed/ saying it may have been delivered, and sent.jsonl names it",
+    "A drop at RCPT leaves the item in the outbox and it sends on the next pass",
+    "A new item to an address whose answer was lost is skipped; that address receives the message text exactly once",
+    "A pass ends on its own when the server closes the connection without answering"
+  ],
+  "verify_probe": "pnpm probe flows/sender-once",
+  "files_hint": [
+    "senders/"
+  ],
+  "origin": "new Core row"
+}
