@@ -4,7 +4,7 @@
     "profile": "core",
     "schema": "ledger-row/1",
     "generated": "2026-11-09",
-    "row_count": 100,
+    "row_count": 101,
     "conventions": {
       "verify_probe": "Same convention as 04-build-plan/backlog.json: 'pnpm probe <path>' runs probes/<path>.probe.ts, a Tier 0 file written before the implementation row starts and never edited by the agent doing the row. Every probe fails today because its target does not exist (a missing probe file exits 2, a missing behaviour exits 1). The probe pack for a milestone is committed by the Owner or a pair session before the milestone's rows start.",
       "status": "All rows start as open. Status lives only in the ledger database (imported with fw ledger sync), never in prose.",
@@ -28,7 +28,7 @@
       }
     },
     "full_plan_rows_included": 37,
-    "new_core_rows": 63
+    "new_core_rows": 64
   },
   "rows": [
     {
@@ -3547,6 +3547,39 @@
         "packages/web/src/ui-kit/Icon.tsx",
         "packages/web/test/",
         "packages/web/mock/"
+      ],
+      "origin": "new Core row"
+    },
+    {
+      "id": "FW-C-076",
+      "title": "The Owner works a draft with an AI assistant on the page: a back-and-forth where every version is kept and any one can be put back",
+      "core_milestone": "C1",
+      "phase": 1,
+      "epic": "C1.5 First flow",
+      "priority": "P1",
+      "size": "M",
+      "lane": "workstreams",
+      "agent_suitability": "agent",
+      "gate": "none",
+      "depends_on": [
+        "FW-C-066"
+      ],
+      "description": "The Owner asked for an AI agent that assists him while he rewrites his outreach drafts on flowweb.app. Today the viewer's Rewrite with AI box is one shot: each instruction rewrites the saved draft (or the editor text), the answer replaces what was in the editor, and there is no record of what was asked, no way back to an earlier version, and switching drafts loses it. Add DraftAssistant to packages/web/src/flows and render it from DraftEditor in place of the Rewrite with AI block. It is a conversation on the draft: a log of each instruction and the AI's version (or the reason it failed), the quick asks, and the instruction box. Each rewrite goes into the editor unsaved; the next instruction rewrites what is in the editor, so the Owner can say 'warmer', then 'now shorter'. Undo last rewrite, Back to the original and a Use this version button on every AI version put that text back in the editor. The conversation is kept per draft for the browser tab (sessionStorage, read and written in try/catch), so opening another draft and coming back keeps it. It uses the existing rewrite route (FW-C-051) through the live site's queue; nothing is saved until Save, and nothing is sent.",
+      "acceptance": [
+        "DraftEditor renders DraftAssistant",
+        "A rewrite shows the Owner's ask and the AI's version in a log named AI conversation, and puts the version in the editor without saving",
+        "A follow-up instruction rewrites the latest version",
+        "Undo last rewrite, Back to the original and Use this version put that text back in the editor",
+        "A failed rewrite shows its reason in the conversation and leaves the text as it was",
+        "The conversation is still there after opening another draft and coming back",
+        "Only Save posts the edit, with the version the Owner kept"
+      ],
+      "verify_probe": "pnpm probe flows/draft-assistant",
+      "files_hint": [
+        "packages/web/src/flows/DraftAssistant.tsx",
+        "packages/web/src/flows/DraftEditor.tsx",
+        "packages/web/src/ui-kit/flow.css",
+        "packages/web/test/"
       ],
       "origin": "new Core row"
     }
