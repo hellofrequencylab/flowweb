@@ -329,6 +329,8 @@ describe('the Supervisor hands finished Autopilot items to the outbox (FW-C-037)
   const channel = JSON.parse(readFileSync(join(repoRoot, 'flows', KEY, 'config.json'), 'utf8')).channels[0]
     .key as string;
 
+  const why = (r: { outcome: string; reason?: string }) => r.reason;
+
   test('queues once at confirmed Autopilot, holds at Draft, and refuses bad input', () => {
     const home = tempHome();
     try {
@@ -341,9 +343,9 @@ describe('the Supervisor hands finished Autopilot items to the outbox (FW-C-037)
             flow: KEY,
             item: { id, channel: ch, body: `post ${id}` },
           });
-        expect(give('a1').reason).toMatch(/^flow_disabled: /);
+        expect(why(give('a1'))).toMatch(/^flow_disabled: /);
         setFlowEnabled(w, repoRoot, KEY, true);
-        expect(give('a1').reason).toMatch(/^needs_owner: /);
+        expect(why(give('a1'))).toMatch(/^needs_owner: /);
         let hash: string | undefined;
         try {
           setDial(w, repoRoot, home.path, KEY, 'autopilot');
@@ -358,9 +360,9 @@ describe('the Supervisor hands finished Autopilot items to the outbox (FW-C-037)
         expect(give('a1')).toEqual(first);
         const n = w.get<{ n: number }>("SELECT count(*) AS n FROM events WHERE type = 'notification.queued'");
         expect(n?.n).toBe(1);
-        expect(give('a2', 'no-such-channel').reason).toMatch(/^unknown_channel: /);
+        expect(why(give('a2', 'no-such-channel'))).toMatch(/^unknown_channel: /);
         setPaused(w, true);
-        expect(give('a3').reason).toMatch(/^supervisor_paused: /);
+        expect(why(give('a3'))).toMatch(/^supervisor_paused: /);
         expect(() => give('../escape')).toThrow(SupervisorError);
         expect(() =>
           handOff({
