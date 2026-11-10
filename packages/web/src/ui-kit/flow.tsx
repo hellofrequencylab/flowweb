@@ -432,6 +432,7 @@ export function FlowLine({
   when,
   to,
   stack = false,
+  stages = STAGES,
 }: {
   name: ReactNode;
   meta?: ReactNode;
@@ -442,9 +443,11 @@ export function FlowLine({
   when?: ReactNode;
   to?: string;
   stack?: boolean;
+  /** Five stage names; the build pipeline's by default. */
+  stages?: readonly string[];
 }) {
   const color = hueVar(hue);
-  const n = STAGES.length;
+  const n = stages.length;
   const quiet = quietish(state);
   const done = state === 'done';
   const pct = (i: number) => `${((i + 0.5) / n) * 100}%`;
@@ -469,7 +472,7 @@ export function FlowLine({
           <span className="fw-motion flow-travel" />
         </span>
       )}
-      {STAGES.map((s, i) => {
+      {stages.map((s, i) => {
         const here = i === at && !quiet && !done;
         const passed = i < at || done;
         const cls = here
@@ -494,12 +497,12 @@ export function FlowLine({
     <span className={`flow-line-status ${STATE_CLASS[state]}`}>
       <Icon name={STATE_ICON[state]} size={14} />
       {word}
-      {!quiet && !done && <span className="muted">· {STAGES[at]}</span>}
+      {!quiet && !done && <span className="muted">· {stages[at]}</span>}
     </span>
   );
   const title = (
     <span className="flow-line-title">
-      <FlowRing hue={hue} at={at} state={state} size={22} title="" />
+      <FlowRing hue={hue} at={at} state={state} size={22} stages={stages} title="" />
       <span className="flow-line-name">{name}</span>
     </span>
   );
@@ -527,12 +530,12 @@ export function FlowLine({
 }
 
 /** The stage names once, above a column of FlowLines. */
-export function StageHeader() {
+export function StageHeader({ stages = STAGES }: { stages?: readonly string[] } = {}) {
   return (
     <div className="flow-stage-head" aria-hidden="true">
       <span />
       <span className="flow-stage-names">
-        {STAGES.map((s) => (
+        {stages.map((s) => (
           <span key={s}>{s}</span>
         ))}
       </span>
