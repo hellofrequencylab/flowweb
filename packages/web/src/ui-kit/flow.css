@@ -2225,6 +2225,14 @@ a.flow-line:hover .flow-line-name {
   color: var(--flow-teal);
 }
 
+/* FW-C-072: what's working, a few plain lines from the weekly review. */
+.whats-working-lines {
+  margin: 0;
+  padding-left: 1.1em;
+  display: grid;
+  gap: 4px;
+}
+
 /* FW-C-076: the AI assistant's conversation on a draft. */
 .assist-log {
   display: grid;

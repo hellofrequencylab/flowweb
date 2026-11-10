@@ -691,6 +691,41 @@ export interface FlowDrafts extends Envelope {
   drafts: FlowDraft[];
 }
 
+/** FW-C-072: one value of a review dimension (a source, hunt, funnel, sub-area or message angle). */
+export interface ReviewValue {
+  value: string;
+  name: string;
+  sent: number;
+  replied: number;
+  signups: number;
+  reply_rate: number | null;
+  signup_rate: number | null;
+}
+
+export interface ReviewDimension {
+  key: 'source' | 'hunt' | 'funnel' | 'sub_area' | 'angle';
+  label: string;
+  /** False when no sent draft carries this dimension yet. */
+  tracked: boolean;
+  /** How many values have at least min_sent sent. */
+  judged: number;
+  best: ReviewValue | null;
+  worst: ReviewValue | null;
+}
+
+/** FW-C-072: what's working, from the flow's latest weekly review. */
+export interface ReviewSummary extends Envelope {
+  flow: string;
+  state: 'none' | 'thin' | 'ready';
+  at: string | null;
+  week: string | null;
+  min_sent: number;
+  sample_ok: boolean;
+  totals: Omit<ReviewValue, 'value' | 'name'>;
+  dimensions: ReviewDimension[];
+  learnings: string[];
+}
+
 /* ---------- Settings / policy ---------- */
 
 export interface PolicyFile extends Envelope {
