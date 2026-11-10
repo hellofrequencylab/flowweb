@@ -19,10 +19,13 @@ export interface Machine {
   claudeAnswer?: RunResult;
   codexAnswer?: RunResult;
   http?: Record<string, number | null>;
+  answers?: string[];
 }
 
 export function fakeSystem(m: Machine) {
   const calls: Call[] = [];
+  const asked: string[] = [];
+  const stored: Record<string, string> = {};
   const http: { url: string; headers: Record<string, string> }[] = [];
   let report: unknown;
   const ok = (stdout = ''): RunResult => ({ code: 0, stdout, stderr: '' });
@@ -34,7 +37,7 @@ export function fakeSystem(m: Machine) {
       calls.push({ cmd, args, opts });
       if (cmd === 'claude') {
         if (!m.claude) return missing;
-        if (args[0] === '--version') return ok('2.1.321');
+        if (args[0] === '--version' || args[0] === 'setup-token') return ok('2.1.321');
         return m.claudeAnswer ?? ok('{"type":"result","is_error":false,"result":"OK"}');
       }
       if (cmd === 'codex') {
@@ -44,6 +47,7 @@ export function fakeSystem(m: Machine) {
           return m.codexSignedIn
             ? ok('Logged in using ChatGPT')
             : { code: 1, stdout: 'Not logged in', stderr: '' };
+        if (args[0] === 'login') return ok();
         if (args[1] === '--help') return ok('--skip-git-repo-check  --sandbox <MODE>');
         return m.codexAnswer ?? ok('OK');
       }
@@ -55,9 +59,17 @@ export function fakeSystem(m: Machine) {
       const s = m.http?.[host];
       return s === null ? { status: null, error: 'getaddrinfo ENOTFOUND' } : { status: s ?? 200 };
     },
+    async ask(q) {
+      asked.push(q);
+      return m.answers?.shift() ?? '';
+    },
     getSecret(h) {
-      const v = m.secrets[h];
+      const v = stored[h] ?? m.secrets[h];
       return v ? { value: v, where: 'keychain' } : null;
+    },
+    setSecret(h, v) {
+      stored[h] = v;
+      return 'keychain';
     },
     writeReport(name, body) {
       report = JSON.parse(JSON.stringify(body));
@@ -65,5 +77,5 @@ export function fakeSystem(m: Machine) {
     },
     tempDir: () => '/tmp/fw-accounts-x',
   };
-  return { sys, calls, http, report: () => report };
+  return { sys, calls, asked, stored, http, report: () => report };
 }

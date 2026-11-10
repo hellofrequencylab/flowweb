@@ -419,7 +419,20 @@ export interface WMachine {
       codex_api_key: boolean | null;
       codex_signin: boolean | null;
     };
+    /** The last `fw accounts check` on the machine: a tiny real call per account. null: never run. */
+    account_test?: WAccountTest | null;
   };
+}
+
+export interface WAccountTest {
+  checked_at: string | null;
+  accounts: Partial<
+    Record<
+      'claude_signin' | 'claude_api_key' | 'codex_signin' | 'codex_api_key',
+      { set_up: boolean | null; ok: boolean | null; detail: string | null; fix: string | null }
+    >
+  >;
+  start_command: string | null;
 }
 
 /** GET /policy (agreed) */
