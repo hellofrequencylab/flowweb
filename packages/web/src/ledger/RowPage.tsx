@@ -1,13 +1,23 @@
 import { api } from '../api/client';
 import { useResource } from '../api/resource';
+import type { ProbeStatus } from '../api/types';
 import { EventList } from '../runs/RunPage';
 import { RunsTable } from '../runs/RunsPage';
 import { Link } from '../shell/router';
+import { FlowRing, hueFor, RunTrace, rowFlow, STAGES, type TraceStatus } from '../ui-kit/flow';
 import { AsOf, Copy, ResourceView } from '../ui-kit/honest';
 import { Icon } from '../ui-kit/Icon';
 import { PageHead } from '../ui-kit/page';
-import { PROBE_STATUS, probeSpec, ROW_STATUS, StatusLabel } from '../ui-kit/status';
+import { probeSpec, ROW_STATUS, StatusLabel } from '../ui-kit/status';
 import { age, shortHash, useNow, when } from '../ui-kit/time';
+
+/** Acceptance results as trace steps. An errored check is a failure to know, shown as failed with words. */
+const ACCEPT: Record<ProbeStatus, TraceStatus> = {
+  pass: 'done',
+  fail: 'failed',
+  error: 'failed',
+  never: 'pending',
+};
 
 export function RowPage({ id }: { id: string }) {
   const res = useResource(`row:${id}`, () => api.row(id), ['rows', 'runs']);
@@ -17,6 +27,7 @@ export function RowPage({ id }: { id: string }) {
     <ResourceView res={res} what="row">
       {(d) => {
         const r = d.row;
+        const f = rowFlow(r.status);
         return (
           <div className="stack">
             <nav className="crumbs" aria-label="Breadcrumb">
@@ -31,6 +42,18 @@ export function RowPage({ id }: { id: string }) {
                 <span className="page-meta">
                   <AsOf res={res} />
                 </span>
+              }
+              aside={
+                <FlowRing
+                  size={210}
+                  hue={hueFor(r.lane)}
+                  at={f.at}
+                  state={f.state}
+                  showLabels
+                  label={f.word}
+                  sublabel={f.state === 'done' ? 'landed' : `at ${STAGES[f.at]}`}
+                  title={`${f.word}, at the ${STAGES[f.at]} stage of ${STAGES.length}`}
+                />
               }
             />
             <p className="row">
@@ -107,15 +130,15 @@ export function RowPage({ id }: { id: string }) {
             <section className="panel" aria-labelledby="acc-h">
               <h2 id="acc-h">Acceptance</h2>
               {r.acceptance && r.acceptance.length > 0 ? (
-                <ul className="plain-list">
-                  {r.acceptance.map((a) => (
-                    <li key={a.text} className="row" style={{ alignItems: 'flex-start' }}>
-                      <StatusLabel spec={PROBE_STATUS[a.last_result]} />
-                      <span style={{ flex: 1 }}>{a.text}</span>
-                      {a.at && <span className="asof">{when(a.at, now)}</span>}
-                    </li>
-                  ))}
-                </ul>
+                <RunTrace
+                  steps={r.acceptance.map((a) => ({
+                    key: a.text,
+                    name: a.text,
+                    status: ACCEPT[a.last_result],
+                    detail: a.last_result === 'error' ? 'The check itself could not run.' : undefined,
+                    aside: a.at ? when(a.at, now) : undefined,
+                  }))}
+                />
               ) : (
                 <p className="muted">fwd has not reported acceptance items for this row.</p>
               )}

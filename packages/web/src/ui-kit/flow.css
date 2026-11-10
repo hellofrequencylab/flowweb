@@ -626,6 +626,14 @@ a.flow-line:hover .flow-line-name {
 .trace-warn .trace-detail {
   color: var(--tone);
 }
+.trace-name > .step-btn {
+  /* Keep the full hit target but centre it on the text line, so the trace stays tight. */
+  margin-block: calc((1.4em - var(--hit-min)) / 2);
+  margin-inline-start: calc(-1 * var(--space-3));
+  width: calc(100% + var(--space-3));
+  font: inherit;
+  color: inherit;
+}
 .trace-aside {
   font: var(--type-small);
   color: var(--text-tertiary);
