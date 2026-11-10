@@ -21,7 +21,7 @@ type Gate =
  */
 export function App() {
   const [gate, setGate] = useState<Gate>({ kind: 'checking' });
-  const [linkError] = useState(() => consumeRedirect());
+  const [linkError] = useState(() => consumeRedirect().error);
 
   const check = useCallback(() => {
     api
