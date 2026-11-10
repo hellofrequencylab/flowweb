@@ -55,7 +55,9 @@ export function TopNav() {
 export function BottomNav() {
   const { loc } = useRouter();
   const tabs = [...ITEMS.slice(0, 3), { to: '/more', label: 'More', short: 'More', icon: 'more' as const }];
-  const moreActive = ['/runs', '/spend', '/flows', '/settings', '/more'].some((p) => loc.path.startsWith(p));
+  const moreActive = ['/runs', '/spend', '/flows', '/settings', '/setup', '/more'].some((p) =>
+    loc.path.startsWith(p),
+  );
   return (
     <nav className="bottomnav" aria-label="Main">
       <ul>
@@ -88,6 +90,12 @@ export function MorePage() {
       label: 'Flows',
       desc: 'Marketing engine: rings, saturation, drafts waiting for you',
       icon: 'flows',
+    },
+    {
+      to: '/setup',
+      label: 'Get started',
+      desc: 'Machine, sign-ins, project, brief, first flow, live site',
+      icon: 'done',
     },
     { to: '/projects', label: 'Projects', desc: 'Repositories FlowWeb works in', icon: 'logs' },
     {

@@ -700,3 +700,23 @@ export interface Supervisor extends Envelope {
   flows: SupervisorFlow[];
   next: string[];
 }
+
+/** FW-C-038: GET /v1/setup. Every step is read from real state; a step not done names its fix. */
+export type SetupStepId = 'machine' | 'sign_ins' | 'project' | 'brief' | 'flow' | 'live_site';
+
+export interface SetupStep {
+  id: SetupStepId;
+  title: string;
+  required: boolean;
+  done: boolean;
+  detail: string;
+  fix: string | null;
+}
+
+export interface Setup extends Envelope {
+  ready: boolean;
+  next: SetupStepId | null;
+  fwd: 'up' | 'down';
+  steps: SetupStep[];
+  checked_at: string;
+}
