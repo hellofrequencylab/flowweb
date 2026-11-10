@@ -270,6 +270,7 @@ code,
   padding: 0 var(--space-8);
 }
 .topbar-conditions {
+  flex: none;
   list-style: none;
   margin: 0;
   padding: 0;
@@ -355,6 +356,10 @@ code,
   gap: var(--space-1);
   margin-left: var(--space-5);
   min-width: 0;
+  /* On a crowded row the tabs scroll sideways instead of running under the status icons. */
+  overflow-x: auto;
+  scrollbar-width: none;
+  padding: 3px;
 }
 .topnav ul,
 .bottomnav ul {
