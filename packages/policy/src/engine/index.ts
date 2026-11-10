@@ -1,4 +1,3 @@
-export { type ApplyReport, applyPolicy } from './apply.ts';
 export { type Decision, type DecisionInput, decide, enforce } from './decide.ts';
 export {
   type Condition,
