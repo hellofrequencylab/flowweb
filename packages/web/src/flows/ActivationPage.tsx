@@ -15,6 +15,7 @@ import { AsOf, ResourceView } from '../ui-kit/honest';
 import { PageHead } from '../ui-kit/page';
 import { StatusLabel, type StatusSpec } from '../ui-kit/status';
 import { usd } from '../ui-kit/time';
+import { DraftEditor } from './DraftEditor';
 import { groupDrafts } from './drafts';
 import { FlowAdmin } from './FlowAdmin';
 import { MeasureDials, PipelineBar, RegionPath } from './FlowVisuals';
@@ -432,6 +433,7 @@ function DraftsPanel() {
                   hint="Real people and events. Copy, check and send."
                   drafts={groups.ready}
                   openFirst
+                  onChanged={res.reload}
                   empty="None yet. The next search adds them here."
                 />
                 {groups.templates.length > 0 && (
@@ -439,12 +441,12 @@ function DraftsPanel() {
                     label={`Templates with blanks (${groups.templates.length})`}
                     hint="The flow could not fill names or places in these"
                   >
-                    <DraftList drafts={groups.templates} />
+                    <DraftList drafts={groups.templates} onChanged={res.reload} />
                   </Fold>
                 )}
                 {groups.done.length > 0 && (
                   <Fold label={`Approved or rejected (${groups.done.length})`}>
-                    <DraftList drafts={groups.done} />
+                    <DraftList drafts={groups.done} onChanged={res.reload} />
                   </Fold>
                 )}
               </div>
@@ -461,12 +463,14 @@ function DraftGroup({
   hint,
   drafts,
   openFirst = false,
+  onChanged,
   empty,
 }: {
   title: string;
   hint: string;
   drafts: FlowDraft[];
   openFirst?: boolean;
+  onChanged: () => void;
   empty: string;
 }) {
   return (
@@ -478,13 +482,21 @@ function DraftGroup({
       {drafts.length === 0 ? (
         <p className="muted">{empty}</p>
       ) : (
-        <DraftList drafts={drafts} openFirst={openFirst} />
+        <DraftList drafts={drafts} openFirst={openFirst} onChanged={onChanged} />
       )}
     </div>
   );
 }
 
-function DraftList({ drafts, openFirst = false }: { drafts: FlowDraft[]; openFirst?: boolean }) {
+function DraftList({
+  drafts,
+  openFirst = false,
+  onChanged,
+}: {
+  drafts: FlowDraft[];
+  openFirst?: boolean;
+  onChanged: () => void;
+}) {
   return (
     <ul className="stack drafts-list" aria-label="Drafts">
       {drafts.map((x, i) => (
@@ -494,7 +506,7 @@ function DraftList({ drafts, openFirst = false }: { drafts: FlowDraft[]; openFir
             hint={`${DRAFT_STATUS[x.status] ?? x.status}${x.created_at ? ` · ${x.created_at.slice(0, 10)}` : ''}`}
             open={openFirst && i === 0}
           >
-            <pre className="draft-body">{x.body}</pre>
+            <DraftEditor flow="neighborhood-activation" draft={x} onChanged={onChanged} />
           </Fold>
         </li>
       ))}

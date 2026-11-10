@@ -3,8 +3,11 @@
 // This is not fwd. It serves a read-only mirror of the Owner's local fwd, pushed by the relay.
 // It holds no secrets: it forwards the signed-in Owner's own Supabase token to PostgREST, and
 // row-level security decides what that token may read. Writes that only fwd can make (approve,
-// kill switch, answer a card) are refused with 501 and a reason, never faked.
+// kill switch, answer a card) are refused with 501 and a reason, never faked. The one exception is
+// a draft change (edit, reject, AI rewrite): the site queues it and the relay on the Owner's machine
+// applies it through fwd (hosted/server/requests.mjs); the answer says it is queued, not done.
 import { resolveRead, routeOfUrl } from '../hosted/server/mirror.mjs';
+import { draftRequestOf } from '../hosted/server/requests.mjs';
 
 const SUPABASE_URL = (process.env.SUPABASE_URL ?? process.env.VITE_SUPABASE_URL ?? '').replace(/\/$/, '');
 const ANON_KEY = process.env.SUPABASE_ANON_KEY ?? process.env.VITE_SUPABASE_ANON_KEY ?? '';
@@ -129,6 +132,34 @@ async function handle(request) {
     const r = await supa('/rest/v1/rpc/fw_revoke_runner', { token, method: 'POST', body: { p_id: revoke[1] } });
     if (!r.ok) return err(500, 'internal', 'Could not revoke that machine.');
     return new Response(null, { status: 204 });
+  }
+
+  // A draft change: queued here, applied on the Owner's machine by the relay.
+  const asked = method === 'POST' ? draftRequestOf(method, path, await request.json().catch(() => ({}))) : null;
+  if (asked?.error) return err(400, 'validation_failed', asked.error);
+  if (asked) {
+    const r = await supa('/rest/v1/rpc/fw_request', {
+      token,
+      method: 'POST',
+      body: { p_kind: asked.kind, p_flow: asked.flow, p_draft_id: asked.draft_id, p_payload: asked.payload },
+    });
+    if (!r.ok || typeof r.data !== 'string') return err(500, 'internal', 'Could not queue that change.');
+    return json(202, {
+      data: { request_id: r.data, status: 'queued' },
+      as_of: new Date().toISOString(),
+      head_seq: null,
+      next_cursor: null,
+    });
+  }
+  const reqId = path.match(/^\/hosted\/requests\/([0-9a-f-]{36})$/);
+  if (reqId && method === 'GET') {
+    const r = await supa(
+      `/rest/v1/fw_requests?select=id,kind,status,result,error,created_at,done_at&id=eq.${reqId[1]}`,
+      { token },
+    );
+    if (!r.ok) return err(500, 'internal', 'Could not read that request.');
+    if (!r.data?.[0]) return err(404, 'not_found', 'No such request.');
+    return json(200, { data: r.data[0], as_of: new Date().toISOString(), head_seq: null, next_cursor: null });
   }
 
   if (method !== 'GET') {
