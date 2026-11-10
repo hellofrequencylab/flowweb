@@ -4,7 +4,7 @@
     "profile": "core",
     "schema": "ledger-row/1",
     "generated": "2026-11-09",
-    "row_count": 120,
+    "row_count": 122,
     "conventions": {
       "verify_probe": "Same convention as 04-build-plan/backlog.json: 'pnpm probe <path>' runs probes/<path>.probe.ts, a Tier 0 file written before the implementation row starts and never edited by the agent doing the row. Every probe fails today because its target does not exist (a missing probe file exits 2, a missing behaviour exits 1). The probe pack for a milestone is committed by the Owner or a pair session before the milestone's rows start.",
       "status": "All rows start as open. Status lives only in the ledger database (imported with fw ledger sync), never in prose.",
@@ -28,7 +28,7 @@
       }
     },
     "full_plan_rows_included": 37,
-    "new_core_rows": 82
+    "new_core_rows": 84
   },
   "rows": [
     {
@@ -4191,6 +4191,81 @@
         "api/v1.mjs",
         "hosted/README.md",
         "hosted/test/"
+      ],
+      "origin": "new Core row"
+    },
+    {
+      "id": "FW-C-085",
+      "title": "A new person gets a setup assistant on Get started that walks them through connecting their own AI account, and never takes a key",
+      "core_milestone": "C1",
+      "phase": 1,
+      "epic": "C1.5 First flow",
+      "priority": "P1",
+      "size": "L",
+      "lane": "workstreams",
+      "agent_suitability": "agent",
+      "gate": "none",
+      "depends_on": [
+        "FW-C-039",
+        "FW-C-076"
+      ],
+      "description": "The Owner wants to give FlowWeb to friends and asked for an AI assistant that helps each person set up their own AI accounts. Today a new person lands on Get started and sees a list of steps with commands, and the AI accounts are explained in a long panel in Settings. Add SetupAssistant to packages/web/src/setup and render it from SetupPage. It reads what the machine last reported (the hosted machine list and its account test, or the setup steps) and says the one next thing: put FlowWeb on a machine (clone, install, start fwd, then Add a machine in Settings); pick the AI account they have (Claude Pro or Max, ChatGPT Plus or Pro, an Anthropic API key, an OpenAI API key) and run its pnpm fw accounts connect command on their own machine; fix an account whose test failed; then the next setup step. It also answers setup questions: on the live site through POST /v1/assistant/setup (hosted/server/assistant.mjs, Claude with the site's own key from FW_ASSISTANT_ANTHROPIC_KEY, nothing stored or logged), falling back to built-in answers when the site has no AI or fails. Keys stay on the person's own machine, in its keychain; the site never holds one. Anything typed that looks like a key or token is refused before it is shown, stored or sent, on the page and again on the server. The conversation lives in sessionStorage for the tab.",
+      "acceptance": [
+        "SetupPage renders SetupAssistant, and api/v1.mjs serves POST /v1/assistant/setup from hosted/server/assistant.mjs",
+        "With no machine reported, the assistant says how to put FlowWeb on a machine and points at Settings",
+        "With a machine and no working AI account, it asks which account the person has and gives that account's pnpm fw accounts connect command",
+        "A failed account test shows the machine's fix and pnpm fw accounts check; a working one names the next setup step",
+        "A question goes to /v1/assistant/setup on the live site and falls back to built-in answers when that fails",
+        "A key-shaped message is refused: not shown, not stored, not sent; the server refuses one too, before any call",
+        "The server answers 503 not_configured without FW_ASSISTANT_ANTHROPIC_KEY and sends that key only as a header"
+      ],
+      "verify_probe": "pnpm probe onboarding/setup-assistant",
+      "files_hint": [
+        "packages/web/src/setup/",
+        "packages/web/src/api/client.ts",
+        "packages/web/src/ui-kit/flow.css",
+        "hosted/server/assistant.mjs",
+        "api/v1.mjs",
+        "hosted/README.md"
+      ],
+      "origin": "new Core row"
+    },
+    {
+      "id": "FW-C-086",
+      "title": "Anyone who may change settings chooses which AI account each flow uses from Settings, instead of an env var on the Mac",
+      "core_milestone": "C1",
+      "phase": 1,
+      "epic": "C1.5 First flow",
+      "priority": "P1",
+      "size": "L",
+      "lane": "workstreams",
+      "agent_suitability": "agent",
+      "gate": "none",
+      "depends_on": [
+        "FW-C-062"
+      ],
+      "description": "The Owner wants every person using FlowWeb to have a page and a setting for every function. Which AI account a flow uses is set today only on the Owner's Mac: by FW_CLAUDE_AUTH or FW_CODEX_AUTH when fwd starts, or by the engine line in the flow's config.json. Add packages/daemon/src/overseer/ai.ts: writeFlowAi saves one of four accounts (claude_plan, anthropic_key, chatgpt_plan, openai_key) as { adapter, auth } in $FW_HOME/flows/<key>/ai.json (mode 600), and flowEngine prefers it over config.json, answering chosen: true. fwd serves POST /v1/supervisor/flows/{key}/ai { account } to the CLI token and a paired browser session, and GET /v1/supervisor shows ai { adapter, auth, chosen } per flow. The site queues it as kind flow.ai (hosted/server/requests.mjs; migration 0007 allows the kind) and the relay applies it. Settings gets an AI for each flow section (packages/web/src/settings/AiSettings.tsx) listing each flow with the four accounts, the current one checked, a note when that account failed its last test, and the choices disabled for people who may not change them. Only the choice moves; keys stay in the machine's keychain. An env var given when fwd starts still wins on that machine.",
+      "acceptance": [
+        "writeFlowAi saves only the four accounts, mode 600, and flowEngine prefers the saved choice with chosen: true",
+        "POST /v1/supervisor/flows/{key}/ai works from a paired browser session; bad accounts answer 400, unknown flows 404, no session 401",
+        "GET /v1/supervisor shows each flow's ai { adapter, auth, chosen }",
+        "The site queues flow.ai with only the account, the relay calls the same route, and migration 0007 allows flow.ai and every earlier kind",
+        "Settings lists each flow with its account checked, sends only the picked account, flags a failed test, and disables the choice when the person may not change it"
+      ],
+      "verify_probe": "pnpm probe settings/flow-ai",
+      "files_hint": [
+        "packages/daemon/src/overseer/ai.ts",
+        "packages/daemon/src/overseer/cycle.ts",
+        "packages/daemon/src/overseer/index.ts",
+        "packages/daemon/src/api/routes.ts",
+        "packages/daemon/src/daemon.ts",
+        "packages/daemon/src/index.ts",
+        "hosted/server/requests.mjs",
+        "hosted/supabase/migrations/0007_flowweb_flow_ai.sql",
+        "hosted/README.md",
+        "packages/web/src/settings/",
+        "packages/web/src/api/client.ts",
+        "packages/web/src/api/types.ts"
       ],
       "origin": "new Core row"
     },

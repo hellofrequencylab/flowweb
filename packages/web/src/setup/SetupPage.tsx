@@ -6,6 +6,7 @@ import { Link } from '../shell/router';
 import { AsOf, Copy, ResourceView } from '../ui-kit/honest';
 import { Icon } from '../ui-kit/Icon';
 import { PageHead } from '../ui-kit/page';
+import { SetupAssistant } from './SetupAssistant';
 
 /** A fix that is a command gets a copy button; anything else is an instruction in words. */
 const isCommand = (fix: string) => /^(pnpm|FW_[A-Z_]+=)/.test(fix);
@@ -67,6 +68,7 @@ export function SetupPage() {
       <p className="page-meta">
         <AsOf res={res} />
       </p>
+      <SetupAssistant hosted={HOSTED} />
       <ResourceView res={res} what="setup">
         {(d) => {
           const p = progressOf(d);
