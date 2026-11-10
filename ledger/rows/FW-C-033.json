@@ -25,6 +25,7 @@
   "files_hint": [
     "packages/daemon/src/overseer/",
     "packages/daemon/src/api/routes.ts",
+    "packages/daemon/src/daemon.ts",
     "packages/daemon/src/local-client.ts",
     "packages/daemon/test/",
     "packages/cli/src/client.ts",
