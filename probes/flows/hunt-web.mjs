@@ -136,7 +136,7 @@ await probe(NAME, async () => {
     const api = (m, p, b) => http(port, m, p, token, b);
     const cycles = join(home, 'flows', KEY, 'cycles');
     const webOf = (fire) => {
-      const p = join(cycles, fire, 'web.json');
+      const p = join(cycles, fire.replace(/[^A-Za-z0-9_-]/g, '_'), 'web.json');
       return existsSync(p) ? JSON.parse(readFileSync(p, 'utf8')).web : undefined;
     };
     check((await api('POST', `/v1/supervisor/flows/${KEY}/enable`)).status === 200, 'enabling the flow failed');
