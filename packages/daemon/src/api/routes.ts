@@ -8,6 +8,7 @@ import { isAbsolute, join, resolve } from 'node:path';
 import { type Reader, sha256Hex } from '@fw/eventlog';
 import type { PairingStore, Principal } from '../auth.ts';
 import { FLOW_KEY, flowView, loadFlow } from '../flows/local-saturation.ts';
+import { SupervisorError, supervisorView } from '../overseer/index.ts';
 import { type RunHost, RunHostStoppingError } from '../run-host.ts';
 import { isInside, RUN_ID_RE } from '../runtime/paths.ts';
 import { spendRollup } from '../spend.ts';
@@ -58,6 +59,13 @@ export interface ApiDeps {
   trackStream: (end: () => void) => () => void;
   /** The pipeline fwd hosts (POST /v1/runs). Absent: the route answers 501. */
   runs?: RunsApi;
+  /** The Supervisor's Owner controls, on fwd's writer (FW-C-033). Absent: those routes answer 501. */
+  supervisor?: SupervisorControls;
+}
+
+export interface SupervisorControls {
+  setFlowEnabled(key: string, enabled: boolean): { changed: boolean };
+  setPaused(paused: boolean): { changed: boolean };
 }
 
 /** The body of POST /v1/runs, checked. */
@@ -284,6 +292,43 @@ export function buildRouter(deps: ApiDeps): Router {
       if (!f) throw notFound('flow', params.key);
       return { data: flowView(f.cfg, f.state, f.budget, f.stream) };
     }),
+  );
+
+  // ---- supervisor (FW-C-033) ----------------------------------------------------------------
+  r.get('/v1/supervisor', () =>
+    env(() => ({ data: supervisorView({ reader, repoRoot: deps.repoRoot, fwHome: deps.fwHome }) })),
+  );
+  // The Owner's controls: CLI token only, never a browser session.
+  const ownerControl = (req: object, act: (c: SupervisorControls) => { changed: boolean }) => {
+    const c = deps.supervisor;
+    if (!c) throw new ApiError(501, 'not_implemented', 'this fwd does not host the Supervisor controls');
+    const p = principalOf.get(req);
+    if (p?.kind !== 'cli' && p?.kind !== 'dev_no_auth')
+      throw new ApiError(
+        403,
+        'forbidden',
+        'the Supervisor is controlled with the CLI token, not a browser session',
+      );
+    try {
+      const out = act(c);
+      return env(() => ({
+        data: {
+          changed: out.changed,
+          ...supervisorView({ reader, repoRoot: deps.repoRoot, fwHome: deps.fwHome }),
+        },
+      }));
+    } catch (e) {
+      if (e instanceof SupervisorError) throw new ApiError(404, 'not_found', e.message);
+      throw kernelError(e);
+    }
+  };
+  r.post('/v1/supervisor/pause', ({ req }) => ownerControl(req, (c) => c.setPaused(true)));
+  r.post('/v1/supervisor/resume', ({ req }) => ownerControl(req, (c) => c.setPaused(false)));
+  r.post('/v1/supervisor/flows/{key}/enable', ({ req, params }) =>
+    ownerControl(req, (c) => c.setFlowEnabled(params.key ?? '', true)),
+  );
+  r.post('/v1/supervisor/flows/{key}/disable', ({ req, params }) =>
+    ownerControl(req, (c) => c.setFlowEnabled(params.key ?? '', false)),
   );
 
   r.get('/v1/status-reports', ({ query }) => {

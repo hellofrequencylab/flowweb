@@ -12,6 +12,7 @@ import { runCommands } from './commands/run.ts';
 import { spendCommands } from './commands/spend.ts';
 import { statusCommands } from './commands/status.ts';
 import { streamCommands } from './commands/stream.ts';
+import { supervisorCommands } from './commands/supervisor.ts';
 import { systemCommands } from './commands/system.ts';
 import type { Command } from './commands/types.ts';
 import { woCommands } from './commands/wo.ts';
@@ -21,6 +22,7 @@ export const COMMANDS: Command[] = [
   ...ledgerCommands,
   ...woCommands,
   ...streamCommands,
+  ...supervisorCommands,
   ...projectCommands,
   ...runCommands,
   ...spendCommands,

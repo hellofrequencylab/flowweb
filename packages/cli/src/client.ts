@@ -316,6 +316,31 @@ export interface ProjectLabelReport {
   event_seq: number | null;
 }
 
+export type SupervisorAction = 'pause' | 'resume' | 'enable' | 'disable';
+
+/** GET /v1/supervisor, plus where it was read from (FW-C-033). */
+export interface SupervisorReport {
+  source: 'daemon' | 'database';
+  kill_switch: boolean;
+  paused: boolean;
+  max_concurrent: number;
+  running: number;
+  gates: string[];
+  flows: {
+    key: string;
+    name: string;
+    enabled: boolean;
+    tier: string;
+    state: 'ready' | 'held' | 'running';
+    gate: string | null;
+    reason: string;
+    open_asks: number;
+    budget: Record<string, unknown> | null;
+  }[];
+  next: string[];
+  changed?: boolean;
+}
+
 export interface CoreClient {
   /** fwd's status, or a read-only database read when fwd is down: optional, served by the daemon package. */
   status?(): Promise<StatusReport>;
@@ -345,6 +370,9 @@ export interface CoreClient {
   /** Maintenance commands: optional for the same reason (the sandbox lives in the daemon). */
   doctor?(): Promise<DoctorReport>;
   gc?(): Promise<GcReport>;
+  /** The Supervisor: optional, served by the daemon package. Controls need fwd up (CLI token). */
+  supervisorStatus?(): Promise<SupervisorReport>;
+  supervisorControl?(action: SupervisorAction, flow?: string): Promise<SupervisorReport>;
   close(): void;
 }
 
