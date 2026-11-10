@@ -106,6 +106,9 @@ async function snapshot() {
     for (const key of new Set(keys)) {
       const view = await fwd(`/flows/${encodeURIComponent(key)}`).catch(ifFound);
       if (view) put(`/flows/${key}`, view);
+      // The flow's settings, which the Activation page shows. Flows without an admin API answer 404.
+      const cfg = await fwd(`/flows/${encodeURIComponent(key)}/config`).catch(ifFound);
+      if (cfg) put(`/flows/${key}/config`, cfg);
     }
   }
   put('/status-reports', await all('/status-reports', {}, 50));
