@@ -316,6 +316,36 @@ export interface ProjectLabelReport {
   event_seq: number | null;
 }
 
+/** FW-C-039: `fw project add`. */
+export interface ProjectAddInput {
+  slug: string;
+  name?: string;
+  kind?: string;
+  brand?: string | null;
+  category?: string | null;
+}
+
+export interface ProjectAddReport {
+  project: ProjectView;
+  event_seq: number;
+}
+
+/** FW-C-039: the Owner's answers to the five brief questions, word for word. */
+export interface ProjectBrief {
+  what: string;
+  who: string;
+  voice: string;
+  never: string;
+  done: string;
+  updated_at: string;
+}
+
+export interface ProjectBriefReport {
+  project: ProjectView;
+  brief: ProjectBrief | null;
+  event_seq: number | null;
+}
+
 export type SupervisorAction = 'pause' | 'resume' | 'enable' | 'disable';
 
 /** GET /v1/supervisor, plus where it was read from (FW-C-033). */
@@ -430,6 +460,9 @@ export interface CoreClient {
     ref: string,
     change: { brand?: string | null; category?: string | null },
   ): Promise<ProjectLabelReport>;
+  projectAdd?(input: ProjectAddInput): Promise<ProjectAddReport>;
+  /** With answers: save the brief (all five or nothing). Without: read it. */
+  projectBrief?(ref: string, answers?: Record<string, string | undefined>): Promise<ProjectBriefReport>;
   /** Run commands: optional, because only a provider with the runtime (the daemon) serves them. */
   runStart?(code: string, opts?: RunStartOptions): Promise<RunStartReport>;
   runList?(opts?: { status?: string; limit?: number }): Promise<RunSummary[]>;
