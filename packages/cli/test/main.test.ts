@@ -159,6 +159,11 @@ function fakeClient(overrides: Partial<CoreClient> = {}): CoreClient {
       ...sampleDraft,
       status: action === 'approve' ? 'handed_off' : 'rejected',
     }),
+    supervisorEditDraft: async (_flow: string, _id: string, edit: { subject?: string; body?: string }) => ({
+      ...sampleDraft,
+      ...edit,
+      edited_at: '2026-11-10T00:00:00.000Z',
+    }),
     policyCheck: async () => ({
       effect: 'ask',
       rule_id: 'pol_0120',

@@ -12,7 +12,7 @@ import * as hunts from '../flows/hunts.ts';
 import * as localSaturation from '../flows/local-saturation.ts';
 import * as neighborhoodActivation from '../flows/neighborhood-activation.ts';
 import * as naAdmin from '../flows/neighborhood-admin.ts';
-import { type DraftView, listDrafts } from '../overseer/drafts.ts';
+import { type DraftView, editDraft, listDrafts } from '../overseer/drafts.ts';
 import { SupervisorError, supervisorView } from '../overseer/index.ts';
 import { type RunHost, RunHostStoppingError } from '../run-host.ts';
 import { isInside, RUN_ID_RE } from '../runtime/paths.ts';
@@ -547,6 +547,24 @@ export function buildRouter(deps: ApiDeps): Router {
     ownerOnly(req);
     try {
       const data = listDrafts(deps.repoRoot, deps.fwHome, params.key ?? '');
+      return env(() => ({ data }));
+    } catch (e) {
+      throw draftError(e);
+    }
+  });
+  // FW-C-050: the Owner changes a draft's subject and text before it goes out.
+  r.post('/v1/supervisor/flows/{key}/drafts/{id}/edit', async ({ req, params }) => {
+    ownerOnly(req);
+    const body = await readJsonBody(req);
+    try {
+      const data = editDraft({
+        repoRoot: deps.repoRoot,
+        fwHome: deps.fwHome,
+        flow: params.key ?? '',
+        id: params.id ?? '',
+        subject: body.subject,
+        body: body.body,
+      });
       return env(() => ({ data }));
     } catch (e) {
       throw draftError(e);
