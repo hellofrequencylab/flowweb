@@ -1,22 +1,37 @@
 import type { CSSProperties } from 'react';
-import type { RunSummary } from '../api/types';
+import type { FlowRun, RunSummary } from '../api/types';
 import { Link } from '../shell/router';
 import { GroupBadge, hueFor } from '../ui-kit/flow';
 import { runStatusSpec } from '../ui-kit/status';
 import { clock, duration, usd } from '../ui-kit/time';
+import { FLOW_OUTCOME, flowName } from './FlowRuns';
 
 const HOUR = 3_600_000;
 
 /**
  * Runs as bars on a time axis, one lane per agent (role and vendor). A run
  * still going reaches to now; a queued run with no start is left off and
- * counted under the chart instead of being drawn at a guessed time.
+ * counted under the chart instead of being drawn at a guessed time. Flow runs (FW-C-075) get one
+ * lane per flow, below the agents.
  */
-export function RunsTimeline({ runs, now, hours = 24 }: { runs: RunSummary[]; now: number; hours?: number }) {
+export function RunsTimeline({
+  runs,
+  flows = [],
+  now,
+  hours = 24,
+}: {
+  runs: RunSummary[];
+  flows?: FlowRun[];
+  now: number;
+  hours?: number;
+}) {
   const from = now - hours * HOUR;
   const placed = runs.filter((r) => r.started_at && new Date(r.ended_at ?? now).getTime() >= from);
+  const flowsIn = flows.filter((r) => new Date(r.ended_at).getTime() >= from);
+  const total = placed.length + flowsIn.length;
   const unplaced = runs.filter((r) => !r.started_at).length;
   const lanes = [...new Set(placed.map((r) => `${r.role ?? 'agent'} · ${r.vendor}`))].sort();
+  const flowLanes = [...new Set(flowsIn.map(flowName))].sort();
   const pct = (t: number) => `${Math.max(0, Math.min(100, ((t - from) / (now - from)) * 100))}%`;
   const ticks = Array.from({ length: hours / 6 + 1 }, (_, i) => from + i * 6 * HOUR);
   return (
@@ -24,11 +39,11 @@ export function RunsTimeline({ runs, now, hours = 24 }: { runs: RunSummary[]; no
       <div className="panel-head">
         <h2 id="tl-h">Last {hours} hours</h2>
         <span className="asof">
-          {placed.length} run{placed.length === 1 ? '' : 's'}
+          {total} run{total === 1 ? '' : 's'}
           {unplaced ? ` · ${unplaced} not started` : ''}
         </span>
       </div>
-      {lanes.length === 0 ? (
+      {total === 0 ? (
         <p className="small muted">No runs started in the last {hours} hours.</p>
       ) : (
         <div className="timeline-grid">
@@ -74,6 +89,42 @@ export function RunsTimeline({ runs, now, hours = 24 }: { runs: RunSummary[]; no
               </div>
             );
           })}
+          {flowLanes.map((lane) => (
+            <div key={lane} className="timeline-lane">
+              <span className="timeline-label">
+                <GroupBadge name={lane} hue={hueFor(lane)} size="sm" />
+                {lane}
+              </span>
+              <ul className="timeline-track">
+                {flowsIn
+                  .filter((r) => flowName(r) === lane)
+                  .map((r) => {
+                    const s = new Date(r.started_at).getTime();
+                    const e = new Date(r.ended_at).getTime();
+                    const spec = FLOW_OUTCOME[r.outcome];
+                    return (
+                      <li
+                        key={r.id}
+                        className="timeline-item"
+                        style={
+                          {
+                            left: pct(Math.max(s, from)),
+                            width: `max(8px, calc(${pct(e)} - ${pct(Math.max(s, from))}))`,
+                          } as CSSProperties
+                        }
+                      >
+                        <span
+                          className={`timeline-bar tone-${spec.tone}`}
+                          role="img"
+                          aria-label={`${lane}: ${spec.word}, started ${clock(r.started_at)}`}
+                          title={`${lane} · ${spec.word} · ${clock(r.started_at)}`}
+                        />
+                      </li>
+                    );
+                  })}
+              </ul>
+            </div>
+          ))}
           <div className="timeline-axis" aria-hidden="true">
             <span />
             <span className="timeline-ticks">

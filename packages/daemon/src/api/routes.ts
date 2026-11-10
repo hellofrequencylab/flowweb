@@ -8,6 +8,7 @@ import type { IncomingMessage } from 'node:http';
 import { isAbsolute, join, resolve } from 'node:path';
 import { type Reader, sha256Hex } from '@fw/eventlog';
 import type { PairingStore, Principal } from '../auth.ts';
+import * as crm from '../flows/crm.ts';
 import * as hunts from '../flows/hunts.ts';
 import * as localSaturation from '../flows/local-saturation.ts';
 import * as neighborhoodActivation from '../flows/neighborhood-activation.ts';
@@ -251,6 +252,11 @@ function addFlowAdminRoutes(r: Router, deps: ApiDeps): void {
       if (!(e instanceof outcomes.PullError)) throw e;
       throw new ApiError(e.status, e.status === 409 ? 'conflict' : 'unavailable', e.message);
     }
+  });
+  // FW-C-065: post every email draft's state to Frequency's CRM now (fwd also does it daily and after a mark).
+  r.post(`${base}/crm/sync`, async () => {
+    const data = await crm.syncAll({ repoRoot: deps.repoRoot, fwHome: deps.fwHome, env: process.env });
+    return envelope(deps.reader, () => ({ data }));
   });
   // FW-C-056: the weekly review: a scorecard per hunt and shifts toward what works.
   r.get(`${base}/review`, () => envelope(deps.reader, () => ({ data: review.readReview(deps.fwHome) })));
@@ -655,6 +661,8 @@ export function buildRouter(deps: ApiDeps): Router {
         id: params.id ?? '',
         outcome: body.outcome,
       });
+      // FW-C-065: tell Frequency's CRM what happened. Never blocks or fails the mark.
+      void crm.syncDraft({ repoRoot: deps.repoRoot, fwHome: deps.fwHome, env: process.env, id: data.id });
       return env(() => ({ data }));
     } catch (e) {
       throw draftError(e);
