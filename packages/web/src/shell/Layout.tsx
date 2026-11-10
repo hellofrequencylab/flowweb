@@ -2,6 +2,7 @@ import { type ReactNode, useEffect, useState } from 'react';
 import { BuildOverview } from '../dawn/BuildOverview';
 import { DawnLog } from '../dawn/DawnLog';
 import { EvidencePage } from '../evidence/EvidencePage';
+import { AdminPage } from '../flows';
 import { ActivationPage } from '../flows/ActivationPage';
 import { HoodTabs } from '../hood';
 import { LedgerPage } from '../ledger/LedgerPage';
@@ -96,6 +97,8 @@ export function Layout({ pairedAt, onSignedOut }: { pairedAt: string; onSignedOu
         return <EvidencePage id={id} />;
       case 'growth':
         return <ActivationPage />;
+      case 'growth-admin':
+        return <AdminPage />;
       case 'logs':
         // /hood opens on the build overview (lanes, what landed, integrity); /ledger is every row.
         return hood(
