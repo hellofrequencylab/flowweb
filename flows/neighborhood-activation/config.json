@@ -1,0 +1,68 @@
+{
+  "version": 1,
+  "offer": {"name": "Frequency", "url": "https://frequencylocal.com", "pitch": "Free, local, in-person community: find or start a Circle near you around what you love.", "call_to_action": "Join a Circle near you"},
+  "engine": {"label": "ChatGPT sign-in through the Codex CLI (FW_CODEX_AUTH=signin)", "fallback": "OpenAI API key, billed per token", "runs_on": "local fwd only; the hosted mirror stores no subscription sign-in"},
+  "seed_territory_id": "north-county-sd",
+  "territories": [
+    {"id": "north-county-sd", "name": "North County San Diego", "order": 1, "lat": 33.17, "lng": -117.2, "borders": ["orange-county", "inland-north", "san-diego"], "sub_areas": [
+      {"id": "oceanside", "name": "Oceanside", "population": 172000},
+      {"id": "carlsbad", "name": "Carlsbad", "population": 115000},
+      {"id": "encinitas", "name": "Encinitas and Leucadia", "population": 62000},
+      {"id": "solana-del-mar", "name": "Solana Beach and Del Mar", "population": 17000},
+      {"id": "vista", "name": "Vista", "population": 101000},
+      {"id": "san-marcos", "name": "San Marcos", "population": 94000},
+      {"id": "escondido", "name": "Escondido", "population": 151000},
+      {"id": "poway", "name": "Poway", "population": 48000},
+      {"id": "fallbrook-bonsall", "name": "Fallbrook and Bonsall", "population": 36000},
+      {"id": "valley-center-ramona", "name": "Valley Center and Ramona", "population": 54000}
+    ]},
+    {"id": "orange-county", "name": "Orange County", "order": 2, "lat": 33.7, "lng": -117.83, "borders": ["north-county-sd", "inland-north"], "sub_areas": [
+      {"id": "south-coast", "name": "South Coast", "population": 150000},
+      {"id": "laguna-aliso", "name": "Laguna and Aliso Viejo", "population": 75000},
+      {"id": "saddleback", "name": "Saddleback Valley", "population": 330000},
+      {"id": "irvine", "name": "Irvine", "population": 315000},
+      {"id": "newport-costa-mesa", "name": "Newport and Costa Mesa", "population": 195000},
+      {"id": "huntington", "name": "Huntington Beach", "population": 250000},
+      {"id": "central-oc", "name": "Central OC", "population": 530000},
+      {"id": "north-oc", "name": "North OC", "population": 650000},
+      {"id": "west-oc", "name": "West OC", "population": 470000}
+    ]},
+    {"id": "inland-north", "name": "Inland North (Temecula Valley)", "order": 3, "lat": 33.6, "lng": -117.15, "placeholder": true, "borders": ["north-county-sd", "orange-county"], "sub_areas": [
+      {"id": "temecula", "name": "Temecula", "population": 110000},
+      {"id": "murrieta", "name": "Murrieta", "population": 115000},
+      {"id": "menifee", "name": "Menifee", "population": 110000},
+      {"id": "lake-elsinore", "name": "Lake Elsinore and Wildomar", "population": 110000},
+      {"id": "hemet", "name": "Hemet and San Jacinto", "population": 140000}
+    ]},
+    {"id": "san-diego", "name": "San Diego", "order": 4, "lat": 32.75, "lng": -117.12, "borders": ["north-county-sd"], "sub_areas": [
+      {"id": "coastal-sd", "name": "Coastal", "population": 150000},
+      {"id": "central-sd", "name": "Central", "population": 250000},
+      {"id": "mid-city", "name": "Mid-City", "population": 200000},
+      {"id": "clairemont", "name": "Clairemont and Mission Valley", "population": 200000},
+      {"id": "northern-sd", "name": "Northern neighborhoods", "population": 300000},
+      {"id": "east-county", "name": "East County", "population": 330000},
+      {"id": "south-bay", "name": "South Bay", "population": 380000}
+    ]}
+  ],
+  "activation": {"hosts_floor": 100, "hosts_per_10k": 0.75, "events_per_host_14d": 1, "sub_area_share": 0.8, "channels_per_sub_area": 4, "wam_per_host": 10, "hold_weeks": 4, "upkeep_relapse_weeks": 2},
+  "max_active_sub_areas": 5,
+  "leads": {"fit_threshold": 0.6, "timing_threshold": 0.5, "timing_half_life_days": 14, "max_touches_per_lead_30d": 3, "watch_recheck_days": 14, "max_new_invites_per_week": 50},
+  "funnels": {
+    "host": {"path": "/start/host", "persona": "practitioner", "placeholder": true},
+    "venue": {"path": "/start/partner", "persona": "partner"},
+    "builder": {"path": "/start/welcome", "persona": "builder"},
+    "resident": {"path": "/start/event", "persona": "visitor"}
+  },
+  "send_routes": {
+    "founder_email": {"label": "Your own email, as the founder", "one_to_one": true, "needs": ["honest subject", "who you are", "one-line opt-out: reply no and I won't write again"]},
+    "frequency": {"label": "Frequency messaging", "one_to_one": false, "adds": ["unsubscribe link", "postal address"]}
+  },
+  "sources": [
+    {"key": "event_listings", "label": "Local event listings", "finds": "people already hosting classes, meetups and workshops", "reach": "personal founder email", "action_class": "outbound_email_external"},
+    {"key": "business_listings", "label": "Business listings", "finds": "studios, cafes and venues with a room to host in", "reach": "personal founder email", "action_class": "outbound_email_external"},
+    {"key": "creator_profiles", "label": "Local creator profiles", "finds": "teachers and practitioners with a local following", "reach": "personal founder email", "action_class": "outbound_email_external"},
+    {"key": "local_groups", "label": "Local community groups", "finds": "residents looking for things to do nearby", "reach": "a post in the group, never a personal message", "action_class": "publish_external"},
+    {"key": "frequency_members", "label": "Frequency members", "finds": "members who could host or bring a venue", "reach": "Frequency messaging", "action_class": "outbound_email_external"},
+    {"key": "host_referrals", "label": "Host referrals", "finds": "people a current host vouches for", "reach": "personal founder email", "action_class": "outbound_email_external"}
+  ]
+}

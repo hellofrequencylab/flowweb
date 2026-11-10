@@ -362,6 +362,16 @@ describe('spend, budgets, cards, approvals, reports, policy', () => {
     expect(f.gate_on).toEqual(['publish_external', 'outbound_email_external']);
     expect((await get('/flows/other')).status).toBe(404);
   });
+
+  test('/flows/neighborhood-activation returns the territories, the next move and the budget', async () => {
+    const res = await get('/flows/neighborhood-activation');
+    expect(res.status).toBe(200);
+    const f = res.json.data;
+    expect(f.key).toBe('neighborhood-activation');
+    expect(f.territories[0]).toMatchObject({ id: 'north-county-sd', status: 'active', measures: null });
+    expect(f.decision.kind).toBe('keep_working');
+    expect(f.budget.max_usd).toBe(5);
+  });
 });
 
 describe('errors', () => {
