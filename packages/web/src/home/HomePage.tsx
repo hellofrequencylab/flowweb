@@ -19,10 +19,13 @@ import './home.css';
 export function HomePage({
   notice,
   recovery = false,
+  invite = false,
   onSignedIn,
 }: {
   notice?: string | null;
   recovery?: boolean;
+  /** The visitor arrived on an invite link; it is kept until they sign in (FW-C-082). */
+  invite?: boolean;
   onSignedIn?: () => void;
 }) {
   return (
@@ -42,6 +45,11 @@ export function HomePage({
             FlowWeb finds leads, drafts the messages and keeps a clear log of every step. Nothing goes out
             until you sign off. Bring a friend in to help, or just to watch.
           </p>
+          {invite && (
+            <p className="callout home-invite">
+              You were invited to join a FlowWeb account. Sign in or create an account to accept.
+            </p>
+          )}
         </div>
         <AccountCard notice={notice} recovery={recovery} onSignedIn={onSignedIn} />
         <FlowPreview />
