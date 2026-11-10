@@ -154,6 +154,12 @@ async function snapshot() {
   } catch {
     // skipped, not invented
   }
+  // FW-C-094: which connections are set up here (presence only, never a secret). Older fwd builds answer 404.
+  try {
+    put('/connections', await fwd('/connections'));
+  } catch {
+    // skipped, not invented
+  }
 
   const projects = await all('/projects');
   put('/projects', projects);
