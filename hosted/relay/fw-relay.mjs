@@ -11,13 +11,16 @@
 // Usage:
 //   FW_RELAY_SITE=https://your-site.vercel.app FW_RELAY_TOKEN=fwr_... node hosted/relay/fw-relay.mjs
 //   add --once to push one snapshot and exit, or --dump <file> to write it to a file instead.
-// Env: FW_HOME (default ~/.flowweb), FW_PORT (7317), FW_RELAY_INTERVAL_S (60),
+// It also applies the draft changes the Owner asked for on the site (edit, reject, AI rewrite):
+// it takes them from the site's database and calls the matching fwd route. Nothing else.
+// Env: FW_HOME (default ~/.flowweb), FW_PORT (7317), FW_RELAY_INTERVAL_S (60), FW_RELAY_REQUESTS_S (5),
 //      FW_RELAY_TOKEN or the file $FW_HOME/relay.token, FW_RELAY_LABEL (shown on the site).
 import { spawnSync } from 'node:child_process';
 import { readFileSync, writeFileSync } from 'node:fs';
 import { homedir, hostname } from 'node:os';
 import { join } from 'node:path';
 import { mirrorKey } from '../server/mirror.mjs';
+import { fwdCallFor } from '../server/requests.mjs';
 
 const VERSION = '0.1.0';
 const FW_HOME = process.env.FW_HOME ?? join(homedir(), '.flowweb');
@@ -26,6 +29,7 @@ const SITE = (process.env.FW_RELAY_SITE ?? '').replace(/\/$/, '');
 const INTERVAL_S = Math.max(15, Number(process.env.FW_RELAY_INTERVAL_S ?? 60));
 const DUMP = process.argv.includes('--dump') ? process.argv[process.argv.indexOf('--dump') + 1] : null;
 const ONCE = process.argv.includes('--once') || Boolean(DUMP);
+const REQUESTS_S = Math.max(2, Number(process.env.FW_RELAY_REQUESTS_S ?? 5));
 const DAYS = 8;
 const GROUPS = ['project', 'vendor', 'agent'];
 
@@ -60,6 +64,26 @@ async function fwd(path, params = {}) {
     throw e;
   }
   return res.json();
+}
+
+/** One POST to fwd with the CLI token; answers { status, json }. Never throws on an HTTP error. */
+async function fwdPost(path, body) {
+  const res = await fetch(`${FWD}${path}`, {
+    method: 'POST',
+    headers: {
+      accept: 'application/json',
+      'content-type': 'application/json',
+      authorization: `Bearer ${CLI_TOKEN}`,
+    },
+    body: JSON.stringify(body ?? {}),
+  });
+  let json = null;
+  try {
+    json = await res.json();
+  } catch {
+    // no body
+  }
+  return { status: res.status, json };
 }
 
 /** Every page of a list route, merged into one envelope (as_of of the first page). */
@@ -267,6 +291,60 @@ async function push(entries, report) {
   return JSON.parse(text);
 }
 
+async function rpc(name, args) {
+  const cfg = await hostedConfig();
+  const res = await fetch(`${cfg.supabase_url}/rest/v1/rpc/${name}`, {
+    method: 'POST',
+    headers: {
+      apikey: cfg.anon_key,
+      authorization: `Bearer ${cfg.anon_key}`,
+      'content-type': 'application/json',
+    },
+    body: JSON.stringify({ p_token: RELAY_TOKEN, ...args }),
+  });
+  const text = await res.text();
+  if (!res.ok) throw new Error(`${name} refused: HTTP ${res.status} ${text.slice(0, 200)}`);
+  return text ? JSON.parse(text) : null;
+}
+
+/**
+ * Applies the draft changes the Owner asked for on the site. Answers how many it handled. A site
+ * without the requests table (an older database) answers 404: then there is nothing to do.
+ */
+async function applyRequests() {
+  let taken;
+  try {
+    taken = await rpc('fw_relay_take', { p_limit: 10 });
+  } catch (e) {
+    if (/HTTP 404/.test(e.message)) return 0;
+    throw e;
+  }
+  for (const req of Array.isArray(taken) ? taken : []) {
+    const call = fwdCallFor(req);
+    let ok = false;
+    let result = null;
+    let error = null;
+    if (!call) error = `not a change the site may ask for: ${String(req.kind)}`;
+    else {
+      try {
+        const r = await fwdPost(call.path, call.body);
+        ok = r.status >= 200 && r.status < 300;
+        if (ok) result = r.json?.data ?? null;
+        else
+          error =
+            r.status === 404 && !r.json?.error?.message?.includes('draft')
+              ? 'FlowWeb on your machine does not support this yet; update it'
+              : String(r.json?.error?.message ?? `fwd answered ${r.status}`);
+      } catch (e) {
+        error = `could not reach FlowWeb on your machine: ${e.message}`;
+      }
+    }
+    await rpc('fw_relay_finish', { p_id: req.id, p_ok: ok, p_result: result, p_error: error });
+    console.log(`fw-relay: ${req.kind} ${req.draft_id}: ${ok ? 'done' : `failed: ${error}`}`);
+  }
+  return Array.isArray(taken) ? taken.length : 0;
+}
+
 async function once() {
   const started = Date.now();
   const { entries, status } = await snapshot();
@@ -302,15 +380,27 @@ async function once() {
 }
 
 async function main() {
+  let next = 0;
   for (;;) {
-    try {
-      await once();
-    } catch (e) {
-      console.error(`fw-relay: ${e.message}`);
-      if (ONCE) process.exit(1);
+    // Draft changes from the site first; any change pushes a fresh snapshot right away.
+    let changed = 0;
+    if (!DUMP)
+      try {
+        changed = await applyRequests();
+      } catch (e) {
+        console.error(`fw-relay: requests: ${e.message}`);
+      }
+    if (ONCE || changed > 0 || Date.now() >= next) {
+      try {
+        await once();
+      } catch (e) {
+        console.error(`fw-relay: ${e.message}`);
+        if (ONCE) process.exit(1);
+      }
+      next = Date.now() + INTERVAL_S * 1000;
     }
     if (ONCE) return;
-    await new Promise((r) => setTimeout(r, INTERVAL_S * 1000));
+    await new Promise((r) => setTimeout(r, REQUESTS_S * 1000));
   }
 }
 

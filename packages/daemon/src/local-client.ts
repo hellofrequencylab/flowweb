@@ -32,6 +32,7 @@ import { REPO_ROOT, VERSION } from './daemon.ts';
 import { FwdUnreachableError, fwdEndpoint, fwdError, fwdRequest } from './fwd-client.ts';
 import type { DraftView } from './overseer/drafts.ts';
 import { supervisorView } from './overseer/index.ts';
+import type { RewriteProposal } from './overseer/rewrite.ts';
 import { listRuns, type RunDetail, type RunSummary, showRun } from './pipeline/queries.ts';
 import { type RunStartReport, resolveGitHost, runStart } from './pipeline/run-start.ts';
 import { type GitReconcileReport, reconcileGitHost } from './reconcile-git.ts';
@@ -92,6 +93,7 @@ export interface DaemonCoreClient extends LocalCoreClient {
     id: string,
     edit: { subject?: string; body?: string },
   ): Promise<DraftView>;
+  supervisorRewriteDraft(flow: string, id: string, instruction: string): Promise<RewriteProposal>;
   spendRollup(opts: { by: string }): Promise<(SpendRow & { unknown_runs?: number })[]>;
   policyCheck(input: DecisionInput): Promise<Decision & { policy_path: string }>;
   policyApply(): Promise<ApplyReport & { policy_path: string }>;
@@ -420,6 +422,10 @@ export function createCoreClient(opts: LocalClientOptions): DaemonCoreClient {
     async supervisorEditDraft(flow, id, edit) {
       const path = `/v1/supervisor/flows/${encodeURIComponent(flow)}/drafts/${encodeURIComponent(id)}/edit`;
       return (await fwdData('POST', path, edit)) as DraftView;
+    },
+    async supervisorRewriteDraft(flow, id, instruction) {
+      const path = `/v1/supervisor/flows/${encodeURIComponent(flow)}/drafts/${encodeURIComponent(id)}/rewrite`;
+      return (await fwdData('POST', path, { instruction })) as RewriteProposal;
     },
     close() {
       store?.close();

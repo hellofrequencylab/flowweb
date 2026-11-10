@@ -15,6 +15,7 @@ import * as naAdmin from '../flows/neighborhood-admin.ts';
 import * as paidAds from '../flows/paid-ads.ts';
 import { type DraftView, editDraft, listDrafts } from '../overseer/drafts.ts';
 import { SupervisorError, supervisorView } from '../overseer/index.ts';
+import type { RewriteProposal } from '../overseer/rewrite.ts';
 import { type RunHost, RunHostStoppingError } from '../run-host.ts';
 import { isInside, RUN_ID_RE } from '../runtime/paths.ts';
 import { setupReport } from '../setup/index.ts';
@@ -106,6 +107,8 @@ export interface SupervisorControls {
   /** FW-C-046: the Owner approves or rejects one cycle draft. */
   approveDraft?(key: string, id: string): DraftView;
   rejectDraft?(key: string, id: string): DraftView;
+  /** FW-C-051: a proposal from the flow's engine; the draft is not changed. */
+  rewriteDraft?(key: string, id: string, body: Record<string, unknown>): Promise<RewriteProposal>;
 }
 
 /** The body of POST /v1/runs, checked. */
@@ -570,6 +573,19 @@ export function buildRouter(deps: ApiDeps): Router {
         subject: body.subject,
         body: body.body,
       });
+      return env(() => ({ data }));
+    } catch (e) {
+      throw draftError(e);
+    }
+  });
+  // FW-C-051: the flow's engine proposes a rewrite of one draft from the Owner's instruction.
+  r.post('/v1/supervisor/flows/{key}/drafts/{id}/rewrite', async ({ req, params }) => {
+    ownerOnly(req);
+    const body = await readJsonBody(req);
+    const c = deps.supervisor;
+    if (!c?.rewriteDraft) throw new ApiError(501, 'not_implemented', 'this fwd does not host draft rewrites');
+    try {
+      const data = await c.rewriteDraft(params.key ?? '', params.id ?? '', body);
       return env(() => ({ data }));
     } catch (e) {
       throw draftError(e);

@@ -32,6 +32,7 @@ export const FAKE_SCENARIOS = [
   'flow_drafts',
   'hunt_leads',
   'hunt_reach',
+  'draft_rewrite',
 ] as const;
 
 export type FakeScenario = (typeof FAKE_SCENARIOS)[number];
@@ -61,6 +62,10 @@ export const FAKE_EXPECTED: Record<FakeScenario, { status: RunStatus; note: stri
   hunt_reach: {
     status: 'completed',
     note: 'a hunt cycle with leads by country and by contact route (email, form, social)',
+  },
+  draft_rewrite: {
+    status: 'completed',
+    note: 'a draft rewrite: rewrite.json from draft.json and instruction.json, no commit',
   },
 };
 
