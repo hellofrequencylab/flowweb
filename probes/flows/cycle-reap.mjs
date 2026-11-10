@@ -1,5 +1,5 @@
 // Probe for FW-C-045 (a crash never leaves a flow cycle's vendor running): `pnpm probe flows/cycle-reap`.
-// Tier 0. Linux only (it finds the vendor's processes by their working directory under /proc).
+// Tier 0. It finds the vendor's processes by their working directory (Linux /proc, lsof elsewhere).
 // Surfaces: the daemon fwd on a fresh FW_HOME with FW_VENDOR=fake and FW_FAKE_SCENARIO=hang (the
 // vendor ignores SIGTERM and starts a background grandchild, so only a group SIGKILL ends it), the
 // Owner controls under /v1/supervisor with the CLI token fwd prints, the cycle folder
@@ -12,17 +12,17 @@
 //      15 seconds, grandchild included.
 //   3. The interrupted cycle ends in exactly one run report for its fire, outcome failed, with a
 //      reason that starts "orphaned", and a second restart writes no second report.
-import { readdirSync, readFileSync, readlinkSync } from 'node:fs';
+import { readFileSync } from 'node:fs';
 import { request } from 'node:http';
 import { createServer } from 'node:net';
-import { join, sep } from 'node:path';
+import { join } from 'node:path';
 import {
   check,
   DAEMON_BIN,
   freshHome,
   killAndWait,
-  missing,
   openDbReadonly,
+  pidsInDir as pidsIn,
   probe,
   spawnTs,
   waitFor,
@@ -58,19 +58,6 @@ function http(port, method, path, token) {
   });
 }
 
-/** Live pids whose working directory is dir or inside it. */
-function pidsIn(dir) {
-  const out = [];
-  for (const n of readdirSync('/proc')) {
-    if (!/^\d+$/.test(n)) continue;
-    try {
-      const cwd = readlinkSync(`/proc/${n}/cwd`);
-      if (cwd === dir || cwd.startsWith(dir + sep)) out.push(Number(n));
-    } catch {}
-  }
-  return out;
-}
-
 async function startFwd(home) {
   const port = await freePort();
   const env = { FW_HOME: home, FW_VENDOR: 'fake', FW_FAKE_SCENARIO: 'hang' };
@@ -100,11 +87,6 @@ const home = freshHome('cycle-reap');
 const cycles = join(home, 'flows', KEY, 'cycles');
 
 await probe(NAME, async () => {
-  try {
-    readdirSync('/proc');
-  } catch {
-    missing('this probe needs Linux /proc to find the vendor processes');
-  }
   try {
     // ---- 1. a crash mid-cycle leaves the vendor running ----------------------------------------------
     const a = await startFwd(home);

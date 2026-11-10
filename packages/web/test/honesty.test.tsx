@@ -8,6 +8,7 @@ import { parseUnifiedDiff } from '../src/api/diff';
 import type { Resource } from '../src/api/resource';
 import type { CardSummary, Envelope } from '../src/api/types';
 import type { WRun, WStatus } from '../src/api/wire';
+import { Problems } from '../src/dawn/DawnLog';
 import { Fact } from '../src/ui-kit/honest';
 import { CHECK_STATUS, probeSpec, runStatusSpec, SANDBOX, StatusLabel } from '../src/ui-kit/status';
 
@@ -112,6 +113,25 @@ describe('wire mapping (LOCAL-API-V1.md)', () => {
         .kill_switch.state,
     ).toBe('stopped');
     expect(mapStatus({ ...base, kill: { engaged: false } } as WStatus, '').spend_today).toBeUndefined();
+  });
+  it('reads a sandbox level fwd has not measured yet as neutral, not a problem', () => {
+    const fresh = {
+      daemon: 'up',
+      version: 'x',
+      started_at: '',
+      chain: { ok: true, head_seq: 1, head_hash: '', verified_at: '' },
+      sandbox_level: null,
+      open_cards: 0,
+      running_runs: 0,
+      kill: { engaged: false },
+    } as WStatus;
+    const s = mapStatus(fresh, '');
+    expect(s.sandbox_egress).toBeNull();
+    const { container } = render(<Problems status={s} down={false} />);
+    expect(container.textContent).toBe('');
+    cleanup();
+    render(<Problems status={{ ...s, sandbox_egress: 'none' }} down={false} />);
+    expect(screen.getByText(/Sandbox not fully enforced \(egress none\)/)).toBeTruthy();
   });
   it('sorts the queue by deadline, then urgency, then age', () => {
     const c = (id: string, o: Partial<CardSummary>) =>

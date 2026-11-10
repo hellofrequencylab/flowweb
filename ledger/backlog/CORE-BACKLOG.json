@@ -4,7 +4,7 @@
     "profile": "core",
     "schema": "ledger-row/1",
     "generated": "2026-11-09",
-    "row_count": 97,
+    "row_count": 98,
     "conventions": {
       "verify_probe": "Same convention as 04-build-plan/backlog.json: 'pnpm probe <path>' runs probes/<path>.probe.ts, a Tier 0 file written before the implementation row starts and never edited by the agent doing the row. Every probe fails today because its target does not exist (a missing probe file exits 2, a missing behaviour exits 1). The probe pack for a milestone is committed by the Owner or a pair session before the milestone's rows start.",
       "status": "All rows start as open. Status lives only in the ledger database (imported with fw ledger sync), never in prose.",
@@ -28,7 +28,7 @@
       }
     },
     "full_plan_rows_included": 37,
-    "new_core_rows": 60
+    "new_core_rows": 61
   },
   "rows": [
     {
@@ -3383,6 +3383,41 @@
         "docs/api/LOCAL-API-V1.md"
       ],
       "origin": "new Core row"
+    },
+    {
+      "id": "FW-C-061",
+      "title": "The daily digest runs by itself, and the Console shows it",
+      "core_milestone": "C2",
+      "phase": 3,
+      "epic": "C2.3 Streams",
+      "priority": "P1",
+      "size": "M",
+      "lane": "workstreams",
+      "agent_suitability": "agent",
+      "gate": "none",
+      "depends_on": [
+        "FW-C-023"
+      ],
+      "description": "FW-C-023 built the digest (publishDigest checks every line against registered queries before storing it), but nothing calls it and no digest stream is registered, so the Console always says \"No digest yet for today\". fwd now registers one active stream with key digest and template digest for each project that has a ledger (a backlog-dev stream), on a daily cron at 06:00 in the machine's time zone with catch_up run_once. Each fire publishes that project's digest over the period since its last one (a day for the first). When fwd starts and the project has no digest since the newest slot (the machine was off or asleep at 06:00, or the stream is new), fwd fires the stream once right away, so the Console has today's digest without waiting a day; a restart with today's digest in place publishes nothing. Fires go through the scheduler, so each one is on the job ledger as stream.fired. The Console treats a stored daily report as one that passed its check, since publishDigest stores no other kind and status-report.json has no room for a self_check field. A digest that fails its check is still never stored (digest.rejected).",
+      "acceptance": [
+        "Soon after fwd starts on a synced project, GET /v1/status-reports?kind=daily answers one digest, and every line cites a registered query",
+        "Each project with a ledger has exactly one active digest stream on a daily cron",
+        "The fire is recorded as stream.fired with outcome fired, and digest.published names the report",
+        "The Console's dawn view shows that digest with its headline, not \"No digest yet\" or \"failed its own check\"",
+        "A restart with today's digest in place publishes no second digest and registers no second stream"
+      ],
+      "verify_probe": "pnpm probe workstreams/digest-daily",
+      "files_hint": [
+        "packages/daemon/src/streams/digest/",
+        "packages/daemon/src/daemon.ts",
+        "packages/daemon/test/",
+        "packages/web/src/api/client.ts",
+        "packages/web/test/"
+      ],
+      "origin": "new Core row",
+      "derived_from": [
+        "FW-C-023"
+      ]
     },
     {
       "id": "FW-C-062",

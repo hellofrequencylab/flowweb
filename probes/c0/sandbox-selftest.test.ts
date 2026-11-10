@@ -14,10 +14,10 @@
 //     after the group is killed), egress (enforced: a direct connection fails; best_effort: proxy
 //     variables set), env scrub (not absent when the child saw only the allowlist)
 //   - a run directory is removable by fw gc without touching the worktree branch
-import { existsSync, readFileSync } from 'node:fs';
+import { existsSync } from 'node:fs';
 import { join } from 'node:path';
 import { describe, expect, test } from 'vitest';
-import { fakeSecret, fixtureProject, freshHome, fwJson, git, requireExport, sleep } from './_lib.mjs';
+import { fakeSecret, fixtureProject, freshHome, fwJson, git, liveProcess, requireExport, sleep } from './_lib.mjs';
 
 type Level = 'enforced' | 'best_effort' | 'absent';
 type Sb = { run_id: string; runDir: string; homeDir: string; env: Record<string, string> };
@@ -41,16 +41,6 @@ function output(child: Child): Promise<{ code: number | null; stdout: string }> 
     });
     child.on('close', (code) => resolve({ code, stdout }));
   });
-}
-
-/** True when pid is a live process (a zombie waiting to be reaped is not alive). */
-function alive(pid: number) {
-  try {
-    const stat = readFileSync(`/proc/${pid}/stat`, 'utf8');
-    return !stat.slice(stat.lastIndexOf(')') + 2).startsWith('Z');
-  } catch {
-    return false;
-  }
 }
 
 describe('c0/sandbox-selftest', () => {
@@ -90,7 +80,7 @@ describe('c0/sandbox-selftest', () => {
     });
     killProcessGroup(child);
     await sleep(500);
-    const survived = alive(grandchild);
+    const survived = liveProcess(grandchild);
     if (survived) process.kill(grandchild, 'SIGKILL');
     if (report.controls.process_group_kill.level !== 'absent') expect(survived, 'process_group_kill claimed, grandchild survived').toBe(false);
 

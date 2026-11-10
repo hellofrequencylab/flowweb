@@ -54,7 +54,8 @@ export interface Status extends Envelope {
   spend_today?: SpendToday;
   breaker?: { tripped: boolean; reason?: string };
   paused_by_budget?: boolean;
-  sandbox_egress: SandboxEgress;
+  /** null means not measured yet (no run has recorded a level): neutral, not a problem. */
+  sandbox_egress: SandboxEgress | null;
   integrity: Integrity;
   /** Last event sequence number fwd has written. */
   last_seq: number;

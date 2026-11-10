@@ -8,9 +8,8 @@
 //   - the breach is recorded as cap_breach naming which cap (wall_clock, usd or tokens, turns)
 //   - no orphan child processes remain (process listing: no live member of the vendor's process
 //     group, no process with its cwd inside the workspace)
-import { readdirSync, readFileSync, readlinkSync } from 'node:fs';
 import { describe, expect, test } from 'vitest';
-import { adapterInput, gitWorkspace, groupAlive, requireExport, sleep } from './_lib.mjs';
+import { adapterInput, gitWorkspace, groupAlive, pidsInDir, requireExport, sleep } from './_lib.mjs';
 
 type Ev = Record<string, any>;
 type Supervise = (
@@ -18,19 +17,6 @@ type Supervise = (
   input: unknown,
   o?: { onEvent?: (e: Ev) => void; killGraceMs?: number },
 ) => Promise<Record<string, any>>;
-
-function pidsInDir(dir: string) {
-  const out: number[] = [];
-  for (const d of readdirSync('/proc')) {
-    if (!/^\d+$/.test(d) || Number(d) === process.pid) continue;
-    try {
-      const stat = readFileSync(`/proc/${d}/stat`, 'utf8');
-      if (stat.slice(stat.lastIndexOf(')') + 2).startsWith('Z')) continue;
-      if (readlinkSync(`/proc/${d}/cwd`).startsWith(dir)) out.push(Number(d));
-    } catch {}
-  }
-  return out;
-}
 
 async function supervised(scenario: string, tweak: (i: Ev) => void = () => {}) {
   const supervise = (await requireExport('daemon', 'supervise', 'WS-P0-028')) as Supervise;

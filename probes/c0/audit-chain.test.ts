@@ -1,4 +1,5 @@
 // Probe c0/audit-chain (WS-P0-023; backlog verify_probe security/audit-chain).
+// probe-timeout-s: 240 (14 s on Linux, 34 s on macOS alone and over 60 s under load)
 // Surface: `fw audit verify --json` ({ ok, count, head } on a clean chain, { ok: false, seq, reason }
 // on a break) and openStore to append events.
 // Acceptance:

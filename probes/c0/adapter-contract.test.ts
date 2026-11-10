@@ -1,4 +1,5 @@
 // Probe c0/adapter-contract (WS-P0-027; backlog verify_probe adapters/conformance-suite).
+// probe-timeout-s: 240 (about 29 s on Linux and roughly twice that on macOS)
 // Surface: the conformance suite in packages/adapters/test/conformance.ts (CASES and
 // conformanceSuite(harness), which registers one vitest test per case) and createFakeAdapter from
 // packages/adapters/src/index.ts. There is no runConformance() and no built-in broken fake: the
