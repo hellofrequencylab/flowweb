@@ -4224,7 +4224,8 @@
         "packages/web/src/hosted/roles.ts",
         "packages/web/src/hosted/auth.ts",
         "packages/web/src/api/client.ts",
-        "packages/web/src/settings/SettingsPage.tsx"
+        "packages/web/src/settings/SettingsPage.tsx",
+        "packages/web/src/shell/App.tsx"
       ],
       "origin": "new Core row"
     }
