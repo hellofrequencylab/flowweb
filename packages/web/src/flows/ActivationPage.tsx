@@ -6,6 +6,7 @@ import type {
   ActivationFlow,
   ActivationMeasures,
   ActivationTerritory,
+  FlowDraft,
   LeadStage,
   SendVia,
 } from '../api/types';
@@ -14,6 +15,7 @@ import { AsOf, ResourceView } from '../ui-kit/honest';
 import { PageHead } from '../ui-kit/page';
 import { StatusLabel, type StatusSpec } from '../ui-kit/status';
 import { usd } from '../ui-kit/time';
+import { groupDrafts } from './drafts';
 import { FlowAdmin } from './FlowAdmin';
 import { MeasureDials, PipelineBar, RegionPath } from './FlowVisuals';
 import { SupervisorPanel } from './SupervisorPanel';
@@ -402,14 +404,13 @@ function DraftsPanel() {
     () => api.flowDrafts('neighborhood-activation'),
     ['runs'],
   );
-  const drafts = res.data?.drafts ?? [];
-  const waiting = drafts.filter((x) => x.status === 'waiting_for_owner').length;
+  const groups = groupDrafts(res.data?.drafts ?? []);
   const cliOnly = res.error instanceof ApiError && res.error.status === 403;
   return (
     <section className="panel" aria-labelledby="na-drafts">
       <div className="panel-head">
         <h2 id="na-drafts">Drafts</h2>
-        <span className="asof">{res.data ? `${waiting} waiting for you` : <AsOf res={res} />}</span>
+        <span className="asof">{res.data ? `${groups.ready.length} ready for you` : <AsOf res={res} />}</span>
       </div>
       {cliOnly ? (
         <p className="muted">
@@ -422,23 +423,78 @@ function DraftsPanel() {
             d.drafts.length === 0 ? (
               <p className="muted">No drafts yet. They appear here after the flow runs.</p>
             ) : (
-              <ul className="stack drafts-list" aria-label="Drafts">
-                {d.drafts.map((x) => (
-                  <li key={x.id}>
-                    <Fold
-                      label={x.subject ?? 'Untitled draft'}
-                      hint={`${DRAFT_STATUS[x.status] ?? x.status}${x.created_at ? ` · ${x.created_at.slice(0, 10)}` : ''}`}
-                      open={d.drafts.length <= 3}
-                    >
-                      <pre className="draft-body">{x.body}</pre>
-                    </Fold>
-                  </li>
-                ))}
-              </ul>
+              <div className="stack">
+                <DraftGroup
+                  title="Ready for you"
+                  hint="Real people and events. Copy, check and send."
+                  drafts={groups.ready}
+                  openFirst
+                  empty="None yet. The next search adds them here."
+                />
+                {groups.templates.length > 0 && (
+                  <Fold
+                    label={`Templates with blanks (${groups.templates.length})`}
+                    hint="The flow could not fill names or places in these"
+                  >
+                    <DraftList drafts={groups.templates} />
+                  </Fold>
+                )}
+                {groups.done.length > 0 && (
+                  <Fold label={`Approved or rejected (${groups.done.length})`}>
+                    <DraftList drafts={groups.done} />
+                  </Fold>
+                )}
+              </div>
             )
           }
         </ResourceView>
       )}
     </section>
+  );
+}
+
+function DraftGroup({
+  title,
+  hint,
+  drafts,
+  openFirst = false,
+  empty,
+}: {
+  title: string;
+  hint: string;
+  drafts: FlowDraft[];
+  openFirst?: boolean;
+  empty: string;
+}) {
+  return (
+    <div className="draft-group">
+      <h3 className="draft-group-title">
+        {title} <span className="muted">({drafts.length})</span>
+      </h3>
+      <p className="muted draft-group-hint">{hint}</p>
+      {drafts.length === 0 ? (
+        <p className="muted">{empty}</p>
+      ) : (
+        <DraftList drafts={drafts} openFirst={openFirst} />
+      )}
+    </div>
+  );
+}
+
+function DraftList({ drafts, openFirst = false }: { drafts: FlowDraft[]; openFirst?: boolean }) {
+  return (
+    <ul className="stack drafts-list" aria-label="Drafts">
+      {drafts.map((x, i) => (
+        <li key={x.id}>
+          <Fold
+            label={x.subject ?? 'Untitled draft'}
+            hint={`${DRAFT_STATUS[x.status] ?? x.status}${x.created_at ? ` · ${x.created_at.slice(0, 10)}` : ''}`}
+            open={openFirst && i === 0}
+          >
+            <pre className="draft-body">{x.body}</pre>
+          </Fold>
+        </li>
+      ))}
+    </ul>
   );
 }
