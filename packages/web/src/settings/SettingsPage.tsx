@@ -3,6 +3,7 @@ import { api } from '../api/client';
 import { useResource } from '../api/resource';
 import { HOSTED, signedInEmail } from '../hosted/auth';
 import { AccountsPanel, MachinesPanel } from '../hosted/Machines';
+import { PeoplePanel } from '../hosted/People';
 import { KillControl } from '../shell/KillSwitch';
 import { type Prefs, usePrefs } from '../shell/prefs';
 import { Copy, ResourceView } from '../ui-kit/honest';
@@ -212,6 +213,7 @@ export function SettingsPage({
         <>
           <AccountsPanel />
           <MachinesPanel />
+          <PeoplePanel />
         </>
       )}
 
