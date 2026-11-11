@@ -27,7 +27,15 @@ import { reviewSummary } from '../flows/review-summary.ts';
 import { type BatchResult, dueTouches, loadSequence } from '../flows/sequence.ts';
 import { isSkipReason, recordSkip, todaySize, todayView } from '../flows/today.ts';
 import { type DraftView, editDraft, listDrafts, markDraft } from '../overseer/drafts.ts';
-import { perDayFor, readSettings, SupervisorError, shippedFlows, supervisorView } from '../overseer/index.ts';
+import {
+  listFlows,
+  perDayFor,
+  readSettings,
+  SupervisorError,
+  shippedFlows,
+  supervisorView,
+} from '../overseer/index.ts';
+import { meterView, readTurns } from '../overseer/meter.ts';
 import type { RewriteProposal } from '../overseer/rewrite.ts';
 import { type RunHost, RunHostStoppingError } from '../run-host.ts';
 import { isInside, RUN_ID_RE } from '../runtime/paths.ts';
@@ -763,6 +771,29 @@ export function buildRouter(deps: ApiDeps): Router {
         return c.setFlowArchived(params.key ?? '', archived);
       }),
     );
+  // FW-C-122: the token meter. Turns newest first, and tokens and dollars per outcome over a window.
+  const meterFlow = (q: URLSearchParams): string | null => {
+    const flow = q.get('flow');
+    if (!flow) return null;
+    if (!listFlows(reader, deps.repoRoot).some((f) => f.key === flow)) throw notFound('flow', flow);
+    return flow;
+  };
+  r.get('/v1/meter/turns', ({ req, query }) => {
+    requireOwner(req);
+    const flow = meterFlow(query);
+    const limit = Math.min(500, Math.max(1, Number.parseInt(query.get('limit') ?? '100', 10) || 100));
+    const turns = readTurns(deps.fwHome).filter((t) => !flow || t.flow === flow);
+    return env(() => ({ data: turns.reverse().slice(0, limit) }));
+  });
+  r.get('/v1/meter', ({ req, query }) => {
+    requireOwner(req);
+    const raw = query.get('days') ?? '30';
+    const days = /^\d+$/.test(raw) ? Number(raw) : Number.NaN;
+    if (!(days >= 1 && days <= 90))
+      throw new ApiError(400, 'validation_failed', 'days must be a whole number from 1 to 90');
+    const flow = meterFlow(query);
+    return env(() => ({ data: meterView(deps.fwHome, { flow, days }) }));
+  });
   // FW-C-121: copy a shipped flow under "<base>--<slug>"; answers { key, flow } with the copy's view.
   r.post('/v1/supervisor/flows/{key}/copy', async ({ req, params }) => {
     const body = await readJsonBody(req);

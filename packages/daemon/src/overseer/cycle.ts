@@ -45,6 +45,7 @@ import { readFlowAi } from './ai.ts';
 import { copyStream, flowRef } from './copies.ts';
 import { draftTag, refLinks, tagLinks } from './drafts.ts';
 import { handOff, perDayFor } from './index.ts';
+import { meterTurn, type TurnCost } from './meter.ts';
 
 const SAFE = /[^A-Za-z0-9_-]/g;
 /** The record of a running cycle's vendor process group (FW-C-045). */
@@ -365,6 +366,9 @@ async function runCycle(d: CycleDeps, fire: CycleFire): Promise<void> {
   let outcome: 'drafted' | 'dry' | 'failed' = 'failed';
   let reason: string | undefined;
   let written = 0;
+  // FW-C-122: the turn's cost and the drafts it wrote, metered once when the cycle ends.
+  let metered: { cost?: TurnCost | null; adapter?: { vendor?: string; model?: string } | null } | null = null;
+  const draftIds: string[] = [];
   let hunts: Hunt[] = [];
   let huntCounts: Record<string, HuntCounts> | null = null;
   let creds: InjectedCredentials | null = null;
@@ -531,8 +535,8 @@ async function runCycle(d: CycleDeps, fire: CycleFire): Promise<void> {
     const usd = Number(result.cost?.usd ?? 0);
     if (usd > 0 || result.cost?.input_tokens || result.cost?.output_tokens)
       w.run(
-        `INSERT INTO spend_entries(id, project_id, stream_id, kind, vendor, model, tokens_in, tokens_out, usd, idempotency_key)
-         VALUES (?, ?, ?, 'model_tokens', ?, ?, ?, ?, ?, ?)`,
+        `INSERT INTO spend_entries(id, project_id, stream_id, kind, vendor, model, tokens_in, tokens_out, tokens_cached, usd, idempotency_key)
+         VALUES (?, ?, ?, 'model_tokens', ?, ?, ?, ?, ?, ?, ?)`,
         [
           newId('spd'),
           projectId || null,
@@ -541,11 +545,13 @@ async function runCycle(d: CycleDeps, fire: CycleFire): Promise<void> {
           result.adapter?.model ?? null,
           result.cost?.input_tokens ?? 0,
           result.cost?.output_tokens ?? 0,
+          result.cost?.cached_tokens ?? 0,
           usd,
           `flow_cycle:${fire.fireId}`,
         ],
       );
     addFlowSpend(d, fire.flow, usd, Number(result.turns ?? 0));
+    metered = { cost: result.cost ?? null, adapter: result.adapter ?? null };
     // A cycle commits nothing, so a vendor that wrote drafts.json but named no artifact still finished
     // its work: the engine's no_artifact rule is for ledger runs, which must land a commit.
     const draftsOnly =
@@ -623,11 +629,13 @@ async function runCycle(d: CycleDeps, fire: CycleFire): Promise<void> {
         };
         writeFileSync(join(out, `${id}.json`), `${JSON.stringify(doc, null, 2)}\n`, { mode: 0o600 });
         written++;
+        draftIds.push(id);
       }
       if (hunts.length > 0) {
         const n = await runHunts(d, fire, dir, hunts, out, short, gateCtx);
         huntCounts = n.counts;
         written += n.written;
+        draftIds.push(...n.ids);
         // FW-C-103: the hunt's drafts become scored nodes in the flow's lead graph.
         refreshQuietly(d.fwHome, fire.flow, () => loadFlow(d.repoRoot, d.fwHome)?.cfg.leads, log);
       }
@@ -637,6 +645,12 @@ async function runCycle(d: CycleDeps, fire: CycleFire): Promise<void> {
     reason = redactLiterals((e as Error)?.message ?? String(e), creds?.literals ?? []);
     log(`supervisor: cycle ${fire.fireId} failed: ${reason}`);
   }
+  if (metered)
+    meterTurn(
+      owner(d, fire).fwHome,
+      { flow: owner(d, fire).flow, step: 'cycle', item: fire.fireId, ...metered, drafts: draftIds },
+      log,
+    );
   const body = {
     stream_id: fire.streamId,
     flow: owner(d, fire).flow,
@@ -815,7 +829,7 @@ async function runHunts(
 ) {
   const now = new Date();
   const f = loadFlow(d.repoRoot, d.fwHome, now);
-  if (!f) return { counts: {}, written: 0 };
+  if (!f) return { counts: {}, written: 0, ids: [] as string[] };
   const p = join(dir, 'leads.json');
   const leads = existsSync(p) ? parseLeads(JSON.parse(readFileSync(p, 'utf8'))) : [];
   const state = f.state as typeof f.state & { hunt_contacts?: HuntContacts };
@@ -906,5 +920,5 @@ async function runHunts(
       ran.has(h.id) ? { ...h, last_run_at: now.toISOString(), requested_at: null } : h,
     ),
   );
-  return { counts, written: kept.length };
+  return { counts, written: kept.length, ids: kept.map((k) => k.id) };
 }
