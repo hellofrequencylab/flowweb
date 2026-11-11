@@ -13,8 +13,10 @@ import { Logo } from '../ui-kit/Logo';
 import './home.css';
 
 /**
- * The public face of flowweb.app for a signed-out visitor: what FlowWeb is, and the account card
- * that signs them in or up (FW-C-081). The auth calls live in hosted/auth.ts; this page only asks.
+ * The public face of flowweb.app for a signed-out visitor (FW-C-081), in the Signal look: a short
+ * scroll story (hero, one flow moving, what the motion means, three steps, your people) around the
+ * account card. The auth calls live in hosted/auth.ts; this page only asks. Every animation here
+ * stops under reduced motion and calm mode (base.css), and the page reads the same when still.
  */
 export function HomePage({
   notice,
@@ -30,20 +32,28 @@ export function HomePage({
 }) {
   return (
     <div className="home">
+      <Streams />
       <header className="home-top">
-        <Logo size={32} />
-        <a className="btn btn-quiet" href="#account">
-          Sign in
+        <Logo size={30} />
+        <nav className="home-nav" aria-label="On this page">
+          <a href="#home-how">How it works</a>
+          <a href="#home-people">Your people</a>
+        </nav>
+        <a className="btn btn-primary" href="#account">
+          Get started
         </a>
       </header>
 
       <main className="home-hero">
         <div className="home-pitch">
-          <p className="home-eyebrow">Growth that runs while you work</p>
-          <h1>Flows do the busywork. You keep the final say.</h1>
+          <p className="overline home-eyebrow">
+            <span className="home-live" aria-hidden="true" /> Drafts only. You sign off.
+          </p>
+          <h1>
+            Busywork, <span className="script">flowing.</span>
+          </h1>
           <p className="home-lede">
-            FlowWeb finds leads, drafts the messages and keeps a clear log of every step. Nothing goes out
-            until you sign off. Bring a friend in to help, or just to watch.
+            FlowWeb finds the leads and writes the first drafts. Nothing goes out until you say so.
           </p>
           {invite && (
             <p className="callout home-invite">
@@ -52,32 +62,54 @@ export function HomePage({
           )}
         </div>
         <AccountCard notice={notice} recovery={recovery} onSignedIn={onSignedIn} />
-        <FlowPreview />
       </main>
 
+      <Lane />
+
+      <section className="home-band" aria-labelledby="home-motion">
+        <p className="overline">Read it at a glance</p>
+        <h2 id="home-motion">Motion means something.</h2>
+        <ul className="home-states">
+          <State kind="run" name="Running" text="Energy moves while a flow works." />
+          <State kind="wait" name="Waiting on you" text="Gold is the only colour that asks." />
+          <State kind="stop" name="Stopped" text="One switch halts everything." />
+        </ul>
+      </section>
+
       <section className="home-band" aria-labelledby="home-how">
-        <h2 id="home-how">How it works</h2>
+        <p className="overline">How it works</p>
+        <h2 id="home-how">Three steps. One of them is yours.</h2>
         <ol className="home-steps">
-          <Step n={1} title="Pick a flow">
-            Lead hunts, follow-ups and a morning digest. Each one runs on a schedule you set.
+          <Step n="01" title="Pick a flow">
+            Lead hunts, follow-ups, a morning digest.
           </Step>
-          <Step n={2} title="It does the legwork">
-            AI on your own Mac searches, sorts and writes the first draft. Your keys never leave it.
+          <Step n="02" title="It does the legwork">
+            AI on your own Mac. Your keys never leave it.
           </Step>
-          <Step n={3} title="You sign off">
-            Edit, rewrite or reject any draft. You send what you approve, from your own inbox.
+          <Step n="03" title="You sign off" mine>
+            Edit, rewrite or reject. You send from your inbox.
           </Step>
         </ol>
       </section>
 
       <section className="home-band" aria-labelledby="home-people">
-        <h2 id="home-people">Bring your people</h2>
+        <p className="overline">Bring your people</p>
+        <h2 id="home-people">Help, or just watch.</h2>
         <ul className="home-roles">
-          <Role icon="verified" name="Owner" text="Runs the account and decides who is in." />
-          <Role icon="settings" name="Admin" text="Sets up flows, machines and hunts." />
-          <Role icon="pencil" name="Helper" text="Edits and rewrites drafts with you." />
-          <Role icon="console" name="Viewer" text="Follows along without touching a thing." />
+          <Role icon="verified" name="Owner" text="Decides who is in" />
+          <Role icon="settings" name="Admin" text="Sets up flows" />
+          <Role icon="pencil" name="Helper" text="Edits drafts" />
+          <Role icon="console" name="Viewer" text="Follows along" />
         </ul>
+      </section>
+
+      <section className="home-end" aria-labelledby="home-end">
+        <h2 id="home-end">
+          Let it <span className="script">flow.</span>
+        </h2>
+        <a className="btn btn-primary btn-big" href="#account">
+          Get started
+        </a>
       </section>
 
       <footer className="home-foot">
@@ -92,9 +124,77 @@ export function HomePage({
   );
 }
 
-function Step({ n, title, children }: { n: number; title: string; children: ReactNode }) {
+/** Energy streams behind the hero: thin lines with a bright pulse running along each. Decoration only. */
+function Streams() {
+  const paths = [
+    'M-40 120 C 240 60, 420 220, 720 140 S 1180 40, 1480 120',
+    'M-40 200 C 260 150, 460 300, 760 220 S 1200 120, 1480 210',
+    'M-40 290 C 300 250, 500 360, 800 300 S 1220 210, 1480 300',
+  ];
   return (
-    <li className="home-step">
+    <svg className="home-streams" viewBox="0 0 1440 420" preserveAspectRatio="none" aria-hidden="true">
+      {paths.map((d, i) => (
+        <g key={d} className={`home-stream s${i + 1}`}>
+          <path d={d} className="home-stream-line" />
+          <path d={d} className="home-stream-pulse" pathLength={100} />
+        </g>
+      ))}
+    </svg>
+  );
+}
+
+/** One example flow on a track. A spark runs Find to Draft, holds gold at you, then runs on to Send. */
+function Lane() {
+  const stops: { label: string; mine?: boolean }[] = [
+    { label: 'Find' },
+    { label: 'Draft' },
+    { label: 'You', mine: true },
+    { label: 'Send' },
+  ];
+  return (
+    <figure className="home-lane" aria-label="An example flow: find, draft, you sign off, then send.">
+      <figcaption className="overline">Example flow</figcaption>
+      <div className="home-track">
+        <span className="home-track-fill" aria-hidden="true" />
+        <span className="home-spark" aria-hidden="true" />
+        {stops.map((s) => (
+          <span key={s.label} className={`home-stop${s.mine ? ' is-mine' : ''}`}>
+            <span className="home-stop-dot" aria-hidden="true" />
+            <span className="home-stop-label">{s.label}</span>
+          </span>
+        ))}
+      </div>
+    </figure>
+  );
+}
+
+function State({ kind, name, text }: { kind: 'run' | 'wait' | 'stop'; name: string; text: string }) {
+  return (
+    <li className={`home-state is-${kind}`}>
+      <span className="home-state-art" aria-hidden="true">
+        <span />
+        <span />
+        <span />
+      </span>
+      <strong>{name}</strong>
+      <span>{text}</span>
+    </li>
+  );
+}
+
+function Step({
+  n,
+  title,
+  mine,
+  children,
+}: {
+  n: string;
+  title: string;
+  mine?: boolean;
+  children: ReactNode;
+}) {
+  return (
+    <li className={`home-step${mine ? ' is-mine' : ''}`}>
       <span className="home-step-n" aria-hidden="true">
         {n}
       </span>
@@ -108,37 +208,9 @@ function Role({ icon, name, text }: { icon: IconName; name: string; text: string
   return (
     <li className="home-role">
       <Icon name={icon} size={18} />
-      <span>
-        <strong>{name}</strong> {text}
-      </span>
+      <strong>{name}</strong>
+      <span>{text}</span>
     </li>
-  );
-}
-
-/** A still picture of one flow. Idle on purpose: motion on this site means something is running. */
-function FlowPreview() {
-  const stages: { label: string; note: string; state: 'done' | 'waiting' | 'next' }[] = [
-    { label: 'Find', note: '12 new leads', state: 'done' },
-    { label: 'Draft', note: '8 messages', state: 'done' },
-    { label: 'Sign off', note: 'Waiting on you', state: 'waiting' },
-    { label: 'Send', note: 'From your inbox', state: 'next' },
-  ];
-  return (
-    <figure
-      className="home-flow"
-      aria-label="An example flow: find leads, draft messages, you sign off, then you send."
-    >
-      <figcaption>Morning lead hunt</figcaption>
-      <ol>
-        {stages.map((s) => (
-          <li key={s.label} className={`home-flow-stage is-${s.state}`}>
-            <span className="home-flow-node" aria-hidden="true" />
-            <strong>{s.label}</strong>
-            <span>{s.note}</span>
-          </li>
-        ))}
-      </ol>
-    </figure>
   );
 }
 

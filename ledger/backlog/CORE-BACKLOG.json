@@ -4,7 +4,7 @@
     "profile": "core",
     "schema": "ledger-row/1",
     "generated": "2026-11-09",
-    "row_count": 158,
+    "row_count": 159,
     "conventions": {
       "verify_probe": "Same convention as 04-build-plan/backlog.json: 'pnpm probe <path>' runs probes/<path>.probe.ts, a Tier 0 file written before the implementation row starts and never edited by the agent doing the row. Every probe fails today because its target does not exist (a missing probe file exits 2, a missing behaviour exits 1). The probe pack for a milestone is committed by the Owner or a pair session before the milestone's rows start.",
       "status": "All rows start as open. Status lives only in the ledger database (imported with fw ledger sync), never in prose.",
@@ -5576,6 +5576,38 @@
         "packages/web/src/shell/routes.ts",
         "packages/web/src/shell/Layout.tsx",
         "packages/web/src/shell/Nav.tsx"
+      ],
+      "origin": "new Core row"
+    },
+    {
+      "id": "FW-C-150",
+      "title": "flowweb.app wears the Signal look, and its public homepage shows flows moving",
+      "core_milestone": "C2",
+      "phase": 1,
+      "epic": "C2.2 Daily screens",
+      "priority": "P1",
+      "size": "M",
+      "lane": "workstreams",
+      "agent_suitability": "agent",
+      "gate": "none",
+      "depends_on": [
+        "FW-C-081",
+        "FW-C-079"
+      ],
+      "description": "Daniel (2026-11-11): redesign the whole site with the Signal design system, then design a website experience. The app moves to the Signal faces (Bricolage Grotesque for display and numbers, Geist for UI, JetBrains Mono for labels, Instrument Serif italic for human moments), its colour tokens take the Signal values in light and dark, and base.css gets the Signal type and button treatment. The signed-out homepage becomes a short scroll story: energy streams behind the hero, the account card beside it, one example flow whose spark holds gold at You, three tiles that say what motion means (running, waiting on you, stopped), three steps, your people, and a closing call to action. Copy is short. Every animation stops under reduced motion and calm mode.",
+      "acceptance": [
+        "tokens.css loads the four Signal faces from ui-kit/fonts and names none of the old ones",
+        "The homepage has the motion, how-it-works, people and closing sections, and two calls to action point at the account card",
+        "home.css animates the page and base.css still stops all motion under reduced motion and calm mode",
+        "The FW-C-081 portal checks, the legal pages check and the radius scale check still pass"
+      ],
+      "verify_probe": "pnpm probe ui/signal-look",
+      "files_hint": [
+        "packages/web/src/ui-kit/tokens.css",
+        "packages/web/src/ui-kit/base.css",
+        "packages/web/src/ui-kit/fonts/",
+        "packages/web/src/home/HomePage.tsx",
+        "packages/web/src/home/home.css"
       ],
       "origin": "new Core row"
     }
