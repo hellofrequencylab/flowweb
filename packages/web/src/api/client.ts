@@ -944,6 +944,17 @@ export const api = {
       confirm ? { stop, confirm } : { stop },
       onQueued,
     ),
+  /** FW-C-116: rename a flow or write a note on it; null clears one back to the shipped name or no note. */
+  editFlow: (flow: string, edit: { name?: string | null; note?: string | null }, onQueued?: () => void) =>
+    ownerWrite<unknown>('POST', `/supervisor/flows/${enc(flow)}/edit`, { ...edit }, onQueued),
+  /** FW-C-116: archive hides a flow and turns it off; restore brings it back, still off. */
+  setFlowArchived: (flow: string, archived: boolean, onQueued?: () => void) =>
+    ownerWrite<unknown>(
+      'POST',
+      `/supervisor/flows/${enc(flow)}/${archived ? 'archive' : 'restore'}`,
+      {},
+      onQueued,
+    ),
   /** FW-C-063: when the flow runs each morning. */
   setSchedule: (flow: string, time: string, days: 'daily' | 'weekdays', onQueued?: () => void) =>
     ownerWrite<unknown>('POST', `/supervisor/flows/${enc(flow)}/schedule`, { time, days }, onQueued),

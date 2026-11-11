@@ -181,6 +181,122 @@ function Tuning({ f, why, reload }: { f: SupervisorFlow; why: string | null; rel
   );
 }
 
+/** FW-C-116: rename the flow, note it, or archive it (hidden and off; restore any time). */
+function FlowEdit({ f, reload, close }: { f: SupervisorFlow; reload: () => void; close: () => void }) {
+  const { busy, run, shown } = useWrite(reload);
+  const [name, setName] = useState(f.name);
+  const [note, setNote] = useState(f.note ?? '');
+  const [archiving, setArchiving] = useState(false);
+  const shipped = f.default_name ?? f.name;
+  const save = async () => {
+    const edit: { name?: string | null; note?: string | null } = {};
+    const n = name.trim();
+    if (n !== f.name) edit.name = !n || n === shipped ? null : n;
+    if (note.trim() !== (f.note ?? '')) edit.note = note.trim() || null;
+    if (Object.keys(edit).length === 0) return close();
+    if (await run('Saving.', (q) => api.editFlow(f.key, edit, q), `Saved ${n || shipped}.`)) close();
+  };
+  const archive = () =>
+    run('Archiving.', (q) => api.setFlowArchived(f.key, true, q), `${f.name} is archived and off.`);
+  return (
+    <div className="flow-card-edit">
+      <label className="field">
+        <span className="field-label">Name</span>
+        <input
+          type="text"
+          maxLength={80}
+          aria-label={`Name for ${f.name}`}
+          value={name}
+          onChange={(e) => setName(e.target.value)}
+        />
+        {shipped !== f.name && <span className="muted small">Ships as {shipped}. Clear it to go back.</span>}
+      </label>
+      <label className="field">
+        <span className="field-label">Note</span>
+        <textarea
+          rows={2}
+          maxLength={500}
+          aria-label={`Note for ${f.name}`}
+          value={note}
+          onChange={(e) => setNote(e.target.value)}
+        />
+      </label>
+      <div className="flow-card-actions">
+        <Button variant="primary" className="btn-small" onClick={save} disabledReason={busy}>
+          Save
+        </Button>
+        <Button className="btn-small" onClick={close}>
+          Cancel
+        </Button>
+        <Button
+          variant="quiet"
+          className="btn-small flow-card-archive"
+          onClick={() => setArchiving(true)}
+          disabledReason={busy}
+          aria-label={`Archive ${f.name}`}
+        >
+          Archive
+        </Button>
+      </div>
+      {archiving && (
+        <div className="callout callout-attention stack">
+          <p>
+            Archive {f.name}? It turns off and leaves this page. Its drafts, history and settings stay, and
+            you can restore it from Archived flows below.
+          </p>
+          <div className="flow-card-actions">
+            <Button variant="primary" className="btn-small" onClick={archive} disabledReason={busy}>
+              Yes, archive
+            </Button>
+            <Button className="btn-small" onClick={() => setArchiving(false)}>
+              Keep it
+            </Button>
+          </div>
+        </div>
+      )}
+      {busy && <p className="muted small">{busy}</p>}
+      {shown}
+    </div>
+  );
+}
+
+/** FW-C-116: archived flows, each with Restore. */
+function Archived({ flows, reload }: { flows: SupervisorFlow[]; reload: () => void }) {
+  const { busy, run, shown } = useWrite(reload);
+  if (flows.length === 0) return null;
+  return (
+    <details className="flow-archived">
+      <summary>Archived flows ({flows.length})</summary>
+      <ul className="plain-list">
+        {flows.map((f) => (
+          <li key={f.key} className="flow-archived-row">
+            <span>
+              <strong>{f.name}</strong>
+              {f.note && <span className="muted small"> · {f.note}</span>}
+            </span>
+            <Button
+              className="btn-small"
+              onClick={() =>
+                run(
+                  'Restoring.',
+                  (q) => api.setFlowArchived(f.key, false, q),
+                  `${f.name} is back. It is off.`,
+                )
+              }
+              disabledReason={busy}
+              aria-label={`Restore ${f.name}`}
+            >
+              Restore
+            </Button>
+          </li>
+        ))}
+      </ul>
+      {busy && <p className="muted small">{busy}</p>}
+      {shown}
+    </details>
+  );
+}
+
 function FlowRow({
   f,
   stopped,
@@ -195,6 +311,7 @@ function FlowRow({
 }) {
   const { busy, run, setNote, shown } = useWrite(reload);
   const [confirm, setConfirm] = useState<string | null>(null);
+  const [editing, setEditing] = useState(false);
   const group = useId();
   const toggle = () =>
     run(
@@ -239,8 +356,22 @@ function FlowRow({
       >
         <div className="flow-card-head">
           <strong id={name}>{f.name}</strong>
-          <StatusLabel spec={flowSpec(f)} />
+          <span className="flow-card-head-end">
+            <StatusLabel spec={flowSpec(f)} />
+            {!editing && (
+              <Button
+                variant="quiet"
+                className="btn-small"
+                onClick={() => setEditing(true)}
+                aria-label={`Edit ${f.name}`}
+              >
+                Edit
+              </Button>
+            )}
+          </span>
         </div>
+        {editing && <FlowEdit f={f} reload={reload} close={() => setEditing(false)} />}
+        {f.note && !editing && <p className="flow-card-note">{f.note}</p>}
         <p className="muted small">
           {f.reason} · {budgetLine(f)}
         </p>
@@ -351,16 +482,19 @@ export function Controls({ s, reload }: { s: Supervisor; reload: () => void }) {
         </p>
       )}
       <ul className="plain-list flow-cards" aria-label="Flows">
-        {s.flows.map((f) => (
-          <FlowRow
-            key={f.key}
-            f={f}
-            stopped={s.kill_switch}
-            sender={s.sender?.installed === true}
-            reload={reload}
-          />
-        ))}
+        {s.flows
+          .filter((f) => !f.archived)
+          .map((f) => (
+            <FlowRow
+              key={f.key}
+              f={f}
+              stopped={s.kill_switch}
+              sender={s.sender?.installed === true}
+              reload={reload}
+            />
+          ))}
       </ul>
+      <Archived flows={s.flows.filter((f) => f.archived)} reload={reload} />
       {HOSTED && (
         <p className="muted small">
           Changes here are applied on your Mac, usually within a few seconds while FlowWeb runs there.

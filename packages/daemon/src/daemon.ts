@@ -35,10 +35,12 @@ import { reapOrphanCycles, runFlowCycle } from './overseer/cycle.ts';
 import { approveDraft, rejectDraft } from './overseer/drafts.ts';
 import {
   createSupervisorOnFire,
+  editFlow,
   readSettings,
   SupervisorError,
   setDial,
   setFlowAi,
+  setFlowArchived,
   setFlowEnabled,
   setIntensity,
   setPaused,
@@ -368,6 +370,8 @@ export async function startDaemon(opts: DaemonOptions): Promise<Daemon> {
       },
       setIntensity: (key, body) => setIntensity(writer, REPO_ROOT, key, body),
       setFlowAi: (key, body) => setFlowAi(REPO_ROOT, fwHome, key, body),
+      editFlow: (key, body) => editFlow(writer, REPO_ROOT, key, body),
+      setFlowArchived: (key, archived) => setFlowArchived(writer, REPO_ROOT, key, archived),
       approveDraft: (key, id) => approveDraft({ writer, repoRoot: REPO_ROOT, fwHome, flow: key, id }),
       rejectDraft: (key, id) => rejectDraft({ repoRoot: REPO_ROOT, fwHome, flow: key, id }),
       batchApprove: (key, draftIds) =>

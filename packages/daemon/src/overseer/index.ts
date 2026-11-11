@@ -66,6 +66,10 @@ export interface FlowSettings {
   dial_hash?: string;
   schedule?: { time: string; days: Days };
   intensity?: Intensity;
+  /** FW-C-115: the Owner's name and note for the flow, and whether it is archived (hidden and off). */
+  name?: string;
+  note?: string;
+  archived?: boolean;
 }
 
 /** What an engine (a module under src/flows/) tells the Supervisor about its flow. */
@@ -148,6 +152,10 @@ export interface FlowView {
   ai: (Partial<FlowAi> & { chosen: boolean }) | null;
   /** FW-C-096: the flow this one was rolled into (its config.json merged_into), else null. */
   merged_into: string | null;
+  /** FW-C-115: the name the flow ships with (name may be the Owner's), the Owner's note, and archived. */
+  default_name: string;
+  note: string | null;
+  archived: boolean;
 }
 
 export interface SupervisorView {
@@ -182,7 +190,16 @@ export function readSettings(r: Reader): SupervisorSettings {
   const flows: SupervisorSettings['flows'] = {};
   const raw = (o?.flows ?? {}) as Record<
     string,
-    { enabled?: unknown; dial?: unknown; dial_hash?: unknown; schedule?: unknown; intensity?: unknown }
+    {
+      enabled?: unknown;
+      dial?: unknown;
+      dial_hash?: unknown;
+      schedule?: unknown;
+      intensity?: unknown;
+      name?: unknown;
+      note?: unknown;
+      archived?: unknown;
+    }
   >;
   for (const [k, v] of Object.entries(raw)) {
     if (!KEY_RE.test(k)) continue;
@@ -199,6 +216,14 @@ export function readSettings(r: Reader): SupervisorSettings {
       }
     }
     if (v?.intensity && typeof v.intensity === 'object') flows[k].intensity = readIntensity(v.intensity);
+    const name = cleanText(v?.name, NAME_MAX);
+    if (name) flows[k].name = name;
+    const note = cleanText(v?.note, NOTE_MAX);
+    if (note) flows[k].note = note;
+    if (v?.archived === true) {
+      flows[k].archived = true;
+      flows[k].enabled = false;
+    }
   }
   return { version: 1, paused: o?.paused === true, flows };
 }
@@ -318,9 +343,10 @@ function verdicts(d: SupervisorDeps) {
     // A broken engine is a deny with its reason, never a silent pass (a gate failure is a deny).
     if (engineError && verdict.gate === 'no_engine')
       verdict = { ...verdict, reason: `The flow's logic failed: ${engineError}` };
+    const defaultName = typeof stream.name === 'string' ? stream.name : key;
     const view: FlowView = {
       key,
-      name: typeof stream.name === 'string' ? stream.name : key,
+      name: set?.name ?? defaultName,
       enabled: f.enabled,
       dial,
       tier: typeof stream.default_tier === 'string' ? stream.default_tier : 'L1',
@@ -335,6 +361,9 @@ function verdicts(d: SupervisorDeps) {
       intensity: intensityView(set?.intensity, d.fwHome, key, now),
       ai: aiView(d.repoRoot, d.fwHome, key),
       merged_into: mergedInto(d.repoRoot, key),
+      default_name: defaultName,
+      note: set?.note ?? null,
+      archived: set?.archived === true,
     };
     return { view, verdict };
   });
@@ -466,6 +495,8 @@ function change(
 export function setFlowEnabled(w: Writer, repoRoot: string, key: string, enabled: boolean) {
   if (!shippedFlows(repoRoot).some((f) => f.key === key))
     throw new SupervisorError('NOT_FOUND', `no flow named ${key}`);
+  if (enabled && readSettings(w).flows[key]?.archived)
+    throw new SupervisorError('CONFLICT', `${key} is archived; restore it before turning it on`);
   // Turning a flow on also files it under its project and brand (flows/<key>/project.json).
   if (enabled) {
     registerFlowProjects(w, repoRoot, () => {}, key);
@@ -477,6 +508,73 @@ export function setFlowEnabled(w: Writer, repoRoot: string, key: string, enabled
   return change(w, { flow: key, enabled }, (s) => {
     if ((s.flows[key]?.enabled === true) === enabled) return false;
     s.flows[key] = { ...(s.flows[key] ?? { dial: 'draft' }), enabled };
+    return true;
+  });
+}
+
+const NAME_MAX = 80;
+const NOTE_MAX = 500;
+/** Trimmed text with no control characters, or null when empty or too long to be one. */
+function cleanText(v: unknown, max: number): string | null {
+  if (typeof v !== 'string') return null;
+  // biome-ignore lint/suspicious/noControlCharactersInRegex: control characters are what this strips.
+  const t = v.replace(/[\u0000-\u001f\u007f]+/g, ' ').trim();
+  return t && t.length <= max ? t : null;
+}
+
+/**
+ * FW-C-115: the Owner renames a flow or writes a note on it. Body { name?, note? }: a string sets it, null
+ * or '' clears it back to the shipped name (or no note). Only the Supervisor settings change; the flow's
+ * shipped definition, engine and key stay as they are.
+ */
+export function editFlow(w: Writer, repoRoot: string, key: string, body: Record<string, unknown>) {
+  if (!shippedFlows(repoRoot).some((f) => f.key === key))
+    throw new SupervisorError('NOT_FOUND', `no flow named ${key}`);
+  const next: { name?: string | null; note?: string | null } = {};
+  for (const [field, max] of [
+    ['name', NAME_MAX],
+    ['note', NOTE_MAX],
+  ] as const) {
+    if (!(field in body)) continue;
+    const v = body[field];
+    if (v === null || v === '') next[field] = null;
+    else {
+      const t = cleanText(v, max);
+      if (!t) throw new SupervisorError('INVALID', `${field} must be text of 1 to ${max} characters`);
+      next[field] = t;
+    }
+  }
+  if (Object.keys(next).length === 0) throw new SupervisorError('INVALID', 'give a name or a note');
+  return change(w, { flow: key, edit: Object.keys(next) }, (s) => {
+    const cur = { ...(s.flows[key] ?? { enabled: false, dial: 'draft' as Dial }) };
+    let moved = false;
+    for (const field of ['name', 'note'] as const) {
+      if (!(field in next)) continue;
+      const v = next[field];
+      if ((cur[field] ?? null) === v) continue;
+      if (v === null) delete cur[field];
+      else cur[field] = v as string;
+      moved = true;
+    }
+    if (moved) s.flows[key] = cur;
+    return moved;
+  });
+}
+
+/**
+ * FW-C-115: archive hides a flow from the Flows page and turns it off; restore brings it back, still off.
+ * A shipped flow is never deleted from here: its definition is code, so archive is how the Owner removes it.
+ */
+export function setFlowArchived(w: Writer, repoRoot: string, key: string, archived: boolean) {
+  if (!shippedFlows(repoRoot).some((f) => f.key === key))
+    throw new SupervisorError('NOT_FOUND', `no flow named ${key}`);
+  return change(w, { flow: key, archived }, (s) => {
+    const cur = s.flows[key] ?? { enabled: false, dial: 'draft' as Dial };
+    if ((cur.archived === true) === archived) return false;
+    const next = { ...cur, enabled: archived ? false : cur.enabled };
+    if (archived) next.archived = true;
+    else delete next.archived;
+    s.flows[key] = next;
     return true;
   });
 }
