@@ -33,6 +33,7 @@ import {
   saveHunts,
   screenLeads,
 } from '../flows/hunts.ts';
+import { refreshQuietly } from '../flows/leads.ts';
 import { loadFlow } from '../flows/neighborhood-activation.ts';
 import { writeJsonAtomic } from '../flows/neighborhood-admin.ts';
 import { noDashes, type Shortener, shortenerFor } from '../flows/short-links.ts';
@@ -595,6 +596,8 @@ export async function runFlowCycle(d: CycleDeps, fire: CycleFire): Promise<void>
         const n = await runHunts(d, fire, dir, hunts, out, short, gateCtx);
         huntCounts = n.counts;
         written += n.written;
+        // FW-C-103: the hunt's drafts become scored nodes in the flow's lead graph.
+        refreshQuietly(d.fwHome, fire.flow, () => loadFlow(d.repoRoot, d.fwHome)?.cfg.leads, log);
       }
       outcome = written > 0 ? 'drafted' : 'dry';
     }
