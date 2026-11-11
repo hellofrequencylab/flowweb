@@ -4,7 +4,7 @@
     "profile": "core",
     "schema": "ledger-row/1",
     "generated": "2026-11-09",
-    "row_count": 134,
+    "row_count": 135,
     "conventions": {
       "verify_probe": "Same convention as 04-build-plan/backlog.json: 'pnpm probe <path>' runs probes/<path>.probe.ts, a Tier 0 file written before the implementation row starts and never edited by the agent doing the row. Every probe fails today because its target does not exist (a missing probe file exits 2, a missing behaviour exits 1). The probe pack for a milestone is committed by the Owner or a pair session before the milestone's rows start.",
       "status": "All rows start as open. Status lives only in the ledger database (imported with fw ledger sync), never in prose.",
@@ -28,7 +28,7 @@
       }
     },
     "full_plan_rows_included": 37,
-    "new_core_rows": 93
+    "new_core_rows": 94
   },
   "rows": [
     {
@@ -4727,6 +4727,39 @@
         "packages/web/src/shell/prefs.tsx",
         "packages/web/src/settings/SettingsPage.tsx",
         "packages/web/src/dawn/today.css"
+      ],
+      "origin": "new Core row"
+    },
+    {
+      "id": "FW-C-106",
+      "title": "Frequency host events become personal notes from the Owner, waiting in his drafts inbox: stall nudges, thank-yous with a share kit, referral asks, Founding Year and limit notes, and same-day opt-outs",
+      "core_milestone": "C1",
+      "phase": 1,
+      "epic": "C1.5 First flow",
+      "priority": "P1",
+      "size": "L",
+      "lane": "workstreams",
+      "agent_suitability": "agent",
+      "gate": "none",
+      "depends_on": [],
+      "description": "On 2026-11-11 the Owner asked for the launch machine (plan v2, loops 3, 4.1, 5 and 6). A new flow, host-moments (flows/host-moments: stream.json template email, trigger event, tier L1, shipped off like the other flows), reads Frequency host events from $FW_HOME/flows/host-moments/events/*.json, one event per file in the shapes of the Frequency integration contract v1, and moves each one to events/done/ once handled (packages/daemon/src/flows/host-moments.ts). Each moment becomes one draft in the flow's Supervisor drafts folder, waiting for the Owner: launcher.stalled names the step and offers a 10 minute setup call, at most one per host per step; space.published is a thank-you naming the payload detail, due within 48 hours (shown on the draft), with a host share kit (Instagram caption, story text, a WhatsApp or email blurb and a QR poster link to the RSVP page) when an event.published for that host is known; event.filled is a referral ask with a forwardable intro the host sends (FlowWeb never contacts the people referred); event.rsvps_8 is a Founding Year note using only payload numbers and the facts sheet $FW_HOME/facts.json, skipped with a reason when the facts are missing; meter.80 is a short what changes note from facts only. host.opted_out puts the host on the existing do-not-contact list the same day, and no later draft is written for them. A draft greets the host by first_name when the event has one, else Hi there; it links back to the original draft through ref; it holds no em or en dash. fwd scans every 5 minutes (FW_HOST_MOMENTS_EVERY_MS); opt-outs are honoured even while the flow is off, drafts are written only while the Owner has it on.",
+      "acceptance": [
+        "Six host event files in a fresh FW_HOME give one draft each of the right kind, none with an em or en dash, and every file moves to events/done",
+        "The thank-you carries a share kit pointing at the event's RSVP page when an event.published for that host exists",
+        "event.rsvps_8 with no facts sheet makes no Founding Year draft and says why",
+        "host.opted_out puts the host on the do-not-contact list the same day, and later events for that host make no draft",
+        "A second stall at the same step makes no second draft"
+      ],
+      "verify_probe": "pnpm probe flows/host-moments",
+      "files_hint": [
+        "flows/host-moments/stream.json",
+        "flows/host-moments/config.json",
+        "flows/host-moments/project.json",
+        "flows/host-moments/README.md",
+        "packages/daemon/src/flows/host-moments.ts",
+        "packages/daemon/test/host-moments.test.ts",
+        "packages/daemon/src/overseer/index.ts",
+        "packages/daemon/src/daemon.ts"
       ],
       "origin": "new Core row"
     }
