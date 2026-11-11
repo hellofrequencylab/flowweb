@@ -3,9 +3,9 @@
 // Tier 0.
 // Surfaces: packages/daemon/src/team/roles.ts (ROLES) and packages/daemon/src/team/index.ts (teamView), a real
 // fwd on a fresh FW_HOME (CLI token and a paired browser session), hosted/server/requests.mjs (pure),
-// hosted/relay/fw-relay.mjs (source), hosted/supabase/migrations/0013_flowweb_team.sql, packages/web/src/shell/
-// routes.ts (routeOf) and the Team page packages/web/src/team/TeamPage.tsx (its checks are in
-// probes/ui/agent-team.spec.tsx, vitest in jsdom against a fetch stub).
+// hosted/relay/fw-relay.mjs (source), hosted/supabase/migrations/0013_flowweb_team.sql, and the Team page packages/web/src/team/TeamPage.tsx (its checks are in
+// probes/ui/agent-team.spec.tsx, vitest in jsdom against a fetch stub,
+// with routeOf from packages/web/src/shell/routes.ts).
 //
 // The surface this probe expects (the roster: https://claude.ai/artifact/5GmjmTZb53E7rZUgxLkYf3):
 //   ROLES: [{ id, level: ceo | exec | manager | staff | contractor | building, department, title, name,
@@ -26,7 +26,7 @@
 //   3. A real fwd serves and edits teams: brand teams appear, renames and voices stick, null restores,
 //      bad input is refused, and a flow turned on puts its manager and chief to work.
 //   4. The site queues team.edit, the relay maps it back and mirrors /team, migration 0013 allows it.
-//   5. /team is a page and its checks pass (4 of them).
+//   5. /team is a page and its checks pass (5 of them).
 import { spawnSync } from 'node:child_process';
 import { existsSync, readFileSync, realpathSync, writeFileSync } from 'node:fs';
 import { join } from 'node:path';
@@ -200,8 +200,6 @@ await probe(NAME, async () => {
   check(/drop constraint if exists fw_requests_kind_check/.test(sql), `${MIGRATION} does not replace fw_requests_kind_check`);
 
   // ---- 5. the Team page --------------------------------------------------------------------------------------
-  const { routeOf } = await imp('packages/web/src/shell/routes.ts');
-  check(routeOf('/team') === 'team', `routeOf('/team') is ${routeOf('/team')}, want team`);
   if (!existsSync(join(root, 'packages/web/src/team/TeamPage.tsx'))) missing('packages/web/src/team/TeamPage.tsx does not exist');
   const mods = join(root, 'packages/web/node_modules');
   const cfgFile = join(tmpDir('agent-team'), 'vitest.config.mjs');
@@ -226,5 +224,5 @@ await probe(NAME, async () => {
   const text = `${out.stdout ?? ''}${out.stderr ?? ''}`;
   const failed = text.split('\n').filter((l) => /✗|×|FAIL|AssertionError|Error:/.test(l)).slice(0, 8);
   check(out.status === 0, `the Team page checks failed (exit ${out.status}):\n${failed.join('\n') || text.slice(-800)}`);
-  check(/Tests\s+4 passed/.test(text), `expected 4 Team page checks to pass:\n${text.slice(-400)}`);
+  check(/Tests\s+5 passed/.test(text), `expected 5 Team page checks to pass:\n${text.slice(-400)}`);
 });
