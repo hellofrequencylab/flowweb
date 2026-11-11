@@ -33,11 +33,10 @@ export type IntakeEvent = Extracted & {
 };
 
 export class IntakeError extends Error {
-  constructor(
-    readonly status: 400 | 404 | 502,
-    message: string,
-  ) {
+  readonly status: 400 | 404 | 502;
+  constructor(status: 400 | 404 | 502, message: string) {
     super(message);
+    this.status = status;
   }
 }
 
