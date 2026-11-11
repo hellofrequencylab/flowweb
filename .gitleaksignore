@@ -10,3 +10,5 @@ e807796841e4fa750a06bed2a36ff115266f5c0c:tests/schema_core_test.py:generic-api-k
 a24025dd1942b86cd7625c3e07e18bc770aa807f:probes/c1/lease-manager.mjs:generic-api-key:134
 53a81525370e955d62bf72f9426b6fe9a1853420:e2e/walking-skeleton.test.ts:generic-api-key:28
 a13d445814d611ff2d5522aa93f690ab9e732ee8:packages/eventlog/test/secrets.test.ts:private-key:29
+#   frequency-contract.mjs   a path join ('docs', 'api', '<doc name>') read as a generic key (Owner OK 2026-11-11)
+b1e49076764c469570ff1b81df9474c41720bd92:probes/hosted/frequency-contract.mjs:generic-api-key:51
