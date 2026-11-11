@@ -263,6 +263,34 @@ async function handle(request) {
     return json(r.status, r.body);
   }
 
+  // FW-C-112: build requests. Something FlowWeb cannot do yet, written up (usually by Kevin) for the builder.
+  // Straight to the database, not through the relay: nothing on the Mac changes until it is built.
+  if (path === '/build-requests' && method === 'GET') {
+    const r = await supa(
+      `/rest/v1/fw_build_requests?select=id,title,what,done_when,status,pr_url,note,created_at,updated_at&account_id=eq.${account.id}&order=created_at.desc`,
+      { token },
+    );
+    if (!r.ok) return err(500, 'internal', 'Could not read build requests.');
+    return ok(200, r.data);
+  }
+  if (path === '/build-requests' && method === 'POST') {
+    const body = await request.json().catch(() => ({}));
+    const text = (v) => (typeof v === 'string' ? v.trim() : '');
+    const title = text(body?.title);
+    const what = text(body?.what);
+    const done = text(body?.done_when);
+    if (!title || title.length > 120) return err(400, 'validation_failed', 'Give the request a title (up to 120 characters).');
+    if (!what || what.length > 4000) return err(400, 'validation_failed', 'Say what you want built (up to 4000 characters).');
+    if (done.length > 1000) return err(400, 'validation_failed', '"Done when" is at most 1000 characters.');
+    const r = await supa('/rest/v1/rpc/fw_build_request', {
+      token,
+      method: 'POST',
+      body: { p_account: account.id, p_title: title, p_what: what, p_done: done },
+    });
+    if (!r.ok || typeof r.data !== 'string') return denied(r, 'ask for new features');
+    return ok(201, { id: r.data, status: 'new' });
+  }
+
   if (path === '/hosted/machines' && method === 'GET') {
     const r = await supa(
       `/rest/v1/fw_runners?select=id,label,created_at,last_seen_at,report,revoked_at&account_id=eq.${account.id}&order=created_at.desc`,

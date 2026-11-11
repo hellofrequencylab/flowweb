@@ -12,6 +12,7 @@ import { Icon } from '../ui-kit/Icon';
 import { PageHead } from '../ui-kit/page';
 import { shortHash, when } from '../ui-kit/time';
 import { AiSettings } from './AiSettings';
+import { BuildRequests } from './BuildRequests';
 import { ConnectionsSettings } from './ConnectionsSettings';
 import { ProjectSettings } from './ProjectSettings';
 
@@ -225,6 +226,7 @@ export function SettingsPage({
       <AiSettings hosted={HOSTED} />
       <ProjectSettings />
       <ConnectionsSettings />
+      {HOSTED && <BuildRequests />}
 
       <Group id="sess-h" title="Session">
         <div className="panel">

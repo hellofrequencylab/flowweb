@@ -454,6 +454,19 @@ function dayStart(d = new Date()): Date {
 
 /* ---------------- API ---------------- */
 
+/** FW-C-112: a build request, as /v1/build-requests lists it. */
+export interface BuildRequest {
+  id: string;
+  title: string;
+  what: string;
+  done_when: string;
+  status: 'new' | 'building' | 'pr_open' | 'done' | 'declined';
+  pr_url: string | null;
+  note: string | null;
+  created_at: string;
+  updated_at: string;
+}
+
 export const api = {
   /** 401 means not paired. */
   async session(): Promise<V.Session> {
@@ -477,6 +490,13 @@ export const api = {
     return { token };
   },
   revokeMachine: (id: string) => post<unknown>(`/hosted/machines/${enc(id)}/revoke`, {}),
+  /** FW-C-112, hosted only: things asked for that FlowWeb cannot do yet, and how far the builder has got. */
+  async buildRequests(): Promise<V.Envelope & { requests: BuildRequest[] }> {
+    const e = await get<BuildRequest[]>('/build-requests');
+    return { data_as_of: e.as_of, requests: e.data ?? [] };
+  },
+  addBuildRequest: (b: { title: string; what: string; done_when: string }) =>
+    post<{ id: string; status: string }>('/build-requests', b),
 
   async status(): Promise<V.Status> {
     const e = await get<W.WStatus>('/status');
@@ -1110,7 +1130,8 @@ export interface ConsoleProposal {
   path: string;
   body?: Record<string, unknown>;
   kind: string;
-  flow: string;
+  /** null for a build request, which is about the whole business. */
+  flow: string | null;
 }
 export interface ConsoleAnswer {
   answer: string;
