@@ -1,0 +1,32 @@
+{
+  "id": "FW-C-115",
+  "title": "Every flow's controls card on the Flows page is built the same way: padded card, one button size, a segmented dial, matching inputs",
+  "core_milestone": "C1",
+  "phase": 1,
+  "epic": "C1.5 First flow",
+  "priority": "P1",
+  "size": "S",
+  "lane": "workstreams",
+  "agent_suitability": "agent",
+  "gate": "none",
+  "depends_on": [
+    "FW-C-070"
+  ],
+  "description": "The Owner's screenshot of /flows/<key> Controls (2026-11-11) showed three flow cards built three ways: the first padded, the others with text running to a stray left bar (the state edge drew on an unpadded fieldset inside a padded list item), a dial that was a tall tray with the chosen stop detached from the rest, Turn off as a bare link next to a raised Run now, an unstyled time picker beside a styled select, and Save buttons in different places. The card becomes the fieldset itself (one box for padding, state edge and live sweep); Turn on/off and Run now share one size; the dial is the design system's segmented control with the chosen stop's hint below; the time input joins the shared input style; the morning run and daily reach sit in one tidy section; and the sender explanation shows once for the list. Existing labels the other flow probes rely on are unchanged.",
+  "acceptance": [
+    "base.css styles input[type=\"time\"] with the shared input rule",
+    "The card box (.flow-card) carries the padding; the list items around it carry none",
+    "Every flow group is a fieldset with class flow-card",
+    "Turn on/off and Run now are both btn-small and neither is btn-quiet",
+    "The dial is a .segmented radiogroup with radios named Draft, Copilot, Autopilot and one hint for the chosen stop",
+    "The sender setup link shows once for the list"
+  ],
+  "verify_probe": "pnpm probe ui/flow-cards",
+  "files_hint": [
+    "packages/web/src/flows/FlowControls.tsx",
+    "packages/web/src/ui-kit/flow.css",
+    "packages/web/src/ui-kit/base.css",
+    "packages/web/mock/fixtures/supervisor.json"
+  ],
+  "origin": "new Core row"
+}
