@@ -20,6 +20,7 @@ import { buildRouter, principalOf, type RunStartBody } from './api/routes.ts';
 import type { ChainStatus } from './api/status.ts';
 import { hostAllowed, PairingStore, writeOriginAllowed } from './auth.ts';
 import { syncAll as syncCrm } from './flows/crm.ts';
+import { FLOW_KEY as HOST_MOMENTS, scanEvents as scanHostMoments } from './flows/host-moments.ts';
 import { refreshQuietly as refreshLeads } from './flows/leads.ts';
 import { loadFlow as loadNaFlow, FLOW_KEY as NA_KEY } from './flows/neighborhood-activation.ts';
 import { pullOutcomes } from './flows/outcomes.ts';
@@ -27,10 +28,12 @@ import { loadFlow as loadAdsFlow } from './flows/paid-ads.ts';
 import { ga4Of, pullDue, pullGa4, readPullStatus } from './flows/paid-ads-ga4.ts';
 import { draftReply } from './flows/reply-helper.ts';
 import { runReview } from './flows/review.ts';
+import { batchApprove } from './flows/sequence.ts';
 import { reapOrphanCycles, runFlowCycle } from './overseer/cycle.ts';
 import { approveDraft, rejectDraft } from './overseer/drafts.ts';
 import {
   createSupervisorOnFire,
+  readSettings,
   SupervisorError,
   setDial,
   setFlowAi,
@@ -292,6 +295,25 @@ export async function startDaemon(opts: DaemonOptions): Promise<Daemon> {
   };
   const reviewTimer = setInterval(reviewNow, Number(process.env.FW_REVIEW_EVERY_MS) || 7 * 86_400_000);
   reviewTimer.unref();
+  // ---- host moments (FW-C-106) ---------------------------------------------------------------
+  // Every 5 minutes: Frequency host events become drafts while the flow is on; opt-outs always apply.
+  const hostMomentsNow = (): void => {
+    const fail = (e: unknown) => log(`host-moments: scan failed: ${(e as Error)?.message ?? e}`);
+    try {
+      const draft = readSettings(writer).flows[HOST_MOMENTS]?.enabled === true;
+      scanHostMoments({ repoRoot: REPO_ROOT, fwHome, draft, env: process.env, log }).then(
+        (r) => r.processed > 0 && log(`host-moments: ${r.processed} event(s), ${r.drafts.length} draft(s)`),
+        fail,
+      );
+    } catch (e) {
+      fail(e);
+    }
+  };
+  const hostMomentsTimer = setInterval(
+    hostMomentsNow,
+    Number(process.env.FW_HOST_MOMENTS_EVERY_MS) || 300_000,
+  );
+  hostMomentsTimer.unref();
 
   // ---- auth --------------------------------------------------------------------------------
   const pairing = new PairingStore(join(fwHome, 'pairing'));
@@ -345,6 +367,8 @@ export async function startDaemon(opts: DaemonOptions): Promise<Daemon> {
       setFlowAi: (key, body) => setFlowAi(REPO_ROOT, fwHome, key, body),
       approveDraft: (key, id) => approveDraft({ writer, repoRoot: REPO_ROOT, fwHome, flow: key, id }),
       rejectDraft: (key, id) => rejectDraft({ repoRoot: REPO_ROOT, fwHome, flow: key, id }),
+      batchApprove: (key, draftIds) =>
+        batchApprove({ writer, repoRoot: REPO_ROOT, fwHome, flow: key, draftIds }),
       rewriteDraft: (key, id, body) =>
         rewriteDraft(
           { writer, repoRoot: REPO_ROOT, fwHome, env: process.env, log },
@@ -450,6 +474,7 @@ export async function startDaemon(opts: DaemonOptions): Promise<Daemon> {
     clearInterval(pullTimer);
     clearTimeout(firstPull);
     clearInterval(reviewTimer);
+    clearInterval(hostMomentsTimer);
     try {
       writer.appendEvent({
         type: 'system.stopped',
@@ -491,7 +516,9 @@ export async function startDaemon(opts: DaemonOptions): Promise<Daemon> {
             log(`digest: publish failed: ${(e as Error)?.message ?? e}`);
           }
         });
-      if (v.outcome === 'admit' && shippedFlows(REPO_ROOT).some((x) => x.key === f.streamKey))
+      // FW-C-106: host moments has no model cycle; a run of it is a scan of its events.
+      if (v.outcome === 'admit' && f.streamKey === HOST_MOMENTS) setImmediate(hostMomentsNow);
+      else if (v.outcome === 'admit' && shippedFlows(REPO_ROOT).some((x) => x.key === f.streamKey))
         setImmediate(() => {
           if (stopped) return;
           const ac = new AbortController();
@@ -558,6 +585,7 @@ export async function startDaemon(opts: DaemonOptions): Promise<Daemon> {
     clearInterval(pullTimer);
     clearTimeout(firstPull);
     clearInterval(reviewTimer);
+    clearInterval(hostMomentsTimer);
     for (const end of [...streams]) end();
     await new Promise<void>((ok) => {
       server.close(() => ok());
