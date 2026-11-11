@@ -24,6 +24,7 @@ import { FlowPulse, MeasureDials, PipelineBar, type PulseState, RegionPath } fro
 import { flowLoop, flowSpec } from './flowState';
 import { LeadHunts } from './LeadHunts';
 import { PaidAdsPanel } from './PaidAdsPanel';
+import { ReplyHelper } from './ReplyHelper';
 import { WhatsWorking } from './WhatsWorking';
 
 const pct = (x: number) => `${Math.round(x * 100)}%`;
@@ -336,6 +337,7 @@ export function ActivationPage({ flow }: { flow?: string } = {}) {
             />
             <DraftsInbox flow={KEY} />
             <LeadHunts regions={f.territories.map((t) => ({ id: t.id, name: t.name }))} />
+            <ReplyHelper flow={KEY} />
 
             <ChapterHead
               n={4}

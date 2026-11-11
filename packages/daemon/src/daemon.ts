@@ -40,6 +40,7 @@ import {
   setSchedule,
   shippedFlows,
 } from './overseer/index.ts';
+import { engineIntent } from './overseer/reply-engine.ts';
 import { rewriteDraft } from './overseer/rewrite.ts';
 import { runStart } from './pipeline/run-start.ts';
 import { type ReconcileReport, reconcileOnStart } from './reconciler.ts';
@@ -349,7 +350,11 @@ export async function startDaemon(opts: DaemonOptions): Promise<Daemon> {
           { writer, repoRoot: REPO_ROOT, fwHome, env: process.env, log },
           { flow: key, id, instruction: body.instruction, subject: body.subject, body: body.body },
         ),
-      draftReply: (key, body) => draftReply({ repoRoot: REPO_ROOT, fwHome, flow: key }, body),
+      draftReply: (key, body) => {
+        const deps = { writer, repoRoot: REPO_ROOT, fwHome, env: process.env, log };
+        const engine = (text: string, labels: string[]) => engineIntent(deps, key, text, labels);
+        return draftReply({ repoRoot: REPO_ROOT, fwHome, flow: key, engine }, body);
+      },
       runFlow: async (key) => {
         const s = writer.get<{ id: string }>('SELECT id FROM streams WHERE key = ?', [key]);
         if (!s || !shippedFlows(REPO_ROOT).some((f) => f.key === key))
