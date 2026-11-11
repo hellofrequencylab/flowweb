@@ -2,6 +2,7 @@ import { type ReactNode, useId, useState } from 'react';
 import { api } from '../api/client';
 import { useResource } from '../api/resource';
 import { HOSTED, signedInEmail } from '../hosted/auth';
+import { FrequencyLinkPanel } from '../hosted/FrequencyLink';
 import { AccountsPanel, MachinesPanel } from '../hosted/Machines';
 import { PeoplePanel } from '../hosted/People';
 import { AccentPicker } from '../shell/AccentPicker';
@@ -228,6 +229,7 @@ export function SettingsPage({
       <FunnelsSwitch />
       <ProjectSettings />
       <ConnectionsSettings />
+      {HOSTED && <FrequencyLinkPanel />}
       {HOSTED && <BuildRequests />}
 
       <Group id="sess-h" title="Session">
