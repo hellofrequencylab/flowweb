@@ -1,0 +1,41 @@
+{
+  "id": "FW-C-116",
+  "title": "The Owner renames, notes, archives and restores a flow from its card, on the Mac or on flowweb.app",
+  "core_milestone": "C1",
+  "phase": 1,
+  "epic": "C1.5 First flow",
+  "priority": "P1",
+  "size": "M",
+  "lane": "workstreams",
+  "agent_suitability": "agent",
+  "gate": "none",
+  "depends_on": [
+    "FW-C-115",
+    "FW-C-062"
+  ],
+  "description": "Daniel (2026-11-11) asked for Add, Edit, Delete and other admin controls for flows in the console. Every shipped flow is code (flows/<key> plus an engine), so this row covers what the Supervisor settings can hold without new engines. A flow can be renamed and given a note, and it can be archived (hidden from the Flows page and turned off; that is how a shipped flow is removed) or restored (back, still off). fwd stores name, note and archived in the Supervisor settings and serves them on GET /v1/supervisor with default_name. New routes are POST /v1/supervisor/flows/{key}/edit {name?, note?}, /archive and /restore, and an archived flow cannot be turned on (409). The site queues flow.edit, flow.archive and flow.restore through hosted/server/requests.mjs, and migration 0011 allows those kinds. Kevin (FW-C-112's console) proposes the same paths. Adding a new flow or duplicating one needs engines that run more than one instance, which is a later row.",
+  "acceptance": [
+    "POST .../edit renames and notes a flow; null or '' clears; bad input 400; unknown flow 404; no session 401",
+    "GET /v1/supervisor shows name, default_name, note and archived per flow",
+    "Archive turns the flow off and hides it; enabling an archived flow answers 409; restore brings it back off",
+    "The site queues flow.edit, flow.archive and flow.restore and the relay maps each to the same route and body",
+    "Migration 0011 allows the three kinds and every earlier kind",
+    "Each card has Edit (name, note, Save, Archive with a confirm); archived flows list under Archived flows with Restore"
+  ],
+  "verify_probe": "pnpm probe flows/flow-manage",
+  "files_hint": [
+    "packages/daemon/src/overseer/index.ts",
+    "packages/daemon/src/api/routes.ts",
+    "packages/daemon/src/daemon.ts",
+    "packages/daemon/src/index.ts",
+    "hosted/server/requests.mjs",
+    "hosted/supabase/migrations/0011_flowweb_flow_admin.sql",
+    "packages/web/src/api/client.ts",
+    "packages/web/src/api/types.ts",
+    "packages/web/src/flows/FlowControls.tsx",
+    "packages/web/src/flows/visible.ts",
+    "packages/web/src/ui-kit/flow.css",
+    "packages/web/mock/mock-fwd.mjs"
+  ],
+  "origin": "new Core row"
+}
