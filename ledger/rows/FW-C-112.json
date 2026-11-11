@@ -1,0 +1,34 @@
+{
+  "id": "FW-C-112",
+  "title": "The Creator seed flow launches with the Owner's defaults: two touches for a cold lead, email off and only to opted-in addresses, and a ref on every tagged link",
+  "core_milestone": "C1",
+  "phase": 1,
+  "epic": "C1.5 First flow",
+  "priority": "P1",
+  "size": "M",
+  "lane": "workstreams",
+  "agent_suitability": "agent",
+  "gate": "none",
+  "depends_on": [],
+  "description": "Launch plan v2, the Owner's best-practice decisions of 2026-11-11 for flows/neighborhood-activation. A cold lead (its first touch came from a hunt, and no draft marked it warm) gets at most two touches, day 0 and about day 5; any reply or no still ends it. The setting is sequence.cold_max_touches (2) in the flow's config.json; leads.max_touches_per_lead stays the lifetime cap of three, and a warm lead still gets touch 3 about day 12. The sequence closes a cold lead at the cap, so GET /v1/flows/{key}/sequence never shows it due and Today leaves its waiting draft off. Email sends stay off: the shipped config sets sequence.email_batch_approval false, so a batch at Draft hands nothing to the outbox. Marketing email goes only to opted-in addresses: with sequence.email_opt_in_only true, an email touch is offered only to a lead with an opt-in marker (opted_in_at, or opt_in true), and batch approval refuses an email draft without one (no_opt_in). Link tags: utm_source stays flowweb (existing checks and Frequency attribution key on it); every seed link and every tagged draft link also carries ref=<draft tag>, so one draft can be learned from on its own. leads.max_new_contacts_per_day stays 15 and DEFAULT_INTENSITY.per_day stays 10.",
+  "acceptance": [
+    "The shipped config sets sequence.email_batch_approval false, sequence.cold_max_touches 2 and sequence.email_opt_in_only true, and keeps leads.max_touches_per_lead 3 and leads.max_new_contacts_per_day 15",
+    "A cold lead with two touches sent is closed and never due; a warm lead with two is due for touch 3",
+    "Today leaves off a cold lead's third draft and keeps a warm lead's",
+    "A lead with no opt-in marker is not offered an email touch, and batch approval refuses its email draft",
+    "With email batch approval off, nothing reaches the outbox",
+    "Seed links and tagged draft links carry ref=<tag> and keep utm_source=flowweb"
+  ],
+  "verify_probe": "pnpm probe flows/launch-defaults",
+  "files_hint": [
+    "flows/neighborhood-activation/config.json",
+    "packages/daemon/src/flows/sequence.ts",
+    "packages/daemon/src/flows/today.ts",
+    "packages/daemon/src/flows/neighborhood-activation.ts",
+    "packages/daemon/src/flows/host-moments.ts",
+    "packages/daemon/src/overseer/drafts.ts",
+    "packages/daemon/src/overseer/cycle.ts",
+    "packages/daemon/src/api/routes.ts"
+  ],
+  "origin": "new Core row"
+}
