@@ -119,3 +119,35 @@ describe('credential handles', () => {
     expect(redactLiterals('abc', ['ab'])).toBe('abc'); // too short to redact safely
   });
 });
+
+describe('the fake vendor never reads the OS keychain', () => {
+  // A stand-in keychain tool on PATH that answers with a different secret, as the Owner's real
+  // keychain entry would on a Mac.
+  const bin = mkdtempSync(join(tmpdir(), 'fw-creds-bin-'));
+  afterAll(() => rmSync(bin, { recursive: true, force: true }));
+  const tool = process.platform === 'darwin' ? 'security' : 'secret-tool';
+  writeFileSync(join(bin, tool), '#!/bin/sh\necho fwtest-keychain-not-the-file\n', { mode: 0o755 });
+
+  test.runIf(process.platform === 'darwin' || process.platform === 'linux')(
+    'FW_VENDOR=fake reads the file in FW_HOME even when the keychain holds the handle',
+    () => {
+      put('crd_keychainshadow', SECRET);
+      const before = process.env.FW_VENDOR;
+      try {
+        delete process.env.FW_VENDOR;
+        expect(resolveCredentialHandle('crd_keychainshadow', { home, path: bin }).source).toBe('keychain');
+        process.env.FW_VENDOR = 'fake';
+        const r = resolveCredentialHandle('crd_keychainshadow', { home, path: bin });
+        expect(r.source).toBe('file');
+        expect(r.reveal()).toBe(SECRET);
+        // An explicit keychain: true still wins over the fake-vendor default.
+        expect(
+          resolveCredentialHandle('crd_keychainshadow', { home, path: bin, keychain: true }).source,
+        ).toBe('keychain');
+      } finally {
+        if (before === undefined) delete process.env.FW_VENDOR;
+        else process.env.FW_VENDOR = before;
+      }
+    },
+  );
+});
