@@ -336,3 +336,37 @@ export const setMemberRole = (account: string, user: string, role: Role, flows: 
 /** Removes someone; with the login's own id, leaves the business. */
 export const removeMember = (account: string, user: string) =>
   v1<void>('DELETE', `${acc(account)}/members/${encodeURIComponent(user)}`, undefined, account);
+
+// The Frequency link (FW-C-111 serves /v1/plugin; FW-C-120 shows it in Settings). The secret comes back only
+// from making or rotating a link, and only once.
+
+export interface FrequencyLink {
+  id: string;
+  account_id: string;
+  space_id: string;
+  house: boolean;
+  status: 'active' | 'paused' | 'revoked';
+  created_at: string;
+  rotated_at: string | null;
+  last_event_at: string | null;
+}
+/** The links this login can see, one per business at most. */
+export const listFrequencyLinks = () => v1<FrequencyLink[]>('GET', '/plugin/links', undefined, null);
+/** Links a business to a Frequency Space. Owners and admins only. */
+export const createFrequencyLink = (account: string, space_id: string, house: boolean) =>
+  v1<{ id: string; space_id: string; secret: string }>(
+    'POST',
+    '/plugin/links',
+    { account, space_id, house },
+    account,
+  );
+/** A new secret; the old one stops working at once. */
+export const rotateFrequencyLink = (id: string) =>
+  v1<{ id: string; secret: string }>(
+    'POST',
+    `/plugin/links/${encodeURIComponent(id)}/rotate`,
+    undefined,
+    null,
+  );
+export const setFrequencyLinkStatus = (id: string, status: FrequencyLink['status']) =>
+  v1<{ id: string; status: string }>('PATCH', `/plugin/links/${encodeURIComponent(id)}`, { status }, null);
