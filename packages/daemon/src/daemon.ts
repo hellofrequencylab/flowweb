@@ -26,6 +26,7 @@ import { pullOutcomes } from './flows/outcomes.ts';
 import { loadFlow as loadAdsFlow } from './flows/paid-ads.ts';
 import { ga4Of, pullDue, pullGa4, readPullStatus } from './flows/paid-ads-ga4.ts';
 import { runReview } from './flows/review.ts';
+import { batchApprove } from './flows/sequence.ts';
 import { reapOrphanCycles, runFlowCycle } from './overseer/cycle.ts';
 import { approveDraft, rejectDraft } from './overseer/drafts.ts';
 import {
@@ -343,6 +344,8 @@ export async function startDaemon(opts: DaemonOptions): Promise<Daemon> {
       setFlowAi: (key, body) => setFlowAi(REPO_ROOT, fwHome, key, body),
       approveDraft: (key, id) => approveDraft({ writer, repoRoot: REPO_ROOT, fwHome, flow: key, id }),
       rejectDraft: (key, id) => rejectDraft({ repoRoot: REPO_ROOT, fwHome, flow: key, id }),
+      batchApprove: (key, draftIds) =>
+        batchApprove({ writer, repoRoot: REPO_ROOT, fwHome, flow: key, draftIds }),
       rewriteDraft: (key, id, body) =>
         rewriteDraft(
           { writer, repoRoot: REPO_ROOT, fwHome, env: process.env, log },

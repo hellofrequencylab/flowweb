@@ -24,6 +24,7 @@ import { FlowPulse, MeasureDials, PipelineBar, type PulseState, RegionPath } fro
 import { flowLoop, flowSpec } from './flowState';
 import { LeadHunts } from './LeadHunts';
 import { PaidAdsPanel } from './PaidAdsPanel';
+import { Today } from './Today';
 import { WhatsWorking } from './WhatsWorking';
 
 const pct = (x: number) => `${Math.round(x * 100)}%`;
@@ -334,6 +335,7 @@ export function ActivationPage({ flow }: { flow?: string } = {}) {
               title="Waiting on you"
               lede="Messages to check and send, and the hunts that find more people."
             />
+            <Today flow={KEY} />
             <DraftsInbox flow={KEY} />
             <LeadHunts regions={f.territories.map((t) => ({ id: t.id, name: t.name }))} />
 
