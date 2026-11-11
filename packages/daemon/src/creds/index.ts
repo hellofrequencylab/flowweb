@@ -66,7 +66,11 @@ export class ResolvedCredential {
 export interface ResolveOptions {
   /** FW_HOME. */
   home: string;
-  /** Try the OS keychain first. Default true; tests pass false to use only the file backend. */
+  /**
+   * Try the OS keychain first. Tests pass false to use only the file backend. Default true, except
+   * when this process runs the fake vendor (FW_VENDOR=fake, as every probe does): a probe brings its
+   * own secret in $FW_HOME/creds, and the Owner's real keychain entry must not shadow it on a Mac.
+   */
   keychain?: boolean;
   /** PATH used to find the keychain tool. Default process.env.PATH. */
   path?: string;
@@ -128,7 +132,7 @@ export function resolveCredentialHandle(handle: string, opts: ResolveOptions): R
       String(handle),
       `credential handle ${JSON.stringify(handle)} is not a handle id (crd_ followed by 4 to 40 letters or digits)`,
     );
-  if (opts.keychain !== false) {
+  if (opts.keychain ?? process.env.FW_VENDOR !== 'fake') {
     const v = fromKeychain(handle, opts.path ?? process.env.PATH);
     if (v !== undefined) return new ResolvedCredential(handle, 'keychain', v);
   }
