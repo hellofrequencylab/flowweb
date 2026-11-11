@@ -4,7 +4,7 @@
     "profile": "core",
     "schema": "ledger-row/1",
     "generated": "2026-11-09",
-    "row_count": 146,
+    "row_count": 147,
     "conventions": {
       "verify_probe": "Same convention as 04-build-plan/backlog.json: 'pnpm probe <path>' runs probes/<path>.probe.ts, a Tier 0 file written before the implementation row starts and never edited by the agent doing the row. Every probe fails today because its target does not exist (a missing probe file exits 2, a missing behaviour exits 1). The probe pack for a milestone is committed by the Owner or a pair session before the milestone's rows start.",
       "status": "All rows start as open. Status lives only in the ledger database (imported with fw ledger sync), never in prose.",
@@ -5094,6 +5094,36 @@
       "verify_probe": "pnpm probe hosted/frequency-links",
       "files_hint": [
         "hosted/supabase/migrations/0009_flowweb_frequency_links.sql"
+      ],
+      "origin": "new Core row"
+    },
+    {
+      "id": "FW-C-111",
+      "title": "An owner links their FlowWeb business to a Frequency Space on flowweb.app, and Frequency's signed funnel events reach it",
+      "core_milestone": "C1",
+      "phase": 1,
+      "epic": "C1.5 First flow",
+      "priority": "P1",
+      "size": "M",
+      "lane": "workstreams",
+      "agent_suitability": "agent",
+      "gate": "none",
+      "depends_on": [
+        "FW-C-110"
+      ],
+      "description": "Step 2 of the Frequency plugin plan (https://claude.ai/artifact/5qXS1QLbKJVEdmf1w5suyi), the routes on top of migration 0009. A new Vercel Function api/plugin.mjs serves /v1/plugin, sent there by a vercel.json rewrite placed ahead of /v1 so api/v1.mjs is untouched. A signed-in owner or admin lists, makes, pauses, revokes and rotates the business's Frequency link with their own Supabase token; the secret comes back once. Frequency's server posts funnel events to /v1/plugin/links/{id}/events with the contract's headers; the route checks the headers and the event shape with frequency-link.mjs, then hands the raw body to fw_plugin_ingest, which checks the signature inside the database, so the site holds no service key. Refusals carry the contract's reasons with 401, 403 or 400. The handoff route and the console panels are later rows.",
+      "acceptance": [
+        "vercel.json sends /v1/plugin/* to api/plugin.mjs ahead of the /v1 rewrite",
+        "An owner links their business and gets the secret once; a helper gets 403 and no sign-in gets 401",
+        "Listing links never shows a secret",
+        "A correctly signed event answers 202 and the business's machine can take it",
+        "Unsigned, wrong-link, stale, tampered, malformed, wrong-Space and paused events are refused with their reason",
+        "Rotating through the site retires the old secret"
+      ],
+      "verify_probe": "pnpm probe hosted/plugin-routes",
+      "files_hint": [
+        "api/plugin.mjs",
+        "vercel.json"
       ],
       "origin": "new Core row"
     },
