@@ -56,11 +56,13 @@ export {
 } from './local-client.ts';
 export {
   createSupervisorOnFire,
+  editFlow,
   handOff,
   perDayFor,
   SupervisorError,
   setDial,
   setFlowAi,
+  setFlowArchived,
   setFlowEnabled,
   setIntensity,
   setPaused,

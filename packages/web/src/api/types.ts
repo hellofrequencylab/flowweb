@@ -833,6 +833,10 @@ export interface SupervisorFlow {
   name: string;
   /** FW-C-096: the flow this one was rolled into; the site hides it. */
   merged_into?: string | null;
+  /** FW-C-116: the name the flow ships with (name may be the Owner's), the Owner's note, and archived. */
+  default_name?: string;
+  note?: string | null;
+  archived?: boolean;
   enabled: boolean;
   dial: SupervisorDial;
   tier: string;

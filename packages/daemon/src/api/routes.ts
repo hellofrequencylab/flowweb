@@ -136,6 +136,9 @@ export interface SupervisorControls {
   setIntensity?(key: string, body: Record<string, unknown>): { changed: boolean };
   /** FW-C-086: which AI account the flow uses: { account: claude_plan|anthropic_key|chatgpt_plan|openai_key }. */
   setFlowAi?(key: string, body: Record<string, unknown>): { changed: boolean };
+  /** FW-C-115: rename a flow or note it ({ name?, note? }), and archive or restore it. */
+  editFlow?(key: string, body: Record<string, unknown>): { changed: boolean };
+  setFlowArchived?(key: string, archived: boolean): { changed: boolean };
   /** FW-C-038: fire the flow's stream by hand; the Supervisor decides it like any fire. */
   runFlow?(key: string): Promise<{ fire_id: string; outcome: string; reason?: string }>;
   /** FW-C-097: flow cycles in flight now, by flow key, so the Supervisor can say a flow is running. */
@@ -711,6 +714,7 @@ export function buildRouter(deps: ApiDeps): Router {
           );
         }
         if (e.code === 'INVALID') throw new ApiError(400, 'validation_failed', e.message);
+        if (e.code === 'CONFLICT') throw new ApiError(409, 'conflict', e.message, { reason: e.message });
         throw new ApiError(404, 'not_found', e.message);
       }
       throw kernelError(e);
@@ -724,6 +728,24 @@ export function buildRouter(deps: ApiDeps): Router {
   r.post('/v1/supervisor/flows/{key}/disable', ({ req, params }) =>
     ownerControl(req, (c) => c.setFlowEnabled(params.key ?? '', false)),
   );
+  // FW-C-115: rename or note a flow, and archive (hide and turn off) or restore it.
+  r.post('/v1/supervisor/flows/{key}/edit', async ({ req, params }) => {
+    const body = await readJsonBody(req);
+    return ownerControl(req, (c) => {
+      if (!c.editFlow) throw new ApiError(501, 'not_implemented', 'this fwd cannot edit a flow');
+      return c.editFlow(params.key ?? '', body);
+    });
+  });
+  for (const [action, archived] of [
+    ['archive', true],
+    ['restore', false],
+  ] as const)
+    r.post(`/v1/supervisor/flows/{key}/${action}`, ({ req, params }) =>
+      ownerControl(req, (c) => {
+        if (!c.setFlowArchived) throw new ApiError(501, 'not_implemented', 'this fwd cannot archive a flow');
+        return c.setFlowArchived(params.key ?? '', archived);
+      }),
+    );
   // FW-C-038: run a flow now. The fire goes through the scheduler, so the Supervisor decides it.
   r.post('/v1/supervisor/flows/{key}/run', async ({ req, params }) => {
     const c = deps.supervisor;
