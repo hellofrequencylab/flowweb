@@ -242,6 +242,11 @@ export interface SupervisorDeps {
   engines?: Record<string, Engine>;
   /** The flow a scheduled fire is asking about: the fire itself makes it due. */
   dueFlow?: string;
+  /**
+   * FW-C-097: cycles in flight right now, by flow key (the daemon's own count). Without it nothing is
+   * reported as running, so a caller outside fwd (the CLI reading the database) never claims a live run.
+   */
+  inFlight?: () => Record<string, number>;
 }
 
 export function supervisorView(d: SupervisorDeps): SupervisorView {
@@ -267,10 +272,11 @@ function verdicts(d: SupervisorDeps) {
   const now = d.now?.() ?? new Date();
   const engines = d.engines ?? ENGINES;
   const settings = readSettings(d.reader);
+  const live = d.inFlight?.() ?? {};
   const sup: SupervisorFacts = {
     kill_switch: killSwitch(d.reader),
     paused: settings.paused,
-    running_total: 0,
+    running_total: Object.values(live).reduce((a, n) => a + Math.max(0, n), 0),
     max_concurrent: d.maxConcurrent ?? DEFAULT_MAX_CONCURRENT,
   };
   const flows = shippedFlows(d.repoRoot).map(({ key, stream }) => {
@@ -296,7 +302,7 @@ function verdicts(d: SupervisorDeps) {
       open_asks: 0,
       dry_streak: 0,
       stall_streak: 0,
-      running: 0,
+      running: Math.max(0, live[key] ?? 0),
       wip_limit: Number.isInteger(wip) && wip > 0 ? wip : 1,
       due: key === d.dueFlow,
     };

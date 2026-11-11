@@ -66,10 +66,16 @@ export function LiveProvider({ children }: { children: ReactNode }) {
   const [now, setNow] = useState(Date.now());
   const subs = useRef(new Map<Topic, Set<() => void>>());
   const wasDown = useRef(false);
+  const mirrorAsOf = useRef<string | null>(null);
 
   const refreshStatus = useCallback(async () => {
     try {
       const s = await api.status();
+      // FW-C-097: the hosted mirror has no event stream. A new push (a newer as_of) refreshes every
+      // screen once, so a run that started on the Mac shows as running without a reload.
+      const pushed = HOSTED && mirrorAsOf.current !== null && s.data_as_of !== mirrorAsOf.current;
+      mirrorAsOf.current = s.data_as_of;
+      if (pushed) for (const fn of new Set([...subs.current.values()].flatMap((x) => [...x]))) fn();
       setStatus(s);
       setStatusAt(Date.now());
       setLastContactAt(Date.now());

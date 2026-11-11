@@ -2151,14 +2151,65 @@ a.flow-line:hover .flow-line-name {
   content: "";
 }
 
+/*
+ * FW-C-097: a card whose work is running now (the flow hero, its figures, its Controls row). A light runs
+ * along the card's edge; the state word carries a pinging dot. Idle cards never get the class.
+ */
+.live-edge {
+  position: relative;
+}
+.live-edge::before {
+  position: absolute;
+  inset: 0;
+  padding: 1.5px;
+  border-radius: inherit;
+  background:
+    linear-gradient(90deg, transparent 0%, var(--flow-teal) 50%, transparent 100%) 0 0 / 50% 100% no-repeat;
+  pointer-events: none;
+  animation: fw-sweep 2.4s linear infinite;
+  content: "";
+  mask:
+    linear-gradient(var(--flow-teal) 0 0) content-box,
+    linear-gradient(var(--flow-teal) 0 0);
+  mask-composite: exclude;
+}
+.flow-hero.is-live .flow-hero-state .flow-pulse-dot {
+  display: inline-block;
+  margin-right: var(--space-2);
+  vertical-align: 0.05em;
+  background: var(--flow-teal);
+  box-shadow: 0 0 0 3px color-mix(in srgb, var(--flow-teal) 25%, transparent);
+}
+.flow-hero.is-live .flow-hero-state .flow-pulse-dot::after {
+  position: absolute;
+  inset: 0;
+  border-radius: inherit;
+  background: var(--flow-teal);
+  opacity: 0;
+  animation: fw-ping 1.8s var(--ease-standard) infinite;
+  content: "";
+}
+
 /* Still states for reduced motion and calm mode: no sparks or sweeps left frozen mid-line. */
 @media (prefers-reduced-motion: reduce) {
+  .live-edge::before {
+    display: none;
+  }
+  .live-edge {
+    box-shadow: 0 0 0 1.5px color-mix(in srgb, var(--flow-teal) 55%, transparent);
+  }
   .region-path .flow-travel,
   .region-card.is-live::before,
   .flow-pulse-dot::after,
   .kpi .icon-wash::after {
     display: none;
   }
+}
+:root[data-calm="on"] .live-edge::before {
+  display: none;
+}
+:root[data-calm="on"] .live-edge {
+  box-shadow: 0 0 0 1.5px color-mix(in srgb, var(--flow-teal) 55%, transparent);
 }
 :root[data-calm="on"] .region-path .flow-travel,
 :root[data-calm="on"] .region-card.is-live::before,
