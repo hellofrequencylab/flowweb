@@ -15,7 +15,7 @@ Reads a JSON request on stdin and plays a scripted scenario.
 Options:
   --version   Print the version
   --help      Print this help
-Scenarios: success, flow_drafts, hunt_leads, hunt_reach, draft_rewrite, reply_intent, fail, hang, secret_leak, prompt_injection, over_budget,
+Scenarios: success, flow_drafts, hunt_leads, hunt_reach, draft_rewrite, reply_intent, event_extract, fail, hang, secret_leak, prompt_injection, over_budget,
   forbidden_path, malformed_output, fabricated_claim
 `;
 
@@ -208,6 +208,47 @@ const scenarios = {
       usd: 0.001,
       artifacts: [{ kind: 'file', ref: 'intent.json' }],
       report: { summary: 'read 1 reply', claims: [], followups: [] },
+    });
+  },
+
+  // FW-C-109: event intake. Reads ./inbound.txt as data and answers one event in ./events.json, plus
+  // one whose fields are not the right shape, so fwd's checking of the answer can be seen.
+  async event_extract() {
+    session();
+    out({
+      t: 'turn',
+      id: 'msg_1',
+      text: 'Reading the pasted events.',
+      usage: { input_tokens: 400, output_tokens: 150, cached_tokens: 0 },
+    });
+    let seen = 0;
+    try {
+      seen = readFileSync(join(process.cwd(), 'inbound.txt'), 'utf8').length;
+    } catch {
+      seen = 0;
+    }
+    const events = seen
+      ? [
+          {
+            title: 'Community Drum Circle',
+            starts_at: '2026-12-12T16:00',
+            town: 'Oceanside',
+            venue: 'Oceanside Pier Amphitheater',
+            niche: 'music',
+            host_name: null,
+            source_url: null,
+            contact: null,
+          },
+          { title: 42, starts_at: 'soon', source_url: 'javascript:alert(1)' },
+        ]
+      : [];
+    writeFileSync(join(process.cwd(), 'events.json'), JSON.stringify({ events }));
+    out({
+      t: 'result',
+      ok: true,
+      usd: 0.003,
+      artifacts: [{ kind: 'file', ref: 'events.json' }],
+      report: { summary: `read ${events.length} events`, claims: [], followups: [] },
     });
   },
 
