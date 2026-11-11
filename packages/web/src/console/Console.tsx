@@ -14,7 +14,7 @@ import {
   saveTurns,
   starters,
   type Turn,
-} from './console';
+} from './console-model';
 
 const NOTE: Record<string, string> = {
   done: 'Done.',
