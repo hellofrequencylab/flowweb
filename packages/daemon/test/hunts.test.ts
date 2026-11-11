@@ -5,6 +5,7 @@ import { describe, expect, test } from 'vitest';
 import {
   composeBody,
   dueHunts,
+  fetchAllowed,
   type Hunt,
   newHunt,
   onDoNotContact,
@@ -171,4 +172,40 @@ test('a form or profile lead is drafted without an address and says how to send 
   expect(kept[1]!.send_how).toContain('https://example.com/contact');
   expect(kept[1]!.body).toMatch(/how to reach you on https:\/\/example\.com\/o\..*reply "no"/i);
   expect(counts[h.id]).toMatchObject({ drafted: 3, not_public: 1, duplicate: 1, restricted: 1 });
+});
+
+// FW-C-101: the v2 shape. DMs are unsigned and short, links drop persona, and hunts never fetch IG or FB.
+test('a social lead is a short unsigned DM with niche, angle and route, and its link has no persona', () => {
+  const h = hunt({ areas: ['encinitas'] });
+  const dm = {
+    ...reach(h, { contact_via: 'social', contact_url: 'https://www.instagram.com/x' }),
+    niche: 'sound',
+  };
+  const { kept } = screenLeads({ cfg, state: initialState(now), hunts: [h], leads: [dm], now });
+  expect(kept[0]).toMatchObject({ niche: 'sound', angle: 'fill_room', route: 'dm' });
+  const body = kept[0]!.body;
+  expect(body).not.toMatch(/Daniel Tyack|P\.S\./);
+  expect(body).toMatch(/reply "no"/);
+  const link = new URL(/https:\/\/frequencylocal\.com\S+/.exec(body)![0]);
+  expect(link.searchParams.has('persona')).toBe(false);
+  expect(link.searchParams.get('utm_medium')).toBe('one-to-one');
+  expect(link.searchParams.get('niche')).toBe('sound');
+  expect(link.searchParams.get('utm_campaign')).toBe(h.id);
+  const long = { ...dm, body: 'word '.repeat(130) };
+  expect(
+    screenLeads({ cfg, state: initialState(now), hunts: [h], leads: [long], now }).counts[h.id],
+  ).toMatchObject({
+    drafted: 0,
+    too_long: 1,
+  });
+});
+
+test('hunts never fetch instagram.com or facebook.com', () => {
+  expect(fetchAllowed('https://www.instagram.com/x')).toBe(false);
+  expect(fetchAllowed('https://web.facebook.com/events/1')).toBe(false);
+  expect(fetchAllowed('https://notinstagram.com/x')).toBe(true);
+  const body = { name: 'x', looking_for: 'x', region: 'north-county-sd', links: ['https://facebook.com/e'] };
+  expect(() => newHunt(cfg, body, now)).toThrow(/never fetch/);
+  const saved = hunt({ links: ['https://facebook.com/e', 'https://example.com/cal'] });
+  expect(dueHunts([saved], now)[0]?.links).toEqual(['https://example.com/cal']);
 });
