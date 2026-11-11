@@ -978,6 +978,9 @@ export const api = {
   /** FW-C-086: which AI account the flow's runs use. Only names one; the key stays on the machine. */
   setFlowAi: (flow: string, account: V.FlowAiAccount, onQueued?: () => void) =>
     ownerWrite<unknown>('POST', `/supervisor/flows/${enc(flow)}/ai`, { account }, onQueued),
+  /** FW-C-118: links to Frequency's funnel pages on or off for every flow; null hands it back to the Mac. */
+  setFunnelsLive: (live: boolean | null, onQueued?: () => void) =>
+    ownerWrite<unknown>('POST', '/supervisor/funnels-live', { live }, onQueued),
   /** FW-C-062: pause or resume every flow. */
   setSupervisorPaused: (paused: boolean, onQueued?: () => void) =>
     ownerWrite<unknown>('POST', `/supervisor/${paused ? 'pause' : 'resume'}`, {}, onQueued),

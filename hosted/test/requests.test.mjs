@@ -132,3 +132,15 @@ test('FW-C-071: a site move to Copilot or Autopilot waits for a sender on the Ma
   assert.equal(senderHold(dial('draft'), none), null);
   assert.equal(senderHold({ kind: 'draft.reject', flow: 'neighborhood-activation', payload: {} }, none), null);
 });
+
+test('the funnel links switch becomes links.funnels with only live, and the relay maps it back', () => {
+  for (const live of [true, false, null]) {
+    const r = requestOf('POST', '/supervisor/funnels-live', { live, other: 1 });
+    assert.deepEqual(r, { kind: 'links.funnels', flow: 'all', draft_id: null, payload: { live } });
+    assert.deepEqual(fwdCallFor(r), { method: 'POST', path: '/supervisor/funnels-live', body: { live } });
+  }
+  assert.ok(requestOf('POST', '/supervisor/funnels-live', { live: 'on' }).error);
+  assert.ok(requestOf('POST', '/supervisor/funnels-live', {}).error);
+  assert.equal(requestOf('GET', '/supervisor/funnels-live', {}), null);
+  assert.equal(fwdCallFor({ kind: 'links.funnels', flow: 'all', payload: { live: 1 } }), null);
+});

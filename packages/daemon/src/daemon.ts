@@ -22,6 +22,7 @@ import { hostAllowed, PairingStore, writeOriginAllowed } from './auth.ts';
 import { syncAll as syncCrm } from './flows/crm.ts';
 import { FLOW_KEY as HOST_MOMENTS, scanEvents as scanHostMoments } from './flows/host-moments.ts';
 import { refreshQuietly as refreshLeads } from './flows/leads.ts';
+import { setFunnelsSettingReader } from './flows/live-links.ts';
 import { FLOW_KEY as LOCAL_PULSE } from './flows/local-pulse.ts';
 import { runRoundup } from './flows/local-pulse-roundup.ts';
 import { loadFlow as loadNaFlow, FLOW_KEY as NA_KEY } from './flows/neighborhood-activation.ts';
@@ -42,6 +43,7 @@ import {
   setFlowAi,
   setFlowArchived,
   setFlowEnabled,
+  setFunnelsLive,
   setIntensity,
   setPaused,
   setSchedule,
@@ -163,10 +165,14 @@ export async function startDaemon(opts: DaemonOptions): Promise<Daemon> {
     throw e;
   }
 
+  // FW-C-118: every generated funnel link reads the Owner's stored switch from here until fwd stops.
+  const forgetFunnels = setFunnelsSettingReader(() => readSettings(writer).funnels_live ?? null);
+
   let reconcile: ReconcileReport;
   try {
     reconcile = reconcileOnStart(writer, { bootId });
   } catch (e) {
+    forgetFunnels();
     store.close();
     throw e;
   }
@@ -372,6 +378,7 @@ export async function startDaemon(opts: DaemonOptions): Promise<Daemon> {
       setFlowAi: (key, body) => setFlowAi(REPO_ROOT, fwHome, key, body),
       editFlow: (key, body) => editFlow(writer, REPO_ROOT, key, body),
       setFlowArchived: (key, archived) => setFlowArchived(writer, REPO_ROOT, key, archived),
+      setFunnelsLive: (live) => setFunnelsLive(writer, live),
       approveDraft: (key, id) => approveDraft({ writer, repoRoot: REPO_ROOT, fwHome, flow: key, id }),
       rejectDraft: (key, id) => rejectDraft({ repoRoot: REPO_ROOT, fwHome, flow: key, id }),
       batchApprove: (key, draftIds) =>
@@ -494,6 +501,7 @@ export async function startDaemon(opts: DaemonOptions): Promise<Daemon> {
         payload: { reason: `listen failed: ${(e as Error).message}`, clean: false, boot_id: bootId },
       });
     } finally {
+      forgetFunnels();
       store.close();
     }
     throw e;
@@ -618,6 +626,7 @@ export async function startDaemon(opts: DaemonOptions): Promise<Daemon> {
         payload: { reason, clean: drained.settled, boot_id: bootId, runs_interrupted: drained.interrupted },
       });
     } finally {
+      forgetFunnels();
       store.close();
     }
   };
