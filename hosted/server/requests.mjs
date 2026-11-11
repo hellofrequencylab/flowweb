@@ -4,7 +4,8 @@
 // matching fwd route with the CLI token. Draft changes (edit, reject, AI rewrite, mark, approve), the
 // flow controls (on, off, run now, the Draft or Copilot dial, Supervisor pause and resume, and from FW-C-115
 // rename, note, archive and restore), hunts and
-// do-not-contact exist here (FW-C-062), and the morning run time and people a day (FW-C-063). A request can never set Autopilot, send anything, release the
+// do-not-contact exist here (FW-C-062), the morning run time and people a day (FW-C-063), and from FW-C-118
+// the switch for links to Frequency's funnel pages (links.funnels). A request can never set Autopilot, send anything, release the
 // kill switch, or change a budget or a policy. Approving only hands a draft to the outbox; Core never
 // sends. Pure functions, tested.
 
@@ -84,6 +85,9 @@ function projectPayload(action, b) {
   if (Object.keys(payload).length === 0) return { error: 'give a brand, a category or both' };
   return { payload };
 }
+
+/** FW-C-118: funnel links on, off, or null to hand the choice back to the Mac's env var and flow configs. */
+const FUNNELS = [true, false, null];
 
 /** FW-C-086: the AI accounts a flow may use. Only which one; the key stays on the Owner's machine. */
 const AI_ACCOUNTS = ['claude_plan', 'anthropic_key', 'chatgpt_plan', 'openai_key'];
@@ -202,6 +206,11 @@ export function requestOf(method, path, body) {
     const t = tuningPayload(tune[2], b);
     return t.error ? t : { kind: `flow.${tune[2]}`, flow: tune[1], draft_id: null, payload: t.payload };
   }
+  if (path === '/supervisor/funnels-live') {
+    if (method !== 'POST') return null;
+    if (!FUNNELS.includes(b.live)) return { error: 'live must be true, false or null' };
+    return { kind: 'links.funnels', flow: 'all', draft_id: null, payload: { live: b.live } };
+  }
   if (path === '/connections/email') {
     if (method !== 'POST') return null;
     const sp = senderPayload(b);
@@ -298,6 +307,8 @@ export function fwdCallFor(req) {
   const f = encodeURIComponent(flow);
   if (kind === 'supervisor.pause' || kind === 'supervisor.resume')
     return { method: 'POST', path: `/supervisor/${kind.slice(11)}`, body: {} };
+  if (kind === 'links.funnels')
+    return FUNNELS.includes(p.live) ? { method: 'POST', path: '/supervisor/funnels-live', body: { live: p.live } } : null;
   if (kind === 'connection.email') {
     const sp = senderPayload(p);
     return sp.error ? null : { method: 'POST', path: '/connections/email', body: sp.payload };

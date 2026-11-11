@@ -9,6 +9,7 @@ import { join } from 'node:path';
 import type { ActorKind, Reader, Writer } from '@fw/eventlog';
 import { ownerActor, setStreamCron } from '@fw/ledger';
 import * as hostMoments from '../flows/host-moments.ts';
+import { type FunnelsView, funnelsView } from '../flows/live-links.ts';
 import * as localPulse from '../flows/local-pulse.ts';
 import { loadFlow as loadLocalSaturation } from '../flows/local-saturation.ts';
 import * as neighborhood from '../flows/neighborhood-activation.ts';
@@ -57,6 +58,8 @@ export interface SupervisorSettings {
   paused: boolean;
   /** dial_hash: the confirm hash the Owner accepted when turning on Autopilot (FW-C-035). */
   flows: Record<string, FlowSettings>;
+  /** FW-C-118: the Owner's funnel links switch; absent means FW_FUNNELS_LIVE, then each flow's config. */
+  funnels_live?: boolean;
 }
 
 /** One flow's Owner settings. schedule and intensity are FW-C-063. */
@@ -169,6 +172,8 @@ export interface SupervisorView {
   next: string[];
   /** FW-C-071: whether a sender on this Mac reads the outbox. */
   sender: SenderStatus;
+  /** FW-C-118: what decides links to Frequency's funnel pages, so the site can show the switch. */
+  funnels_live: FunnelsView;
 }
 
 const KEY_RE = /^[a-z0-9][a-z0-9-]{0,62}$/;
@@ -225,7 +230,9 @@ export function readSettings(r: Reader): SupervisorSettings {
       flows[k].enabled = false;
     }
   }
-  return { version: 1, paused: o?.paused === true, flows };
+  const out: SupervisorSettings = { version: 1, paused: o?.paused === true, flows };
+  if (typeof o?.funnels_live === 'boolean') out.funnels_live = o.funnels_live;
+  return out;
 }
 
 function killSwitch(r: Reader): boolean {
@@ -296,6 +303,7 @@ export function supervisorView(d: SupervisorDeps): SupervisorView {
       sup,
     ),
     sender: senderStatus(d.fwHome, d.now?.() ?? new Date()),
+    funnels_live: funnelsView(readSettings(d.reader).funnels_live ?? null),
   };
 }
 
@@ -646,6 +654,18 @@ export function setFlowAi(repoRoot: string, fwHome: string, key: string, body: R
       throw new SupervisorError('INVALID', (e as Error).message);
     throw e;
   }
+}
+
+/** FW-C-118: the Owner's funnel links switch. true or false wins over env and config; null clears it. */
+export function setFunnelsLive(w: Writer, live: unknown) {
+  if (live !== true && live !== false && live !== null)
+    throw new SupervisorError('INVALID', 'live must be true, false or null');
+  return change(w, { funnels_live: live }, (s) => {
+    if ((s.funnels_live ?? null) === live) return false;
+    if (live === null) delete s.funnels_live;
+    else s.funnels_live = live;
+    return true;
+  });
 }
 
 export function setPaused(w: Writer, paused: boolean) {

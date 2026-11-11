@@ -14,6 +14,7 @@ import { shortHash, when } from '../ui-kit/time';
 import { AiSettings } from './AiSettings';
 import { BuildRequests } from './BuildRequests';
 import { ConnectionsSettings } from './ConnectionsSettings';
+import { FunnelsSwitch } from './FunnelsSwitch';
 import { ProjectSettings } from './ProjectSettings';
 
 function Toggle({
@@ -224,6 +225,7 @@ export function SettingsPage({
       )}
 
       <AiSettings hosted={HOSTED} />
+      <FunnelsSwitch />
       <ProjectSettings />
       <ConnectionsSettings />
       {HOSTED && <BuildRequests />}

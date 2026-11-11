@@ -13,6 +13,7 @@ import * as emailQueue from '../flows/email-queue.ts';
 import * as intake from '../flows/event-intake.ts';
 import * as hunts from '../flows/hunts.ts';
 import * as leads from '../flows/leads.ts';
+import { funnelsView } from '../flows/live-links.ts';
 import * as localPulse from '../flows/local-pulse.ts';
 import * as localSaturation from '../flows/local-saturation.ts';
 import * as neighborhoodActivation from '../flows/neighborhood-activation.ts';
@@ -139,6 +140,8 @@ export interface SupervisorControls {
   /** FW-C-115: rename a flow or note it ({ name?, note? }), and archive or restore it. */
   editFlow?(key: string, body: Record<string, unknown>): { changed: boolean };
   setFlowArchived?(key: string, archived: boolean): { changed: boolean };
+  /** FW-C-118: the Owner's funnel links switch: true, false, or null to hand it back to env and config. */
+  setFunnelsLive?(live: unknown): { changed: boolean };
   /** FW-C-038: fire the flow's stream by hand; the Supervisor decides it like any fire. */
   runFlow?(key: string): Promise<{ fire_id: string; outcome: string; reason?: string }>;
   /** FW-C-097: flow cycles in flight now, by flow key, so the Supervisor can say a flow is running. */
@@ -720,6 +723,18 @@ export function buildRouter(deps: ApiDeps): Router {
       throw kernelError(e);
     }
   };
+  // FW-C-118: links to Frequency's funnel pages, on or off for every flow; null clears the switch.
+  r.get('/v1/supervisor/funnels-live', () =>
+    env(() => ({ data: funnelsView(readSettings(reader).funnels_live ?? null) })),
+  );
+  r.post('/v1/supervisor/funnels-live', async ({ req }) => {
+    const body = await readJsonBody(req);
+    return ownerControl(req, (c) => {
+      if (!c.setFunnelsLive)
+        throw new ApiError(501, 'not_implemented', 'this fwd cannot switch funnel links');
+      return c.setFunnelsLive(body.live);
+    });
+  });
   r.post('/v1/supervisor/pause', ({ req }) => ownerControl(req, (c) => c.setPaused(true)));
   r.post('/v1/supervisor/resume', ({ req }) => ownerControl(req, (c) => c.setPaused(false)));
   r.post('/v1/supervisor/flows/{key}/enable', ({ req, params }) =>

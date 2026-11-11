@@ -881,6 +881,16 @@ export interface Supervisor extends Envelope {
   next: string[];
   /** FW-C-071: undefined from an older fwd; treated as no sender. */
   sender?: SenderStatus;
+  /** FW-C-118: what decides links to Frequency's funnel pages; undefined from an older fwd. */
+  funnels_live?: FunnelsLive;
+}
+
+/** FW-C-118: the funnel links switch. live is null when each flow's own config decides. */
+export interface FunnelsLive {
+  live: boolean | null;
+  source: 'setting' | 'env' | 'config';
+  setting: boolean | null;
+  env_off: boolean;
 }
 
 /** FW-C-039: GET /v1/setup. Every step is read from real state; a step not done names its fix. */
