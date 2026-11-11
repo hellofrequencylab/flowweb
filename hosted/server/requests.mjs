@@ -179,6 +179,28 @@ function editPayload(b) {
   return Object.keys(payload).length ? { payload } : { error: 'give a name or a note' };
 }
 
+/** FW-C-124: a new copy of a flow (FW-C-121): a name, a note and a slug, each optional; fwd picks a free slug. */
+const COPY_SLUG = /^[a-z0-9]+(-[a-z0-9]+)*$/;
+function copyPayload(b) {
+  const payload = {};
+  for (const [k, max] of [
+    ['name', FLOW_NAME_MAX],
+    ['note', FLOW_NOTE_MAX],
+  ]) {
+    if (b[k] === undefined || b[k] === null || b[k] === '') continue;
+    // biome-ignore lint/suspicious/noControlCharactersInRegex: control characters are what this strips.
+    const v = typeof b[k] === 'string' ? b[k].replace(/[\u0000-\u001f\u007f]+/g, ' ').trim() : '';
+    if (!v || v.length > max) return { error: `${k} must be text of 1 to ${max} characters` };
+    payload[k] = v;
+  }
+  if (b.slug !== undefined && b.slug !== null && b.slug !== '') {
+    if (typeof b.slug !== 'string' || b.slug.length > 30 || !COPY_SLUG.test(b.slug))
+      return { error: 'slug must be lowercase letters and digits, with single dashes' };
+    payload.slug = b.slug;
+  }
+  return { payload };
+}
+
 /** FW-C-063: the morning run time and the people a day, checked the way fwd checks them. */
 const TIME = /^([01]\d|2[0-3]):[0-5]\d$/;
 const PER_DAY = (v) => Number.isInteger(v) && v >= 1 && v <= 25;
@@ -244,6 +266,13 @@ export function requestOf(method, path, body) {
     if (!PROJECT.test(proj[1])) return { error: 'unknown project' };
     const p = projectPayload(proj[2], b);
     return p.error ? p : { kind: `project.${proj[2]}`, flow: 'all', draft_id: proj[1], payload: p.payload };
+  }
+  const copy = /^\/supervisor\/flows\/([^/]+)\/copy$/.exec(path);
+  if (copy) {
+    if (method !== 'POST') return null;
+    if (!FLOW.test(copy[1])) return { error: 'unknown flow' };
+    const c = copyPayload(b);
+    return c.error ? c : { kind: 'flow.copy', flow: copy[1], draft_id: null, payload: c.payload };
   }
   const admin = /^\/supervisor\/flows\/([^/]+)\/(edit|archive|restore)$/.exec(path);
   if (admin) {
@@ -361,6 +390,10 @@ export function fwdCallFor(req) {
     const action = kind.slice(5);
     const t = tuningPayload(action, p);
     return t.error ? null : { method: 'POST', path: `/supervisor/flows/${f}/${action}`, body: t.payload };
+  }
+  if (kind === 'flow.copy') {
+    const c = copyPayload(p);
+    return c.error ? null : { method: 'POST', path: `/supervisor/flows/${f}/copy`, body: c.payload };
   }
   if (kind === 'flow.archive' || kind === 'flow.restore')
     return { method: 'POST', path: `/supervisor/flows/${f}/${kind.slice(5)}`, body: {} };
