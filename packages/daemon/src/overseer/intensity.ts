@@ -15,6 +15,8 @@ export interface Intensity {
   min: number;
   max: number;
 }
+// 10 new people a day by default (the Owner's launch batch, 2026-11-11), up to 25 with the intensity
+// control. Today shows about one and a half times this, so 15 actions by default.
 export const DEFAULT_INTENSITY: Intensity = { per_day: 10, auto: false, min: 3, max: PER_DAY_MAX };
 
 /** Sent drafts before auto judges the results. */
