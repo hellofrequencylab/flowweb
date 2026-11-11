@@ -5,6 +5,7 @@
   "buildCommand": "VITE_FW_HOSTED=1 pnpm --filter @fw/web build",
   "outputDirectory": "packages/web/dist",
   "rewrites": [
+    { "source": "/v1/plugin/:path*", "destination": "/api/plugin?__p=:path*" },
     { "source": "/v1/:path*", "destination": "/api/v1?__p=:path*" },
     { "source": "/((?!api/|v1/|assets/).*)", "destination": "/index.html" }
   ],
