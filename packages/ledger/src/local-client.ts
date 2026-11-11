@@ -9,6 +9,7 @@ import { openStore, type Store, type VerifyResult } from '@fw/eventlog';
 import { type CloseReport, closeRow } from './close.ts';
 import { LedgerError } from './errors.ts';
 import { dbPath, resolveHome, resolveProject } from './home.ts';
+import { type ParkReport, parkRow } from './park.ts';
 import { type PremiseReport, retestPremise } from './premise.ts';
 import {
   type LabelChange,
@@ -49,6 +50,7 @@ export interface LocalCoreClient {
   ledgerNext(): Promise<{ row: RowView | null; retest_candidates: number }>;
   ledgerRetest(code: string, opts?: { repoDir?: string }): Promise<PremiseReport>;
   ledgerClose(code: string, opts: { mergedSha: string; repoDir?: string }): Promise<CloseReport>;
+  ledgerPark(code: string, opts: { reason: string }): Promise<ParkReport>;
   woIssue(code: string, opts?: { doer?: string; verifier?: string; repoDir?: string }): Promise<IssueReport>;
   auditVerify(): Promise<VerifyResult>;
   streamAdd(definition: unknown, opts?: { approvalId?: string }): Promise<StreamAddReport>;
@@ -104,6 +106,9 @@ export function createCoreClient(opts: LocalClientOptions): LocalCoreClient {
     },
     async ledgerRetest(code, o = {}) {
       return retestPremise(writer(), code, { repoDir: resolve(o.repoDir ?? repoDir) });
+    },
+    async ledgerPark(code, o) {
+      return parkRow(writer(), code, { reason: o.reason });
     },
     async ledgerClose(code, o) {
       return closeRow(writer(), code, { mergedSha: o.mergedSha, repoDir: resolve(o.repoDir ?? repoDir) });

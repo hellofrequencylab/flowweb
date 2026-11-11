@@ -73,6 +73,13 @@ function fakeClient(overrides: Partial<CoreClient> = {}): CoreClient {
       result_id: 'prr_x',
       probe: probeEv,
     }),
+    ledgerPark: async () => ({
+      code: 'FW-C-001',
+      from: 'open',
+      to: 'parked' as const,
+      reason: SHA,
+      event_id: 'evt_x',
+    }),
     woIssue: async () => ({
       code: 'FW-C-001',
       work_order_id: 'wo_x',
@@ -395,6 +402,19 @@ describe('--json', () => {
     expect(JSON.parse(r.out)).toEqual({
       error: { code: 'REFUSED_BY_DATABASE', message: e.message, details: { code: 'FW-C-001' } },
     });
+  });
+});
+
+describe('ledger park', () => {
+  test('prints the move and the reason', async () => {
+    const r = await run(['ledger', 'park', 'FW-C-001', '--reason', 'superseded']);
+    expect(r.code).toBe(EXIT.OK);
+    expect(r.out).toContain('ledger park FW-C-001: open -> parked');
+  });
+
+  test('needs --reason', async () => {
+    const r = await run(['ledger', 'park', 'FW-C-001']);
+    expect(r.code).not.toBe(EXIT.OK);
   });
 });
 

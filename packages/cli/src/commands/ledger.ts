@@ -1,4 +1,4 @@
-// fw ledger sync | list | show | next | retest | close
+// fw ledger sync | list | show | next | retest | close | park
 import type { RowView } from '../client.ts';
 import { EXIT, short, table } from '../output.ts';
 import type { Command, CommandContext } from './types.ts';
@@ -180,4 +180,21 @@ const close: Command = {
   },
 };
 
-export const ledgerCommands: Command[] = [sync, list, show, next, retest, close];
+const park: Command = {
+  path: ['ledger', 'park'],
+  usage: 'fw ledger park <code> --reason <text>',
+  summary: 'Park a row the Owner no longer wants worked, with the reason recorded on its event',
+  args: ['code'],
+  options: ['reason'],
+  required: ['reason'],
+  async run(ctx) {
+    if (!ctx.client.ledgerPark)
+      throw new Error('this core does not support parking yet; pull and restart fwd');
+    const p = await ctx.client.ledgerPark(ctx.args[0]!, { reason: ctx.opts.reason! });
+    if (ctx.json) print(ctx, p);
+    else ctx.io.out(`ledger park ${p.code}: ${p.from} -> parked (${p.reason})`);
+    return EXIT.OK;
+  },
+};
+
+export const ledgerCommands: Command[] = [sync, list, show, next, retest, close, park];
