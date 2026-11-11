@@ -3,6 +3,7 @@
 import { cleanup, fireEvent, render, screen, waitFor, within } from '@testing-library/react';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { LiveProvider } from '../../packages/web/src/api/live';
+import { routeOf } from '../../packages/web/src/shell/routes';
 import { TeamPage } from '../../packages/web/src/team/TeamPage';
 
 const now = new Date().toISOString();
@@ -74,6 +75,10 @@ const show = () =>
 const agent = (name: string) => screen.getByRole('button', { name: new RegExp(`^${name}\\b`) });
 
 describe('Team page (FW-C-123)', () => {
+  it('is the page at /team', () => {
+    expect(routeOf('/team')).toBe('team');
+  });
+
   it('shows the org chart by level with the CEO on top', async () => {
     show();
     await waitFor(() => agent('Kevin'));
