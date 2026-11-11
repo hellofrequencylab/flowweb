@@ -4,7 +4,7 @@
     "profile": "core",
     "schema": "ledger-row/1",
     "generated": "2026-11-09",
-    "row_count": 156,
+    "row_count": 157,
     "conventions": {
       "verify_probe": "Same convention as 04-build-plan/backlog.json: 'pnpm probe <path>' runs probes/<path>.probe.ts, a Tier 0 file written before the implementation row starts and never edited by the agent doing the row. Every probe fails today because its target does not exist (a missing probe file exits 2, a missing behaviour exits 1). The probe pack for a milestone is committed by the Owner or a pair session before the milestone's rows start.",
       "status": "All rows start as open. Status lives only in the ledger database (imported with fw ledger sync), never in prose.",
@@ -28,7 +28,7 @@
       }
     },
     "full_plan_rows_included": 37,
-    "new_core_rows": 107
+    "new_core_rows": 108
   },
   "rows": [
     {
@@ -5493,6 +5493,37 @@
         "packages/daemon/src/overseer/intake-engine.ts",
         "packages/daemon/src/api/routes.ts",
         "packages/daemon/test/meter.test.ts"
+      ],
+      "origin": "new Core row"
+    },
+    {
+      "id": "FW-C-135",
+      "title": "The Supervisor splits the daily new-people slots across flows by results, and the Owner applies the split",
+      "core_milestone": "C1",
+      "phase": 1,
+      "epic": "C1.5 First flow",
+      "priority": "P2",
+      "size": "M",
+      "lane": "workstreams",
+      "agent_suitability": "agent",
+      "gate": "none",
+      "depends_on": [
+        "FW-C-063"
+      ],
+      "description": "Hub model, decision kind Allocate (2026-11-11): today each flow's per_day is set alone, so a flow that gets replies cannot borrow slots from one that does not. A pure allocate(total, flows) splits the Owner's daily total (default 10, 1 to 100) across the enabled flows that take new people a day, using each flow's last 30 days of sends and responses (recentResults). Flows that are off get 0; every enabled flow keeps at least 1; a flow with fewer than 8 sends counts as no data and flows with no data split evenly; among flows with data, a better response rate never gets fewer slots. Every share carries a plain why. The split is a proposal: GET /v1/supervisor shows allocation { total, by_flow, why, applied } and nothing moves a flow's per_day until the Owner applies it with POST /v1/supervisor/allocation/apply. POST /v1/supervisor/allocation { total } sets the total. At Autopilot a later row may apply it without asking; this row never does. Wave 3 of the master plan v2.",
+      "acceptance": [
+        "allocate splits evenly with no data, toward better rates with data, keeps 1 for every enabled flow and 0 for flows that are off",
+        "GET /v1/supervisor allocation proposes 5 and 5 for two enabled flows with no data and moves no per_day",
+        "POST /v1/supervisor/allocation sets the total (bad 400, no session 401); POST /v1/supervisor/allocation/apply writes each share as the flow's per_day"
+      ],
+      "verify_probe": "pnpm probe flows/allocate",
+      "files_hint": [
+        "packages/daemon/src/overseer/allocate.ts",
+        "packages/daemon/src/overseer/intensity.ts",
+        "packages/daemon/src/overseer/index.ts",
+        "packages/daemon/src/api/routes.ts",
+        "packages/daemon/src/daemon.ts",
+        "packages/daemon/test/allocate.test.ts"
       ],
       "origin": "new Core row"
     }
