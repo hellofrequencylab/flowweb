@@ -1,7 +1,7 @@
 import { api } from '../api/client';
 import { useResource } from '../api/resource';
 import { Link } from '../shell/router';
-import { FlowRing, hueAt } from '../ui-kit/flow';
+import { FlowRing } from '../ui-kit/flow';
 import { Icon } from '../ui-kit/Icon';
 import type { Loop, LoopInfo } from '../ui-kit/loop';
 import { OrbitLegend, type OrbitProcess, OrbitRings } from '../ui-kit/orbit';
@@ -60,7 +60,7 @@ export function FlowHero({ flowKey }: { flowKey: string }) {
       </Link>
       <div className={`flow-hero-body${live ? ' live-edge' : ''}`}>
         <FlowRing
-          hue={hueAt(Math.max(0, i))}
+          hue="accent"
           at={p?.at ?? 0}
           state={p?.state ?? 'unknown'}
           size={320}

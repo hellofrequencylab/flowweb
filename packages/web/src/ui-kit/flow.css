@@ -1475,7 +1475,7 @@ a.flow-line:hover .flow-line-name {
 }
 .region-card.is-active {
   box-shadow:
-    inset 0 3px 0 var(--flow-teal),
+    inset 0 3px 0 var(--accent),
     var(--shadow-1);
 }
 .flows-page .region-card .panel-head h3 {
@@ -1578,7 +1578,7 @@ a.flow-line:hover .flow-line-name {
   height: 28px;
 }
 .draft-bars rect {
-  fill: var(--flow-teal);
+  fill: var(--accent);
   opacity: 0.85;
 }
 .draft-bars rect.is-empty {
@@ -1682,7 +1682,7 @@ a.flow-line:hover .flow-line-name {
 }
 .inbox-list:focus-visible {
   box-shadow:
-    inset 0 0 0 2px var(--flow-teal),
+    inset 0 0 0 2px var(--accent),
     1px 0 0 var(--border-default);
 }
 .inbox-none {
@@ -1704,14 +1704,14 @@ a.flow-line:hover .flow-line-name {
   background: var(--surface-hover);
 }
 .inbox-item.is-on {
-  background: color-mix(in srgb, var(--flow-teal) 8%, var(--surface-raised));
+  background: color-mix(in srgb, var(--accent) 8%, var(--surface-raised));
 }
 .inbox-item.is-on::before {
   position: absolute;
   inset: var(--space-3) auto var(--space-3) 0;
   width: 3px;
   border-radius: 0 var(--radius-xs) var(--radius-xs) 0;
-  background: var(--flow-teal);
+  background: var(--accent);
   content: "";
 }
 .inbox-item-top {
@@ -1935,7 +1935,7 @@ a.flow-line:hover .flow-line-name {
   gap: 6px;
 }
 .draft-rewrite .field-label .icon {
-  color: var(--flow-teal);
+  color: var(--accent);
 }
 .draft-ai-ask {
   display: flex;
@@ -2039,7 +2039,7 @@ a.flow-line:hover .flow-line-name {
 .chapter-num {
   font: var(--weight-light) var(--text-2xl) / 1 var(--font-display);
   font-variant-numeric: tabular-nums;
-  color: var(--flow-teal);
+  color: var(--accent);
 }
 .chapter-head h2 {
   margin: 0;
@@ -2095,21 +2095,21 @@ a.flow-line:hover .flow-line-name {
 }
 .flow-pulse.is-ready .flow-pulse-dot,
 .flow-pulse.is-running .flow-pulse-dot {
-  background: var(--flow-teal);
+  background: var(--accent);
   box-shadow: none;
 }
 .flow-pulse.is-running {
   color: var(--text-primary);
 }
 .flow-pulse.is-running .flow-pulse-dot {
-  box-shadow: 0 0 0 3px color-mix(in srgb, var(--flow-teal) 25%, transparent);
+  box-shadow: 0 0 0 3px color-mix(in srgb, var(--accent) 25%, transparent);
 }
 .flow-pulse.is-running .flow-pulse-dot::after,
 .kpi.is-live .icon-wash::after {
   position: absolute;
   inset: 0;
   border-radius: inherit;
-  background: var(--flow-teal);
+  background: var(--accent);
   opacity: 0;
   animation: fw-ping 1.8s var(--ease-standard) infinite;
   content: "";
@@ -2119,13 +2119,13 @@ a.flow-line:hover .flow-line-name {
 }
 .kpi.is-live .icon-wash::after {
   background: transparent;
-  box-shadow: 0 0 0 2px var(--flow-teal);
+  box-shadow: 0 0 0 2px var(--accent);
 }
 
 /* Sparks streaming along the region path, staggered. */
 .region-path.is-live .flow-travel {
-  background: var(--flow-teal);
-  box-shadow: 0 0 10px var(--flow-teal);
+  background: var(--accent);
+  box-shadow: 0 0 10px var(--accent);
   animation: fw-stream 2.4s linear infinite;
 }
 .region-path.is-live .flow-travel:nth-child(2) {
@@ -2145,7 +2145,7 @@ a.flow-line:hover .flow-line-name {
   inset: 0 0 auto;
   height: 3px;
   background:
-    linear-gradient(90deg, transparent 0%, var(--flow-teal) 50%, transparent 100%) 0 0 / 50% 100% no-repeat;
+    linear-gradient(90deg, transparent 0%, var(--accent) 50%, transparent 100%) 0 0 / 50% 100% no-repeat;
   opacity: 0.8;
   animation: fw-sweep 2.4s linear infinite;
   content: "";
@@ -2164,27 +2164,27 @@ a.flow-line:hover .flow-line-name {
   padding: 1.5px;
   border-radius: inherit;
   background:
-    linear-gradient(90deg, transparent 0%, var(--flow-teal) 50%, transparent 100%) 0 0 / 50% 100% no-repeat;
+    linear-gradient(90deg, transparent 0%, var(--accent) 50%, transparent 100%) 0 0 / 50% 100% no-repeat;
   pointer-events: none;
   animation: fw-sweep 2.4s linear infinite;
   content: "";
   mask:
-    linear-gradient(var(--flow-teal) 0 0) content-box,
-    linear-gradient(var(--flow-teal) 0 0);
+    linear-gradient(var(--accent) 0 0) content-box,
+    linear-gradient(var(--accent) 0 0);
   mask-composite: exclude;
 }
 .flow-hero.is-live .flow-hero-state .flow-pulse-dot {
   display: inline-block;
   margin-right: var(--space-2);
   vertical-align: 0.05em;
-  background: var(--flow-teal);
-  box-shadow: 0 0 0 3px color-mix(in srgb, var(--flow-teal) 25%, transparent);
+  background: var(--accent);
+  box-shadow: 0 0 0 3px color-mix(in srgb, var(--accent) 25%, transparent);
 }
 .flow-hero.is-live .flow-hero-state .flow-pulse-dot::after {
   position: absolute;
   inset: 0;
   border-radius: inherit;
-  background: var(--flow-teal);
+  background: var(--accent);
   opacity: 0;
   animation: fw-ping 1.8s var(--ease-standard) infinite;
   content: "";
@@ -2196,7 +2196,7 @@ a.flow-line:hover .flow-line-name {
     display: none;
   }
   .live-edge {
-    box-shadow: 0 0 0 1.5px color-mix(in srgb, var(--flow-teal) 55%, transparent);
+    box-shadow: 0 0 0 1.5px color-mix(in srgb, var(--accent) 55%, transparent);
   }
   .region-path .flow-travel,
   .region-card.is-live::before,
@@ -2209,7 +2209,7 @@ a.flow-line:hover .flow-line-name {
   display: none;
 }
 :root[data-calm="on"] .live-edge {
-  box-shadow: 0 0 0 1.5px color-mix(in srgb, var(--flow-teal) 55%, transparent);
+  box-shadow: 0 0 0 1.5px color-mix(in srgb, var(--accent) 55%, transparent);
 }
 :root[data-calm="on"] .region-path .flow-travel,
 :root[data-calm="on"] .region-card.is-live::before,
@@ -2234,7 +2234,7 @@ a.flow-line:hover .flow-line-name {
   width: 48px;
   height: 48px;
   border-radius: var(--radius-full);
-  background: color-mix(in srgb, var(--flow-teal) 12%, transparent);
+  background: color-mix(in srgb, var(--accent) 12%, transparent);
   font-size: var(--text-lg);
 }
 .chapter-head {
@@ -2302,7 +2302,7 @@ a.flow-line:hover .flow-line-name {
   display: none;
 }
 .flow-ctl [role="radiogroup"] > label:has(input:checked) strong {
-  color: var(--flow-teal);
+  color: var(--accent);
 }
 
 /* FW-C-072: what's working, a few plain lines from the weekly review. */
@@ -2333,7 +2333,7 @@ a.flow-line:hover .flow-line-name {
   margin: 0;
   padding: var(--space-2) var(--space-3);
   border-radius: var(--radius-md);
-  background: color-mix(in srgb, var(--flow-teal) 10%, var(--surface-raised));
+  background: color-mix(in srgb, var(--accent) 10%, var(--surface-raised));
 }
 .assist-reply {
   display: grid;
@@ -2541,11 +2541,11 @@ a.flow-line:hover .flow-line-name {
   }
 }
 .loop-working {
-  --loop-c: var(--flow-teal);
+  --loop-c: var(--accent);
   --loop-o: 1;
 }
 .loop-connected {
-  --loop-c: var(--flow-teal);
+  --loop-c: var(--accent);
   --loop-o: 0.55;
 }
 .loop-waiting {
@@ -2588,7 +2588,7 @@ a.flow-line:hover .flow-line-name {
   animation-duration: 4.8s;
 }
 .loop-working .loop-line {
-  filter: drop-shadow(0 0 3px var(--flow-teal));
+  filter: drop-shadow(0 0 3px var(--accent));
 }
 .loop-waiting .loop-line {
   stroke-dasharray: 1.5 4;
@@ -2605,10 +2605,10 @@ a.flow-line:hover .flow-line-name {
   stroke-width: 2.4;
 }
 .gauge-dial.loop-working .gauge-fill {
-  filter: drop-shadow(0 0 4px var(--flow-teal));
+  filter: drop-shadow(0 0 4px var(--accent));
 }
 .gauge-dial.loop-connected .gauge-fill {
-  filter: drop-shadow(0 0 2px color-mix(in srgb, var(--flow-teal) 60%, transparent));
+  filter: drop-shadow(0 0 2px color-mix(in srgb, var(--accent) 60%, transparent));
 }
 .gauge-dial.loop-waiting {
   animation: fw-soft-pulse 2.4s var(--ease-standard) infinite;
@@ -2622,7 +2622,7 @@ a.flow-line:hover .flow-line-name {
   transition: filter 0.2s;
 }
 .loop-node.loop-working > :not(.loop-hit) {
-  filter: drop-shadow(0 0 3px var(--flow-teal));
+  filter: drop-shadow(0 0 3px var(--accent));
 }
 .loop-node.loop-waiting > :not(.loop-hit) {
   animation: fw-soft-pulse 2.4s var(--ease-standard) infinite;
@@ -2658,7 +2658,7 @@ a.flow-line:hover .flow-line-name {
   animation-duration: 3.6s;
 }
 .region-link.loop-working .loop-line {
-  box-shadow: 0 0 6px var(--flow-teal);
+  box-shadow: 0 0 6px var(--accent);
 }
 .region-link.loop-waiting .loop-line {
   animation: fw-soft-pulse 2.4s var(--ease-standard) infinite;
@@ -2691,11 +2691,11 @@ a.flow-line:hover .flow-line-name {
 }
 .kpi.loop-connected .icon-wash,
 .kpi.loop-working .icon-wash {
-  box-shadow: 0 0 0 2px color-mix(in srgb, var(--flow-teal) calc(var(--loop-o) * 100%), transparent);
+  box-shadow: 0 0 0 2px color-mix(in srgb, var(--accent) calc(var(--loop-o) * 100%), transparent);
 }
 .loop-row.loop-connected,
 .loop-row.loop-working {
-  box-shadow: inset 3px 0 0 color-mix(in srgb, var(--flow-teal) calc(var(--loop-o) * 100%), transparent);
+  box-shadow: inset 3px 0 0 color-mix(in srgb, var(--accent) calc(var(--loop-o) * 100%), transparent);
 }
 
 /* What a clicked piece is. */
@@ -2783,7 +2783,7 @@ fieldset.flow-ring {
 }
 .orbit-node.loop-working .orbit-dot,
 .orbit-hub.loop-working .orbit-hub-core {
-  filter: drop-shadow(0 0 2.5px var(--flow-teal));
+  filter: drop-shadow(0 0 2.5px var(--accent));
 }
 .orbit-node.loop-waiting .orbit-dot,
 .orbit-hub.loop-waiting .orbit-hub-glow,
@@ -2844,7 +2844,7 @@ fieldset.flow-ring {
   content: "";
 }
 .orbit-key.loop-working .orbit-key-ring::before {
-  box-shadow: 0 0 6px var(--flow-teal);
+  box-shadow: 0 0 6px var(--accent);
 }
 .orbit-key.loop-broken .orbit-key-ring::before {
   border-style: dashed;

@@ -11,7 +11,13 @@ export interface Prefs {
   density: 'comfortable' | 'compact';
   shortcuts: boolean;
   killMode: 'hold' | 'arm';
+  /** FW-C-099: the colour of the site's flowing loops, glows and live edges. */
+  accent: Accent;
 }
+
+/** Accent colours from the design system's flow hues. None is saffron, green, red or the warning purple. */
+export const ACCENTS = ['teal', 'slate', 'indigo', 'olive', 'clay'] as const;
+export type Accent = (typeof ACCENTS)[number];
 
 const DEFAULTS: Prefs = {
   calm: false,
@@ -23,6 +29,7 @@ const DEFAULTS: Prefs = {
   density: 'comfortable',
   shortcuts: true,
   killMode: 'hold',
+  accent: 'teal',
 };
 
 const KEY = 'fw.prefs.v1';
@@ -51,6 +58,8 @@ export function PrefsProvider({ children }: { children: ReactNode }) {
     if (prefs.theme === 'system') r.removeAttribute('data-theme');
     else r.setAttribute('data-theme', prefs.theme);
     r.setAttribute('data-density', prefs.density);
+    if (prefs.accent === 'teal' || !ACCENTS.includes(prefs.accent)) r.removeAttribute('data-accent');
+    else r.setAttribute('data-accent', prefs.accent);
     r.setAttribute('data-calm', prefs.calm || prefs.motion === 'reduced' ? 'on' : 'off');
   }, [prefs]);
   return (
