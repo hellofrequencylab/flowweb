@@ -4,7 +4,7 @@
     "profile": "core",
     "schema": "ledger-row/1",
     "generated": "2026-11-09",
-    "row_count": 132,
+    "row_count": 133,
     "conventions": {
       "verify_probe": "Same convention as 04-build-plan/backlog.json: 'pnpm probe <path>' runs probes/<path>.probe.ts, a Tier 0 file written before the implementation row starts and never edited by the agent doing the row. Every probe fails today because its target does not exist (a missing probe file exits 2, a missing behaviour exits 1). The probe pack for a milestone is committed by the Owner or a pair session before the milestone's rows start.",
       "status": "All rows start as open. Status lives only in the ledger database (imported with fw ledger sync), never in prose.",
@@ -4654,6 +4654,41 @@
         "packages/web/src/flows/ActivationPage.tsx",
         "packages/web/src/flows/FlowControls.tsx",
         "packages/web/src/ui-kit/flow.css"
+      ],
+      "origin": "new Core row"
+    },
+    {
+      "id": "FW-C-098",
+      "title": "The Owner sees every meter, node and line of a flow show its loop state (working, connected, waiting or broken) and can tap any of them to see what it is",
+      "core_milestone": "C1",
+      "phase": 1,
+      "epic": "C1.5 First flow",
+      "priority": "P1",
+      "size": "L",
+      "lane": "workstreams",
+      "agent_suitability": "agent",
+      "gate": "none",
+      "depends_on": [
+        "FW-C-097"
+      ],
+      "description": "On 2026-11-11 the Owner asked for motion and glow on every meter of a flow: loops that are all good should look constantly flowing, an active process at full brightness and fast motion, a fully hooked up flow dimmer with slower motion, a node waiting for a cycle still but pulsing, and a broken or incomplete process in warning tones, with any node or connection tappable to say what it is. The web kit gains one look for four loop states (ui-kit/loop.tsx and a Loop states section in flow.css): working is full brightness, fast travelling dashes and a glow; connected is dimmer with slow dashes; waiting is still with a soft pulse; broken is caution tones and no motion. flowLoop() maps the Supervisor's flow state and gate to a loop state (running is working; ready, not_due, wip and machine_busy are connected; no_engine, cap_required, budget, stalled and dial_unapproved are broken; anything else waits). The flow page applies it to the hero ring's five stages and the lines between them, the region path and its hand-offs, the measure dials, the spend gauge, the KPI tiles and the Controls row. Tapping or pressing Enter on any of them opens a small panel with its name, its state, what it is and why; Escape closes it. Reduced motion and calm mode stop the motion and keep colour, brightness and words different. No em dashes.",
+      "acceptance": [
+        "flowLoop maps a running flow to working, a healthy idle flow to connected, a disabled flow to waiting and a gated problem to broken",
+        "A running flow lights its first ring stage and line as working while the rest of the loop flows as connected",
+        "A broken flow shows every ring line in warning tones",
+        "Clicking a node, a line, a gauge or a region hand-off opens a panel that says what it is; Escape closes it",
+        "Reduced motion and calm mode keep a still difference instead of motion"
+      ],
+      "verify_probe": "pnpm probe ui/loop-states",
+      "files_hint": [
+        "packages/web/src/ui-kit/loop.tsx",
+        "packages/web/src/ui-kit/flow.tsx",
+        "packages/web/src/ui-kit/flow.css",
+        "packages/web/src/flows/flowState.ts",
+        "packages/web/src/flows/FlowHero.tsx",
+        "packages/web/src/flows/FlowVisuals.tsx",
+        "packages/web/src/flows/ActivationPage.tsx",
+        "packages/web/src/flows/FlowControls.tsx"
       ],
       "origin": "new Core row"
     }
