@@ -13,6 +13,7 @@ import { RunsPage } from '../runs/RunsPage';
 import { SettingsPage } from '../settings/SettingsPage';
 import { SetupNudge, SetupPage } from '../setup/SetupPage';
 import { SpendPage } from '../spend/SpendPage';
+import { OnePrompt } from '../start/OnePrompt';
 import { TablePage } from '../table/TablePage';
 import { useWaiting } from '../table/waiting';
 import { TeamPage } from '../team/TeamPage';
@@ -131,6 +132,8 @@ export function Layout({ pairedAt, onSignedOut }: { pairedAt: string; onSignedOu
         );
       case 'more':
         return <MorePage />;
+      case 'start':
+        return <OnePrompt />;
       case 'team':
         return <TeamPage />;
       default:

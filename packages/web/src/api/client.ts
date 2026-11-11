@@ -1002,6 +1002,14 @@ export const api = {
     return { data_as_of: e.as_of, ...e.data };
   },
 
+  /** FW-C-124: one sentence becomes a node (the live site answers it with its own AI). */
+  startNode(prompt: string, previous?: Pick<StartNode, 'name' | 'goal' | 'base'>): Promise<StartAnswer> {
+    return post<StartAnswer>('/assistant/start', previous ? { prompt, previous } : { prompt });
+  },
+  /** FW-C-124: make the node a draft flow, a copy of its flow that starts off, on Draft (FW-C-121). */
+  makeNodeFlow: (copy: NonNullable<StartNode['copy']>, onQueued?: () => void) =>
+    ownerWrite<{ key: string }>(copy.method, copy.path, copy.body, onQueued),
+
   /** FW-C-092: ask the AI console about this page. Only the live site answers it; changes come back as proposals. */
   askConsole(question: ConsoleQuestion): Promise<ConsoleAnswer> {
     return post<ConsoleAnswer>('/assistant/console', question);
@@ -1199,3 +1207,26 @@ export const eventIntake = {
       onQueued,
     ),
 };
+
+/** FW-C-124: a step of a node, and what it needs from the Owner before it can run. */
+export interface StartStep {
+  id: string;
+  label: string;
+  detail: string;
+  needs: { kind: 'approval' | 'sender' | 'cap'; label: string } | null;
+}
+/** FW-C-124: what one sentence on /start became. */
+export interface StartNode {
+  name: string;
+  goal: string;
+  why: string;
+  base: string | null;
+  dial: 'draft';
+  steps: StartStep[];
+  copy: { method: 'POST'; path: string; body: { name: string; note: string } } | null;
+  build_request: { title: string; what: string; done_when: string } | null;
+}
+export interface StartAnswer {
+  node: StartNode;
+  can_make: boolean;
+}

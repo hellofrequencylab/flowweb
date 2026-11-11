@@ -19,6 +19,7 @@ const NAMES: Record<Route, string> = {
   setup: 'Get started',
   settings: 'Settings',
   more: 'More',
+  start: 'Start',
   team: 'Your team',
 };
 
