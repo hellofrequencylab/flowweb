@@ -45,12 +45,12 @@ export function TeamPage() {
     <>
       <PageHead
         title="Your team"
-        lede="Your agents, set out like a company. You talk to the CEO; everyone else reports up to it and shows up here, in notes and at the weekly staff meeting."
+        lede="The crew. You talk to the CEO; everyone else reports up, takes their job very seriously, and has it handled. Go play. They will call you if it matters."
       />
       <ResourceView res={res} what="your team">
         {(d) => {
           const team = d.teams.find((t) => t.key === teamKey) ?? d.teams[0];
-          if (!team) return <p className="lede">No team yet.</p>;
+          if (!team) return <p className="lede">No crew yet. They are, presumably, on their way.</p>;
           const who = team.members.find((m) => m.id === picked) ?? null;
           return (
             <>
@@ -78,8 +78,8 @@ export function TeamPage() {
                   <Profile key={`${team.key}:${who.id}`} team={team} who={who} onSaved={res.reload} />
                 ) : (
                   <p className="team-hint">
-                    Pick anyone to see their card: what they care about, the number they answer to, and when
-                    they come to you.
+                    Pick anyone to meet them: what they care about, the number they answer to, and when they
+                    will bother you.
                   </p>
                 )}
               </div>
@@ -223,8 +223,8 @@ function Profile({ team, who, onSaved }: { team: Team; who: TeamMember; onSaved:
       <p className="team-reports">Reports to {boss ? <strong>{boss.name}</strong> : <strong>you</strong>}</p>
       <p className="team-status">
         {who.status === 'bench'
-          ? 'Not hired yet: starts work when its department has a flow turned on.'
-          : 'Working now.'}
+          ? 'Not hired yet. Starts the day its department has a flow turned on, and is ready.'
+          : 'On the job.'}
       </p>
       {edit ? (
         <form className="stack team-edit" onSubmit={submit}>
