@@ -17,6 +17,7 @@ import * as naAdmin from '../flows/neighborhood-admin.ts';
 import * as outcomes from '../flows/outcomes.ts';
 import * as paidAds from '../flows/paid-ads.ts';
 import * as adsPull from '../flows/paid-ads-ga4.ts';
+import { ReplyError, type ReplyResult } from '../flows/reply-helper.ts';
 import * as review from '../flows/review.ts';
 import { reviewSummary } from '../flows/review-summary.ts';
 import { type DraftView, editDraft, listDrafts, markDraft } from '../overseer/drafts.ts';
@@ -138,6 +139,8 @@ export interface SupervisorControls {
   rejectDraft?(key: string, id: string): DraftView;
   /** FW-C-051: a proposal from the flow's engine; the draft is not changed. */
   rewriteDraft?(key: string, id: string, body: Record<string, unknown>): Promise<RewriteProposal>;
+  /** FW-C-108: a pasted reply becomes a drafted answer for the Owner, or a do-not-contact entry. */
+  draftReply?(key: string, body: Record<string, unknown>): Promise<ReplyResult>;
 }
 
 /** The body of POST /v1/runs, checked. */
@@ -764,6 +767,20 @@ export function buildRouter(deps: ApiDeps): Router {
       return env(() => ({ data }));
     } catch (e) {
       throw draftError(e);
+    }
+  });
+  // FW-C-108: the Owner pastes a host's reply; fwd drafts the answer from the flow's reply tree.
+  r.post('/v1/flows/{key}/replies', async ({ req, params }) => {
+    ownerOnly(req);
+    const body = await readJsonBody(req);
+    const c = deps.supervisor;
+    if (!c?.draftReply) throw new ApiError(501, 'not_implemented', 'this fwd does not host the reply helper');
+    try {
+      const data = await c.draftReply(params.key ?? '', body);
+      return env(() => ({ data }));
+    } catch (e) {
+      if (!(e instanceof ReplyError)) throw kernelError(e);
+      throw new ApiError(e.status, e.status === 404 ? 'not_found' : 'validation_failed', e.message);
     }
   });
   for (const action of ['approve', 'reject'] as const)
