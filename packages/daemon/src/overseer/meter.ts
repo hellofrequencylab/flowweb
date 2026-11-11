@@ -165,7 +165,8 @@ export function meterView(fwHome: string, o: { flow: string | null; days: number
     tokens.total += tok(t);
     usd += t.usd;
     for (const k of OUTCOMES) outcomes[k] += r[k];
-    const s = (by_step[t.step] ??= { turns: 0, tokens: 0, usd: 0 });
+    by_step[t.step] ??= { turns: 0, tokens: 0, usd: 0 };
+    const s = by_step[t.step] as { turns: number; tokens: number; usd: number };
     s.turns++;
     s.tokens += tok(t);
     s.usd += t.usd;
