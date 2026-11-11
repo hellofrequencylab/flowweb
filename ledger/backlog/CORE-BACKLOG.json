@@ -4,7 +4,7 @@
     "profile": "core",
     "schema": "ledger-row/1",
     "generated": "2026-11-09",
-    "row_count": 155,
+    "row_count": 156,
     "conventions": {
       "verify_probe": "Same convention as 04-build-plan/backlog.json: 'pnpm probe <path>' runs probes/<path>.probe.ts, a Tier 0 file written before the implementation row starts and never edited by the agent doing the row. Every probe fails today because its target does not exist (a missing probe file exits 2, a missing behaviour exits 1). The probe pack for a milestone is committed by the Owner or a pair session before the milestone's rows start.",
       "status": "All rows start as open. Status lives only in the ledger database (imported with fw ledger sync), never in prose.",
@@ -28,7 +28,7 @@
       }
     },
     "full_plan_rows_included": 37,
-    "new_core_rows": 106
+    "new_core_rows": 107
   },
   "rows": [
     {
@@ -5459,6 +5459,40 @@
         "packages/daemon/src/api/routes.ts",
         "packages/daemon/src/daemon.ts",
         "packages/daemon/test/flow-copies.test.ts"
+      ],
+      "origin": "new Core row"
+    },
+    {
+      "id": "FW-C-122",
+      "title": "The Owner sees tokens and dollars per outcome for every flow, from a meter on every model turn",
+      "core_milestone": "C1",
+      "phase": 1,
+      "epic": "C1.5 First flow",
+      "priority": "P0",
+      "size": "M",
+      "lane": "workstreams",
+      "agent_suitability": "agent",
+      "gate": "none",
+      "depends_on": [
+        "FW-C-121",
+        "FW-C-055"
+      ],
+      "description": "Item 1 of Build next in the loop protocol doc (2026-11-11). Daniel: minimal spend means the most effective way to get each result, not the cheapest run, so the deciding number is tokens and dollars per outcome, per flow and per model. Today fwd records a cycle's dollars and input and output tokens in spend_entries (not its cached tokens) and nothing says which flow, step or item a turn was for. fwd now meters every model turn it starts for a flow (a cycle, a draft rewrite, a reply read, an intake read) once, in $FW_HOME/meter/turns.jsonl written only by fwd: at, flow (a copy's own key), step, item (the fire id or the draft id), vendor, model, tokens_in, tokens_cached, tokens_out, usd and the drafts the turn wrote; the cycle's spend_entries row gains its cached tokens. GET /v1/meter/turns?flow&limit lists turns newest first. GET /v1/meter?flow&days (1 to 90, default 30) answers turns, tokens (input, cached, output, total), usd, cache_share, packet_p95, outcomes (drafted by metered turns; sent, replied and declined from the Owner's marks; signed_up from Frequency's members and hosts for those drafts' tags), per_outcome (the window's whole spend divided by each count, null at zero, so waste counts), by_step and by_model (each model's spend, outcomes and dollars per outcome, the number that decides when climbing to a bigger model pays). CLI token or paired session; no flow means every flow.",
+      "acceptance": [
+        "A cycle is metered once with its fire id, tokens, cost, model and the drafts it wrote, matching its spend_entries row including cached tokens",
+        "A draft rewrite is metered as step rewrite against the draft id",
+        "GET /v1/meter gives drafted, sent, replied and signed_up and tokens and dollars per outcome, overall and per model",
+        "No session 401; unknown flow 404; days outside 1 to 90 400; a flow with no turns answers zeros and null per outcome"
+      ],
+      "verify_probe": "pnpm probe flows/token-meter",
+      "files_hint": [
+        "packages/daemon/src/overseer/meter.ts",
+        "packages/daemon/src/overseer/cycle.ts",
+        "packages/daemon/src/overseer/rewrite.ts",
+        "packages/daemon/src/overseer/reply-engine.ts",
+        "packages/daemon/src/overseer/intake-engine.ts",
+        "packages/daemon/src/api/routes.ts",
+        "packages/daemon/test/meter.test.ts"
       ],
       "origin": "new Core row"
     }
