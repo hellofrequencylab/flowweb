@@ -8,6 +8,7 @@
 import { createHash } from 'node:crypto';
 import { existsSync, readFileSync } from 'node:fs';
 import { join } from 'node:path';
+import { type LeadNode, leadsPath, loadGraph, nodesFor, refreshLeads } from './leads.ts';
 import { writeJsonAtomic } from './neighborhood-admin.ts';
 
 export type IntakeStatus = 'needs_check' | 'approved' | 'rejected';
@@ -406,29 +407,15 @@ export function checkEvent(
   return { event, lead_added: ok ? addHostLead(fwHome, flow, event, now) : false };
 }
 
-/** Adds the event's host to leads.json as a proposed person, once by name, only if the file exists. */
+/**
+ * Adds the event's host to the flow's lead graph (leads.ts) as a proposed person, only if leads.json
+ * exists. The graph dedupes and scores it like any pasted lead; a name already there is left alone.
+ */
 function addHostLead(fwHome: string, flow: string, e: IntakeEvent, now: Date): boolean {
-  const path = join(fwHome, 'flows', flow, 'leads.json');
-  if (!e.host_name || !existsSync(path)) return false;
-  let graph: { nodes?: unknown };
-  try {
-    graph = JSON.parse(readFileSync(path, 'utf8')) as { nodes?: unknown };
-  } catch {
-    return false;
-  }
-  if (!Array.isArray(graph.nodes)) return false;
-  const nodes = graph.nodes as { name?: unknown }[];
-  if (nodes.some((n) => norm(String(n.name ?? '')) === norm(e.host_name))) return false;
-  const route = e.contact
-    ? [
-        {
-          kind: EMAIL_RE.test(e.contact) ? 'email' : 'form',
-          value: e.contact,
-          public_source_url: e.source_url,
-        },
-      ]
-    : [];
-  nodes.push({
+  if (!e.host_name || !existsSync(leadsPath(fwHome, flow))) return false;
+  if (loadGraph(fwHome, flow).nodes.some((n) => norm(n.name) === norm(e.host_name))) return false;
+  const kind = e.contact && EMAIL_RE.test(e.contact) ? 'email' : 'form';
+  const node: LeadNode = {
     id: `lead_${createHash('sha256')
       .update(`intake:${norm(e.host_name)}`)
       .digest('hex')
@@ -437,7 +424,7 @@ function addHostLead(fwHome: string, flow: string, e: IntakeEvent, now: Date): b
     name: e.host_name,
     niche: e.niche,
     town: e.town,
-    contact_routes: route,
+    contact_routes: e.contact ? [{ kind, value: e.contact, public_source_url: e.source_url }] : [],
     source_url: e.source_url,
     last_event_at: e.starts_at,
     current_tool: null,
@@ -447,7 +434,6 @@ function addHostLead(fwHome: string, flow: string, e: IntakeEvent, now: Date): b
     links: { venues: [], events: [e.id], referred_by: null },
     warm: null,
     created_at: now.toISOString(),
-  } as { name?: unknown });
-  writeJsonAtomic(path, { ...graph, nodes });
-  return true;
+  };
+  return nodesFor(refreshLeads({ fwHome, flow, now, extra: [node] }), [node]).length > 0;
 }
