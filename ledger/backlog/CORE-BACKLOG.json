@@ -4,7 +4,7 @@
     "profile": "core",
     "schema": "ledger-row/1",
     "generated": "2026-11-09",
-    "row_count": 134,
+    "row_count": 135,
     "conventions": {
       "verify_probe": "Same convention as 04-build-plan/backlog.json: 'pnpm probe <path>' runs probes/<path>.probe.ts, a Tier 0 file written before the implementation row starts and never edited by the agent doing the row. Every probe fails today because its target does not exist (a missing probe file exits 2, a missing behaviour exits 1). The probe pack for a milestone is committed by the Owner or a pair session before the milestone's rows start.",
       "status": "All rows start as open. Status lives only in the ledger database (imported with fw ledger sync), never in prose.",
@@ -4727,6 +4727,34 @@
         "packages/web/src/shell/prefs.tsx",
         "packages/web/src/settings/SettingsPage.tsx",
         "packages/web/src/dawn/today.css"
+      ],
+      "origin": "new Core row"
+    },
+    {
+      "id": "FW-C-100",
+      "title": "FlowWeb and Frequency sign, check and hand people over to each other per linked Space, from one shared contract",
+      "core_milestone": "C1",
+      "phase": 1,
+      "epic": "C1.5 First flow",
+      "priority": "P1",
+      "size": "M",
+      "lane": "workstreams",
+      "agent_suitability": "agent",
+      "gate": "none",
+      "depends_on": [],
+      "description": "On 2026-11-11 the Owner set the direction: FlowWeb stays fully standalone while integrating deeply with Frequency's marketing systems for the house and for each Space that turns it on, with flows run by hosted runners and people signed in from Frequency instantly. Plan: https://claude.ai/artifact/5qXS1QLbKJVEdmf1w5suyi. This row is step 1, the contract both sides build against, as one pure module and one doc. hosted/server/frequency-link.mjs keeps today's signing (hex HMAC-SHA256 of `${ts}.${body}` in x-flowweb-signature with x-flowweb-timestamp) and adds x-flowweb-link: a request naming a link is checked only against that link's secret, one without it only against the global secret, so the house keeps working while it moves onto a link. It also mints and reads the 60 second one-time handoff token Frequency uses for Open in FlowWeb, maps Space roles to FlowWeb roles (owner, admin, moderator and editor as helper, viewer only when allowed), parses the eleven funnel events agreed with the launch funnels plan (v2 adds event.published), and splits utm_content niche.tag on its first dot. docs/api/FREQUENCY-INTEGRATION-V1.md is the contract: headers, the /v1/plugin routes, events, the facts sheet and upcoming-events reads, the outcomes additions and the rules (drafts only, counts only on outcomes). No network, database or env access in the module; routes and migrations are later rows.",
+      "acceptance": [
+        "A body signed for a link verifies only against that link's secret; with no link header only the global secret verifies",
+        "Stale (over 300 s), unsigned, unknown-link, paused and tampered requests are refused with their reason",
+        "A handoff token reads once, within 60 s, for an active link, and carries the mapped FlowWeb role",
+        "The eleven funnel events parse with only their own fields; unknown types and missing fields are refused",
+        "The contract doc names every header, route and event type"
+      ],
+      "verify_probe": "pnpm probe hosted/frequency-contract",
+      "files_hint": [
+        "hosted/server/frequency-link.mjs",
+        "hosted/test/frequency-link.test.mjs",
+        "docs/api/FREQUENCY-INTEGRATION-V1.md"
       ],
       "origin": "new Core row"
     }
