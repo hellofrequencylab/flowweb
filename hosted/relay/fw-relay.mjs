@@ -123,6 +123,9 @@ async function snapshot() {
     if (e?.status === 404) return null;
     throw e;
   };
+  // FW-C-123: the agent teams for the Team page.
+  const team = await fwd('/team').catch(ifFound);
+  if (team) put('/team', team);
   const supervisor = await fwd('/supervisor').catch(ifFound);
   if (supervisor) {
     put('/supervisor', supervisor);
