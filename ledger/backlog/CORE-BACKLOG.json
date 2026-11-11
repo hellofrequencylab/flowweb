@@ -4,7 +4,7 @@
     "profile": "core",
     "schema": "ledger-row/1",
     "generated": "2026-11-09",
-    "row_count": 131,
+    "row_count": 132,
     "conventions": {
       "verify_probe": "Same convention as 04-build-plan/backlog.json: 'pnpm probe <path>' runs probes/<path>.probe.ts, a Tier 0 file written before the implementation row starts and never edited by the agent doing the row. Every probe fails today because its target does not exist (a missing probe file exits 2, a missing behaviour exits 1). The probe pack for a milestone is committed by the Owner or a pair session before the milestone's rows start.",
       "status": "All rows start as open. Status lives only in the ledger database (imported with fw ledger sync), never in prose.",
@@ -4619,6 +4619,41 @@
         "packages/web/src/shell/Footer.tsx",
         "packages/web/src/api/types.ts",
         "packages/web/mock/"
+      ],
+      "origin": "new Core row"
+    },
+    {
+      "id": "FW-C-097",
+      "title": "The Owner sees a flow as running, with its dial, figures and controls moving, while a cycle is in flight, and a second run of the same flow waits",
+      "core_milestone": "C1",
+      "phase": 1,
+      "epic": "C1.5 First flow",
+      "priority": "P1",
+      "size": "M",
+      "lane": "workstreams",
+      "agent_suitability": "agent",
+      "gate": "none",
+      "depends_on": [
+        "FW-C-093"
+      ],
+      "description": "On 2026-11-10 three hunt cycles of the Frequency Saturation Engine ran at once from 16:00 to 16:03 on the Owner's Mac while flowweb.app said 0 running and Nothing is due, so none of the live visuals moved. The Supervisor's facts hardcoded running 0 for every flow, so a flow never reached the running state and the wip gate never held a second fire. fwd now counts its own cycles in flight by flow key (daemon.ts cycles set) and passes the count to supervisorView and to the fire decision through SupervisorDeps.inFlight: GET /v1/supervisor answers state running and running N while a cycle is in flight, and a second fire of the same flow is held at wip. A caller outside fwd (the CLI reading the database) passes nothing and never claims a live run. On the site, the hosted mirror has no event stream, so LiveProvider refreshes every screen once when a status read shows a newer push (data_as_of). A running flow gives its hero card (FlowHero), its figures on the flow page and its Controls row a live-edge class: a light runs along the card's edge and the state word carries a pinging dot, all from design tokens. Idle cards get no class. Reduced motion and calm mode hide the moving light and keep a still teal outline. No em dashes.",
+      "acceptance": [
+        "While a cycle is in flight GET /v1/supervisor answers the flow's state running and running 1",
+        "A second run of the same flow while one is in flight is held at wip and starts no second cycle",
+        "A running flow gives its hero card and its Controls row a live class and a pulsing dot; an idle flow has none",
+        "On the hosted mirror a newer push refreshes the page without a reload",
+        "Reduced motion and calm mode keep a still difference instead of motion"
+      ],
+      "verify_probe": "pnpm probe flows/live-runs",
+      "files_hint": [
+        "packages/daemon/src/daemon.ts",
+        "packages/daemon/src/api/routes.ts",
+        "packages/daemon/src/overseer/index.ts",
+        "packages/web/src/api/live.tsx",
+        "packages/web/src/flows/FlowHero.tsx",
+        "packages/web/src/flows/ActivationPage.tsx",
+        "packages/web/src/flows/FlowControls.tsx",
+        "packages/web/src/ui-kit/flow.css"
       ],
       "origin": "new Core row"
     }
