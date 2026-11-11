@@ -1,0 +1,130 @@
+/* FW-C-124: the first run on /start. One box, then one node that grows. Tokens only. */
+.one-prompt {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-6);
+  max-width: 44rem;
+}
+.one-prompt-form,
+.node-grow {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: var(--space-4);
+}
+.one-prompt-form .field,
+.node-grow .field {
+  width: 100%;
+}
+.one-prompt-error {
+  color: var(--fail-fg);
+}
+.node {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-4);
+  padding: var(--space-6);
+  border: 1px solid var(--border-subtle);
+  border-radius: var(--radius-lg);
+  background: var(--surface-raised);
+  box-shadow: var(--shadow-card);
+}
+.node-head {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: var(--space-3);
+}
+.node-head h2 {
+  margin: 0;
+}
+.node-dial {
+  padding: var(--space-1) var(--space-3);
+  border: 1px solid var(--neutral-border);
+  border-radius: var(--radius-full);
+  background: var(--neutral-bg);
+  color: var(--neutral-fg);
+  font-size: var(--text-sm);
+  white-space: nowrap;
+}
+.node-goal {
+  margin: 0;
+  font-size: var(--text-lg);
+}
+.node-why {
+  margin: 0;
+  color: var(--text-secondary);
+}
+.node-steps {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-2);
+  margin: 0;
+  padding: 0;
+  list-style: none;
+  counter-reset: step;
+}
+.node-steps li {
+  counter-increment: step;
+  border: 1px solid var(--border-subtle);
+  border-radius: var(--radius-md);
+  background: var(--surface-page);
+}
+.node-steps li.is-open {
+  border-color: var(--border-strong);
+}
+.node-step {
+  display: flex;
+  align-items: center;
+  gap: var(--space-3);
+  width: 100%;
+  padding: var(--space-3) var(--space-4);
+  border: 0;
+  background: none;
+  color: var(--text-primary);
+  font: inherit;
+  text-align: left;
+  cursor: pointer;
+}
+.node-step::before {
+  content: counter(step);
+  color: var(--text-tertiary);
+  font-family: var(--font-mono);
+}
+.node-step:hover {
+  background: var(--surface-hover);
+}
+.node-step:focus-visible {
+  outline: 2px solid var(--focus-ring);
+  outline-offset: -2px;
+}
+.node-step-label {
+  flex: 1;
+}
+.node-step-needs {
+  padding: 0 var(--space-2);
+  border-radius: var(--radius-full);
+  background: var(--caution-bg);
+  color: var(--caution-fg);
+  font-size: var(--text-sm);
+}
+.node-step-body {
+  padding: 0 var(--space-4) var(--space-3);
+}
+.node-step-body p {
+  margin: 0 0 var(--space-2);
+  color: var(--text-secondary);
+}
+.node-step-body .node-step-need {
+  color: var(--caution-fg);
+  font-weight: var(--weight-medium);
+}
+.node-actions {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: var(--space-2);
+}
+.node-done {
+  margin: 0;
+}

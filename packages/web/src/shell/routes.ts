@@ -16,7 +16,8 @@ export type Route =
   | 'spend'
   | 'setup'
   | 'settings'
-  | 'more';
+  | 'more'
+  | 'start';
 
 const EXACT: Record<string, Route> = {
   '/': 'today',
@@ -33,6 +34,7 @@ const EXACT: Record<string, Route> = {
   '/setup': 'setup',
   '/settings': 'settings',
   '/more': 'more',
+  '/start': 'start',
 };
 
 const PARAM: [string, Route][] = [
