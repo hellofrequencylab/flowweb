@@ -1,0 +1,35 @@
+{
+  "id": "FW-C-134",
+  "title": "Each flow carries a goal and the number it moves, counted from the flow's own rows",
+  "core_milestone": "C1",
+  "phase": 1,
+  "epic": "C1.5 First flow",
+  "priority": "P2",
+  "size": "M",
+  "lane": "workstreams",
+  "agent_suitability": "agent",
+  "gate": "none",
+  "depends_on": [
+    "FW-C-054",
+    "FW-C-055"
+  ],
+  "description": "Hub model (2026-11-11): every flow answers to one number, or the brain has nothing to decide against. The Owner sets a goal per flow: metric (sent, replies, signups, hosts, paid), a whole-number target, a period (week = last 7 days, month = last 30 days) and an optional label. Progress is counted, never estimated: sent and replies from the flow's drafts (sent_at, replied_at inside the period), signups, hosts and paid from the outcomes Frequency sends back. A metric with nothing to count shows 0. The goal lives in the Supervisor settings beside the dial, so it survives a restart, and { target: null } clears it. POST /v1/supervisor/flows/{key}/goal (CLI token or paired session) sets it and every FlowView gains goal: null or { metric, target, period, label, progress: { value, as_of } }. The flow card shows the goal and its progress; the Monday staff meeting and the game read the same number. Wave 3 of the master plan v2.",
+  "acceptance": [
+    "Every FlowView has goal null on a fresh home",
+    "POST /v1/supervisor/flows/{key}/goal sets it; no session 401, unknown flow 404, a bad metric, target, period or label 400",
+    "progress.value counts only rows inside the period: three replies this week and one from 40 days ago give 3",
+    "The goal survives a restart, sits on its own flow only, and target null clears it"
+  ],
+  "verify_probe": "pnpm probe flows/flow-goals",
+  "files_hint": [
+    "packages/daemon/src/overseer/goals.ts",
+    "packages/daemon/src/overseer/index.ts",
+    "packages/daemon/src/api/routes.ts",
+    "packages/daemon/src/daemon.ts",
+    "packages/daemon/test/flow-goals.test.ts",
+    "packages/web/src/api/client.ts",
+    "packages/web/src/api/types.ts",
+    "packages/web/src/flows/FlowControls.tsx"
+  ],
+  "origin": "new Core row"
+}
