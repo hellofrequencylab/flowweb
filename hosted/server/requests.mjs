@@ -24,6 +24,7 @@ const HUNT_FIELDS = ['name', 'looking_for', 'region', 'areas', 'links', 'every_d
 /** The stops the site may set. Autopilot binds to a confirm hash and is set on the Owner's machine. */
 const SITE_STOPS = ['draft', 'copilot'];
 const OUTCOMES = ['sent', 'replied', 'declined'];
+const SKIP_REASONS = ['wrong_niche', 'not_local', 'not_a_fit', 'on_frequency'];
 /** FW-C-095: the email sender's settings, checked as fwd and senders/email.mjs check them. Never a password. */
 const SENDER_SECRET = /password|secret|token|^pass$/i;
 const SENDER_BOX = /^[a-z][a-z0-9_]{0,19}$/;
@@ -122,6 +123,11 @@ export function draftRequestOf(method, path, body) {
   if (action === 'mark') {
     if (!OUTCOMES.includes(b.outcome)) return { error: `outcome must be one of ${OUTCOMES.join(', ')}` };
     payload.outcome = b.outcome;
+  }
+  // FW-C-105: a skip from Today carries its reason to fwd.
+  if (action === 'reject' && b.reason !== undefined) {
+    if (!SKIP_REASONS.includes(b.reason)) return { error: `reason must be one of ${SKIP_REASONS.join(', ')}` };
+    payload.reason = b.reason;
   }
   return { kind: ACTIONS[action], flow, draft_id: draftId, payload };
 }
@@ -320,7 +326,9 @@ export function fwdCallFor(req) {
           ? OUTCOMES.includes(p.outcome)
             ? { outcome: p.outcome }
             : null
-          : {};
+          : action === 'reject' && SKIP_REASONS.includes(p.reason)
+            ? { reason: p.reason }
+            : {};
   if (!body) return null;
   return {
     method: 'POST',
