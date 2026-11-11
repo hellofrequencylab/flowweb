@@ -1,0 +1,33 @@
+{
+  "id": "FW-C-144",
+  "title": "A support desk flow sorts the inbox, drafts replies for the Owner, and never sends on its own",
+  "core_milestone": "C1",
+  "phase": 1,
+  "epic": "C1.5 First flow",
+  "priority": "P3",
+  "size": "L",
+  "lane": "workstreams",
+  "agent_suitability": "agent",
+  "gate": "owner-approval",
+  "depends_on": [
+    "FW-C-046"
+  ],
+  "description": "Second new department in the master plan (P3, 2026-11-11), gated by Daniel: work starts only when he says go. A new shipped flow, flows/support-desk: off, L1, a dollar cap, and no action class that sends. A cycle reads messages dropped in $FW_HOME/flows/support-desk/inbox/ (one JSON each: id, from, subject, text, received_at), sorts each with a pure triage (billing words win over bug words, which win over feature words; obvious junk is spam; the rest are questions), and drafts one reply per message that is not spam into the flow's drafts with status waiting_for_owner, its category and the message id it answers. A message that already has a draft gets no second one. Nothing is written to the outbox, and the dial stops at Copilot: Autopilot is refused for this flow. Pulling the inbox from Gmail (draft only, never send) is a later row. Wave 5 of the master plan v2.",
+  "acceptance": [
+    "flows/support-desk ships off, L1, capped and with no *_external action class",
+    "triage sorts billing, bug, feature, question and spam the same way every time, billing first",
+    "A run drafts 4 replies for 5 messages (none for spam), all waiting for the Owner, writes nothing to the outbox, does not draft twice, and Autopilot is refused with 400"
+  ],
+  "verify_probe": "pnpm probe flows/support-desk",
+  "files_hint": [
+    "flows/support-desk/stream.json",
+    "flows/support-desk/config.json",
+    "flows/support-desk/project.json",
+    "flows/support-desk/README.md",
+    "packages/daemon/src/flows/support-desk.ts",
+    "packages/daemon/src/overseer/index.ts",
+    "packages/daemon/src/overseer/cycle.ts",
+    "packages/daemon/test/support-desk.test.ts"
+  ],
+  "origin": "new Core row"
+}
