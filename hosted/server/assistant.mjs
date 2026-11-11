@@ -8,7 +8,7 @@
 //   - Without the key the site answers 503 not_configured and the page uses its built-in answers.
 // Pure apart from the injected fetch, so it is tested without a network.
 
-import { apiDetail, isSignInToken, refusalReason, retryWithoutBeta, SIGN_IN_TOKEN, siteKey } from './site-key.mjs';
+import { apiDetail, isSignInToken, refusalReason, retryWithoutBeta, SIGN_IN_TOKEN, siteKey, workspaceHeaders } from './site-key.mjs';
 
 const MAX_QUESTION = 1000;
 const STAGES = ['machine', 'ai', 'fix_ai', 'next_steps', 'done'];
@@ -87,6 +87,7 @@ export async function answerSetupQuestion(body, { env = {}, fetchImpl = fetch } 
       method: 'POST',
       headers: {
         'x-api-key': key,
+        ...workspaceHeaders(env, key),
         'anthropic-version': '2023-06-01',
         ...(withFallback ? { 'anthropic-beta': 'server-side-fallback-2026-07-01' } : {}),
         'content-type': 'application/json',
