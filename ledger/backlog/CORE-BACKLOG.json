@@ -4,7 +4,7 @@
     "profile": "core",
     "schema": "ledger-row/1",
     "generated": "2026-11-09",
-    "row_count": 135,
+    "row_count": 136,
     "conventions": {
       "verify_probe": "Same convention as 04-build-plan/backlog.json: 'pnpm probe <path>' runs probes/<path>.probe.ts, a Tier 0 file written before the implementation row starts and never edited by the agent doing the row. Every probe fails today because its target does not exist (a missing probe file exits 2, a missing behaviour exits 1). The probe pack for a milestone is committed by the Owner or a pair session before the milestone's rows start.",
       "status": "All rows start as open. Status lives only in the ledger database (imported with fw ledger sync), never in prose.",
@@ -28,7 +28,7 @@
       }
     },
     "full_plan_rows_included": 37,
-    "new_core_rows": 93
+    "new_core_rows": 94
   },
   "rows": [
     {
@@ -4755,6 +4755,42 @@
         "hosted/server/frequency-link.mjs",
         "hosted/test/frequency-link.test.mjs",
         "docs/api/FREQUENCY-INTEGRATION-V1.md"
+      ],
+      "origin": "new Core row"
+    },
+    {
+      "id": "FW-C-109",
+      "title": "The Owner pastes or forwards event listings, or names a city or library calendar, and gets a deduped queue of events to check before anything is published",
+      "core_milestone": "C1",
+      "phase": 1,
+      "epic": "C1.5 First flow",
+      "priority": "P1",
+      "size": "L",
+      "lane": "workstreams",
+      "agent_suitability": "agent",
+      "gate": "none",
+      "depends_on": [],
+      "description": "Launch plan v2 stream S16 (event intake), asked for by the Owner on 2026-11-11. The Owner pastes event listings or a forwarded email body, or gives one city or library iCal or RSS address, and fwd extracts each event (title, starts_at, town, venue, niche guess, host name, source link and public contact route), dedupes on normalized title, date and venue, and queues new events in $FW_HOME/flows/<flow>/intake/queue.json with status needs_check. Extraction is deterministic first (an iCal and RSS parser and a line pattern for pasted text); only when that finds nothing does fwd ask the flow's own engine once, with the fake vendor in tests. Inbound text is data, never instructions. Sources: pasted text, forwarded email, a single fetch of a calendar or feed address, and calendars hosts submit; instagram.com, facebook.com, fb.com, fb.me and instagr.am are never fetched, and Eventbrite and Meetup are not crawled. Routes: POST /v1/flows/{key}/intake ({text} or {ical_url}), GET /v1/flows/{key}/intake, POST /v1/flows/{key}/intake/{id}/check ({ok: boolean}). An approved event's host joins the flow's leads.json when that file exists. The Growth page gains a Paste events box and the review list. Nothing is published, posted or sent: the queue is for the Owner to check and act on by hand.",
+      "acceptance": [
+        "Pasted text with three events, one a duplicate, queues two events with status needs_check and their extracted fields",
+        "An iCal file fetched once parses into its events, with TZID, UTC and folded lines handled",
+        "An instagram.com, facebook.com, fb.com, fb.me, instagr.am, Eventbrite or Meetup address is refused with 400 and nothing is fetched",
+        "Instructions injected into a paste do not change the queue",
+        "A check approves or rejects one event, and an approved host lands in an existing leads.json",
+        "Nothing is written to any outbox or drafts folder"
+      ],
+      "verify_probe": "pnpm probe flows/event-intake",
+      "files_hint": [
+        "packages/daemon/src/flows/event-intake.ts",
+        "packages/daemon/test/event-intake.test.ts",
+        "packages/daemon/src/overseer/intake-engine.ts",
+        "packages/daemon/src/api/routes.ts",
+        "packages/daemon/src/daemon.ts",
+        "packages/adapters/src/fake/index.ts",
+        "packages/adapters/src/fake/vendor.mjs",
+        "packages/web/src/flows/EventIntake.tsx",
+        "packages/web/src/flows/ActivationPage.tsx",
+        "packages/web/src/api/client.ts"
       ],
       "origin": "new Core row"
     }
