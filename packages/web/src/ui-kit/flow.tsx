@@ -15,7 +15,8 @@ import { type LoopInfo, useLoopTarget } from './loop';
 export const STAGES = ['Queued', 'Build', 'Check', 'Sign-off', 'Landed'] as const;
 
 export type FlowState = 'quiet' | 'running' | 'waiting' | 'problem' | 'paused' | 'held' | 'done' | 'unknown';
-export type Hue = 'slate' | 'teal' | 'clay' | 'indigo' | 'olive' | 'mauve';
+/** 'accent' is the Owner's picked accent (FW-C-099); the rest are fixed group colours. */
+export type Hue = 'slate' | 'teal' | 'clay' | 'indigo' | 'olive' | 'mauve' | 'accent';
 const HUES: Hue[] = ['slate', 'teal', 'clay', 'indigo', 'olive', 'mauve'];
 
 /** The nth group colour, for short lists where hashing could repeat a colour. */
@@ -93,7 +94,7 @@ const STATE_CLASS: Record<FlowState, string> = {
 };
 
 const quietish = (s: FlowState) => s === 'quiet' || s === 'unknown';
-const hueVar = (h: Hue) => `var(--flow-${h})`;
+const hueVar = (h: Hue) => (h === 'accent' ? 'var(--accent)' : `var(--flow-${h})`);
 const ang = (i: number, n: number) => -90 + (360 / n) * i;
 const pt = (i: number, n: number, r: number): [number, number] => {
   const a = (ang(i, n) * Math.PI) / 180;

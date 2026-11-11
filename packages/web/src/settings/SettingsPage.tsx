@@ -4,6 +4,7 @@ import { useResource } from '../api/resource';
 import { HOSTED, signedInEmail } from '../hosted/auth';
 import { AccountsPanel, MachinesPanel } from '../hosted/Machines';
 import { PeoplePanel } from '../hosted/People';
+import { AccentPicker } from '../shell/AccentPicker';
 import { KillControl } from '../shell/KillSwitch';
 import { type Prefs, usePrefs } from '../shell/prefs';
 import { Copy, ResourceView } from '../ui-kit/honest';
@@ -145,6 +146,7 @@ function LookAndFeel() {
       </h2>
       <div className="panel settings-panel">
         <Toggle k="calm" label="Calm mode" hint="No animation; rewards become a static tick. Key m." />
+        <AccentPicker />
       </div>
       {open && (
         <div className="settings-body" id="look-body">

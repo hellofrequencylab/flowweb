@@ -325,6 +325,8 @@
   --flow-indigo: #5c67d6;
   --flow-olive: #6f9126;
   --flow-mauve: #b0509c;
+  /* FW-C-099: the accent the Owner picks (Settings, Look and feel). Loops, glows and live edges use it. */
+  --accent: var(--flow-teal);
   --flow-ground: var(--surface-raised);
   --flow-line-quiet: rgba(26, 25, 23, 0.1);
   --flow-gate: var(--waiting-400);
@@ -634,4 +636,18 @@
     --dur-base: 0ms;
     --dur-slow: 0ms;
   }
+}
+
+/* FW-C-099: accent picks. Each points at a design-system flow hue, so light and dark themes both hold. */
+:root[data-accent="slate"] {
+  --accent: var(--flow-slate);
+}
+:root[data-accent="indigo"] {
+  --accent: var(--flow-indigo);
+}
+:root[data-accent="olive"] {
+  --accent: var(--flow-olive);
+}
+:root[data-accent="clay"] {
+  --accent: var(--flow-clay);
 }
