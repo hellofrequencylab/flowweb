@@ -18,6 +18,7 @@ import * as paidAds from '../flows/paid-ads.ts';
 import * as adsPull from '../flows/paid-ads-ga4.ts';
 import * as review from '../flows/review.ts';
 import { reviewSummary } from '../flows/review-summary.ts';
+import { dueTouches, loadSequence } from '../flows/sequence.ts';
 import { type DraftView, editDraft, listDrafts, markDraft } from '../overseer/drafts.ts';
 import { readSettings, SupervisorError, supervisorView } from '../overseer/index.ts';
 import type { RewriteProposal } from '../overseer/rewrite.ts';
@@ -738,6 +739,17 @@ export function buildRouter(deps: ApiDeps): Router {
         throw draftError(e);
       }
     });
+
+  // FW-C-104: the outreach sequence. GET lists the touches due now and every lead's state.
+  r.get('/v1/flows/{key}/sequence', ({ req, params }) => {
+    ownerOnly(req);
+    const key = params.key ?? '';
+    if (!Object.hasOwn(FLOWS, key)) throw notFound('flow', params.key);
+    return env(() => {
+      const due = dueTouches(key, new Date(), deps.fwHome);
+      return { data: { due, leads: Object.values(loadSequence(deps.fwHome, key).leads) } };
+    });
+  });
 
   r.get('/v1/status-reports', ({ query }) => {
     const kind = oneOf(query, 'kind', REPORT_KINDS);
