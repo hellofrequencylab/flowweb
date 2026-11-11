@@ -42,8 +42,10 @@ import { runCredentials } from '../pipeline/credentials.ts';
 import { chooseAdapter } from '../pipeline/route.ts';
 import { killOrphanGroup } from '../reconciler.ts';
 import { readFlowAi } from './ai.ts';
+import { copyStream, flowRef } from './copies.ts';
 import { draftTag, refLinks, tagLinks } from './drafts.ts';
 import { handOff, perDayFor } from './index.ts';
+import { meterTurn, type TurnCost } from './meter.ts';
 
 const SAFE = /[^A-Za-z0-9_-]/g;
 /** The record of a running cycle's vendor process group (FW-C-045). */
@@ -80,8 +82,11 @@ export function flowStream(repoRoot: string, key: string): Record<string, unknow
 
 /** Adds the flow's stream to the ledger (active) unless it is there already. */
 export function registerFlowStream(w: Writer, repoRoot: string, key: string): void {
-  const def = flowStream(repoRoot, key);
-  if (!def) return;
+  const ref = flowRef('', key);
+  const shipped = flowStream(repoRoot, ref.base);
+  if (!shipped) return;
+  // FW-C-121: a copy runs the base flow's stream under its own key and stream id.
+  const def = ref.copy ? copyStream(shipped, key) : shipped;
   if (w.get('SELECT 1 FROM streams WHERE id = ? OR key = ?', [def.id, key])) return;
   // A flow whose project fwd does not know yet (no project.json) is not dispatched until it is.
   if (!w.get('SELECT 1 FROM projects WHERE id = ?', [def.project_id])) return;
@@ -181,6 +186,8 @@ export interface CycleDeps {
   keychain?: Parameters<typeof injectCredentials>[1]['keychain'];
   /** Aborting it kills the vendor process group; the cycle still ends in a report. */
   signal?: AbortSignal;
+  /** FW-C-121: fwd's own $FW_HOME when fwHome is a copy's home (settings, outbox and hand-offs use it). */
+  rootHome?: string;
   /** Builds the adapter (tests pass a stub); createAdapter otherwise. */
   adapterFactory?: (
     name: AdapterName,
@@ -190,6 +197,8 @@ export interface CycleDeps {
 
 export interface CycleFire {
   flow: string;
+  /** FW-C-121: the copy's key when this fire is a copy's; flow is then its base flow. */
+  copy?: string;
   streamId: string;
   fireId: string;
 }
@@ -326,8 +335,27 @@ export function brief(
   return lines.join('\n');
 }
 
-/** Runs one cycle of a flow for an admitted fire. Never throws; failures end in a report. */
+/** The flow key and home a cycle's settings and hand-offs use: the copy's own key on fwd's own home. */
+const owner = (d: CycleDeps, fire: CycleFire) => ({
+  fwHome: d.rootHome ?? d.fwHome,
+  flow: fire.copy ?? fire.flow,
+});
+
+/**
+ * Runs one cycle of a flow for an admitted fire. Never throws; failures end in a report. FW-C-121: a copy's
+ * fire runs its base flow against the copy's home, so its state, drafts and spend stay its own.
+ */
 export async function runFlowCycle(d: CycleDeps, fire: CycleFire): Promise<void> {
+  const ref = flowRef(d.fwHome, fire.flow);
+  if (ref.copy)
+    return runCycle(
+      { ...d, fwHome: ref.home, rootHome: d.fwHome },
+      { ...fire, flow: ref.base, copy: fire.flow },
+    );
+  return runCycle(d, fire);
+}
+
+async function runCycle(d: CycleDeps, fire: CycleFire): Promise<void> {
   const w = d.writer;
   const log = d.log ?? (() => {});
   const stream = flowStream(d.repoRoot, fire.flow) ?? {};
@@ -338,6 +366,9 @@ export async function runFlowCycle(d: CycleDeps, fire: CycleFire): Promise<void>
   let outcome: 'drafted' | 'dry' | 'failed' = 'failed';
   let reason: string | undefined;
   let written = 0;
+  // FW-C-122: the turn's cost and the drafts it wrote, metered once when the cycle ends.
+  let metered: { cost?: TurnCost | null; adapter?: { vendor?: string; model?: string } | null } | null = null;
+  const draftIds: string[] = [];
   let hunts: Hunt[] = [];
   let huntCounts: Record<string, HuntCounts> | null = null;
   let creds: InjectedCredentials | null = null;
@@ -482,7 +513,7 @@ export async function runFlowCycle(d: CycleDeps, fire: CycleFire): Promise<void>
       const rec: VendorRecord = {
         pgid,
         started_at: started,
-        flow: fire.flow,
+        flow: owner(d, fire).flow,
         fire_id: fire.fireId,
         stream_id: fire.streamId,
         adapter: adapterName,
@@ -504,8 +535,8 @@ export async function runFlowCycle(d: CycleDeps, fire: CycleFire): Promise<void>
     const usd = Number(result.cost?.usd ?? 0);
     if (usd > 0 || result.cost?.input_tokens || result.cost?.output_tokens)
       w.run(
-        `INSERT INTO spend_entries(id, project_id, stream_id, kind, vendor, model, tokens_in, tokens_out, usd, idempotency_key)
-         VALUES (?, ?, ?, 'model_tokens', ?, ?, ?, ?, ?, ?)`,
+        `INSERT INTO spend_entries(id, project_id, stream_id, kind, vendor, model, tokens_in, tokens_out, tokens_cached, usd, idempotency_key)
+         VALUES (?, ?, ?, 'model_tokens', ?, ?, ?, ?, ?, ?, ?)`,
         [
           newId('spd'),
           projectId || null,
@@ -514,11 +545,13 @@ export async function runFlowCycle(d: CycleDeps, fire: CycleFire): Promise<void>
           result.adapter?.model ?? null,
           result.cost?.input_tokens ?? 0,
           result.cost?.output_tokens ?? 0,
+          result.cost?.cached_tokens ?? 0,
           usd,
           `flow_cycle:${fire.fireId}`,
         ],
       );
     addFlowSpend(d, fire.flow, usd, Number(result.turns ?? 0));
+    metered = { cost: result.cost ?? null, adapter: result.adapter ?? null };
     // A cycle commits nothing, so a vendor that wrote drafts.json but named no artifact still finished
     // its work: the engine's no_artifact rule is for ledger runs, which must land a commit.
     const draftsOnly =
@@ -576,17 +609,11 @@ export async function runFlowCycle(d: CycleDeps, fire: CycleFire): Promise<void>
         );
         const handed =
           channel && !unaddressed && gate.ok
-            ? handOff({
-                writer: w,
-                repoRoot: d.repoRoot,
-                fwHome: d.fwHome,
-                flow: fire.flow,
-                item: { id, channel, body },
-              })
+            ? handOff({ writer: w, repoRoot: d.repoRoot, ...owner(d, fire), item: { id, channel, body } })
             : null;
         const created = nowIso();
         const doc = {
-          flow: fire.flow,
+          flow: owner(d, fire).flow,
           id,
           fire_id: fire.fireId,
           lead_id: leadId,
@@ -602,11 +629,13 @@ export async function runFlowCycle(d: CycleDeps, fire: CycleFire): Promise<void>
         };
         writeFileSync(join(out, `${id}.json`), `${JSON.stringify(doc, null, 2)}\n`, { mode: 0o600 });
         written++;
+        draftIds.push(id);
       }
       if (hunts.length > 0) {
         const n = await runHunts(d, fire, dir, hunts, out, short, gateCtx);
         huntCounts = n.counts;
         written += n.written;
+        draftIds.push(...n.ids);
         // FW-C-103: the hunt's drafts become scored nodes in the flow's lead graph.
         refreshQuietly(d.fwHome, fire.flow, () => loadFlow(d.repoRoot, d.fwHome)?.cfg.leads, log);
       }
@@ -616,9 +645,15 @@ export async function runFlowCycle(d: CycleDeps, fire: CycleFire): Promise<void>
     reason = redactLiterals((e as Error)?.message ?? String(e), creds?.literals ?? []);
     log(`supervisor: cycle ${fire.fireId} failed: ${reason}`);
   }
+  if (metered)
+    meterTurn(
+      owner(d, fire).fwHome,
+      { flow: owner(d, fire).flow, step: 'cycle', item: fire.fireId, ...metered, drafts: draftIds },
+      log,
+    );
   const body = {
     stream_id: fire.streamId,
-    flow: fire.flow,
+    flow: owner(d, fire).flow,
     fire_id: fire.fireId,
     adapter: adapterName,
     outcome,
@@ -696,6 +731,9 @@ export function reapOrphanCycles(
   log: (m: string) => void = () => {},
 ): string[] {
   const reaped: string[] = [];
+  // FW-C-121: each copy keeps its cycles under its own home, so those are reaped too.
+  for (const copy of listDirs(join(fwHome, 'copies')))
+    reaped.push(...reapOrphanCycles(w, repoRoot, join(fwHome, 'copies', copy), log));
   const flowsDir = join(fwHome, 'flows');
   for (const flow of listDirs(flowsDir)) {
     const cyclesDir = join(flowsDir, flow, 'cycles');
@@ -716,7 +754,7 @@ export function reapOrphanCycles(
         ensureReporter(w);
         writeCycleReport(w, {
           streamId: typeof rec.stream_id === 'string' ? rec.stream_id : '',
-          projectId: String(flowStream(repoRoot, flowKey)?.project_id ?? ''),
+          projectId: String(flowStream(repoRoot, flowRef('', flowKey).base)?.project_id ?? ''),
           started: typeof rec.started_at === 'string' ? rec.started_at : nowIso(),
           body: {
             stream_id: rec.stream_id ?? null,
@@ -791,12 +829,12 @@ async function runHunts(
 ) {
   const now = new Date();
   const f = loadFlow(d.repoRoot, d.fwHome, now);
-  if (!f) return { counts: {}, written: 0 };
+  if (!f) return { counts: {}, written: 0, ids: [] as string[] };
   const p = join(dir, 'leads.json');
   const leads = existsSync(p) ? parseLeads(JSON.parse(readFileSync(p, 'utf8'))) : [];
   const state = f.state as typeof f.state & { hunt_contacts?: HuntContacts };
   // FW-C-063: no more new people today than the Owner's intensity (after auto) allows.
-  const perDay = perDayFor(d.writer, d.fwHome, fire.flow, now);
+  const perDay = perDayFor(d.writer, owner(d, fire).fwHome, owner(d, fire).flow, now);
   const { kept, counts } = screenLeads({ cfg: f.cfg, state, hunts, leads, now, perDay });
   const contacts = { ...(state.hunt_contacts ?? {}) };
   for (const k of kept) {
@@ -846,13 +884,12 @@ async function runHunts(
       ? handOff({
           writer: d.writer,
           repoRoot: d.repoRoot,
-          fwHome: d.fwHome,
-          flow: fire.flow,
+          ...owner(d, fire),
           item: { id: k.id, channel: 'frequency', body, lead: { ...lead, subject } },
         })
       : null;
     const doc = {
-      flow: fire.flow,
+      flow: owner(d, fire).flow,
       id: k.id,
       fire_id: fire.fireId,
       ...lead,
@@ -883,5 +920,5 @@ async function runHunts(
       ran.has(h.id) ? { ...h, last_run_at: now.toISOString(), requested_at: null } : h,
     ),
   );
-  return { counts, written: kept.length };
+  return { counts, written: kept.length, ids: kept.map((k) => k.id) };
 }

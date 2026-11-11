@@ -4,7 +4,7 @@
     "profile": "core",
     "schema": "ledger-row/1",
     "generated": "2026-11-09",
-    "row_count": 155,
+    "row_count": 159,
     "conventions": {
       "verify_probe": "Same convention as 04-build-plan/backlog.json: 'pnpm probe <path>' runs probes/<path>.probe.ts, a Tier 0 file written before the implementation row starts and never edited by the agent doing the row. Every probe fails today because its target does not exist (a missing probe file exits 2, a missing behaviour exits 1). The probe pack for a milestone is committed by the Owner or a pair session before the milestone's rows start.",
       "status": "All rows start as open. Status lives only in the ledger database (imported with fw ledger sync), never in prose.",
@@ -28,7 +28,7 @@
       }
     },
     "full_plan_rows_included": 37,
-    "new_core_rows": 106
+    "new_core_rows": 108
   },
   "rows": [
     {
@@ -5428,6 +5428,112 @@
       "origin": "new Core row"
     },
     {
+      "id": "FW-C-121",
+      "title": "The Owner runs more than one copy of a flow, each with its own name, config, state, drafts and spend",
+      "core_milestone": "C1",
+      "phase": 1,
+      "epic": "C1.5 First flow",
+      "priority": "P0",
+      "size": "L",
+      "lane": "workstreams",
+      "agent_suitability": "agent",
+      "gate": "none",
+      "depends_on": [
+        "FW-C-116",
+        "FW-C-038"
+      ],
+      "description": "The loop protocol doc (2026-11-11, Build next item 5) and the one-prompt canvas need a second \"find yoga teachers\" flow beside the first, but fwd runs one copy per engine: ENGINES and every flow module key their state by one fixed flow key. A copy is a new flow key \"<base>--<slug>\" recorded in the Supervisor settings with copy_of = base. One pure resolver maps a key to its base flow and its home: a shipped flow keeps $FW_HOME, a copy gets $FW_HOME/copies/<key>/, and every engine, cycle, draft and spend path runs the base flow's code against that home, so copies never share leads, drafts, hunts or spend while the engines stay unchanged. POST /v1/supervisor/flows/{base}/copy { slug?, name?, note?, config? } makes one (CLI token or paired session): slug defaults to the next free number from 2; config is a shallow patch over the base flow's effective config, limited to keys it already has, written as the copy's config.json override. A copy of a copy, and copies of host-moments, local-pulse and email-queue (fixed templates or one shared queue), are refused. GET /v1/supervisor lists copies beside shipped flows with copy_of (null on shipped ones). Enable, disable, dial, edit, archive, restore, schedule, intensity, AI account, run and the drafts routes all take a copy's key; turning a copy on registers its own stream (its key, a stream id derived from it), its run report names the copy's key, and fwd reaps a crashed copy's cycle like any other. Deleting a copy is archive for now; the site, relay and Flows page buttons are a later row.",
+      "acceptance": [
+        "POST /v1/supervisor/flows/{base}/copy makes <base>--<slug> off and at draft, with the Owner's name, note and config patch; the base flow's config is untouched",
+        "No session 401; unknown base 404; a bad slug, an over-long key, an unknown config key or a copy of a copy 400; an existing copy 409; no slug gives <base>--2",
+        "GET /v1/supervisor lists the copy with copy_of; shipped flows show copy_of null",
+        "Turning the copy on registers its own stream; running it drafts into $FW_HOME/copies/<key>/flows/<base>/drafts, its run report names the copy, and its spend shows on the copy only",
+        "Dial, edit and archive on a copy change only that copy, and copies survive a restart of fwd"
+      ],
+      "verify_probe": "pnpm probe flows/flow-copies",
+      "files_hint": [
+        "packages/daemon/src/overseer/copies.ts",
+        "packages/daemon/src/overseer/index.ts",
+        "packages/daemon/src/overseer/cycle.ts",
+        "packages/daemon/src/overseer/drafts.ts",
+        "packages/daemon/src/api/routes.ts",
+        "packages/daemon/src/daemon.ts",
+        "packages/daemon/test/flow-copies.test.ts"
+      ],
+      "origin": "new Core row"
+    },
+    {
+      "id": "FW-C-122",
+      "title": "The Owner sees tokens and dollars per outcome for every flow, from a meter on every model turn",
+      "core_milestone": "C1",
+      "phase": 1,
+      "epic": "C1.5 First flow",
+      "priority": "P0",
+      "size": "M",
+      "lane": "workstreams",
+      "agent_suitability": "agent",
+      "gate": "none",
+      "depends_on": [
+        "FW-C-121",
+        "FW-C-055"
+      ],
+      "description": "Item 1 of Build next in the loop protocol doc (2026-11-11). Daniel: minimal spend means the most effective way to get each result, not the cheapest run, so the deciding number is tokens and dollars per outcome, per flow and per model. Today fwd records a cycle's dollars and input and output tokens in spend_entries (not its cached tokens) and nothing says which flow, step or item a turn was for. fwd now meters every model turn it starts for a flow (a cycle, a draft rewrite, a reply read, an intake read) once, in $FW_HOME/meter/turns.jsonl written only by fwd: at, flow (a copy's own key), step, item (the fire id or the draft id), vendor, model, tokens_in, tokens_cached, tokens_out, usd and the drafts the turn wrote; the cycle's spend_entries row gains its cached tokens. GET /v1/meter/turns?flow&limit lists turns newest first. GET /v1/meter?flow&days (1 to 90, default 30) answers turns, tokens (input, cached, output, total), usd, cache_share, packet_p95, outcomes (drafted by metered turns; sent, replied and declined from the Owner's marks; signed_up from Frequency's members and hosts for those drafts' tags), per_outcome (the window's whole spend divided by each count, null at zero, so waste counts), by_step and by_model (each model's spend, outcomes and dollars per outcome, the number that decides when climbing to a bigger model pays). CLI token or paired session; no flow means every flow.",
+      "acceptance": [
+        "A cycle is metered once with its fire id, tokens, cost, model and the drafts it wrote, matching its spend_entries row including cached tokens",
+        "A draft rewrite is metered as step rewrite against the draft id",
+        "GET /v1/meter gives drafted, sent, replied and signed_up and tokens and dollars per outcome, overall and per model",
+        "No session 401; unknown flow 404; days outside 1 to 90 400; a flow with no turns answers zeros and null per outcome"
+      ],
+      "verify_probe": "pnpm probe flows/token-meter",
+      "files_hint": [
+        "packages/daemon/src/overseer/meter.ts",
+        "packages/daemon/src/overseer/cycle.ts",
+        "packages/daemon/src/overseer/rewrite.ts",
+        "packages/daemon/src/overseer/reply-engine.ts",
+        "packages/daemon/src/overseer/intake-engine.ts",
+        "packages/daemon/src/api/routes.ts",
+        "packages/daemon/test/meter.test.ts"
+      ],
+      "origin": "new Core row"
+    },
+    {
+      "id": "FW-C-130",
+      "title": "Teach once: the Owner turns a choice on a draft into a house rule, and matching drafts arrive pre-checked with the rule named",
+      "core_milestone": "C1",
+      "phase": 1,
+      "epic": "C1.5 First flow",
+      "priority": "P2",
+      "size": "L",
+      "lane": "workstreams",
+      "agent_suitability": "agent",
+      "gate": "none",
+      "depends_on": [
+        "FW-C-046"
+      ],
+      "description": "The master plan's first hard pass (2026-11-11): approvals are the bottleneck (34 drafts waiting on one person), so the cheapest way to raise results per owner minute is to stop asking the same question twice. When the Owner approves, edits or rejects a draft, the CEO can ask \"handle ones like this the same way?\"; a yes saves a house rule the Owner can read, edit or delete. A rule is { decision approve or reject, text up to 280 characters, match } where match names one or more of channel, hunt_id, niche, area and is compared for equality with the draft, so matching is plain code and never a model guess. Drafts waiting for the Owner that a rule matches carry suggest { decision, rule_id, rule }; the Owner applies a rule to a batch in one call, and a batch that names any draft the rule does not match changes nothing. A suggestion never changes a status or writes to the outbox: nothing auto-sends at any dial. The home number becomes owner minutes this week: distinct minutes in the last 7 days in which the Owner decided at least one draft, read from fwd's own records. Routes: POST/GET /v1/supervisor/flows/{key}/rules, POST .../rules/{id}/edit and /delete, POST .../drafts/batch; GET /v1/supervisor gains owner_minutes. The Today and drafts screens show the pre-checked batch with the rule named; the site and relay buttons are a later row. Wave 2 of the master plan v2.",
+      "acceptance": [
+        "POST /v1/supervisor/flows/{key}/rules saves a rule; no session 401, unknown flow 404, an empty or unknown match key, unknown decision or bad text 400",
+        "A waiting draft a rule matches carries suggest with the rule id and text; others carry suggest null; statuses and the outbox are untouched",
+        "POST .../drafts/batch applies the rule to every named draft, or changes nothing and answers 400 when one does not match",
+        "Rules can be edited and deleted and survive a restart; a deleted rule suggests nothing",
+        "GET /v1/supervisor owner_minutes.week is 0 on a fresh home and counts the minutes with an Owner decision"
+      ],
+      "verify_probe": "pnpm probe flows/teach-once",
+      "files_hint": [
+        "packages/daemon/src/overseer/rules.ts",
+        "packages/daemon/src/overseer/drafts.ts",
+        "packages/daemon/src/overseer/index.ts",
+        "packages/daemon/src/api/routes.ts",
+        "packages/daemon/src/daemon.ts",
+        "packages/daemon/test/house-rules.test.ts",
+        "packages/web/src/api/client.ts",
+        "packages/web/src/api/types.ts",
+        "packages/web/src/flows/DraftsInbox.tsx",
+        "packages/web/src/flows/Today.tsx"
+      ],
+      "origin": "new Core row"
+    },
+    {
       "id": "FW-C-123",
       "title": "The Owner meets their agent team: an org chart of named agents with archetype personalities, one team per business",
       "core_milestone": "C1",
@@ -5470,6 +5576,49 @@
         "packages/web/src/shell/routes.ts",
         "packages/web/src/shell/Layout.tsx",
         "packages/web/src/shell/Nav.tsx"
+      ],
+      "origin": "new Core row"
+    },
+    {
+      "id": "FW-C-124",
+      "title": "The Owner starts from one prompt: it becomes a node that shows its steps, asks only for what it needs, and becomes a draft flow",
+      "core_milestone": "C1",
+      "phase": 1,
+      "epic": "C1.5 First flow",
+      "priority": "P1",
+      "size": "L",
+      "lane": "workstreams",
+      "agent_suitability": "agent",
+      "gate": "none",
+      "depends_on": [
+        "FW-C-121",
+        "FW-C-092",
+        "FW-C-112"
+      ],
+      "description": "Daniel (2026-11-11): a FlowWeb experience that starts with a single prompt that turns into a node, which can be changed or added to, with no big menus or settings until something built needs them. Spec: the hub doc https://claude.ai/artifact/SJLcQ6o8PfbFV8rTBuTfhq, sections 'First run: one prompt becomes your business' and 'Next-gen interface'. The live site answers POST /v1/assistant/start { prompt, previous? } with Claude on the site key (FW_ASSISTANT_ANTHROPIC_KEY), through hosted/server/start.mjs (nodeFromPrompt). The model only picks: which copyable flow fits (neighborhood-activation or paid-ads, an enum in its one tool), a short name, the goal in plain words and one line on why; or that nothing fits yet. Code builds the rest: the node's steps come from a fixed table per flow (STEPS), and a step that needs something carries it (the owner's check before anything goes out, a sender to connect, a spend cap), so settings appear on the step that needs them and nowhere else. A fitting node carries the exact request that makes it real: POST /supervisor/flows/{base}/copy { name, note } (FW-C-121), which the site queues as flow.copy (requests.mjs; migration 0013 already allows it) and which makes a copy that is off and on Draft. A node nothing fits carries a build request for the CTO (FW-C-112 limits) instead. A viewer sees the node and cannot make it. Empty or over-long prompts and key-shaped text are refused before any call; no key answers 503; em dashes are stripped. flowweb.app gets /start: one box ('What should your business do?') and nothing else until it answers; then one node with its goal and steps, a step opens to show only what it needs, 'Add to it' grows the node from a second prompt, 'Make it a draft flow' queues the copy and links to the new flow, and 'Ask the CTO to build it' files the build request. The Supervisor map's 'Add a flow' opens /start. Nothing sends: a new flow starts off and on Draft.",
+      "acceptance": [
+        "nodeFromPrompt turns a stubbed tool answer into a node whose steps come from STEPS, with the owner's check and the sender as needs, and a copy request that requestOf queues as flow.copy",
+        "A model answer naming a flow that cannot be copied, or none, becomes a node with a build request inside FW-C-112 limits and no copy",
+        "Empty, over-long and key-shaped prompts are refused without a call; no key answers 503; a viewer cannot make the node",
+        "requestOf queues POST /supervisor/flows/{base}/copy as flow.copy with only name, note and slug, and the relay maps it back",
+        "The live API routes /assistant/start",
+        "/start shows one box, then a node with steps; a step opens to its need; Make it a draft flow posts the copy; an unsupported node offers the build request"
+      ],
+      "verify_probe": "pnpm probe ui/one-prompt",
+      "files_hint": [
+        "hosted/server/start.mjs",
+        "hosted/server/requests.mjs",
+        "hosted/test/start.test.mjs",
+        "hosted/test/requests.test.mjs",
+        "api/v1.mjs",
+        "packages/web/src/api/client.ts",
+        "packages/web/src/api/types.ts",
+        "packages/web/src/start/OnePrompt.tsx",
+        "packages/web/src/start/start.css",
+        "packages/web/src/shell/routes.ts",
+        "packages/web/src/shell/Layout.tsx",
+        "packages/web/src/console/console-model.ts",
+        "packages/web/src/flows/FlowsHome.tsx"
       ],
       "origin": "new Core row"
     }

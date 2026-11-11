@@ -1,0 +1,43 @@
+{
+  "id": "FW-C-124",
+  "title": "The Owner starts from one prompt: it becomes a node that shows its steps, asks only for what it needs, and becomes a draft flow",
+  "core_milestone": "C1",
+  "phase": 1,
+  "epic": "C1.5 First flow",
+  "priority": "P1",
+  "size": "L",
+  "lane": "workstreams",
+  "agent_suitability": "agent",
+  "gate": "none",
+  "depends_on": [
+    "FW-C-121",
+    "FW-C-092",
+    "FW-C-112"
+  ],
+  "description": "Daniel (2026-11-11): a FlowWeb experience that starts with a single prompt that turns into a node, which can be changed or added to, with no big menus or settings until something built needs them. Spec: the hub doc https://claude.ai/artifact/SJLcQ6o8PfbFV8rTBuTfhq, sections 'First run: one prompt becomes your business' and 'Next-gen interface'. The live site answers POST /v1/assistant/start { prompt, previous? } with Claude on the site key (FW_ASSISTANT_ANTHROPIC_KEY), through hosted/server/start.mjs (nodeFromPrompt). The model only picks: which copyable flow fits (neighborhood-activation or paid-ads, an enum in its one tool), a short name, the goal in plain words and one line on why; or that nothing fits yet. Code builds the rest: the node's steps come from a fixed table per flow (STEPS), and a step that needs something carries it (the owner's check before anything goes out, a sender to connect, a spend cap), so settings appear on the step that needs them and nowhere else. A fitting node carries the exact request that makes it real: POST /supervisor/flows/{base}/copy { name, note } (FW-C-121), which the site queues as flow.copy (requests.mjs; migration 0013 already allows it) and which makes a copy that is off and on Draft. A node nothing fits carries a build request for the CTO (FW-C-112 limits) instead. A viewer sees the node and cannot make it. Empty or over-long prompts and key-shaped text are refused before any call; no key answers 503; em dashes are stripped. flowweb.app gets /start: one box ('What should your business do?') and nothing else until it answers; then one node with its goal and steps, a step opens to show only what it needs, 'Add to it' grows the node from a second prompt, 'Make it a draft flow' queues the copy and links to the new flow, and 'Ask the CTO to build it' files the build request. The Supervisor map's 'Add a flow' opens /start. Nothing sends: a new flow starts off and on Draft.",
+  "acceptance": [
+    "nodeFromPrompt turns a stubbed tool answer into a node whose steps come from STEPS, with the owner's check and the sender as needs, and a copy request that requestOf queues as flow.copy",
+    "A model answer naming a flow that cannot be copied, or none, becomes a node with a build request inside FW-C-112 limits and no copy",
+    "Empty, over-long and key-shaped prompts are refused without a call; no key answers 503; a viewer cannot make the node",
+    "requestOf queues POST /supervisor/flows/{base}/copy as flow.copy with only name, note and slug, and the relay maps it back",
+    "The live API routes /assistant/start",
+    "/start shows one box, then a node with steps; a step opens to its need; Make it a draft flow posts the copy; an unsupported node offers the build request"
+  ],
+  "verify_probe": "pnpm probe ui/one-prompt",
+  "files_hint": [
+    "hosted/server/start.mjs",
+    "hosted/server/requests.mjs",
+    "hosted/test/start.test.mjs",
+    "hosted/test/requests.test.mjs",
+    "api/v1.mjs",
+    "packages/web/src/api/client.ts",
+    "packages/web/src/api/types.ts",
+    "packages/web/src/start/OnePrompt.tsx",
+    "packages/web/src/start/start.css",
+    "packages/web/src/shell/routes.ts",
+    "packages/web/src/shell/Layout.tsx",
+    "packages/web/src/console/console-model.ts",
+    "packages/web/src/flows/FlowsHome.tsx"
+  ],
+  "origin": "new Core row"
+}

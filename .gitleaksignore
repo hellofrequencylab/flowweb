@@ -12,3 +12,5 @@ a24025dd1942b86cd7625c3e07e18bc770aa807f:probes/c1/lease-manager.mjs:generic-api
 a13d445814d611ff2d5522aa93f690ab9e732ee8:packages/eventlog/test/secrets.test.ts:private-key:29
 #   frequency-contract.mjs   a path join ('docs', 'api', '<doc name>') read as a generic key (Owner OK 2026-11-11)
 b1e49076764c469570ff1b81df9474c41720bd92:probes/hosted/frequency-contract.mjs:generic-api-key:51
+#   one-prompt.spec.tsx      a flow copy key ('neighborhood-activation--2') in a fetch stub read as a generic key (Owner OK 2026-11-11)
+b61d7b90a6799e70bf6723dd4076a25fe4366c16:probes/ui/one-prompt.spec.tsx:generic-api-key:52

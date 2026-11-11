@@ -6,6 +6,7 @@ import { existsSync, mkdirSync, readdirSync, readFileSync, renameSync, writeFile
 import { join } from 'node:path';
 import type { Writer } from '@fw/eventlog';
 import { dncMatch, doNotContactList } from '../flows/opt-out.ts';
+import { flowRef } from './copies.ts';
 import { handOff, SupervisorError, shippedFlows } from './index.ts';
 
 export interface DraftView {
@@ -36,10 +37,12 @@ export interface DraftView {
 
 const ID = /^[A-Za-z0-9_-]{1,100}$/;
 
+/** FW-C-121: a copy's drafts live under its own home, in its base flow's folder. */
 function draftsDir(repoRoot: string, fwHome: string, flow: string): string {
-  if (!shippedFlows(repoRoot).some((f) => f.key === flow))
+  const { base, home } = flowRef(fwHome, flow);
+  if (!shippedFlows(repoRoot).some((f) => f.key === base))
     throw new SupervisorError('NOT_FOUND', `no flow named ${flow}`);
-  return join(fwHome, 'flows', flow, 'drafts');
+  return join(home, 'flows', base, 'drafts');
 }
 
 function view(doc: Record<string, unknown>): DraftView {
@@ -119,7 +122,8 @@ export function approveDraft(o: {
   // FW-C-102: a draft the gate blocked breaks a hard rule, so it never goes out.
   if (doc.status === 'gate_blocked') throw conflict('gate_blocked', 'This draft breaks a hard rule.');
   // FW-C-117: nobody on do-not-contact gets a draft, whatever its status says.
-  const listed = dncMatch(doNotContactList(o.fwHome, o.flow), doc);
+  const ref = flowRef(o.fwHome, o.flow);
+  const listed = dncMatch(doNotContactList(ref.home, ref.base), doc);
   if (doc.status === 'do_not_contact' || listed)
     throw conflict('do_not_contact', `${listed ?? 'This person'} is on do-not-contact.`);
   const lead = typeof doc.lead_id === 'string' ? doc.lead_id : '';
@@ -282,7 +286,8 @@ export function markDraft(o: {
 }
 
 /** Appends one entry to $FW_HOME/flows/<flow>/state.json do_not_contact, keeping everything else. */
-function addToDoNotContact(fwHome: string, flow: string, key: string): void {
+function addToDoNotContact(rootHome: string, key0: string, key: string): void {
+  const { base: flow, home: fwHome } = flowRef(rootHome, key0);
   const p = join(fwHome, 'flows', flow, 'state.json');
   const state = existsSync(p) ? (JSON.parse(readFileSync(p, 'utf8')) as Record<string, unknown>) : {};
   const list = Array.isArray(state.do_not_contact) ? (state.do_not_contact as unknown[]).map(String) : [];
