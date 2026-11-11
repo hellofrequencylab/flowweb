@@ -15,7 +15,8 @@ export interface Intensity {
   min: number;
   max: number;
 }
-export const DEFAULT_INTENSITY: Intensity = { per_day: 10, auto: false, min: 3, max: PER_DAY_MAX };
+// FW-C-101: 15 new people a day by default (v2 launch machine), up to 25 with the intensity control.
+export const DEFAULT_INTENSITY: Intensity = { per_day: 15, auto: false, min: 3, max: PER_DAY_MAX };
 
 /** Sent drafts before auto judges the results. */
 export const AUTO_MIN_SENT = 20;
