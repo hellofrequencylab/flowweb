@@ -6,6 +6,7 @@
 import { createHash, randomBytes } from 'node:crypto';
 import { existsSync, readFileSync } from 'node:fs';
 import { join } from 'node:path';
+import { funnelsLive, livePath } from './live-links.ts';
 import {
   angleOf,
   FLOW_KEY,
@@ -276,7 +277,7 @@ export function funnelLink(cfg: FlowConfig, h: Hunt, dm?: { niche?: string | nul
   q.set('utm_source', 'flowweb');
   q.set('utm_medium', dm ? 'one-to-one' : 'email');
   q.set('utm_campaign', h.id);
-  const path = dm ? (cfg.dm_door?.path ?? f.path) : f.path;
+  const path = livePath(dm ? (cfg.dm_door?.path ?? f.path) : f.path, funnelsLive(cfg));
   return `${cfg.offer.url.replace(/\/$/, '')}${path}?${q}`;
 }
 

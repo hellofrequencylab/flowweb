@@ -8,6 +8,8 @@ import { existsSync, mkdirSync, readdirSync, readFileSync, renameSync, writeFile
 import { join } from 'node:path';
 import type { Writer } from '@fw/eventlog';
 import { handOff, SupervisorError } from '../overseer/index.ts';
+import { restricted } from './draft-gate.ts';
+import { dncMatch, doNotContactList } from './opt-out.ts';
 
 /** Days after touch 1 that each touch is due: touch 1 at once, touch 2 about day 5, touch 3 about day 12. */
 export const TOUCH_DAYS = [0, 5, 12] as const;
@@ -345,6 +347,7 @@ export function batchApprove(o: {
     used_today: used,
   };
   const dir = join(flowDir(o.fwHome, o.flow), 'drafts');
+  const dnc = doNotContactList(o.fwHome, o.flow);
   for (const id of new Set(ids as string[])) {
     const refuse = (reason: string) => res.refused.push({ id, reason });
     const path = join(dir, `${id}.json`);
@@ -359,9 +362,24 @@ export function batchApprove(o: {
     }
     const route = routeOf(d);
     const to = str(d, 'to');
-    if (!isEmailRoute(route)) refuse(`not_email: ${route} touches are sent by hand`);
+    // FW-C-117: only a waiting draft, to someone not on do-not-contact and not in the EU, UK or Canada.
+    const listed = dncMatch(dnc, d);
+    const where = restricted({
+      body: '',
+      to,
+      contact_url: str(d, 'contact_url'),
+      country: str(d, 'country'),
+      region: str(d, 'region'),
+    });
+    const blocks = (d.gate as Doc | undefined)?.blocks;
+    const why = Array.isArray(blocks) ? blocks.map((b) => String((b as Doc)?.detail ?? '')).join('; ') : '';
+    if (d.status === 'rejected') refuse('rejected: the Owner rejected this draft');
+    else if (d.status === 'gate_blocked') refuse(`gate_blocked: ${why || 'this draft breaks a hard rule'}`);
+    else if (d.status !== 'waiting_for_owner') refuse(`not_waiting: this draft is ${String(d.status)}`);
+    else if (listed) refuse(`do_not_contact: ${listed} is on do-not-contact`);
+    else if (where) refuse(`restricted_region: ${where} is a place the flow does not write to`);
+    else if (!isEmailRoute(route)) refuse(`not_email: ${route} touches are sent by hand`);
     else if (!to || !publicEmail(d)) refuse('no_address: this draft has no email address');
-    else if (d.status === 'rejected') refuse('rejected: the Owner rejected this draft');
     else {
       const l = byDraft.get(id) ?? s.leads[leadKeyOf(d)];
       const n = l ? l.touches.length + 1 : 1;

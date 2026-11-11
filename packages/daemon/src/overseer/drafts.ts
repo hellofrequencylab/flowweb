@@ -5,6 +5,7 @@
 import { existsSync, mkdirSync, readdirSync, readFileSync, renameSync, writeFileSync } from 'node:fs';
 import { join } from 'node:path';
 import type { Writer } from '@fw/eventlog';
+import { dncMatch, doNotContactList } from '../flows/opt-out.ts';
 import { handOff, SupervisorError, shippedFlows } from './index.ts';
 
 export interface DraftView {
@@ -117,6 +118,10 @@ export function approveDraft(o: {
   if (doc.status === 'rejected') throw conflict('rejected', 'The Owner rejected this draft.');
   // FW-C-102: a draft the gate blocked breaks a hard rule, so it never goes out.
   if (doc.status === 'gate_blocked') throw conflict('gate_blocked', 'This draft breaks a hard rule.');
+  // FW-C-117: nobody on do-not-contact gets a draft, whatever its status says.
+  const listed = dncMatch(doNotContactList(o.fwHome, o.flow), doc);
+  if (doc.status === 'do_not_contact' || listed)
+    throw conflict('do_not_contact', `${listed ?? 'This person'} is on do-not-contact.`);
   const lead = typeof doc.lead_id === 'string' ? doc.lead_id : '';
   if (lead === '') throw conflict('no_recipient', 'This draft names no lead to send to.');
   if (lead.startsWith('template:'))
