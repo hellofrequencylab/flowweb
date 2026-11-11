@@ -1,0 +1,37 @@
+{
+  "id": "FW-C-107",
+  "title": "The Owner gets a ready Thursday roundup of real upcoming events in the open sub-areas, and keeps the venue QR poster list",
+  "core_milestone": "C1",
+  "phase": 1,
+  "epic": "C1.5 First flow",
+  "priority": "P1",
+  "size": "L",
+  "lane": "workstreams",
+  "agent_suitability": "agent",
+  "gate": "none",
+  "depends_on": [],
+  "description": "Launch plan v2, loop 4 items 2 and 3, asked for by the Owner on 2026-11-11. A new flow, local-pulse (flows/local-pulse: a digest stream on cron Thursday 08:00 America/Los_Angeles at tier L1, a config with the open sub-areas encinitas, carlsbad and solana-del-mar, local groups with name, url, allows_promo and last_posted_at, and venues). Each run asks Frequency for the next 14 days of public events in the open sub-areas (GET /api/webhooks/flowweb-upcoming, signed with crd_frequencyoutcomes as hex HMAC-SHA256 of timestamp.body, fields from the integration contract: event_id, title, starts_at, town, niche, rsvp_url). A good answer replaces $FW_HOME/flows/local-pulse/upcoming.json; a failed pull keeps the last good file and records why. From the in-area events it drafts, in the Supervisor's drafts store: a members email roundup with the Owner's sign-off and opt-out line, an Instagram caption, one post per local group that allows promotion and was not posted in the last 7 days (a group that bans promotion is flagged and gets none), and a one-line heads-up per host featured, sent by hand. Each event appears with its title, town and link; facts only, no dashes, no member counts; nothing is ever posted or sent automatically. Venue QR: $FW_HOME/flows/local-pulse/venues.json keeps venue, source_tag and poster_dropped_at; GET /v1/flows/local-pulse/venues adds scans_7d per source_tag from the outcomes pull when it carries qr counts (null otherwise), and POST /v1/flows/local-pulse/venues/{source_tag}/dropped marks a poster dropped.",
+  "acceptance": [
+    "flows/local-pulse/stream.json is a digest stream on cron 0 8 * * 4 in America/Los_Angeles at tier L1",
+    "A run drafts one members email, one Instagram caption and one post per group that allows promotion and was not posted in the last 7 days, plus heads-ups for the hosts featured, all waiting for the Owner",
+    "Only events in the open sub-areas and the next 14 days appear, each with title, town and link, with no em or en dash and no member count",
+    "A group posted 3 days ago and a group that bans promotion get no draft and are flagged",
+    "A failed pull keeps upcoming.json and records why; a good signed pull replaces it",
+    "A venue's poster can be marked dropped, and scans per source_tag show when the outcomes pull carries them"
+  ],
+  "verify_probe": "pnpm probe flows/local-pulse",
+  "files_hint": [
+    "flows/local-pulse/stream.json",
+    "flows/local-pulse/config.json",
+    "flows/local-pulse/project.json",
+    "flows/local-pulse/README.md",
+    "packages/daemon/src/flows/local-pulse.ts",
+    "packages/daemon/src/flows/local-pulse-roundup.ts",
+    "packages/daemon/test/local-pulse.test.ts",
+    "packages/daemon/test/local-pulse-roundup.test.ts",
+    "packages/daemon/src/api/routes.ts",
+    "packages/daemon/src/daemon.ts",
+    "packages/daemon/src/overseer/index.ts"
+  ],
+  "origin": "new Core row"
+}
