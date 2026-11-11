@@ -1,0 +1,31 @@
+{
+  "id": "FW-C-139",
+  "title": "Skills that earn their keep: one shared A/B engine, and a flow setting changes only when a challenger wins a fair test on real results",
+  "core_milestone": "C1",
+  "phase": 1,
+  "epic": "C1.5 First flow",
+  "priority": "P2",
+  "size": "L",
+  "lane": "workstreams",
+  "agent_suitability": "agent",
+  "gate": "none",
+  "depends_on": [
+    "FW-C-056"
+  ],
+  "description": "The agent roster's skill kit (track, analyze, edit with approval, A/B test, learn) merged with the third hard pass, \"skills that earn their keep\" (2026-11-11): every manager keeps a champion playbook, and a challenger only replaces it after winning a real A/B test. One shared engine in plain code, no model judging numbers. assign(testId, subjectId, arms) is a stable hash split. verdict needs at least 30 sends an arm and a two-proportion z score of at least 1.96 to name a winner; anything less is keep testing, and the why names both arms' counts (\"9 replies to 4\"). A test runs on one string field of a flow's effective config (an opener, a subject line): champion is today's value. POST/GET /v1/supervisor/flows/{key}/tests start and list tests with arms counted from the drafts each arm made; POST .../tests/{id}/promote replaces the champion only when the challenger has won and is otherwise 409. Promotion shows as a card the Owner can watch; the wiki of wins and misses per agent is a later row. Wave 4 of the master plan v2.",
+  "acceptance": [
+    "assign is stable and splits 2000 subjects 40/60 or closer",
+    "verdict waits for 30 sends an arm and a z of 1.96: 4 vs 9 of 100 keeps testing, 4 vs 16 of 100 names the challenger",
+    "POST tests starts one on a string config field (no session 401, unknown flow 404, bad field 400, second running test 409); promote is 409 until the challenger wins and leaves the config alone"
+  ],
+  "verify_probe": "pnpm probe flows/ab-tests",
+  "files_hint": [
+    "packages/daemon/src/skills/ab.ts",
+    "packages/daemon/src/skills/tests.ts",
+    "packages/daemon/src/overseer/cycle.ts",
+    "packages/daemon/src/api/routes.ts",
+    "packages/daemon/src/daemon.ts",
+    "packages/daemon/test/ab-tests.test.ts"
+  ],
+  "origin": "new Core row"
+}
