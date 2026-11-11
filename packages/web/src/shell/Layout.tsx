@@ -15,6 +15,7 @@ import { SetupNudge, SetupPage } from '../setup/SetupPage';
 import { SpendPage } from '../spend/SpendPage';
 import { TablePage } from '../table/TablePage';
 import { useWaiting } from '../table/waiting';
+import { TeamPage } from '../team/TeamPage';
 import { PageHead } from '../ui-kit/page';
 import { Footer } from './Footer';
 import { GlobalBanner } from './GlobalBanner';
@@ -130,6 +131,8 @@ export function Layout({ pairedAt, onSignedOut }: { pairedAt: string; onSignedOu
         );
       case 'more':
         return <MorePage />;
+      case 'team':
+        return <TeamPage />;
       default:
         return (
           <header className="page-head">

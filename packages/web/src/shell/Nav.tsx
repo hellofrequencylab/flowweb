@@ -3,10 +3,11 @@ import { Icon, type IconName } from '../ui-kit/Icon';
 import { Link, useRouter } from './router';
 import { tabOf } from './routes';
 
-/** Three pages: your flows and the Supervisor running them, what waits on you, and the agent work behind it. */
+/** Four pages: your flows and the Supervisor running them, what waits on you, and the agent work behind it. */
 const ITEMS: { to: string; label: string; short: string; icon: IconName; count?: boolean }[] = [
   { to: '/', label: 'Flows', short: 'Flows', icon: 'flows' },
   { to: '/inbox', label: 'Needs you', short: 'Needs you', icon: 'inbox', count: true },
+  { to: '/team', label: 'Team', short: 'Team', icon: 'sparkles' },
   { to: '/hood', label: 'Under the hood', short: 'Hood', icon: 'logs' },
 ];
 
@@ -50,7 +51,8 @@ export function BottomNav() {
   const { loc } = useRouter();
   const tabs = [...ITEMS.slice(0, 2), { to: '/more', label: 'More', short: 'More', icon: 'more' as const }];
   const moreActive =
-    tabOf(loc.path) === '/hood' || ['/settings', '/setup', '/more'].some((p) => loc.path.startsWith(p));
+    tabOf(loc.path) === '/hood' ||
+    ['/settings', '/setup', '/more', '/team'].some((p) => loc.path.startsWith(p));
   return (
     <nav className="bottomnav" aria-label="Main">
       <ul>
@@ -76,6 +78,12 @@ export function BottomNav() {
 
 export function MorePage() {
   const items: { to: string; label: string; desc: string; icon: IconName }[] = [
+    {
+      to: '/team',
+      label: 'Your team',
+      desc: 'Your agents, from the CEO down, and what each one is judged on',
+      icon: 'sparkles',
+    },
     {
       to: '/hood',
       label: 'Under the hood',
