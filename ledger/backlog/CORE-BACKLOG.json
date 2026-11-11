@@ -4,7 +4,7 @@
     "profile": "core",
     "schema": "ledger-row/1",
     "generated": "2026-11-09",
-    "row_count": 156,
+    "row_count": 157,
     "conventions": {
       "verify_probe": "Same convention as 04-build-plan/backlog.json: 'pnpm probe <path>' runs probes/<path>.probe.ts, a Tier 0 file written before the implementation row starts and never edited by the agent doing the row. Every probe fails today because its target does not exist (a missing probe file exits 2, a missing behaviour exits 1). The probe pack for a milestone is committed by the Owner or a pair session before the milestone's rows start.",
       "status": "All rows start as open. Status lives only in the ledger database (imported with fw ledger sync), never in prose.",
@@ -28,7 +28,7 @@
       }
     },
     "full_plan_rows_included": 37,
-    "new_core_rows": 107
+    "new_core_rows": 108
   },
   "rows": [
     {
@@ -5493,6 +5493,52 @@
         "packages/daemon/src/overseer/intake-engine.ts",
         "packages/daemon/src/api/routes.ts",
         "packages/daemon/test/meter.test.ts"
+      ],
+      "origin": "new Core row"
+    },
+    {
+      "id": "FW-C-123",
+      "title": "The Owner meets their agent team: an org chart of named agents with archetype personalities, one team per business",
+      "core_milestone": "C1",
+      "phase": 1,
+      "epic": "C1.5 First flow",
+      "priority": "P1",
+      "size": "L",
+      "lane": "workstreams",
+      "agent_suitability": "agent",
+      "gate": "none",
+      "depends_on": [
+        "FW-C-092",
+        "FW-C-062"
+      ],
+      "description": "Daniel (2026-11-11) wants FlowWeb set up like a company the owner already understands, with every core fixture an agent with an archetype personality the owner gets to know. The primary agent is the CEO, the only one the owner talks to; each owner names theirs (Daniel's is Kevin) and each business gets its own (Frequency's is Juniper, The Host, picked by Daniel). Spec: the agent roster doc https://claude.ai/artifact/5GmjmTZb53E7rZUgxLkYf3, which replaces the org chart in the loop protocol doc. fwd keeps the roster in packages/daemon/src/team/roles.ts (ROLES): the CEO (id ceo), six chiefs reporting to it (COO operations, CMO marketing, CRO sales, CCO customers, CFO finance, CTO build), fourteen managers each under its department's chief (managers behind running Frequency flows name them in flows: the Connector runs neighborhood-activation and local-saturation, the Mentor host-moments, the Town Crier local-pulse, the Strategist paid-ads), eight staff in a shared pool, contractors (vendor-blind: the kernel names no vendor) and the building (scheduler, gates, watchdog, receipts), which is code with no personality and no model. Every other role carries the roster's personality card: name, title, reports_to, archetype, voice and one line it would say, cares_about, judged_on, never, escalates, model tier and face. teamView(settings, brands, enabledFlows) answers one 'main' team whose CEO defaults to Kevin, plus one team per project brand (key is the brand in lower case) whose CEO is that brand's preset (Frequency: Juniper). A member is working when one of its flows is on; a chief when one of its managers is; the CEO and COO always; everyone else is on the bench. The Owner renames an agent or changes its voice: settings('team') keeps only overrides per team, and null restores the default. GET /v1/team answers { teams }; POST /v1/team/{team}/{role} { name?, voice? } (CLI token or paired session) changes one agent; unknown team or role 404, a building role or a bad value 400 (names up to 40 characters), no session 401. The relay mirrors /team, the site queues team.edit through hosted/server/requests.mjs, and migration 0013 allows it with every kind 0012 allowed, plus flow.copy for FW-C-121. flowweb.app gets a Team page at /team: the org chart by level, a team switcher, and a profile per agent with its card and Not hired yet on the bench, where the Owner renames it. Personas are for the Owner's team view only: customer-facing text keeps the brand voice, and no persona changes a safety rule. FW-C-121 edits routes.ts and daemon.ts in other places; keep each edit to its own block.",
+      "acceptance": [
+        "ROLES is the roster: one CEO, six chiefs under it, at least fourteen managers each under its department's chief, at least eight staff, contractors that name no vendor, and building roles with no personality; one reporting tree; a manager runs every shipped Frequency flow",
+        "Every role but the building has a full personality card with a distinct name and voice",
+        "teamView answers a main team with CEO Kevin and a frequency team with CEO Juniper, The Host",
+        "A real fwd answers GET /v1/team; labelling a project Frequency adds its team; POST renames and re-voices an agent and null restores the default; 404, 400 and 401 as above",
+        "Turning neighborhood-activation on puts the Connector and the CMO to work and leaves the Mentor and the CFO on the bench",
+        "The site queues team.edit and the relay maps it to the same route and body; migration 0013 allows it and every kind 0012 allowed; the relay mirrors /team",
+        "/team renders the org chart by level, switches teams, opens a profile, and a rename posts only { name }"
+      ],
+      "verify_probe": "pnpm probe ui/agent-team",
+      "files_hint": [
+        "packages/daemon/src/team/roles.ts",
+        "packages/daemon/src/team/index.ts",
+        "packages/daemon/src/api/routes.ts",
+        "packages/daemon/src/daemon.ts",
+        "packages/daemon/test/team.test.ts",
+        "hosted/relay/fw-relay.mjs",
+        "hosted/server/requests.mjs",
+        "hosted/supabase/migrations/0013_flowweb_team.sql",
+        "hosted/test/requests.test.mjs",
+        "packages/web/src/api/client.ts",
+        "packages/web/src/api/types.ts",
+        "packages/web/src/team/TeamPage.tsx",
+        "packages/web/src/team/team.css",
+        "packages/web/src/shell/routes.ts",
+        "packages/web/src/shell/Layout.tsx",
+        "packages/web/src/shell/Nav.tsx"
       ],
       "origin": "new Core row"
     }
