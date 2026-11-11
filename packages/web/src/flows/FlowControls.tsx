@@ -13,7 +13,7 @@ import { Button } from '../ui-kit/Button';
 import { AsOf, ResourceView } from '../ui-kit/honest';
 import { StatusLabel } from '../ui-kit/status';
 import { usd } from '../ui-kit/time';
-import { DIAL, flowSpec } from './flowState';
+import { DIAL, flowLoop, flowSpec } from './flowState';
 
 type Note = { tone: 'ok' | 'warn'; text: string } | null;
 
@@ -234,7 +234,7 @@ function FlowRow({
       <fieldset
         aria-labelledby={name}
         style={ROW}
-        className={f.state === 'running' ? 'is-live live-edge' : undefined}
+        className={`loop-row loop-${flowLoop(f)}${f.state === 'running' ? ' is-live live-edge' : ''}`}
       >
         <div className="panel-head">
           <strong id={name}>{f.name}</strong>

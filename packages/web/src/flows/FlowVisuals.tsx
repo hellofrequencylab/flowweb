@@ -2,6 +2,7 @@ import type { CSSProperties, ReactNode } from 'react';
 import type { ActivationMeasures, ActivationTerritory, FlowDraft } from '../api/types';
 import { Gauge, type Hue, hueAt, Legend, ShareBar, type Slice } from '../ui-kit/flow';
 import { Icon } from '../ui-kit/Icon';
+import { type Loop, type LoopInfo, useLoopTarget } from '../ui-kit/loop';
 import { type DraftState, draftsPerDay } from './drafts';
 
 const pct = (x: number) => `${Math.round(x * 100)}%`;
@@ -24,11 +25,15 @@ export function RegionPath({
   territories,
   hue = 'teal',
   live = false,
+  loop,
 }: {
   territories: ActivationTerritory[];
   hue?: Hue;
   live?: boolean;
+  /** FW-C-098: the flow's loop state; regions and the lines between them take it and open on click. */
+  loop?: Loop;
 }) {
+  const target = useLoopTarget();
   const ts = [...territories].sort((a, b) => a.order - b.order);
   const n = ts.length;
   const at = ts.findIndex((t) => t.status === 'active');
@@ -38,12 +43,33 @@ export function RegionPath({
   const cols = { gridTemplateColumns: `repeat(${n}, minmax(0, 1fr))` };
   // Sparks run from the start to the region being worked, or toward the next one when it is the first.
   const laneEnd = at < 0 ? -1 : Math.min(Math.max(at, 1), n - 1);
+  // A region the flow has reached carries the flow's state; one not opened yet waits.
+  const reached = (i: number): Loop =>
+    !loop
+      ? 'waiting'
+      : i <= reach
+        ? loop === 'working' && ts[i].status !== 'active'
+          ? 'connected'
+          : loop
+        : 'waiting';
+  const nodeInfo = (t: ActivationTerritory, i: number): LoopInfo => ({
+    title: t.name,
+    loop: reached(i),
+    what: `Region ${i + 1} of ${n}. The flow works one region at a time, in this order, and opens the next only with your OK.`,
+    why: `${REGION_WORD[t.status]}${t.progress != null ? `, ${pct(t.progress)} of the way to fully active` : ''}.`,
+  });
+  const linkInfo = (i: number): LoopInfo => ({
+    title: `${ts[i].name} to ${ts[i + 1].name}`,
+    loop: i + 1 <= reach ? reached(i + 1) : 'waiting',
+    what: `The hand-off between two regions. The flow moves on to ${ts[i + 1].name} once ${ts[i].name} is fully active and you say OK.`,
+    why: i + 1 <= reach ? 'Already crossed.' : 'Not crossed yet.',
+  });
   return (
     <div
-      className={`region-path${live ? ' is-live' : ''}`}
+      className={`region-path${live ? ' is-live' : ''}${loop ? ' has-loops' : ''}`}
       style={{ '--c': `var(--flow-${hue})` } as CSSProperties}
     >
-      <div className="flow-track" aria-hidden="true" style={cols}>
+      <div className="flow-track" aria-hidden={loop ? undefined : true} style={cols}>
         <span className="flow-track-base" style={{ left: mid(0), right: `calc(100% - ${mid(n - 1)})` }} />
         {reach > 0 && (
           <span
@@ -61,12 +87,24 @@ export function RegionPath({
             <span className="flow-travel" />
           </span>
         )}
-        {ts.map((t) => (
-          <span
-            key={t.id}
-            className={`flow-node${t.status === 'active' ? ` is-here${live ? ' is-live' : ''}` : t.status === 'upkeep' ? ' is-passed' : ''}`}
-          />
-        ))}
+        {loop &&
+          ts.slice(0, -1).map((t, i) => (
+            <span
+              key={`link-${t.id}`}
+              {...target(linkInfo(i), 'region-link')}
+              style={{ left: mid(i), width: `calc(${mid(i + 1)} - ${mid(i)})` }}
+            >
+              <span className="loop-line" />
+            </span>
+          ))}
+        {ts.map((t, i) => {
+          const cls = `flow-node${t.status === 'active' ? ` is-here${live ? ' is-live' : ''}` : t.status === 'upkeep' ? ' is-passed' : ''}`;
+          return loop ? (
+            <span key={t.id} {...target(nodeInfo(t, i), cls)} />
+          ) : (
+            <span key={t.id} className={cls} />
+          );
+        })}
       </div>
       <ol className="region-path-labels" style={cols}>
         {ts.map((t) => (
@@ -107,11 +145,14 @@ export function MeasureDials({
   t,
   measures,
   compact = false,
+  loop,
 }: {
   t: ActivationTerritory;
   measures: { key: keyof ActivationMeasures; label: string }[];
   /** Small dials, with the value and target in the caption instead of inside the dial. */
   compact?: boolean;
+  /** FW-C-098: the region's loop state; each dial glows and flows with it and opens on click. */
+  loop?: Loop;
 }) {
   const m = t.measures;
   return (
@@ -128,6 +169,14 @@ export function MeasureDials({
               label={`${label} in ${t.name}`}
               valueText={v == null ? undefined : `${num(v)} of ${num(target)}`}
               center={v == null ? <span className="dial-unknown">Unknown</span> : compact ? null : num(v)}
+              loop={
+                loop && {
+                  title: `${label} in ${t.name}`,
+                  loop,
+                  what: `One of the measures that decide when ${t.name} counts as fully active. Its target is ${num(target)}.`,
+                  why: v == null ? 'No reading yet.' : `${num(v)} of ${num(target)} so far.`,
+                }
+              }
               sub={compact ? undefined : `of ${num(target)}`}
             />
             {compact ? (
