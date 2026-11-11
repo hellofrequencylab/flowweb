@@ -2,6 +2,7 @@
   "version": 1,
   "note": "FW-C-108: the reply helper. The Owner pastes a host's reply; fwd picks one intent and fills its answer from these lines. Facts come only from the facts block. Prices are never typed: a reply that needs one points to /pricing. {door} is the niche's tagged link, {label} its name.",
   "site": "https://frequencylocal.com",
+  "funnels_live": true,
   "utm": {"utm_source": "flowweb", "utm_medium": "one-to-one", "utm_campaign": "creator-seed"},
   "facts": {
     "beta_ends": "January 31, 2027",

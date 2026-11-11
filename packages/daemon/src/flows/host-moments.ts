@@ -5,6 +5,9 @@
 import { createHash } from 'node:crypto';
 import { existsSync, mkdirSync, readdirSync, readFileSync, renameSync, writeFileSync } from 'node:fs';
 import { join } from 'node:path';
+import { checkDraft } from './draft-gate.ts';
+import { funnelsLive, livePath } from './live-links.ts';
+import { retireDrafts } from './opt-out.ts';
 import { noDashes, shortenerFor } from './short-links.ts';
 
 export const FLOW_KEY = 'host-moments';
@@ -13,6 +16,8 @@ type R = Record<string, unknown>;
 export interface Config {
   offer: { name: string; url: string };
   host_path: string;
+  /** False while Frequency's host pages are not live: host links go to /create-a-space (FW-C-115). */
+  funnels_live?: boolean;
   send_via: string;
   send_routes: R;
   intro: string;
@@ -54,6 +59,8 @@ export interface ScanReport {
 }
 type Moment = { kind: string; subject: string; note: string; kit?: string; name?: string; due_at?: string };
 
+/** Numbers the fixed note templates use themselves (the 10 minute call). */
+const TEMPLATE_NUMBERS = '10';
 const readJson = (p: string): unknown => JSON.parse(readFileSync(p, 'utf8'));
 const isObj = (x: unknown): x is R => typeof x === 'object' && x !== null && !Array.isArray(x);
 
@@ -297,13 +304,10 @@ export async function scanEvents(o: {
     }
     const ref = typeof ev.ref === 'string' ? clean(ev.ref, 100) : null;
     if (type === 'host.opted_out') {
-      report.blocked.push(...optOut(o.fwHome, cfg, host, ref));
-      for (const f of existsSync(draftsDir) ? readdirSync(draftsDir) : []) {
-        const p = join(draftsDir, f);
-        const d = f.endsWith('.json') ? (readJson(p) as R) : null;
-        if (d?.host_id === host && d.status === 'waiting_for_owner')
-          writeAtomic(p, { ...d, held: 'opted_out' });
-      }
+      const keys = optOut(o.fwHome, cfg, host, ref);
+      report.blocked.push(...keys);
+      // The host's waiting drafts in every flow stop waiting today (FW-C-115).
+      retireDrafts(o.fwHome, keys, now.toISOString());
       finish(file);
       continue;
     }
@@ -342,7 +346,8 @@ export async function scanEvents(o: {
       .digest('hex')
       .slice(0, 12)}`;
     const tag = id.toLowerCase().slice(0, 48);
-    const hostLink = () => link(cfg, cfg.host_path, niche, tag, cfg.links.utm_medium);
+    const hostLink = () =>
+      link(cfg, livePath(cfg.host_path, funnelsLive(cfg)), niche, tag, cfg.links.utm_medium);
     const upcoming = (state.published[host] ?? []).filter((x) => Date.parse(x.starts_at) > now.getTime());
     let m: Moment | string | null = null;
 
@@ -435,6 +440,25 @@ export async function scanEvents(o: {
       const note = await short.shorten(noDashes(m.note), m.subject);
       const kit = m.kit ? await short.shorten(noDashes(m.kit), m.subject) : null;
       const body = `${note}\n\n${cfg.sign_off}\n\n${cfg.opt_out}${kit ? `\n\n${kit}` : ''}`;
+      // FW-C-115: the note (not the share kit, which is the host's own copy) passes the draft gate. Numbers
+      // may come from the event, the host's published events, the facts sheet or the fixed templates.
+      // Some notes carry no link by design, so the tagged-link rule is off here.
+      const gate = checkDraft(
+        {
+          body: `${note}\n\n${cfg.sign_off}\n\n${cfg.opt_out}`,
+          subject: noDashes(m.subject),
+          channel: cfg.send_via,
+          touch: 1,
+          lead_id: `frequency-host:${host}`,
+        },
+        {
+          facts,
+          payload: { ev, published: state.published[host] ?? [] },
+          source: TEMPLATE_NUMBERS,
+          doNotContact: readDnc(o.fwHome, cfg),
+          requireLink: false,
+        },
+      );
       writeAtomic(path, {
         flow: FLOW_KEY,
         id,
@@ -451,7 +475,8 @@ export async function scanEvents(o: {
         name: m.name ?? first ?? 'A host',
         ...(m.due_at ? { due_at: m.due_at } : {}),
         event_file: file,
-        status: 'waiting_for_owner',
+        status: gate.ok ? 'waiting_for_owner' : 'gate_blocked',
+        gate: { at: now.toISOString(), ok: gate.ok, blocks: gate.blocks, warns: gate.warns },
         created_at: now.toISOString(),
       });
       report.drafts.push({ id, kind: m.kind });

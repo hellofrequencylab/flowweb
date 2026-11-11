@@ -6,6 +6,8 @@
 import { existsSync, mkdirSync, readFileSync, renameSync, writeFileSync } from 'node:fs';
 import { join } from 'node:path';
 import { draftTag } from '../overseer/drafts.ts';
+import { funnelsLive, livePath } from './live-links.ts';
+import { retireDrafts } from './opt-out.ts';
 
 export const MAX_REPLY_TEXT = 10_000;
 export const REPLY_WORDS = 70;
@@ -13,6 +15,8 @@ export const REPLY_WORDS = 70;
 type Answered = { answer?: string; keywords?: string[] };
 export interface ReplyTree {
   site: string;
+  /** False while Frequency's /for, /start/host and /launch pages are not live (FW-C-115). */
+  funnels_live?: boolean;
   utm: Record<string, string>;
   facts: Record<string, string | number>;
   links: Record<string, string>;
@@ -50,6 +54,8 @@ export interface ReplyResult {
   niche: string;
   do_not_contact: boolean;
   sequence_ended: boolean;
+  /** Waiting drafts an opt-out moved to do_not_contact, as flow/id. */
+  drafts_stopped?: string[];
   draft: Record<string, unknown> | null;
   gate: { by: 'draft-gate' | 'reply-helper'; ok: boolean; blocks: { code: string; detail: string }[] } | null;
 }
@@ -123,7 +129,7 @@ function nicheOf(tree: ReplyTree, fwHome: string, flow: string, o: ReplyInput): 
 }
 
 function link(tree: ReplyTree, path: string, content: string): string {
-  const u = new URL(path, tree.site);
+  const u = new URL(livePath(path, funnelsLive(tree)), tree.site);
   for (const [k, v] of Object.entries(tree.utm)) u.searchParams.set(k, v);
   u.searchParams.set('utm_content', content);
   return u.toString();
@@ -277,7 +283,18 @@ export async function draftReply(d: ReplyDeps, body: Record<string, unknown>): P
   if (tree.intents[intent]?.opt_out) {
     const listed = addDoNotContact(d.fwHome, d.flow, keys);
     const ended = endSequence(d.fwHome, d.flow, keys, 'do_not_contact', at);
-    return { intent, by, niche, do_not_contact: listed, sequence_ended: ended, draft: null, gate: null };
+    // Their drafts that were waiting in any flow stop waiting today (FW-C-115).
+    const stopped = retireDrafts(d.fwHome, keys, at);
+    return {
+      intent,
+      by,
+      niche,
+      do_not_contact: listed,
+      sequence_ended: ended,
+      drafts_stopped: stopped,
+      draft: null,
+      gate: null,
+    };
   }
   const ended = endSequence(d.fwHome, d.flow, keys, 'replied', at);
 
