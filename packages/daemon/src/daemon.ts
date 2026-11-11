@@ -26,6 +26,7 @@ import { loadFlow as loadNaFlow, FLOW_KEY as NA_KEY } from './flows/neighborhood
 import { pullOutcomes } from './flows/outcomes.ts';
 import { loadFlow as loadAdsFlow } from './flows/paid-ads.ts';
 import { ga4Of, pullDue, pullGa4, readPullStatus } from './flows/paid-ads-ga4.ts';
+import { draftReply } from './flows/reply-helper.ts';
 import { runReview } from './flows/review.ts';
 import { batchApprove } from './flows/sequence.ts';
 import { reapOrphanCycles, runFlowCycle } from './overseer/cycle.ts';
@@ -372,6 +373,7 @@ export async function startDaemon(opts: DaemonOptions): Promise<Daemon> {
           { writer, repoRoot: REPO_ROOT, fwHome, env: process.env, log },
           { flow: key, id, instruction: body.instruction, subject: body.subject, body: body.body },
         ),
+      draftReply: (key, body) => draftReply({ repoRoot: REPO_ROOT, fwHome, flow: key }, body),
       runFlow: async (key) => {
         const s = writer.get<{ id: string }>('SELECT id FROM streams WHERE key = ?', [key]);
         if (!s || !shippedFlows(REPO_ROOT).some((f) => f.key === key))
