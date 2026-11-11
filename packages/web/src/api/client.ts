@@ -1117,3 +1117,38 @@ export interface ConsoleAnswer {
   proposals: ConsoleProposal[];
   can_change: boolean;
 }
+
+/** FW-C-109: one event pulled from a paste or a calendar, waiting for the Owner's check. Never published. */
+export interface IntakeEvent {
+  id: string;
+  title: string;
+  starts_at: string | null;
+  town: string | null;
+  venue: string | null;
+  niche: string | null;
+  host_name: string | null;
+  source_url: string | null;
+  contact: string | null;
+  source: 'paste' | 'ical' | 'rss' | 'engine';
+  status: 'needs_check' | 'approved' | 'rejected';
+  created_at: string;
+  checked_at: string | null;
+}
+
+export const eventIntake = {
+  list: async (flow: string) => (await get<IntakeEvent[]>(`/flows/${enc(flow)}/intake`)).data ?? [],
+  add: (flow: string, input: { text: string } | { ical_url: string }, onQueued?: () => void) =>
+    ownerWrite<{ added: IntakeEvent[]; duplicates: number }>(
+      'POST',
+      `/flows/${enc(flow)}/intake`,
+      input,
+      onQueued,
+    ),
+  check: (flow: string, id: string, ok: boolean, onQueued?: () => void) =>
+    ownerWrite<{ event: IntakeEvent; lead_added: boolean }>(
+      'POST',
+      `/flows/${enc(flow)}/intake/${enc(id)}/check`,
+      { ok },
+      onQueued,
+    ),
+};
