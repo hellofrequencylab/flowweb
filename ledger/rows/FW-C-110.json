@@ -1,0 +1,29 @@
+{
+  "id": "FW-C-110",
+  "title": "A Frequency Space links to one FlowWeb business, and its signed funnel events reach that business's machine",
+  "core_milestone": "C1",
+  "phase": 1,
+  "epic": "C1.5 First flow",
+  "priority": "P1",
+  "size": "M",
+  "lane": "workstreams",
+  "agent_suitability": "agent",
+  "gate": "none",
+  "depends_on": [
+    "FW-C-100"
+  ],
+  "description": "Step 2 of the Frequency plugin plan (https://claude.ai/artifact/5qXS1QLbKJVEdmf1w5suyi), built on the FW-C-100 contract. Hook migration 0009 adds fw_frequency_links (one per business and one per Space, the house marked, status active, paused or revoked, and a signing secret that no role can read: the owner sees it once when the link is made or rotated), fw_plugin_events and fw_handoff_nonces. Owners and admins make, pause, rotate and revoke the link. fw_plugin_ingest checks the hex HMAC-SHA256 of `${ts}.${body}` inside the database against the link's secret, so the hosted API still holds no service key, refuses unknown, paused, stale, tampered, wrong-Space and unknown-type events with the contract's reasons, and stores a repeated body once. The business's machine takes its waiting events with its runner token, once each, like queued requests. Handoff nonces work once and only for the service role (the handoff function in a later row). The routes that call these functions are FW-C-111. Daniel runs the migration on hook.",
+  "acceptance": [
+    "An owner or admin links a business to a Space and gets the secret once; helpers, strangers and anonymous callers cannot",
+    "No signed-in role can read the secret column, and members see only their own business's link and events",
+    "An event signed with the link's secret is stored; unknown, paused, stale, tampered, wrong-Space and unknown-type events are refused with their reason; a repeat is stored once",
+    "Each business's machine takes only its own events, once each; rotating the secret retires the old one",
+    "A handoff nonce works once, only before it expires, and only for the service role",
+    "The database's event types match frequency-link.mjs EVENT_TYPES"
+  ],
+  "verify_probe": "pnpm probe hosted/frequency-links",
+  "files_hint": [
+    "hosted/supabase/migrations/0009_flowweb_frequency_links.sql"
+  ],
+  "origin": "new Core row"
+}
