@@ -77,6 +77,7 @@
       {"key": "teachers_alone", "line": "Your teachers each promote their own classes, alone."},
       {"key": "own_page", "line": "One page and calendar for every teacher in the room."}]}
   ],
+  "sequence": {"email_batch_approval": true},
   "dm_door": {"path": "/start/host", "venue_niche": "venue", "note": "v2: one door for every DM. Venues use it with niche venue. DM links carry area, channel and niche, never persona."},
   "funnels": {
     "host": {"path": "/start/host", "persona": "practitioner"},
