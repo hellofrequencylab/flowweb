@@ -10,6 +10,7 @@ import { type Reader, sha256Hex } from '@fw/eventlog';
 import type { PairingStore, Principal } from '../auth.ts';
 import * as crm from '../flows/crm.ts';
 import * as hunts from '../flows/hunts.ts';
+import * as leads from '../flows/leads.ts';
 import * as localSaturation from '../flows/local-saturation.ts';
 import * as neighborhoodActivation from '../flows/neighborhood-activation.ts';
 import * as naAdmin from '../flows/neighborhood-admin.ts';
@@ -298,6 +299,46 @@ function addFlowAdminRoutes(r: Router, deps: ApiDeps): void {
 }
 
 /**
+ * FW-C-103: a flow's lead graph. GET refreshes it from the hunt drafts and lists the nodes (?state=
+ * proposed|approved|dropped); approve and drop are the Owner's tap; paste adds people met in person.
+ */
+function addLeadRoutes(r: Router, deps: ApiDeps): void {
+  const base = '/v1/flows/{key}/leads';
+  const opts = (key: string | undefined) => {
+    if (!key || !Object.hasOwn(FLOWS, key)) throw notFound('flow', key);
+    const na = key === neighborhoodActivation.FLOW_KEY;
+    const cfg = na ? neighborhoodActivation.loadFlow(deps.repoRoot, deps.fwHome)?.cfg.leads : undefined;
+    return { fwHome: deps.fwHome, flow: key, rules: leads.rulesOf(cfg) };
+  };
+  r.get(base, ({ params, query }) => {
+    const want = oneOf(query, 'state', ['proposed', 'approved', 'dropped'] as const);
+    const g = leads.refreshLeads(opts(params.key));
+    return envelope(deps.reader, () => ({ data: g.nodes.filter((n) => !want || n.state === want) }));
+  });
+  r.post(`${base}/paste`, async ({ req, params }) => {
+    const body = await readJsonBody(req);
+    if (typeof body.text !== 'string' || !body.text.trim()) throw invalid('text is required');
+    const town = typeof body.town === 'string' && body.town.trim() ? body.town.trim() : null;
+    const extra = leads.parsePaste(body.text, new Date(), town);
+    const g = leads.refreshLeads({ ...opts(params.key), extra });
+    return envelope(deps.reader, () => ({ data: leads.nodesFor(g, extra) }));
+  });
+  for (const [action, state] of [
+    ['approve', 'approved'],
+    ['drop', 'dropped'],
+  ] as const)
+    r.post(`${base}/{id}/${action}`, ({ params }) => {
+      try {
+        const data = leads.decideLead({ ...opts(params.key), id: params.id ?? '', state });
+        return envelope(deps.reader, () => ({ data }));
+      } catch (e) {
+        if (!(e instanceof leads.LeadError)) throw e;
+        throw new ApiError(e.status, e.status === 404 ? 'not_found' : 'conflict', e.message);
+      }
+    });
+}
+
+/**
  * FW-C-041: the Owner's saved lead hunts. Save, list and delete write hunts.json under the flow's
  * folder and the admin log. Run asks for the hunt in the next cycle and fires the flow by hand through
  * the scheduler, so the Supervisor still decides it.
@@ -555,6 +596,7 @@ export function buildRouter(deps: ApiDeps): Router {
     }),
   );
   addFlowAdminRoutes(r, deps);
+  addLeadRoutes(r, deps);
 
   // ---- supervisor (FW-C-033) ----------------------------------------------------------------
   const supView = () => ({

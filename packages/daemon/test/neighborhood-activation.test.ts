@@ -148,6 +148,42 @@ describe('lead routing', () => {
   });
 });
 
+describe('the v2 message system (FW-C-101)', () => {
+  test('three touches for life cap a lead, however long ago', () => {
+    const touches = [ago(90), ago(80), ago(70)].map((at) => ({ at, via: null }));
+    expect(route(state({ leads: [lead({ touches })] })).l1).toMatchObject({ stage: 'capped' });
+    expect(route(state({ leads: [lead({ touches: touches.slice(1) })] })).l1?.stage).toBe('invite');
+  });
+
+  test('a DM is unsigned and tagged; an email keeps the sign-off; a venue uses the one door', () => {
+    const l = lead({ niche: 'yoga', sub_area: 'carlsbad' });
+    const dm = na.seedDraft(cfg, l, { route: 'dm', tag: 't1', opener: 'Hi, I love your classes!' });
+    expect(dm).toMatchObject({ niche: 'yoga', angle: 'own_page', route: 'dm', over_cap: false });
+    expect(dm.body).not.toMatch(/Daniel Tyack|P\.S\./);
+    const u = new URL(dm.link);
+    expect(u.searchParams.get('utm_content')).toBe('yoga.t1');
+    expect(u.searchParams.get('utm_campaign')).toBe('creator-seed');
+    expect(u.searchParams.has('persona')).toBe(false);
+    const em = na.seedDraft(cfg, l, { route: 'email', tag: 't2', opener: 'Hi!' });
+    expect(em.body).toMatch(/Daniel Tyack\nFounder/);
+    expect(new URL(em.link).searchParams.get('utm_medium')).toBe('founder_email');
+    const v = na.seedDraft(cfg, lead({ kind: 'venue' }), { route: 'dm', tag: 'v', opener: 'Hi!' });
+    expect(new URL(v.link).searchParams.get('niche')).toBe('venue');
+    const long = na.seedDraft(cfg, l, {
+      route: 'dm',
+      tag: 't3',
+      opener: 'word '.repeat(125),
+      follow_up: true,
+    });
+    expect(long.over_cap).toBe(true);
+  });
+
+  test('the first map leads the plan when coverage is unknown', () => {
+    const p = na.planCycle(cfg, state(), now).sub_areas.map((s) => s.sub_area);
+    expect(p.slice(0, 3)).toEqual(['encinitas', 'carlsbad', 'solana-del-mar']);
+  });
+});
+
 describe('plan and shipped definition', () => {
   test('the plan works active sub-areas, unknown first, at most max_active_sub_areas', () => {
     const channels = Object.fromEntries(ter(SEED).sub_areas.map((s) => [s.id, s.id === 'poway' ? 0 : 2]));
