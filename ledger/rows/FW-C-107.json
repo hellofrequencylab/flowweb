@@ -5,7 +5,7 @@
   "phase": 1,
   "epic": "C1.5 First flow",
   "priority": "P1",
-  "size": "M",
+  "size": "L",
   "lane": "workstreams",
   "agent_suitability": "agent",
   "gate": "none",
@@ -26,7 +26,9 @@
     "flows/local-pulse/project.json",
     "flows/local-pulse/README.md",
     "packages/daemon/src/flows/local-pulse.ts",
+    "packages/daemon/src/flows/local-pulse-roundup.ts",
     "packages/daemon/test/local-pulse.test.ts",
+    "packages/daemon/test/local-pulse-roundup.test.ts",
     "packages/daemon/src/api/routes.ts",
     "packages/daemon/src/daemon.ts",
     "packages/daemon/src/overseer/index.ts"
