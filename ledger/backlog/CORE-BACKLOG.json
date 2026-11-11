@@ -4,7 +4,7 @@
     "profile": "core",
     "schema": "ledger-row/1",
     "generated": "2026-11-09",
-    "row_count": 136,
+    "row_count": 138,
     "conventions": {
       "verify_probe": "Same convention as 04-build-plan/backlog.json: 'pnpm probe <path>' runs probes/<path>.probe.ts, a Tier 0 file written before the implementation row starts and never edited by the agent doing the row. Every probe fails today because its target does not exist (a missing probe file exits 2, a missing behaviour exits 1). The probe pack for a milestone is committed by the Owner or a pair session before the milestone's rows start.",
       "status": "All rows start as open. Status lives only in the ledger database (imported with fw ledger sync), never in prose.",
@@ -28,7 +28,7 @@
       }
     },
     "full_plan_rows_included": 37,
-    "new_core_rows": 94
+    "new_core_rows": 96
   },
   "rows": [
     {
@@ -4755,6 +4755,67 @@
         "hosted/server/frequency-link.mjs",
         "hosted/test/frequency-link.test.mjs",
         "docs/api/FREQUENCY-INTEGRATION-V1.md"
+      ],
+      "origin": "new Core row"
+    },
+    {
+      "id": "FW-C-103",
+      "title": "Every lead is a scored node in a small graph of people, venues and referrers, and a strong one approves itself",
+      "core_milestone": "C1",
+      "phase": 1,
+      "epic": "C1.5 First flow",
+      "priority": "P1",
+      "size": "L",
+      "lane": "workstreams",
+      "agent_suitability": "agent",
+      "gate": "none",
+      "depends_on": [
+        "FW-C-041"
+      ],
+      "description": "On 2026-11-11 the Owner asked for the launch machine v2 (Loop 1 Find and Loop 5 Grow). Today a hunt lead is a row that only knows its own address, so venue and referral leverage cannot be computed and every lead waits for a tap. flows/leads.ts keeps a lead graph per flow in $FW_HOME/flows/<flow>/leads.json: nodes { id, kind person|venue, name, niche, town, contact_routes [{ kind email|dm|form, value, public_source_url }], source_url, last_event_at, current_tool, consent_note, state proposed|approved|dropped, score { p_reply, p_publish, leverage, timing, value }, links { venues, events, referred_by }, warm met_in_person|referred|null, created_at }. It reads the drafts the hunts already write (read only) and upserts nodes, deduped by normalized email, handle, a venue's own domain, and name plus town; a person found on a venue's own site links to that venue. The Owner pastes people met in person (POST /v1/flows/{key}/leads/paste { text }, one per line: name, where met, contact), which become warm nodes; the text is data. value = p_reply x p_publish x leverage x timing: warm beats cold, a public contact of their own and recent activity raise p_reply; recurring events, ticket fees and a known niche raise p_publish; a venue's teacher count and a person's venues and referrals raise leverage; timing is the half-life on the last public activity. At or above the approve threshold (config leads.auto_approve_at, default 0.6) a node approves itself, from 0.45 it stays proposed, below it drops; do-not-contact and restricted regions (EU, EEA, UK, Canada) always drop. GET /v1/flows/{key}/leads?state= lists nodes, POST .../leads/{id}/approve and .../drop are the Owner's tap (approving a blocked node answers 409). The graph refreshes after each hunt cycle and once a day. No em dashes.",
+      "acceptance": [
+        "Two hunt results for the same person dedupe to one node with both events",
+        "A venue and two teachers found on its site link, and the teachers raise the venue's leverage above a venue with none",
+        "A strong lead approves itself, a borderline one stays proposed, and do-not-contact and restricted leads drop",
+        "The Owner can approve or drop a node, the choice survives a refresh, and approving a blocked node is refused",
+        "A paste of three names met in person makes three warm person nodes, and pasting them again makes no more"
+      ],
+      "verify_probe": "pnpm probe flows/lead-graph",
+      "files_hint": [
+        "packages/daemon/src/flows/leads.ts",
+        "packages/daemon/test/leads.test.ts",
+        "packages/daemon/src/api/routes.ts",
+        "packages/daemon/src/daemon.ts",
+        "packages/daemon/src/overseer/cycle.ts"
+      ],
+      "origin": "new Core row"
+    },
+    {
+      "id": "FW-C-102",
+      "title": "No draft that breaks a hard copy or outreach rule ever waits in the Owner's inbox: a draft gate blocks it with its reasons, checked against a facts sheet fwd keeps fresh from Frequency",
+      "core_milestone": "C1",
+      "phase": 1,
+      "epic": "C1.5 First flow",
+      "priority": "P1",
+      "size": "L",
+      "lane": "workstreams",
+      "agent_suitability": "agent",
+      "gate": "none",
+      "depends_on": [],
+      "description": "On 2026-11-11 the Owner asked for the launch machine's kept rules to become code (plan v2 section 5, v1 section 4 day 2). A pure module packages/daemon/src/flows/draft-gate.ts gives checkDraft(draft, ctx) -> {ok, blocks, warns}. It blocks an em or en dash, an emoji, any number or date found in none of the facts sheet, the event payload, the lead's own source text or the draft's own links, the word Midnight, no tagged Frequency link (utm_source set, or a frequencylocal.com/q/ short link, or the claim slot), over 120 words (links, the sign-off block and the P.S. not counted), a touch past the third, an address or domain on do-not-contact, and an EU, EEA, UK or Canada lead. It only warns on a DM over 70 words and a follow-up over 40. packages/daemon/src/flows/facts.ts reads $FW_HOME/facts.json ({beta_ends, prices, launcher_minutes, fetched_at}) and, when crd_frequencyoutcomes is set, refreshes it once a day with a signed GET of Frequency's /api/webhooks/flowweb-facts; a failed refresh keeps the last good file and records why in facts-pull.json. Where fwd stores a cycle's drafts (overseer/cycle.ts), a blocked draft is stored with status gate_blocked and its reasons, never handed off, and never counted as waiting; persistDraft stores a draft for flows that write their own, rewriting it once first when a rewrite hook is given. approveDraft refuses a gate_blocked draft. Hunt drafts always need a tagged link; a flow's own drafts.json drafts need one once its config says gate: true. No em dashes.",
+      "acceptance": [
+        "A draft with a dash, an invented price, Midnight, no tagged link, 130 words or a 4th touch is stored gate_blocked with that reason",
+        "A clean draft waits for the Owner, and a gate_blocked draft is never listed as waiting and cannot be approved",
+        "A cycle at Autopilot never hands a blocked draft to the outbox",
+        "A failed facts refresh keeps the last good facts.json and records why"
+      ],
+      "verify_probe": "pnpm probe flows/draft-gate",
+      "files_hint": [
+        "packages/daemon/src/flows/draft-gate.ts",
+        "packages/daemon/src/flows/facts.ts",
+        "packages/daemon/src/overseer/cycle.ts",
+        "packages/daemon/src/overseer/drafts.ts",
+        "packages/daemon/test/draft-gate.test.ts"
       ],
       "origin": "new Core row"
     },
