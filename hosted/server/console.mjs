@@ -10,7 +10,7 @@
 //     database checks the role again when the request is queued.
 //   - A key-shaped question is refused before any call. Nothing is stored or logged.
 // Pure apart from the injected fetch and mirror read, so it is tested without a network.
-import { apiDetail, isSignInToken, refusalReason, retryWithoutBeta, SIGN_IN_TOKEN, siteKey } from './site-key.mjs';
+import { apiDetail, isSignInToken, refusalReason, retryWithoutBeta, SIGN_IN_TOKEN, siteKey, workspaceHeaders } from './site-key.mjs';
 import { ASSISTANT_MODEL, looksLikeSecret } from './assistant.mjs';
 import { requestOf } from './requests.mjs';
 
@@ -178,6 +178,7 @@ export async function answerConsole(body, { env = {}, fetchImpl = fetch, role = 
       method: 'POST',
       headers: {
         'x-api-key': key,
+        ...workspaceHeaders(env, key),
         'anthropic-version': '2023-06-01',
         ...(withFallback ? { 'anthropic-beta': 'server-side-fallback-2026-07-01' } : {}),
         'content-type': 'application/json',

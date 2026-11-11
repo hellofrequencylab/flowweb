@@ -12,3 +12,12 @@ test('a 400 with no message keeps the fallback, and a long message is cut', () =
   assert.equal(refusalReason(400, 'invalid_request_error', 'fallback', ''), 'fallback');
   assert.equal(apiDetail('x'.repeat(500)).length, 240);
 });
+
+test('a person-linked key names a workspace; a workspace key does not', async () => {
+  const { workspaceHeaders } = await import('../server/site-key.mjs');
+  assert.deepEqual(workspaceHeaders({}, 'sk-ant-usr-abc'), { 'anthropic-workspace-id': 'default' });
+  assert.deepEqual(workspaceHeaders({ FW_ASSISTANT_ANTHROPIC_WORKSPACE: ' wrkspc_1 ' }, 'sk-ant-usr-abc'), {
+    'anthropic-workspace-id': 'wrkspc_1',
+  });
+  assert.deepEqual(workspaceHeaders({}, 'sk-ant-api03-abc'), {});
+});

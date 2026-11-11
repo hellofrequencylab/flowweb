@@ -10,6 +10,17 @@ export function siteKey(env) {
     .trim();
 }
 
+/**
+ * Headers that pick the workspace. A key linked to a person or service account (sk-ant-usr) is not tied to a
+ * workspace, so the API needs anthropic-workspace-id: FW_ASSISTANT_ANTHROPIC_WORKSPACE when set, else the
+ * account's default workspace. A workspace key (sk-ant-api03) needs nothing.
+ */
+export function workspaceHeaders(env, key) {
+  const ws = String(env?.FW_ASSISTANT_ANTHROPIC_WORKSPACE ?? '').trim();
+  if (ws) return { 'anthropic-workspace-id': ws };
+  return key.startsWith('sk-ant-usr') ? { 'anthropic-workspace-id': 'default' } : {};
+}
+
 /** A Claude sign-in token (from claude setup-token) is not an API key, and the API refuses it as one. */
 export const isSignInToken = (key) => key.startsWith('sk-ant-oat');
 
