@@ -864,6 +864,29 @@ export const api = {
     return { data_as_of: e.as_of, ...e.data };
   },
 
+  /** FW-C-105: the flow's Today list, ranked and cut at the day's size. */
+  async flowToday(key: string): Promise<V.TodayList> {
+    const e = await get<Partial<Omit<V.TodayList, 'data_as_of'>>>(`/flows/${enc(key)}/today`);
+    const d = e.data ?? {};
+    return { flow: key, size: 0, ranked_by: 'age', ...d, actions: d.actions ?? [], data_as_of: e.as_of };
+  },
+  /** FW-C-105: hand the approved email touches to the sender. A fwd without it answers 404. */
+  approveEmailBatch: (key: string, draftIds: string[], onQueued?: () => void) =>
+    ownerWrite<Record<string, unknown>>(
+      'POST',
+      `/flows/${enc(key)}/batch/approve`,
+      { draft_ids: draftIds },
+      onQueued,
+    ),
+  /** FW-C-105: one tap on a borderline lead. A fwd without the lead graph answers 404. */
+  approveLead: (key: string, leadId: string, onQueued?: () => void) =>
+    ownerWrite<Record<string, unknown>>(
+      'POST',
+      `/flows/${enc(key)}/leads/${enc(leadId)}/approve`,
+      {},
+      onQueued,
+    ),
+
   /** The drafts a flow's cycles wrote, newest first. fwd answers these to the CLI token only. */
   async flowDrafts(key: string): Promise<V.FlowDrafts> {
     const e = await get<V.FlowDraft[]>(`/supervisor/flows/${encodeURIComponent(key)}/drafts`);

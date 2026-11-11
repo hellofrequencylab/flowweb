@@ -4,6 +4,7 @@ import { looksLikeSecret } from '../setup/assistant';
 import { useRouter } from '../shell/router';
 import { Button } from '../ui-kit/Button';
 import { Icon } from '../ui-kit/Icon';
+import { Answer } from './Answer';
 import {
   flowOf,
   loadTurns,
@@ -95,7 +96,10 @@ export function Console() {
   const count = turns.length;
   useEffect(() => {
     const el = logRef.current;
-    if (el && count) el.scrollTop = el.scrollHeight;
+    if (!el || !count) return;
+    // Show the newest turn from its first line, so a long answer reads from the top.
+    const last = el.lastElementChild as HTMLElement | null;
+    el.scrollTop = last ? Math.max(0, last.offsetTop - el.offsetTop - 8) : el.scrollHeight;
   }, [count]);
 
   const close = () => {
@@ -176,7 +180,9 @@ export function Console() {
           onKeyDown={onKey}
         >
           <header className="console-head">
-            <h2 className="console-title">AI console</h2>
+            <h2 className="console-title">
+              Kevin <span className="console-subtitle">AI console</span>
+            </h2>
             <Button className="btn-small" variant="quiet" onClick={close} aria-label="Close the AI console">
               <Icon name="x" size={14} />
             </Button>
@@ -204,8 +210,8 @@ export function Console() {
                 ) : (
                   <li key={t.at} className="assist-turn">
                     <div className={t.failed ? 'assist-reply assist-failed' : 'assist-reply'}>
-                      <span className="assist-who">AI</span>
-                      <p className="console-answer">{t.text}</p>
+                      <span className="assist-who">Kevin</span>
+                      {t.failed ? <p className="console-answer">{t.text}</p> : <Answer text={t.text} />}
                       {t.proposals?.map((p) => (
                         <ProposalCard
                           key={p.id}

@@ -12,16 +12,20 @@ import * as crm from '../flows/crm.ts';
 import * as intake from '../flows/event-intake.ts';
 import * as hunts from '../flows/hunts.ts';
 import * as leads from '../flows/leads.ts';
+import * as localPulse from '../flows/local-pulse.ts';
 import * as localSaturation from '../flows/local-saturation.ts';
 import * as neighborhoodActivation from '../flows/neighborhood-activation.ts';
 import * as naAdmin from '../flows/neighborhood-admin.ts';
 import * as outcomes from '../flows/outcomes.ts';
 import * as paidAds from '../flows/paid-ads.ts';
 import * as adsPull from '../flows/paid-ads-ga4.ts';
+import { ReplyError, type ReplyResult } from '../flows/reply-helper.ts';
 import * as review from '../flows/review.ts';
 import { reviewSummary } from '../flows/review-summary.ts';
+import { type BatchResult, dueTouches, loadSequence } from '../flows/sequence.ts';
+import { isSkipReason, recordSkip, todaySize, todayView } from '../flows/today.ts';
 import { type DraftView, editDraft, listDrafts, markDraft } from '../overseer/drafts.ts';
-import { readSettings, SupervisorError, supervisorView } from '../overseer/index.ts';
+import { perDayFor, readSettings, SupervisorError, shippedFlows, supervisorView } from '../overseer/index.ts';
 import type { RewriteProposal } from '../overseer/rewrite.ts';
 import { type RunHost, RunHostStoppingError } from '../run-host.ts';
 import { isInside, RUN_ID_RE } from '../runtime/paths.ts';
@@ -72,6 +76,7 @@ const FLOWS: Record<string, (repoRoot: string, fwHome: string, now: Date) => unk
     const view = f && neighborhoodActivation.flowView(f.cfg, f.state, f.budget, f.stream, now);
     return view && { ...view, admin_log: naAdmin.readAdminLog(home) };
   },
+  [localPulse.FLOW_KEY]: localPulse.flowView,
   [paidAds.FLOW_KEY]: (repo, home, now) => {
     const f = paidAds.loadFlow(repo, home);
     if (!f) return null;
@@ -137,8 +142,12 @@ export interface SupervisorControls {
   /** FW-C-046: the Owner approves or rejects one cycle draft. */
   approveDraft?(key: string, id: string): DraftView;
   rejectDraft?(key: string, id: string): DraftView;
+  /** FW-C-104: the Owner approves a batch of email sequence touches for the sender. */
+  batchApprove?(key: string, draftIds: unknown): BatchResult;
   /** FW-C-051: a proposal from the flow's engine; the draft is not changed. */
   rewriteDraft?(key: string, id: string, body: Record<string, unknown>): Promise<RewriteProposal>;
+  /** FW-C-108: a pasted reply becomes a drafted answer for the Owner, or a do-not-contact entry. */
+  draftReply?(key: string, body: Record<string, unknown>): Promise<ReplyResult>;
   /** FW-C-109: the flow's engine reads pasted text once and answers the events in it, unchecked. */
   extractEvents?(key: string, text: string): Promise<unknown>;
 }
@@ -658,6 +667,7 @@ export function buildRouter(deps: ApiDeps): Router {
   );
   addFlowAdminRoutes(r, deps);
   addLeadRoutes(r, deps);
+  localPulse.addLocalPulseRoutes(r, deps);
   addIntakeRoutes(r, deps);
 
   // ---- supervisor (FW-C-033) ----------------------------------------------------------------
@@ -781,6 +791,15 @@ export function buildRouter(deps: ApiDeps): Router {
       throw draftError(e);
     }
   });
+  // FW-C-105: Today, the ranked list of the morning's actions. Owner only, like the drafts it holds.
+  r.get('/v1/flows/{key}/today', ({ req, params, query }) => {
+    ownerOnly(req);
+    const key = params.key ?? '';
+    if (!shippedFlows(deps.repoRoot).some((f) => f.key === key)) throw notFound('flow', params.key);
+    const now = new Date();
+    const size = todaySize(perDayFor(reader, deps.fwHome, key, now), query.get('size'));
+    return env(() => ({ data: todayView({ fwHome: deps.fwHome, flow: key, size, now }) }));
+  });
   // FW-C-050: the Owner changes a draft's subject and text before it goes out.
   r.post('/v1/supervisor/flows/{key}/drafts/{id}/edit', async ({ req, params }) => {
     ownerOnly(req);
@@ -831,20 +850,69 @@ export function buildRouter(deps: ApiDeps): Router {
       throw draftError(e);
     }
   });
+  // FW-C-108: the Owner pastes a host's reply; fwd drafts the answer from the flow's reply tree.
+  r.post('/v1/flows/{key}/replies', async ({ req, params }) => {
+    ownerOnly(req);
+    const body = await readJsonBody(req);
+    const c = deps.supervisor;
+    if (!c?.draftReply) throw new ApiError(501, 'not_implemented', 'this fwd does not host the reply helper');
+    try {
+      const data = await c.draftReply(params.key ?? '', body);
+      return env(() => ({ data }));
+    } catch (e) {
+      if (!(e instanceof ReplyError)) throw kernelError(e);
+      throw new ApiError(e.status, e.status === 404 ? 'not_found' : 'validation_failed', e.message);
+    }
+  });
   for (const action of ['approve', 'reject'] as const)
-    r.post(`/v1/supervisor/flows/{key}/drafts/{id}/${action}`, ({ req, params }) => {
+    r.post(`/v1/supervisor/flows/{key}/drafts/{id}/${action}`, async ({ req, params }) => {
       ownerOnly(req);
       const c = deps.supervisor;
       const act = action === 'approve' ? c?.approveDraft : c?.rejectDraft;
       if (!c || !act)
         throw new ApiError(501, 'not_implemented', 'this fwd does not host the Copilot controls');
+      // FW-C-105: a skip from Today rejects with a reason, recorded for the weekly review.
+      const reason =
+        action === 'reject' && req.headers['content-type'] ? (await readJsonBody(req)).reason : undefined;
+      if (reason !== undefined && !isSkipReason(reason))
+        throw new ApiError(
+          400,
+          'validation_failed',
+          'reason must be wrong_niche, not_local, not_a_fit or on_frequency',
+        );
       try {
         const data = act.call(c, params.key ?? '', params.id ?? '');
+        if (reason !== undefined)
+          recordSkip({ fwHome: deps.fwHome, flow: params.key ?? '', draftId: params.id ?? '', reason });
         return env(() => ({ data }));
       } catch (e) {
         throw draftError(e);
       }
     });
+
+  // FW-C-104: the outreach sequence. GET lists the touches due now and every lead's state; POST hands
+  // an approved batch of email touches to the sender, capped a day.
+  r.get('/v1/flows/{key}/sequence', ({ req, params }) => {
+    ownerOnly(req);
+    const key = params.key ?? '';
+    if (!Object.hasOwn(FLOWS, key)) throw notFound('flow', params.key);
+    return env(() => {
+      const due = dueTouches(key, new Date(), deps.fwHome);
+      return { data: { due, leads: Object.values(loadSequence(deps.fwHome, key).leads) } };
+    });
+  });
+  r.post('/v1/flows/{key}/batch/approve', async ({ req, params }) => {
+    ownerOnly(req);
+    const body = await readJsonBody(req);
+    const c = deps.supervisor;
+    if (!c?.batchApprove) throw new ApiError(501, 'not_implemented', 'this fwd does not host batch approval');
+    try {
+      const data = c.batchApprove(params.key ?? '', body.draft_ids);
+      return env(() => ({ data }));
+    } catch (e) {
+      throw draftError(e);
+    }
+  });
 
   r.get('/v1/status-reports', ({ query }) => {
     const kind = oneOf(query, 'kind', REPORT_KINDS);

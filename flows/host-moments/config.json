@@ -1,0 +1,22 @@
+{
+  "version": 1,
+  "offer": {"name": "Frequency", "url": "https://frequencylocal.com"},
+  "host_path": "/start/host",
+  "send_via": "frequency",
+  "send_routes": {
+    "frequency": {"label": "Frequency messaging to the host", "one_to_one": true, "adds": ["the host is a member of their own Space"]}
+  },
+  "intro": "I'm Daniel, founder of Frequency, a free way for neighbors to find or start local, in-person Circles around what they love.",
+  "sign_off": "Daniel Tyack\nFounder\nfrequencylocal.com",
+  "opt_out": "P.S. If you'd rather not get notes like this, reply no and I won't write again.",
+  "links": {"utm_source": "flowweb", "utm_medium": "one-to-one", "utm_campaign": "creator-seed"},
+  "share_kit": {
+    "utm_medium": "share-kit",
+    "qr_poster": "https://api.qrserver.com/v1/create-qr-code/?size=1000x1000&data={url}"
+  },
+  "timezone": "America/Los_Angeles",
+  "thank_you_due_hours": 48,
+  "stall_max_age_hours": 72,
+  "facts": {"file": "facts.json", "founding_price": "founding_price", "founding_ends": "founding_ends", "plan_price": "plan_price"},
+  "do_not_contact_flow": "neighborhood-activation"
+}
