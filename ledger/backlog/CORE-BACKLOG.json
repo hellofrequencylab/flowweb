@@ -4,7 +4,7 @@
     "profile": "core",
     "schema": "ledger-row/1",
     "generated": "2026-11-09",
-    "row_count": 140,
+    "row_count": 144,
     "conventions": {
       "verify_probe": "Same convention as 04-build-plan/backlog.json: 'pnpm probe <path>' runs probes/<path>.probe.ts, a Tier 0 file written before the implementation row starts and never edited by the agent doing the row. Every probe fails today because its target does not exist (a missing probe file exits 2, a missing behaviour exits 1). The probe pack for a milestone is committed by the Owner or a pair session before the milestone's rows start.",
       "status": "All rows start as open. Status lives only in the ledger database (imported with fw ledger sync), never in prose.",
@@ -28,7 +28,7 @@
       }
     },
     "full_plan_rows_included": 37,
-    "new_core_rows": 98
+    "new_core_rows": 102
   },
   "rows": [
     {
@@ -4885,6 +4885,150 @@
         "packages/daemon/src/api/routes.ts",
         "packages/daemon/src/daemon.ts",
         "packages/daemon/test/sequence.test.ts"
+      ],
+      "origin": "new Core row"
+    },
+    {
+      "id": "FW-C-105",
+      "title": "The Owner works one ranked Today list of up to 15 actions (25 with intensity) in about 20 minutes",
+      "core_milestone": "C1",
+      "phase": 1,
+      "epic": "C1.5 First flow",
+      "priority": "P1",
+      "size": "L",
+      "lane": "workstreams",
+      "agent_suitability": "agent",
+      "gate": "none",
+      "depends_on": [
+        "FW-C-066"
+      ],
+      "description": "Launch machine v2, loop 2 (Reach). On 2026-11-11 the Owner asked for the daily batch to become Today: one ranked list he works in about 20 minutes each weekday morning. fwd serves GET /v1/flows/{key}/today (packages/daemon/src/flows/today.ts, Owner only, like the drafts): actions built from the flow's waiting drafts (cold first touch, sequence touch, warm follow-up and venue pitch, read from the draft's niche, angle, route and lead kind), proposed borderline leads (one tap to approve) and show up suggestions when there are any. Each action names the lead, niche, town, source link, route (email, dm, form or platform), the link to open (mailto, the profile or the form), the draft and its word count. It ranks by expected value: the lead score from $FW_HOME/flows/<flow>/leads.json when that file exists, sequence due dates from sequence.json when that exists, and draft age (oldest first) when neither does. The list never holds more than the day's size: 15 by default, raised by the flow's intensity up to 25, and ?size asks for fewer or more within 1 to 25. Drafts older than 3 days drop off the list without being deleted. Skipping a draft rejects it through the existing reject route with one of four reasons (wrong_niche, not_local, not_a_fit, on_frequency), which fwd records for the weekly review and counts in the Today answer. The web Today panel (packages/web/src/flows/Today.tsx) sits above the drafts inbox on the flow's page: each row shows the lead, niche, town, source link, route, word count and draft, with Copy and open, Mark sent, Edit and Skip with one-tap reasons, and the keys J, K, C, S, E and X. Approve email batch posts POST /v1/flows/{key}/batch/approve with the email-route draft ids only and shows fwd's answer, or says politely that this fwd has no batch approval yet. White with hairlines, design tokens only, no avatars, no em dashes.",
+      "acceptance": [
+        "GET /v1/flows/{key}/today answers at most 15 actions by default and at most 25 when asked, never past the day's size",
+        "With leads.json the actions rank by lead score, highest first, and proposed borderline leads appear as one-tap approvals; without it they rank by draft age, oldest first",
+        "A waiting draft older than 3 days, a rejected draft and a sent draft never appear",
+        "A skip rejects the draft with one of the four reasons, an unknown reason answers 400, and today's skip counts come back with the list",
+        "The Today panel renders the ranked list above the drafts inbox; C copies the draft and opens its route, S marks it sent, X records a skip reason, J and K move",
+        "Approve email batch posts only the email-route draft ids and shows the answer, and a 404 is shown politely"
+      ],
+      "verify_probe": "pnpm probe flows/today",
+      "files_hint": [
+        "packages/daemon/src/flows/today.ts",
+        "packages/daemon/src/api/routes.ts",
+        "packages/web/src/flows/Today.tsx",
+        "packages/web/src/flows/today.css",
+        "packages/web/src/flows/index.ts",
+        "packages/web/src/flows/ActivationPage.tsx",
+        "packages/web/src/api/client.ts",
+        "packages/web/src/api/types.ts",
+        "hosted/relay/fw-relay.mjs",
+        "hosted/server/requests.mjs"
+      ],
+      "origin": "new Core row"
+    },
+    {
+      "id": "FW-C-106",
+      "title": "Frequency host events become personal notes from the Owner, waiting in his drafts inbox: stall nudges, thank-yous with a share kit, referral asks, Founding Year and limit notes, and same-day opt-outs",
+      "core_milestone": "C1",
+      "phase": 1,
+      "epic": "C1.5 First flow",
+      "priority": "P1",
+      "size": "L",
+      "lane": "workstreams",
+      "agent_suitability": "agent",
+      "gate": "none",
+      "depends_on": [],
+      "description": "On 2026-11-11 the Owner asked for the launch machine (plan v2, loops 3, 4.1, 5 and 6). A new flow, host-moments (flows/host-moments: stream.json template email, trigger event, tier L1, shipped off like the other flows), reads Frequency host events from $FW_HOME/flows/host-moments/events/*.json, one event per file in the shapes of the Frequency integration contract v1, and moves each one to events/done/ once handled (packages/daemon/src/flows/host-moments.ts). Each moment becomes one draft in the flow's Supervisor drafts folder, waiting for the Owner: launcher.stalled names the step and offers a 10 minute setup call, at most one per host per step; space.published is a thank-you naming the payload detail, due within 48 hours (shown on the draft), with a host share kit (Instagram caption, story text, a WhatsApp or email blurb and a QR poster link to the RSVP page) when an event.published for that host is known; event.filled is a referral ask with a forwardable intro the host sends (FlowWeb never contacts the people referred); event.rsvps_8 is a Founding Year note using only payload numbers and the facts sheet $FW_HOME/facts.json, skipped with a reason when the facts are missing; meter.80 is a short what changes note from facts only. host.opted_out puts the host on the existing do-not-contact list the same day, and no later draft is written for them. A draft greets the host by first_name when the event has one, else Hi there; it links back to the original draft through ref; it holds no em or en dash. fwd scans every 5 minutes (FW_HOST_MOMENTS_EVERY_MS); opt-outs are honoured even while the flow is off, drafts are written only while the Owner has it on.",
+      "acceptance": [
+        "Six host event files in a fresh FW_HOME give one draft each of the right kind, none with an em or en dash, and every file moves to events/done",
+        "The thank-you carries a share kit pointing at the event's RSVP page when an event.published for that host exists",
+        "event.rsvps_8 with no facts sheet makes no Founding Year draft and says why",
+        "host.opted_out puts the host on the do-not-contact list the same day, and later events for that host make no draft",
+        "A second stall at the same step makes no second draft"
+      ],
+      "verify_probe": "pnpm probe flows/host-moments",
+      "files_hint": [
+        "flows/host-moments/stream.json",
+        "flows/host-moments/config.json",
+        "flows/host-moments/project.json",
+        "flows/host-moments/README.md",
+        "packages/daemon/src/flows/host-moments.ts",
+        "packages/daemon/test/host-moments.test.ts",
+        "packages/daemon/src/overseer/index.ts",
+        "packages/daemon/src/daemon.ts"
+      ],
+      "origin": "new Core row"
+    },
+    {
+      "id": "FW-C-107",
+      "title": "The Owner gets a ready Thursday roundup of real upcoming events in the open sub-areas, and keeps the venue QR poster list",
+      "core_milestone": "C1",
+      "phase": 1,
+      "epic": "C1.5 First flow",
+      "priority": "P1",
+      "size": "L",
+      "lane": "workstreams",
+      "agent_suitability": "agent",
+      "gate": "none",
+      "depends_on": [],
+      "description": "Launch plan v2, loop 4 items 2 and 3, asked for by the Owner on 2026-11-11. A new flow, local-pulse (flows/local-pulse: a digest stream on cron Thursday 08:00 America/Los_Angeles at tier L1, a config with the open sub-areas encinitas, carlsbad and solana-del-mar, local groups with name, url, allows_promo and last_posted_at, and venues). Each run asks Frequency for the next 14 days of public events in the open sub-areas (GET /api/webhooks/flowweb-upcoming, signed with crd_frequencyoutcomes as hex HMAC-SHA256 of timestamp.body, fields from the integration contract: event_id, title, starts_at, town, niche, rsvp_url). A good answer replaces $FW_HOME/flows/local-pulse/upcoming.json; a failed pull keeps the last good file and records why. From the in-area events it drafts, in the Supervisor's drafts store: a members email roundup with the Owner's sign-off and opt-out line, an Instagram caption, one post per local group that allows promotion and was not posted in the last 7 days (a group that bans promotion is flagged and gets none), and a one-line heads-up per host featured, sent by hand. Each event appears with its title, town and link; facts only, no dashes, no member counts; nothing is ever posted or sent automatically. Venue QR: $FW_HOME/flows/local-pulse/venues.json keeps venue, source_tag and poster_dropped_at; GET /v1/flows/local-pulse/venues adds scans_7d per source_tag from the outcomes pull when it carries qr counts (null otherwise), and POST /v1/flows/local-pulse/venues/{source_tag}/dropped marks a poster dropped.",
+      "acceptance": [
+        "flows/local-pulse/stream.json is a digest stream on cron 0 8 * * 4 in America/Los_Angeles at tier L1",
+        "A run drafts one members email, one Instagram caption and one post per group that allows promotion and was not posted in the last 7 days, plus heads-ups for the hosts featured, all waiting for the Owner",
+        "Only events in the open sub-areas and the next 14 days appear, each with title, town and link, with no em or en dash and no member count",
+        "A group posted 3 days ago and a group that bans promotion get no draft and are flagged",
+        "A failed pull keeps upcoming.json and records why; a good signed pull replaces it",
+        "A venue's poster can be marked dropped, and scans per source_tag show when the outcomes pull carries them"
+      ],
+      "verify_probe": "pnpm probe flows/local-pulse",
+      "files_hint": [
+        "flows/local-pulse/stream.json",
+        "flows/local-pulse/config.json",
+        "flows/local-pulse/project.json",
+        "flows/local-pulse/README.md",
+        "packages/daemon/src/flows/local-pulse.ts",
+        "packages/daemon/src/flows/local-pulse-roundup.ts",
+        "packages/daemon/test/local-pulse.test.ts",
+        "packages/daemon/test/local-pulse-roundup.test.ts",
+        "packages/daemon/src/api/routes.ts",
+        "packages/daemon/src/daemon.ts",
+        "packages/daemon/src/overseer/index.ts"
+      ],
+      "origin": "new Core row"
+    },
+    {
+      "id": "FW-C-108",
+      "title": "The Owner pastes a host's reply and gets a drafted answer from the flow's reply tree, and a no puts them on do-not-contact",
+      "core_milestone": "C1",
+      "phase": 1,
+      "epic": "C1.5 First flow",
+      "priority": "P1",
+      "size": "L",
+      "lane": "workstreams",
+      "agent_suitability": "agent",
+      "gate": "none",
+      "depends_on": [],
+      "description": "On 2026-11-11 the Owner asked for the reply helper (stream S3 of the beta channels work order). Daniel pastes an inbound reply from a host into the Growth page; FlowWeb classifies it and drafts an answer from a per-niche reply tree (flows/neighborhood-activation/reply-tree.json) that cites only the facts sheet: the beta is free through January 31, 2027 and the Founding Year closes the same day, prices are never typed (a reply that needs one points to /pricing), nothing is deleted when the beta ends, and the links /start/host, /for/<niche>, /create-a-space, /launch and /help. Niche doors: teacher, studio, gathering, maker, music, and venue as supply. Intents: interested, asks_price, asks_what, asks_time, other_tool, not_now, no. Keyword rules classify first; only when none match does the flow's own engine (Codex today, the fake vendor in tests) pick one label from that closed set, with the inbound text wrapped as untrusted data, and anything else is read as unclear. Inbound text never reaches the draft: the draft is built from the tree. Any no, stop, not interested or unsubscribe puts the sender on the flow's do-not-contact list the same day, ends their sequence and drafts nothing. A positive reply drafts a short answer, under 70 words, with the niche's tagged door. Every draft runs through the draft gate when it is present, and through the helper's own checks always. POST /v1/flows/{key}/replies { lead_id?, contact?, niche?, text } answers the draft and saves it in the drafts folder as waiting_for_owner with route reply. Nothing sends.",
+      "acceptance": [
+        "An opt-out reply drafts nothing, lands on the flow's do-not-contact list the same day and ends the sender's sequence",
+        "A price question drafts a reply that points to /pricing and types no price",
+        "A positive reply drafts under 70 words with the niche's /for/<niche> door tagged utm_source=flowweb, saved as waiting_for_owner with route reply",
+        "A reply that tells the helper to ignore its instructions still gets an on-topic draft built from the tree",
+        "No draft has an em or en dash or the word Midnight"
+      ],
+      "verify_probe": "pnpm probe flows/reply-helper",
+      "files_hint": [
+        "flows/neighborhood-activation/reply-tree.json",
+        "packages/daemon/src/flows/reply-helper.ts",
+        "packages/daemon/src/overseer/reply-engine.ts",
+        "packages/daemon/test/reply-helper.test.ts",
+        "packages/adapters/src/fake/index.ts",
+        "packages/adapters/src/fake/vendor.mjs",
+        "packages/daemon/src/api/routes.ts",
+        "packages/daemon/src/daemon.ts",
+        "packages/web/src/flows/ReplyHelper.tsx",
+        "packages/web/src/api/client.ts",
+        "packages/web/src/flows/ActivationPage.tsx"
       ],
       "origin": "new Core row"
     },
