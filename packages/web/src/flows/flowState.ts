@@ -1,5 +1,6 @@
 // FW-C-070: the Supervisor's words for a flow's state, shared by the Flows page and its controls table.
 import type { SupervisorDial, SupervisorFlow, SupervisorGate } from '../api/types';
+import type { Loop } from '../ui-kit/loop';
 import type { StatusSpec } from '../ui-kit/status';
 
 /** One word per gate, so a held flow always says why in plain English. */
@@ -30,4 +31,29 @@ export function flowSpec(f: SupervisorFlow): StatusSpec {
   if (f.state === 'running') return { word: 'Running', tone: 'active', icon: 'running' };
   if (f.state === 'ready') return { word: 'Ready to run', tone: 'active', icon: 'ready' };
   return f.gate ? GATE[f.gate] : { word: 'Held', tone: 'unknown', icon: 'unknown' };
+}
+
+/**
+ * FW-C-098: a flow's loop state, the one look every meter of the flow takes. Running is working; on and
+ * between cycles is connected; switched off, paused, dormant or waiting on your answers is waiting; a
+ * missing piece (no logic, no cap, cap used up, stalled, Autopilot unconfirmed) is broken.
+ */
+export function flowLoop(f: SupervisorFlow | null | undefined): Loop {
+  if (!f) return 'waiting';
+  if (f.state === 'running') return 'working';
+  if (f.state === 'ready') return 'connected';
+  switch (f.gate) {
+    case 'not_due':
+    case 'wip':
+    case 'machine_busy':
+      return 'connected';
+    case 'no_engine':
+    case 'cap_required':
+    case 'budget':
+    case 'stalled':
+    case 'dial_unapproved':
+      return 'broken';
+    default:
+      return 'waiting';
+  }
 }

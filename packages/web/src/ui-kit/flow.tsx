@@ -2,6 +2,7 @@ import type { CSSProperties, ReactNode } from 'react';
 import type { RowStatus } from '../api/types';
 import { Link } from '../shell/router';
 import { Icon, type IconName } from './Icon';
+import { type LoopInfo, useLoopTarget } from './loop';
 
 /**
  * Flow visuals from the FlowWeb design system (components/flow, data/Meter):
@@ -113,6 +114,8 @@ export function FlowRing({
   showLabels = false,
   tallies,
   title,
+  loops,
+  links,
 }: {
   hue?: Hue;
   at?: number;
@@ -125,7 +128,12 @@ export function FlowRing({
   tallies?: number[];
   /** Accessible name. Pass "" when a word beside the ring already says it. */
   title?: string;
+  /** FW-C-098: each stage's loop state; the stage's node then shows it and opens what it is on click. */
+  loops?: LoopInfo[];
+  /** FW-C-098: the line from each stage to the next, as a clickable, stateful connection. */
+  links?: LoopInfo[];
 }) {
+  const target = useLoopTarget();
   const n = stages.length;
   const color = hueVar(hue);
   const quiet = quietish(state);
@@ -140,8 +148,9 @@ export function FlowRing({
     `${typeof label === 'string' ? label : 'Change'}: ${quiet ? state : `${state} at ${stages[at]}`}`;
   return (
     <RingBox
-      className={`flow-ring ${STATE_CLASS[state]}`}
+      className={`flow-ring ${STATE_CLASS[state]}${loops || links ? ' has-loops' : ''}`}
       name={name}
+      interactive={Boolean(loops || links)}
       style={{ width: size, height: size, '--c': color } as CSSProperties}
     >
       <svg viewBox="0 0 100 100" width={size} height={size} aria-hidden="true">
@@ -195,6 +204,17 @@ export function FlowRing({
               );
             });
           })}
+        {links &&
+          !tiny &&
+          links.map((l, i) => {
+            const d = arcPath(ang(i, n) + 7, ang(i + 1, n) - 7, R);
+            return (
+              <g key={`link-${stages[i]}`} {...target(l, 'loop-link')}>
+                <path className="loop-hit" d={d} />
+                <path className="loop-line" d={d} pathLength="100" />
+              </g>
+            );
+          })}
         {state === 'running' && (
           <g
             className="fw-motion flow-orbit"
@@ -212,9 +232,19 @@ export function FlowRing({
           stages.map((s, i) => {
             const [x, y] = pt(i, n, R);
             const here = i === at && !quiet && state !== 'done';
+            const info = loops?.[i];
+            const wrap = (el: ReactNode) =>
+              info ? (
+                <g key={s} {...target(info, 'loop-node')}>
+                  <circle className="loop-hit" cx={x} cy={y} r={9} />
+                  {el}
+                </g>
+              ) : (
+                el
+              );
             if (here && state === 'waiting') {
               const g = big ? 9 : 12;
-              return (
+              return wrap(
                 <rect
                   key={s}
                   className="flow-gate"
@@ -223,12 +253,12 @@ export function FlowRing({
                   width={g}
                   height={g}
                   rx={g * 0.3}
-                />
+                />,
               );
             }
             const fail = here && state === 'problem';
             const lit = (i < at && !quiet) || here || state === 'done';
-            return (
+            return wrap(
               <circle
                 key={s}
                 cx={x}
@@ -237,7 +267,7 @@ export function FlowRing({
                 fill={fail ? 'var(--fail-fg)' : lit ? color : 'var(--flow-ground)'}
                 stroke={fail ? 'none' : quiet ? 'var(--flow-line-quiet)' : color}
                 strokeWidth="1.6"
-              />
+              />,
             );
           })}
       </svg>
@@ -275,12 +305,21 @@ function RingBox({
   className,
   style,
   children,
+  interactive = false,
 }: {
   name: string;
   className: string;
   style: CSSProperties;
   children: ReactNode;
+  /** Holds clickable parts: a group, so its buttons stay reachable. */
+  interactive?: boolean;
 }) {
+  if (interactive)
+    return (
+      <fieldset className={className} aria-label={name || undefined} style={style}>
+        {children}
+      </fieldset>
+    );
   return name ? (
     <div className={className} role="img" aria-label={name} style={style}>
       {children}
@@ -844,6 +883,7 @@ export function Gauge({
   center,
   sub,
   size = 200,
+  loop,
 }: {
   value: number | null;
   cap: number;
@@ -854,27 +894,32 @@ export function Gauge({
   center: ReactNode;
   sub?: ReactNode;
   size?: number;
+  /** FW-C-098: the loop this meter belongs to: it glows and flows with it and opens what it is on click. */
+  loop?: LoopInfo;
 }) {
+  const target = useLoopTarget();
   const A0 = 135;
   const SPAN = 270;
   const max = Math.max(cap, forecast ?? 0, value ?? 0) * 1.08 || 1;
   const at = (v: number) => A0 + (Math.min(v, max) / max) * SPAN;
   const capA = (at(cap) * Math.PI) / 180;
   const known = value != null;
+  const spoken = `${label}: ${known ? (valueText ?? `${value} of ${cap}`) : 'Unknown'}`;
+  const t = loop ? target(loop, 'gauge-dial') : { className: 'gauge-dial' };
+  const named =
+    'role' in t
+      ? { ...t, 'aria-label': `${spoken}. ${t['aria-label']}` }
+      : { ...t, role: 'img', 'aria-label': spoken };
   return (
     <div className="gauge" style={{ width: size }}>
-      <div
-        className="gauge-dial"
-        role="img"
-        aria-label={`${label}: ${known ? (valueText ?? `${value} of ${cap}`) : 'Unknown'}`}
-        style={{ width: size, height: size }}
-      >
+      <div {...named} style={{ width: size, height: size }}>
         <svg viewBox="0 0 100 100" width={size} height={size} aria-hidden="true">
           <path className={`gauge-track${known ? '' : ' is-unknown'}`} d={arcPath(A0, A0 + SPAN, 40)} />
           {known && forecast != null && forecast > (value ?? 0) && (
             <path className="gauge-forecast" d={arcPath(at(value ?? 0), at(forecast), 40)} />
           )}
           {known && value > 0 && <path className="gauge-fill" d={arcPath(A0, at(value), 40)} />}
+          {loop && <path className="loop-line" d={arcPath(A0, A0 + SPAN, 40)} pathLength="100" />}
           <line
             className="gauge-cap"
             x1={50 + 35 * Math.cos(capA)}
