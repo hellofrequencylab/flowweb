@@ -1,0 +1,33 @@
+{
+  "id": "FW-C-142",
+  "title": "The Cartographer: a read-only flow that tracks Frequency's search rankings and AI answers and proposes page edits the Owner approves",
+  "core_milestone": "C1",
+  "phase": 1,
+  "epic": "C1.5 First flow",
+  "priority": "P3",
+  "size": "L",
+  "lane": "workstreams",
+  "agent_suitability": "agent",
+  "gate": "owner-approval",
+  "depends_on": [
+    "FW-C-036"
+  ],
+  "description": "First new department in the master plan (P3, 2026-11-11), gated by Daniel: work starts only when he says go. The Cartographer (SEO and GEO manager in the agent roster) is a new shipped flow, flows/cartographer: off, L1, a dollar cap, and read_research as its only action class. It reads Search Console Pages exports dropped in $FW_HOME/flows/cartographer/imports/ and AI answer checks in answers/ (one JSON per question: question, engine, answer_text, checked_at). Pure parseSearchConsole reads the export; pure proposals names a page with at least 100 impressions at position 8 to 20 (striking distance) and any checked question whose answer does not mention Frequency, each with a change and a why. GET /v1/flows/cartographer answers pages (most impressions first), answers with mentions_frequency, proposals and a state (waiting_for_data on a fresh home). Proposals wait for the Owner: the flow never edits a page, publishes or writes to the outbox. Pulling Search Console by API and running the answer checks on a schedule are later rows. Wave 5 of the master plan v2.",
+  "acceptance": [
+    "flows/cartographer ships off, L1, capped, read_research only, in the Frequency marketing project",
+    "parseSearchConsole reads the export and proposals picks exactly the striking-distance page and the answer that misses Frequency",
+    "GET /v1/flows/cartographer waits for data on a fresh home, then sorts pages, flags mentions, lists 2 proposals and writes nothing to the outbox"
+  ],
+  "verify_probe": "pnpm probe flows/cartographer",
+  "files_hint": [
+    "flows/cartographer/stream.json",
+    "flows/cartographer/config.json",
+    "flows/cartographer/project.json",
+    "flows/cartographer/README.md",
+    "packages/daemon/src/flows/cartographer.ts",
+    "packages/daemon/src/overseer/index.ts",
+    "packages/daemon/src/api/routes.ts",
+    "packages/daemon/test/cartographer.test.ts"
+  ],
+  "origin": "new Core row"
+}
