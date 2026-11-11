@@ -4,7 +4,7 @@
     "profile": "core",
     "schema": "ledger-row/1",
     "generated": "2026-11-09",
-    "row_count": 156,
+    "row_count": 157,
     "conventions": {
       "verify_probe": "Same convention as 04-build-plan/backlog.json: 'pnpm probe <path>' runs probes/<path>.probe.ts, a Tier 0 file written before the implementation row starts and never edited by the agent doing the row. Every probe fails today because its target does not exist (a missing probe file exits 2, a missing behaviour exits 1). The probe pack for a milestone is committed by the Owner or a pair session before the milestone's rows start.",
       "status": "All rows start as open. Status lives only in the ledger database (imported with fw ledger sync), never in prose.",
@@ -28,7 +28,7 @@
       }
     },
     "full_plan_rows_included": 37,
-    "new_core_rows": 107
+    "new_core_rows": 108
   },
   "rows": [
     {
@@ -5493,6 +5493,36 @@
         "packages/daemon/src/overseer/intake-engine.ts",
         "packages/daemon/src/api/routes.ts",
         "packages/daemon/test/meter.test.ts"
+      ],
+      "origin": "new Core row"
+    },
+    {
+      "id": "FW-C-138",
+      "title": "Paid ads gets decision logic: it stops showing \"no engine\" and proposes budget moves as cards the Owner answers",
+      "core_milestone": "C1",
+      "phase": 1,
+      "epic": "C1.5 First flow",
+      "priority": "P2",
+      "size": "M",
+      "lane": "workstreams",
+      "agent_suitability": "agent",
+      "gate": "none",
+      "depends_on": [
+        "FW-C-053",
+        "FW-C-036"
+      ],
+      "description": "Flow health check (2026-11-11): Paid ads is on but held by no_engine. The flow is defined and GA4 pulls fine, but ENGINES has no entry for it, so the Supervisor holds every fire. This row adds the engine: its caps are the stream's budget and its cycle is plain code with no model call and no spend. A run reads the imports and the existing nextMove. over_target and on_target open one choose decision card titled for Paid ads whose ask names the cost per subscription and the target in dollars, with 2 to 4 options (one keeps the campaign as it is), a recommended option and a one-line reason. While a paid ads card is open, the same figures open no second one. waiting_for_data, learning and check_tracking open no budget card. The run report says proposed or quiet. The flow still never touches the campaign: no ad account credential, and read_research stays its only action class. Wave 3 of the master plan v2.",
+      "acceptance": [
+        "With paid-ads on, its FlowView gate is not no_engine and its budget is the stream cap",
+        "A run with no report is quiet and opens no card",
+        "Twenty days over target open one choose card naming $150.00 and the target, with a keep option and a recommendation; a second run opens no second card"
+      ],
+      "verify_probe": "pnpm probe flows/paid-ads-engine",
+      "files_hint": [
+        "packages/daemon/src/flows/paid-ads.ts",
+        "packages/daemon/src/overseer/index.ts",
+        "packages/daemon/src/overseer/cycle.ts",
+        "packages/daemon/test/paid-ads-engine.test.ts"
       ],
       "origin": "new Core row"
     }
