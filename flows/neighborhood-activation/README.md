@@ -33,9 +33,9 @@ bordering an opened one, first in the Owner's order. Only the Owner opens it.
 ## Lead routing and send routes
 
 In order: do-not-contact → blocked; resident → post only; fit below 0.6 → drop; region not active → watch;
-3 touches in 30 days → capped; host with timing below 0.5 → watch for 14 days; otherwise invite. Timing halves
+3 touches in its life (or 3 in 30 days) → capped; host with timing below 0.5 → watch for 14 days; otherwise invite. Timing halves
 every 14 days. At most 50 new invites a week per region, best fit × timing first. Each lead gets a funnel
-link (host `/start/host`, live on Frequency since 2026-11-10; venue `/start/partner`; builder
+link (host `/start/host`, live on Frequency since 2026-11-10; venue `/start/host` too, the one DM door since FW-C-101; builder
 `/start/welcome`; resident `/start/event`) carrying persona, region, sub-area, Channel, source and utm tags.
 
 First invites to hosts, venues and builders go by **founder email** (one to one, honest subject, who you
@@ -64,6 +64,18 @@ Owner; at confirmed Autopilot they go to the outbox on the `frequency` channel w
 healing, transformative experiences, maker events, swaps, art, music, expression and ecstatic dance. `steer_away`
 is what hunts skip even when it matches `looking_for` (programs mainly for seniors, plain craft classes). Both go
 into a hunt cycle's brief. Edit them in `$FW_HOME/flows/neighborhood-activation/config.json` to retarget.
+
+## The v2 message system (FW-C-101)
+
+`first_map` (encinitas, carlsbad, solana-del-mar) leads the plan inside the North County region. `niches` gives
+each niche 2 or 3 angles, pain point first; every draft carries `niche`, `angle` and `route`. A lead gets 3
+touches for life (`leads.max_touches_per_lead`) and the flow reaches 15 new people a day by default. `seedDraft`
+writes a DM with no sign-off or P.S. (aim 70 words, 40 for a follow-up, `over_cap` past 120) or an email with
+the sign-off, P.S. and opt-out. Its link uses the one DM door (`dm_door`, `/start/host`, venues with
+`niche=venue`), drops persona and tags `utm_medium=one-to-one`, `utm_campaign=creator-seed`,
+`utm_content=<niche>.<tag>`. Hunt DMs are unsigned too (one short line names the source and the opt-out; past
+120 words they count as `too_long`), but keep `utm_campaign=<hunt id>` and `utm_content=<tag>` (FW-C-054).
+Hunts never fetch instagram.com or facebook.com (`fetchAllowed`; a hunt link there answers 400).
 
 ## Spend cap and engine
 
