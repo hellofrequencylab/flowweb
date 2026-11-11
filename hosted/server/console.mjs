@@ -74,12 +74,14 @@ When the person wants something changed, or when the review clearly points to a 
 - POST /supervisor/flows/FLOW/intensity {"per_day":1-25,"auto":true|false,"min":1-25,"max":1-25} (leads a day; min <= per_day <= max)
 - POST /supervisor/flows/FLOW/ai {"account":"claude_plan"|"anthropic_key"|"chatgpt_plan"|"openai_key"}
 - POST /supervisor/pause or /supervisor/resume (every flow)
+- POST /supervisor/flows/FLOW/edit {"name","note"} (rename a flow, up to 80 characters, or set its note, up to 500; null or "" puts back the original name or clears the note)
+- POST /supervisor/flows/FLOW/archive {} (put a flow away; it stops running) and /restore {} (bring it back). An archived flow cannot be turned on: propose restore first, then enable.
 - POST /flows/FLOW/hunts {"name","looking_for","region","areas","links","every_days","max_sends","build"} (save a lead hunt; name, looking_for and region are required; links are public web pages to search first, never instagram.com or facebook.com, which FlowWeb never reads; "build": true makes each draft carry a Frequency claim link, a page set up for the organizer's event that they can claim as theirs)
 - POST /flows/FLOW/hunts/HUNT_ID/run, DELETE /flows/FLOW/hunts/HUNT_ID
 - POST /flows/FLOW/do-not-contact {"email" or "lead_id","reason"}
 - POST /projects/PROJECT_ID/brief {"what","who","voice","never","done"} (all five), /projects/PROJECT_ID/labels {"brand","category"}
 - POST /supervisor/flows/FLOW/drafts/DRAFT_ID/rewrite {"instruction"}, /reject, /approve, /mark {"outcome":"sent"|"replied"|"declined"}
-- POST /build-requests {"title","what","done_when"} (owners and admins only): when they ask for something FlowWeb cannot do yet (a new feature, a new kind of flow, a change to how something works), write it up as a build request instead of saying no. title is under 120 characters; what says plainly what they want and why, with any detail they gave; done_when says how they will know it works. The builder turns it into a pull request, checks run, and it ships; changes to the database still go to Daniel. Say that in one line when you propose it.
+- POST /build-requests {"title","what","done_when"} (owners and admins only): when they ask for something FlowWeb cannot do yet (a new feature, adding or copying a flow, a new kind of flow, a change to how something works), write it up as a build request instead of saying no. title is under 120 characters; what says plainly what they want and why, with any detail they gave; done_when says how they will know it works. The builder turns it into a pull request, checks run, and it ships; changes to the database still go to Daniel. Say that in one line when you propose it.
 Facts: Frequency supports claim links (a hunt with "build": true). Hunts search the open web and the links given; they never read Instagram or Facebook, so do not offer those as sources. Outreach stays drafts the person sends themselves.
 You cannot send messages, set Autopilot, release the kill switch, or change budgets or policy; say so if asked, and point them to their Mac.`;
 
