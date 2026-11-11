@@ -10,7 +10,7 @@
 //     database checks the role again when the request is queued.
 //   - A key-shaped question is refused before any call. Nothing is stored or logged.
 // Pure apart from the injected fetch and mirror read, so it is tested without a network.
-import { isSignInToken, refusalReason, retryWithoutBeta, SIGN_IN_TOKEN, siteKey } from './site-key.mjs';
+import { apiDetail, isSignInToken, refusalReason, retryWithoutBeta, SIGN_IN_TOKEN, siteKey } from './site-key.mjs';
 import { ASSISTANT_MODEL, looksLikeSecret } from './assistant.mjs';
 import { requestOf } from './requests.mjs';
 
@@ -202,7 +202,7 @@ export async function answerConsole(body, { env = {}, fetchImpl = fetch, role = 
   if (!res.ok) {
     const e = (await res.json().catch(() => null))?.error;
     const type = e?.type ?? 'unknown';
-    console.warn(`console: Anthropic API answered ${res.status} (${type})`);
+    console.warn(`console: Anthropic API answered ${res.status} (${type}) ${apiDetail(e?.message)}`);
     return bad(
       500,
       'upstream_failed',
