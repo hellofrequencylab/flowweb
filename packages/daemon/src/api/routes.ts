@@ -938,6 +938,8 @@ export function buildRouter(deps: ApiDeps): Router {
   });
   r.post('/v1/flows/{key}/batch/approve', async ({ req, params }) => {
     ownerOnly(req);
+    // FW-C-117: only a shipped flow, checked before anything touches the filesystem.
+    if (!Object.hasOwn(FLOWS, params.key ?? '')) throw notFound('flow', params.key);
     const body = await readJsonBody(req);
     const c = deps.supervisor;
     if (!c?.batchApprove) throw new ApiError(501, 'not_implemented', 'this fwd does not host batch approval');

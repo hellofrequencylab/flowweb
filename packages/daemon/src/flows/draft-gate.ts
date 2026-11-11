@@ -72,7 +72,44 @@ const SLOT = /\{\{\s*claim_url\s*\}\}/;
 const EMOJI = /[\p{Extended_Pictographic}\u{1F1E6}-\u{1F1FF}\u{FE0F}\u{200D}]/u;
 const SIGN_OFF = /\n\s*Daniel Tyack\s*\n[\s\S]*$/;
 const PS = /\n\s*P\.S\.[\s\S]*$/;
-const RESTRICTED_NAMES = /\b(united kingdom|england|scotland|wales|canada|europe|european union)\b/i;
+// Countries, Canadian provinces and territories, and UK nations and regions, by name (FW-C-117).
+const RESTRICTED_NAMES = new RegExp(
+  `\\b(${[
+    'united kingdom',
+    'great britain',
+    'britain',
+    'uk',
+    'u\\.k\\.',
+    'england',
+    'scotland',
+    'wales',
+    'northern ireland',
+    'canada',
+    'europe',
+    'european union',
+    'ontario',
+    'quebec',
+    'québec',
+    'british columbia',
+    'alberta',
+    'manitoba',
+    'saskatchewan',
+    'nova scotia',
+    'new brunswick',
+    'newfoundland',
+    'labrador',
+    'prince edward island',
+    'yukon',
+    'nunavut',
+    'northwest territories',
+    'greater london',
+    'east anglia',
+    'east midlands',
+    'west midlands',
+    'yorkshire',
+  ].join('|')})(?![\\p{L}])`,
+  'iu',
+);
 const RESTRICTED_TLDS = new Set([...RESTRICTED_COUNTRIES].map((c) => c.toLowerCase()).concat(['eu', 'uk']));
 
 const str = (x: unknown) => (typeof x === 'string' ? x : '');
@@ -106,7 +143,8 @@ function hostOf(x: string): string {
   return URL.canParse(x) ? new URL(x).hostname : '';
 }
 
-function onList(dnc: string[], draft: GateDraft): string | null {
+/** The do-not-contact entry this draft's address, page or lead matches, or null. */
+export function onList(dnc: string[], draft: GateDraft): string | null {
   const list = dnc
     .map((x) =>
       x
@@ -131,9 +169,11 @@ function onList(dnc: string[], draft: GateDraft): string | null {
   return null;
 }
 
-function restricted(draft: GateDraft, ctx: GateCtx): string | null {
+/** Why this draft's person is in a place the flow does not write to (EU, EEA, UK, Canada), or null. */
+export function restricted(draft: GateDraft, ctx: GateCtx = {}): string | null {
   const c = str(draft.country).toUpperCase();
   if (RESTRICTED_COUNTRIES.has(c)) return `country ${c}`;
+  if (RESTRICTED_NAMES.test(str(draft.country))) return `country ${str(draft.country)}`;
   for (const x of [draft.to, draft.contact_url]) {
     const tld = hostOf(str(x).toLowerCase()).split('.').pop() ?? '';
     if (RESTRICTED_TLDS.has(tld)) return `.${tld} address`;

@@ -5,6 +5,7 @@
 // file it writes is skips.jsonl, the reason the Owner gave for each skip, for the weekly review.
 import { appendFileSync, existsSync, mkdirSync, readdirSync, readFileSync } from 'node:fs';
 import { join } from 'node:path';
+import { dncMatch, doNotContactList } from './opt-out.ts';
 
 /** The day's size by default, the most the intensity control may raise it to, and how long a draft lasts. */
 export const TODAY_SIZE = 15;
@@ -231,10 +232,13 @@ export function todayView(o: { fwHome: string; flow: string; size: number; now?:
 
   const actions: TodayAction[] = [];
   const drafted = new Set<string>();
+  const dnc = doNotContactList(o.fwHome, o.flow);
   let expired = 0;
   for (const d of readDrafts(join(base, 'drafts'))) {
     if (d.status !== 'waiting_for_owner') continue;
     if (text(d, 'sent_at') || text(d, 'replied_at') || text(d, 'declined_at')) continue;
+    // FW-C-117: nobody on do-not-contact is offered, by address, page, lead or host.
+    if (dncMatch(dnc, d)) continue;
     const body = text(d, 'body');
     const leadId = text(d, 'lead_id');
     if (!body || leadId?.startsWith('template:') || SLOT.test(body) || SLOT.test(text(d, 'subject') ?? ''))

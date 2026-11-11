@@ -2,6 +2,7 @@
   "version": 1,
   "offer": {"name": "Frequency", "url": "https://frequencylocal.com"},
   "host_path": "/start/host",
+  "funnels_live": false,
   "send_via": "frequency",
   "send_routes": {
     "frequency": {"label": "Frequency messaging to the host", "one_to_one": true, "adds": ["the host is a member of their own Space"]}

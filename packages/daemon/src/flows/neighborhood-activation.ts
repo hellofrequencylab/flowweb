@@ -3,6 +3,7 @@
 // Design: flows/neighborhood-activation/README.md.
 import { existsSync, readFileSync } from 'node:fs';
 import { join } from 'node:path';
+import { funnelsLive, livePath } from './live-links.ts';
 import { noDashes } from './short-links.ts';
 
 export const FLOW_KEY = 'neighborhood-activation';
@@ -154,7 +155,7 @@ export function decide(cfg: FlowConfig, state: FlowState, b: Budget, now: Date):
 /** The lead's funnel link: persona, region, area, Channel and source, plus utm tags. */
 export function funnelOf(cfg: FlowConfig, l: Lead, via: SendVia) {
   const f = cfg.funnels[l.kind];
-  const url = new URL(f.path, cfg.offer.url);
+  const url = new URL(livePath(f.path, funnelsLive(cfg)), cfg.offer.url);
   const q = { persona: f.persona, region: l.territory_id, area: l.sub_area, channel: l.channel };
   const utm = { src: l.source, utm_source: 'flowweb', utm_medium: via, utm_campaign: l.territory_id };
   for (const [k, v] of Object.entries({ ...q, ...utm })) if (v) url.searchParams.set(k, v);
@@ -194,7 +195,7 @@ export function angleOf(cfg: FlowConfig, niche: string, want?: string | null): s
  */
 export function seedLink(cfg: FlowConfig, l: Lead, route: DraftRoute, tag: string): string {
   const niche = nicheOf(cfg, l);
-  const url = new URL(cfg.dm_door?.path ?? cfg.funnels.host.path, cfg.offer.url);
+  const url = new URL(livePath(cfg.dm_door?.path ?? cfg.funnels.host.path, funnelsLive(cfg)), cfg.offer.url);
   const q = { region: l.territory_id, area: l.sub_area, channel: l.channel, niche, src: l.source };
   const utm = { utm_source: 'flowweb', utm_medium: route === 'dm' ? 'one-to-one' : 'founder_email' };
   // ref names the draft on its own (FW-C-114), so one draft's link can be learned from apart from its niche.

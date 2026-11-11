@@ -6,6 +6,7 @@
 // changes what fwd does. Social sites are never fetched and ticketing sites are not crawled. Nothing here
 // publishes, posts or sends: the queue waits for the Owner, who acts on it by hand.
 import { createHash } from 'node:crypto';
+import { lookup as dnsLookup } from 'node:dns/promises';
 import { existsSync, readFileSync } from 'node:fs';
 import { join } from 'node:path';
 import { type LeadNode, leadsPath, loadGraph, nodesFor, refreshLeads } from './leads.ts';
@@ -56,6 +57,71 @@ export function refusedUrl(raw: string): string | null {
   if (BLOCKED.some((d) => host === d || host.endsWith(`.${d}`)) || /(^|\.)eventbrite\.[a-z.]+$/.test(host))
     return `${host} is never fetched; paste the listing text instead`;
   return null;
+}
+
+/** Every address a host name resolves to. */
+export type Lookup = (host: string) => Promise<string[]>;
+const systemLookup: Lookup = async (h) =>
+  (await dnsLookup(h, { all: true, verbatim: true })).map((a) => a.address);
+/** fwd's own default port: a calendar fetch never reaches the daemon itself. */
+const FWD_PORT = '7317';
+
+const v4 = (ip: string): number[] | null => {
+  const p = ip.split('.').map(Number);
+  return p.length === 4 && p.every((n) => Number.isInteger(n) && n >= 0 && n <= 255) ? p : null;
+};
+
+/**
+ * What kind of address fwd must not fetch from (FW-C-117): private, link-local, unique-local, carrier
+ * NAT, unspecified, multicast or broadcast, and loopback unless allowed. Null for a public address.
+ */
+export function privateAddress(raw: string, allowLoopback = false): string | null {
+  let ip = raw
+    .toLowerCase()
+    .replace(/^\[|\]$/g, '')
+    .replace(/%.*$/, '');
+  const mapped = /^(?:0{0,4}:){0,5}:?ffff:(.+)$/.exec(ip)?.[1];
+  if (mapped) {
+    const hex = /^([0-9a-f]{1,4}):([0-9a-f]{1,4})$/.exec(mapped);
+    ip = hex
+      ? [parseInt(hex[1] as string, 16), parseInt(hex[2] as string, 16)]
+          .flatMap((n) => [n >> 8, n & 255])
+          .join('.')
+      : mapped;
+  }
+  const a = v4(ip);
+  if (a) {
+    const [x = 0, y = 0] = a;
+    if (x === 127) return allowLoopback ? null : 'loopback';
+    if (x === 10 || (x === 172 && y >= 16 && y <= 31) || (x === 192 && y === 168)) return 'private';
+    if (x === 169 && y === 254) return 'link-local';
+    if (x === 100 && y >= 64 && y <= 127) return 'carrier NAT';
+    if (x === 0 || x >= 224) return 'unspecified, multicast or broadcast';
+    return null;
+  }
+  if (!ip.includes(':')) return null;
+  if (/^[0:]+1$/.test(ip)) return allowLoopback ? null : 'loopback';
+  if (/^[0:]+$/.test(ip)) return 'unspecified';
+  if (/^fe[89ab][0-9a-f]?:/.test(ip)) return 'link-local';
+  if (/^f[cd][0-9a-f]{0,2}:/.test(ip)) return 'unique-local';
+  if (/^ff[0-9a-f]{0,2}:/.test(ip)) return 'multicast';
+  return null;
+}
+
+/** Reads at most cap bytes of a body, stopping the stream there. */
+async function readCapped(res: Response, cap: number): Promise<string> {
+  if (!res.body) return (await res.text()).slice(0, cap);
+  const reader = res.body.getReader();
+  const chunks: Uint8Array[] = [];
+  let n = 0;
+  while (n < cap) {
+    const { done, value } = await reader.read();
+    if (done) break;
+    chunks.push(value);
+    n += value.byteLength;
+  }
+  await reader.cancel().catch(() => undefined);
+  return new TextDecoder().decode(Buffer.concat(chunks).subarray(0, cap));
 }
 
 /** A link worth keeping: http or https only, so a javascript: or data: link never reaches the page. */
@@ -287,14 +353,39 @@ export function parseRss(text: string, feedUrl: string | null, now: Date): Extra
   return out;
 }
 
-/** One fetch of a calendar or feed: no redirects followed, a size cap, a timeout. */
+/**
+ * One fetch of a calendar or feed: no redirects followed, a size cap read as it streams, a timeout, and
+ * never a private, link-local or unique-local address (the host name is resolved first, and every address
+ * it resolves to must be public). Loopback stays allowed by default (a calendar served on this machine),
+ * except fwd's own port. A caller that brings its own fetch brings its own lookup, or none.
+ */
 export async function fetchCalendar(
   url: string,
   now: Date,
   get: typeof fetch = fetch,
+  o: { lookup?: Lookup; allowLoopback?: boolean } = {},
 ): Promise<{ source: IntakeSource; events: Extracted[] }> {
   const why = refusedUrl(url);
   if (why) throw new IntakeError(400, why);
+  const u = new URL(url);
+  const loopback = o.allowLoopback ?? true;
+  const port = u.port || (u.protocol === 'https:' ? '443' : '80');
+  const lookup = o.lookup ?? (get === fetch ? systemLookup : null);
+  let addrs = [u.hostname];
+  if (!privateAddress(u.hostname) && !/^\[|^[\d.]+$/.test(u.hostname) && lookup) {
+    try {
+      addrs = await lookup(u.hostname);
+    } catch (e) {
+      throw new IntakeError(502, `could not resolve ${u.hostname}: ${e instanceof Error ? e.message : e}`);
+    }
+  }
+  for (const a of addrs) {
+    const kind = privateAddress(a, loopback);
+    if (kind)
+      throw new IntakeError(400, `${u.hostname} is a ${kind} address; fwd fetches public calendars only`);
+    if (privateAddress(a) === 'loopback' && [FWD_PORT, process.env.FW_PORT].includes(port))
+      throw new IntakeError(400, 'that address is FlowWeb itself');
+  }
   let res: Response;
   try {
     res = await get(url, { redirect: 'manual', signal: AbortSignal.timeout(15_000) });
@@ -304,7 +395,7 @@ export async function fetchCalendar(
   if (res.status >= 300 && res.status < 400)
     throw new IntakeError(400, 'the address redirects; give the calendar address it points to');
   if (!res.ok) throw new IntakeError(502, `the calendar answered ${res.status}`);
-  const text = (await res.text()).slice(0, MAX_FETCH_BYTES);
+  const text = await readCapped(res, MAX_FETCH_BYTES);
   if (/BEGIN:VCALENDAR/i.test(text)) return { source: 'ical', events: parseIcal(text, url) };
   if (/<(rss|feed|rdf:RDF)[\s>]/i.test(text)) return { source: 'rss', events: parseRss(text, url, now) };
   throw new IntakeError(400, 'the address is not an iCal calendar or an RSS feed');
