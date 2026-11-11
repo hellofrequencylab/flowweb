@@ -3,12 +3,13 @@
   "offer": {"name": "Frequency", "url": "https://frequencylocal.com", "pitch": "Free, local, in-person community: find or start a Circle near you around what you love.", "call_to_action": "Join a Circle near you"},
   "engine": {"adapter": "codex", "auth": "signin", "label": "ChatGPT sign-in through the Codex CLI (FW_CODEX_AUTH=signin)", "fallback": "OpenAI API key, billed per token", "runs_on": "local fwd only; the hosted mirror stores no subscription sign-in"},
   "seed_territory_id": "north-county-sd",
+  "first_map": {"territory_id": "north-county-sd", "sub_areas": ["encinitas", "carlsbad", "solana-del-mar"], "note": "v2: win the coastal North County strip first. These sub-areas are worked before the rest of the region, which stays the unit for activation and expansion."},
   "territories": [
     {"id": "north-county-sd", "name": "North County San Diego", "order": 1, "lat": 33.17, "lng": -117.2, "borders": ["orange-county", "inland-north", "san-diego"], "sub_areas": [
-      {"id": "oceanside", "name": "Oceanside", "population": 172000},
+      {"id": "encinitas", "name": "Encinitas, Leucadia and Cardiff", "population": 62000},
       {"id": "carlsbad", "name": "Carlsbad", "population": 115000},
-      {"id": "encinitas", "name": "Encinitas and Leucadia", "population": 62000},
       {"id": "solana-del-mar", "name": "Solana Beach and Del Mar", "population": 17000},
+      {"id": "oceanside", "name": "Oceanside", "population": 172000},
       {"id": "vista", "name": "Vista", "population": 101000},
       {"id": "san-marcos", "name": "San Marcos", "population": 94000},
       {"id": "escondido", "name": "Escondido", "population": 151000},
@@ -46,10 +47,41 @@
   ],
   "activation": {"hosts_floor": 100, "hosts_per_10k": 0.75, "events_per_host_14d": 1, "sub_area_share": 0.8, "channels_per_sub_area": 4, "wam_per_host": 10, "hold_weeks": 4, "upkeep_relapse_weeks": 2},
   "max_active_sub_areas": 5,
-  "leads": {"fit_threshold": 0.6, "timing_threshold": 0.5, "timing_half_life_days": 14, "max_touches_per_lead_30d": 3, "watch_recheck_days": 14, "max_new_invites_per_week": 50},
+  "leads": {"fit_threshold": 0.6, "timing_threshold": 0.5, "timing_half_life_days": 14, "max_touches_per_lead_30d": 3, "max_touches_per_lead": 3, "touch_days": [0, 5, 12], "watch_recheck_days": 14, "max_new_invites_per_week": 105, "max_new_contacts_per_day": 15},
+  "niches": [
+    {"key": "sound", "label": "Sound baths and sound healing", "angles": [
+      {"key": "fill_room", "line": "Filling the room every week takes more than one post."},
+      {"key": "fees", "line": "Ticket and platform fees eat into every bath."},
+      {"key": "scattered", "line": "Your crowd is spread across Instagram, WhatsApp and email."}]},
+    {"key": "breathwork", "label": "Breathwork circles", "angles": [
+      {"key": "fill_room", "line": "Filling the circle every week takes more than one post."},
+      {"key": "scattered", "line": "Your people are spread across Instagram, WhatsApp and email."},
+      {"key": "own_page", "line": "No page or email list of your own to bring people back."}]},
+    {"key": "yoga", "label": "Yoga classes and teachers", "angles": [
+      {"key": "own_page", "line": "Your classes live on the studio's page, not one of your own."},
+      {"key": "scattered", "line": "Your students are spread across Instagram, WhatsApp and email."},
+      {"key": "fill_room", "line": "Filling a class every week takes more than one post."}]},
+    {"key": "ecstatic-dance", "label": "Ecstatic and conscious dance", "angles": [
+      {"key": "fill_room", "line": "Filling the floor every week takes more than one post."},
+      {"key": "fees", "line": "Ticket and platform fees eat into every night."},
+      {"key": "scattered", "line": "Your dancers are spread across Instagram, WhatsApp and email."}]},
+    {"key": "music", "label": "Music, jams and open mics", "angles": [
+      {"key": "fill_room", "line": "Getting a room to show up every week takes more than one post."},
+      {"key": "own_page", "line": "No page or list of your own for the regulars."},
+      {"key": "scattered", "line": "Your regulars are spread across Instagram, WhatsApp and email."}]},
+    {"key": "makers-art", "label": "Makers, art nights and open studios", "angles": [
+      {"key": "fees", "line": "Ticket and platform fees eat into every workshop."},
+      {"key": "own_page", "line": "No page or email list of your own to bring people back."},
+      {"key": "fill_room", "line": "Filling every seat takes more than one post."}]},
+    {"key": "venue", "label": "Studios and venues", "angles": [
+      {"key": "teachers_alone", "line": "Your teachers each promote their own classes, alone."},
+      {"key": "own_page", "line": "One page and calendar for every teacher in the room."}]}
+  ],
+  "sequence": {"email_batch_approval": true},
+  "dm_door": {"path": "/start/host", "venue_niche": "venue", "note": "v2: one door for every DM. Venues use it with niche venue. DM links carry area, channel and niche, never persona."},
   "funnels": {
     "host": {"path": "/start/host", "persona": "practitioner"},
-    "venue": {"path": "/start/partner", "persona": "partner"},
+    "venue": {"path": "/start/host", "persona": "partner"},
     "builder": {"path": "/start/welcome", "persona": "builder"},
     "resident": {"path": "/start/event", "persona": "visitor"}
   },
@@ -57,7 +89,7 @@
     "founder_email": {"label": "Your own email, as the founder", "one_to_one": true, "needs": ["honest subject", "who you are", "one-line opt-out: reply no and I won't write again"]},
     "frequency": {"label": "Frequency messaging", "one_to_one": false, "adds": ["unsubscribe link", "postal address"]}
   },
-  "hunts": {"audience": {"focus": ["breathwork", "yoga", "sound healing and sound baths", "transformative experiences and personal growth workshops", "maker events and hackerspace nights", "clothing, plant and gear swaps", "art nights and open studios", "live and participatory music, jams and drum circles", "expression: dance, movement, open mics, poetry and improv", "ecstatic dance and conscious dance"], "steer_away": ["programs mainly for seniors", "plain craft classes (wreaths, quilling, holiday ornaments)", "kids-only classes", "tech help and how-to-use-a-computer classes"]}, "sign_off": "Daniel Tyack\nFounder\nfrequencylocal.com", "local_to": "San Diego (North County)", "send_via": "frequency", "note": "Saved hunts live in $FW_HOME/flows/neighborhood-activation/hunts.json (FW-C-041). fwd adds the link or claim slot, this sign-off, and a P.S. saying the Owner is local to local_to, naming the source page and offering a reply-no opt-out (FW-C-089)."},
+  "hunts": {"audience": {"focus": ["breathwork", "yoga", "sound healing and sound baths", "transformative experiences and personal growth workshops", "maker events and hackerspace nights", "clothing, plant and gear swaps", "art nights and open studios", "live and participatory music, jams and drum circles", "expression: dance, movement, open mics, poetry and improv", "ecstatic dance and conscious dance"], "steer_away": ["programs mainly for seniors", "plain craft classes (wreaths, quilling, holiday ornaments)", "kids-only classes", "tech help and how-to-use-a-computer classes"]}, "sources": {"allowed": ["search results (a handle seen in results may be kept as a contact route)", "single public event pages (Eventbrite, Meetup, Luma and the like) as lead sources, never ingested as events", "studio and venue websites", "city, library and community calendars"], "never_fetch": ["instagram.com", "facebook.com"]}, "every_days": 1, "sign_off": "Daniel Tyack\nFounder\nfrequencylocal.com", "local_to": "San Diego (North County)", "send_via": "founder_email", "note":"Saved hunts live in $FW_HOME/flows/neighborhood-activation/hunts.json (FW-C-041). fwd adds the link or claim slot, this sign-off, and a P.S. saying the Owner is local to local_to, naming the source page and offering a reply-no opt-out (FW-C-089)."},
   "sources": [
     {"key": "event_listings", "label": "Local event listings", "finds": "people already hosting classes, meetups and workshops", "reach": "personal founder email", "action_class": "outbound_email_external"},
     {"key": "business_listings", "label": "Business listings", "finds": "studios, cafes and venues with a room to host in", "reach": "personal founder email", "action_class": "outbound_email_external"},
