@@ -14,6 +14,7 @@ import { runCredentials } from '../pipeline/credentials.ts';
 import { chooseAdapter } from '../pipeline/route.ts';
 import { addFlowSpend, type CycleDeps, copyFlowFiles, flowEngine, flowStream } from './cycle.ts';
 import { SupervisorError, supervisorView } from './index.ts';
+import { meterTurn } from './meter.ts';
 
 const GOAL = [
   'Read inbound.txt in the current folder: event listings the Owner pasted or forwarded.',
@@ -123,6 +124,11 @@ export async function extractWithEngine(d: CycleDeps, flow: string, text: string
   }
   const result = await run.result;
   addFlowSpend(d, flow, Number(result.cost?.usd ?? 0), Number(result.turns ?? 0));
+  meterTurn(
+    d.fwHome,
+    { flow: flow, step: 'intake', item: stamp, cost: result.cost ?? null, adapter: result.adapter ?? null },
+    d.log,
+  );
   try {
     return (JSON.parse(readFileSync(join(dir, 'events.json'), 'utf8')) as { events?: unknown }).events ?? [];
   } catch {

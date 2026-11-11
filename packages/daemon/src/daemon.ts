@@ -36,8 +36,10 @@ import { batchApprove } from './flows/sequence.ts';
 import { reapOrphanCycles, runFlowCycle } from './overseer/cycle.ts';
 import { approveDraft, rejectDraft } from './overseer/drafts.ts';
 import {
+  copyFlow,
   createSupervisorOnFire,
   editFlow,
+  listFlows,
   readSettings,
   SupervisorError,
   setDial,
@@ -48,7 +50,6 @@ import {
   setIntensity,
   setPaused,
   setSchedule,
-  shippedFlows,
 } from './overseer/index.ts';
 import { extractWithEngine } from './overseer/intake-engine.ts';
 import { engineIntent } from './overseer/reply-engine.ts';
@@ -380,6 +381,7 @@ export async function startDaemon(opts: DaemonOptions): Promise<Daemon> {
       setFlowAi: (key, body) => setFlowAi(REPO_ROOT, fwHome, key, body),
       editFlow: (key, body) => editFlow(writer, REPO_ROOT, key, body),
       setFlowArchived: (key, archived) => setFlowArchived(writer, REPO_ROOT, key, archived),
+      copyFlow: (base, body) => copyFlow(writer, REPO_ROOT, fwHome, base, body),
       setFunnelsLive: (live) => setFunnelsLive(writer, live),
       setTeamMember: (team, role, body) => setTeamMember(writer, team, role, body),
       approveDraft: (key, id) => approveDraft({ writer, repoRoot: REPO_ROOT, fwHome, flow: key, id }),
@@ -401,7 +403,7 @@ export async function startDaemon(opts: DaemonOptions): Promise<Daemon> {
       },
       runFlow: async (key) => {
         const s = writer.get<{ id: string }>('SELECT id FROM streams WHERE key = ?', [key]);
-        if (!s || !shippedFlows(REPO_ROOT).some((f) => f.key === key))
+        if (!s || !listFlows(writer, REPO_ROOT).some((f) => f.key === key))
           throw new SupervisorError(
             'NOT_FOUND',
             `no flow named ${key} with a registered stream (turn it on first)`,
@@ -539,7 +541,7 @@ export async function startDaemon(opts: DaemonOptions): Promise<Daemon> {
         });
       // FW-C-106: host moments has no model cycle; a run of it is a scan of its events.
       if (v.outcome === 'admit' && f.streamKey === HOST_MOMENTS) setImmediate(hostMomentsNow);
-      else if (v.outcome === 'admit' && shippedFlows(REPO_ROOT).some((x) => x.key === f.streamKey))
+      else if (v.outcome === 'admit' && listFlows(writer, REPO_ROOT).some((x) => x.key === f.streamKey))
         setImmediate(() => {
           if (stopped) return;
           const ac = new AbortController();

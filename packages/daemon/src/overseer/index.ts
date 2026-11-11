@@ -16,6 +16,7 @@ import * as neighborhood from '../flows/neighborhood-activation.ts';
 import { registerFlowProjects } from '../flows/projects.ts';
 import type { OnFire } from '../scheduler/index.ts';
 import { type FlowAi, writeFlowAi } from './ai.ts';
+import { COPY_KEY_MAX, copyConfig, copyKey, flowRef, NOT_COPYABLE, writeCopyConfig } from './copies.ts';
 import { flowEngine, registerFlowStream } from './cycle.ts';
 import {
   type Caps,
@@ -73,6 +74,8 @@ export interface FlowSettings {
   name?: string;
   note?: string;
   archived?: boolean;
+  /** FW-C-121: this flow is a copy of that shipped flow (its key is "<copy_of>--<slug>"). */
+  copy_of?: string;
 }
 
 /** What an engine (a module under src/flows/) tells the Supervisor about its flow. */
@@ -159,6 +162,8 @@ export interface FlowView {
   default_name: string;
   note: string | null;
   archived: boolean;
+  /** FW-C-121: the shipped flow this one is a copy of, or null for a shipped flow. */
+  copy_of: string | null;
 }
 
 export interface SupervisorView {
@@ -204,6 +209,7 @@ export function readSettings(r: Reader): SupervisorSettings {
       name?: unknown;
       note?: unknown;
       archived?: unknown;
+      copy_of?: unknown;
     }
   >;
   for (const [k, v] of Object.entries(raw)) {
@@ -229,6 +235,8 @@ export function readSettings(r: Reader): SupervisorSettings {
       flows[k].archived = true;
       flows[k].enabled = false;
     }
+    const ref = flowRef('', k);
+    if (ref.copy && v?.copy_of === ref.base) flows[k].copy_of = ref.base;
   }
   const out: SupervisorSettings = { version: 1, paused: o?.paused === true, flows };
   if (typeof o?.funnels_live === 'boolean') out.funnels_live = o.funnels_live;
@@ -271,6 +279,45 @@ export function shippedFlows(repoRoot: string): { key: string; stream: Record<st
       }
       return { key, stream };
     });
+}
+
+/**
+ * FW-C-121: every flow the Supervisor runs: the shipped ones, then each copy the Owner made of a shipped
+ * flow, with the base flow's stream renamed to the copy's key.
+ */
+export function listFlows(
+  r: Reader,
+  repoRoot: string,
+): { key: string; base: string; stream: Record<string, unknown> }[] {
+  const shipped = shippedFlows(repoRoot);
+  const byKey = new Map(shipped.map((f) => [f.key, f.stream]));
+  const copies = Object.entries(readSettings(r).flows)
+    .filter(([key, s]) => s.copy_of && byKey.has(s.copy_of) && key.length <= COPY_KEY_MAX)
+    .map(([key, s]) => ({
+      key,
+      base: s.copy_of as string,
+      stream: { ...byKey.get(s.copy_of as string), key },
+    }))
+    .sort((a, b) => a.key.localeCompare(b.key));
+  return [...shipped.map((f) => ({ ...f, base: f.key })), ...copies];
+}
+
+/** A shipped flow or one of the Owner's copies; anything else is NOT_FOUND. */
+function requireFlow(r: Reader, repoRoot: string, key: string): void {
+  if (!listFlows(r, repoRoot).some((f) => f.key === key))
+    throw new SupervisorError('NOT_FOUND', `no flow named ${key}`);
+}
+
+/** The engine facts for a flow key: the base flow's engine, run against the copy's home. */
+function engineFor(
+  engines: Record<string, Engine>,
+  repoRoot: string,
+  fwHome: string,
+  key: string,
+  now: Date,
+): EngineFacts | null {
+  const { base, home } = flowRef(fwHome, key);
+  return engines[base]?.(repoRoot, home, now) ?? null;
 }
 
 export interface SupervisorDeps {
@@ -320,12 +367,12 @@ function verdicts(d: SupervisorDeps) {
     running_total: Object.values(live).reduce((a, n) => a + Math.max(0, n), 0),
     max_concurrent: d.maxConcurrent ?? DEFAULT_MAX_CONCURRENT,
   };
-  const flows = shippedFlows(d.repoRoot).map(({ key, stream }) => {
-    const engine = engines[key];
+  const flows = listFlows(d.reader, d.repoRoot).map(({ key, base, stream }) => {
+    const ref = flowRef(d.fwHome, key);
     let facts: EngineFacts | null = null;
     let engineError: string | null = null;
     try {
-      facts = engine ? engine(d.repoRoot, d.fwHome, now) : null;
+      facts = engineFor(engines, d.repoRoot, d.fwHome, key, now);
     } catch (e) {
       engineError = (e as Error).message;
     }
@@ -366,12 +413,13 @@ function verdicts(d: SupervisorDeps) {
         : null,
       open_asks: f.open_asks,
       schedule: streamSchedule(d.reader, key, stream),
-      intensity: intensityView(set?.intensity, d.fwHome, key, now),
-      ai: aiView(d.repoRoot, d.fwHome, key),
-      merged_into: mergedInto(d.repoRoot, key),
+      intensity: intensityView(set?.intensity, ref.home, base, now),
+      ai: aiView(d.repoRoot, ref.home, base),
+      merged_into: mergedInto(d.repoRoot, base),
       default_name: defaultName,
       note: set?.note ?? null,
       archived: set?.archived === true,
+      copy_of: ref.copy ? base : null,
     };
     return { view, verdict };
   });
@@ -386,7 +434,7 @@ function verdicts(d: SupervisorDeps) {
  */
 export function createSupervisorOnFire(d: SupervisorDeps): OnFire {
   return async (fire) => {
-    if (!shippedFlows(d.repoRoot).some((f) => f.key === fire.streamKey)) return { outcome: 'admit' };
+    if (!listFlows(d.reader, d.repoRoot).some((f) => f.key === fire.streamKey)) return { outcome: 'admit' };
     const verdict = flowVerdicts({ ...d, dueFlow: fire.streamKey }).find(
       (x) => x.view.key === fire.streamKey,
     )!.verdict;
@@ -436,7 +484,8 @@ function intensityView(
 
 /** FW-C-063: today's number of new people for a flow, as a cycle uses it. */
 export function perDayFor(r: Reader, fwHome: string, key: string, now: Date = new Date()): number {
-  return intensityView(readSettings(r).flows[key]?.intensity, fwHome, key, now).today.per_day;
+  const { base, home } = flowRef(fwHome, key);
+  return intensityView(readSettings(r).flows[key]?.intensity, home, base, now).today.per_day;
 }
 
 export class SupervisorError extends Error {
@@ -501,13 +550,12 @@ function change(
 }
 
 export function setFlowEnabled(w: Writer, repoRoot: string, key: string, enabled: boolean) {
-  if (!shippedFlows(repoRoot).some((f) => f.key === key))
-    throw new SupervisorError('NOT_FOUND', `no flow named ${key}`);
+  requireFlow(w, repoRoot, key);
   if (enabled && readSettings(w).flows[key]?.archived)
     throw new SupervisorError('CONFLICT', `${key} is archived; restore it before turning it on`);
   // Turning a flow on also files it under its project and brand (flows/<key>/project.json).
   if (enabled) {
-    registerFlowProjects(w, repoRoot, () => {}, key);
+    registerFlowProjects(w, repoRoot, () => {}, flowRef('', key).base);
     // FW-C-038: and registers its stream, so the scheduler fires it.
     registerFlowStream(w, repoRoot, key);
     // FW-C-063: at the Owner's time, when one is set.
@@ -536,8 +584,7 @@ function cleanText(v: unknown, max: number): string | null {
  * shipped definition, engine and key stay as they are.
  */
 export function editFlow(w: Writer, repoRoot: string, key: string, body: Record<string, unknown>) {
-  if (!shippedFlows(repoRoot).some((f) => f.key === key))
-    throw new SupervisorError('NOT_FOUND', `no flow named ${key}`);
+  requireFlow(w, repoRoot, key);
   const next: { name?: string | null; note?: string | null } = {};
   for (const [field, max] of [
     ['name', NAME_MAX],
@@ -574,8 +621,7 @@ export function editFlow(w: Writer, repoRoot: string, key: string, body: Record<
  * A shipped flow is never deleted from here: its definition is code, so archive is how the Owner removes it.
  */
 export function setFlowArchived(w: Writer, repoRoot: string, key: string, archived: boolean) {
-  if (!shippedFlows(repoRoot).some((f) => f.key === key))
-    throw new SupervisorError('NOT_FOUND', `no flow named ${key}`);
+  requireFlow(w, repoRoot, key);
   return change(w, { flow: key, archived }, (s) => {
     const cur = s.flows[key] ?? { enabled: false, dial: 'draft' as Dial };
     if ((cur.archived === true) === archived) return false;
@@ -601,8 +647,7 @@ function applySchedule(w: Writer, key: string): boolean {
  * on. rescheduled says whether the scheduler has to reload.
  */
 export function setSchedule(w: Writer, repoRoot: string, key: string, time: string, days: string) {
-  if (!shippedFlows(repoRoot).some((f) => f.key === key))
-    throw new SupervisorError('NOT_FOUND', `no flow named ${key}`);
+  requireFlow(w, repoRoot, key);
   try {
     scheduleCron(time, days);
   } catch (e) {
@@ -620,8 +665,7 @@ export function setSchedule(w: Writer, repoRoot: string, key: string, time: stri
 
 /** FW-C-063: how many new people a day, and whether reply rates may move it within min..max. */
 export function setIntensity(w: Writer, repoRoot: string, key: string, body: Record<string, unknown>) {
-  if (!shippedFlows(repoRoot).some((f) => f.key === key))
-    throw new SupervisorError('NOT_FOUND', `no flow named ${key}`);
+  requireFlow(w, repoRoot, key);
   let next: Intensity;
   try {
     next = parseIntensity(body);
@@ -645,10 +689,11 @@ function aiView(repoRoot: string, fwHome: string, key: string): FlowView['ai'] {
 
 /** FW-C-086: which AI account a flow uses, from Settings. body { account }. */
 export function setFlowAi(repoRoot: string, fwHome: string, key: string, body: Record<string, unknown>) {
-  if (!shippedFlows(repoRoot).some((f) => f.key === key))
+  const { base, home } = flowRef(fwHome, key);
+  if (!shippedFlows(repoRoot).some((f) => f.key === base))
     throw new SupervisorError('NOT_FOUND', `no flow named ${key}`);
   try {
-    return writeFlowAi(fwHome, key, body);
+    return writeFlowAi(home, base, body);
   } catch (e) {
     if ((e as { code?: unknown }).code === 'INVALID')
       throw new SupervisorError('INVALID', (e as Error).message);
@@ -666,6 +711,60 @@ export function setFunnelsLive(w: Writer, live: unknown) {
     else s.funnels_live = live;
     return true;
   });
+}
+
+/**
+ * FW-C-121: the Owner copies a shipped flow. Body { slug?, name?, note?, config? }: slug defaults to the next
+ * free number from 2; config is a shallow patch over the base flow's config. The copy starts off, at draft.
+ */
+export function copyFlow(
+  w: Writer,
+  repoRoot: string,
+  fwHome: string,
+  base: string,
+  body: Record<string, unknown>,
+): { changed: boolean; key: string } {
+  if (flowRef(fwHome, base).copy)
+    throw new SupervisorError('INVALID', `${base} is a copy; copy ${flowRef(fwHome, base).base} instead`);
+  if (!shippedFlows(repoRoot).some((f) => f.key === base))
+    throw new SupervisorError('NOT_FOUND', `no flow named ${base}`);
+  if (NOT_COPYABLE.has(base))
+    throw new SupervisorError(
+      'INVALID',
+      `${base} runs fixed templates or one shared queue, so it has no copies`,
+    );
+  const taken = new Set(Object.keys(readSettings(w).flows));
+  let slug = body.slug;
+  if (slug === undefined || slug === null || slug === '') {
+    let n = 2;
+    while (taken.has(`${base}--${n}`)) n++;
+    slug = String(n);
+  }
+  if (typeof slug !== 'string') throw new SupervisorError('INVALID', 'slug must be text');
+  const made = copyKey(base, slug);
+  if ('error' in made) throw new SupervisorError('INVALID', made.error);
+  const key = made.key;
+  const fields: Partial<FlowSettings> = {};
+  for (const [field, max] of [
+    ['name', NAME_MAX],
+    ['note', NOTE_MAX],
+  ] as const) {
+    if (body[field] === undefined || body[field] === null || body[field] === '') continue;
+    const t = cleanText(body[field], max);
+    if (!t) throw new SupervisorError('INVALID', `${field} must be text of 1 to ${max} characters`);
+    fields[field] = t;
+  }
+  const cfg = copyConfig(repoRoot, fwHome, base, body.config);
+  if ('error' in cfg) throw new SupervisorError('INVALID', cfg.error);
+  if (taken.has(key)) throw new SupervisorError('CONFLICT', `${key} exists already`);
+  writeCopyConfig(fwHome, key, cfg.config);
+  const out = change(w, { flow: key, copy_of: base }, (s) => {
+    if (s.flows[key]) return false;
+    s.flows[key] = { enabled: false, dial: 'draft', ...fields, copy_of: base };
+    return true;
+  });
+  if (!out.changed) throw new SupervisorError('CONFLICT', `${key} exists already`);
+  return { changed: true, key };
 }
 
 export function setPaused(w: Writer, paused: boolean) {
@@ -691,13 +790,12 @@ export function setDial(
   engines: Record<string, Engine> = ENGINES,
   now: Date = new Date(),
 ) {
-  if (!shippedFlows(repoRoot).some((f) => f.key === key))
-    throw new SupervisorError('NOT_FOUND', `no flow named ${key}`);
+  requireFlow(w, repoRoot, key);
   const dial = DIALS.find((d) => d === stop);
   if (!dial) throw new SupervisorError('INVALID', `stop must be one of ${DIALS.join(', ')}`);
   let hash: string | undefined;
   if (dial === 'autopilot') {
-    const facts = engines[key]?.(repoRoot, fwHome, now) ?? null;
+    const facts = engineFor(engines, repoRoot, fwHome, key, now);
     if (!facts)
       throw new SupervisorError('INVALID', `${key} has no decision logic, so it cannot run on Autopilot`);
     hash = confirmHash(key, facts);
@@ -755,8 +853,7 @@ export function handOff(o: {
   batch?: boolean;
 }): HandOffResult {
   const { writer: w, flow, item } = o;
-  if (!shippedFlows(o.repoRoot).some((f) => f.key === flow))
-    throw new SupervisorError('NOT_FOUND', `no flow named ${flow}`);
+  requireFlow(w, o.repoRoot, flow);
   if (!/^[A-Za-z0-9_-]{1,100}$/.test(item.id))
     throw new SupervisorError('INVALID', 'item id must be 1-100 letters, digits, _ or -');
   const held = (why: string, words: string): HandOffResult => ({
@@ -773,7 +870,7 @@ export function handOff(o: {
   if (s.paused) return held('supervisor_paused', 'The Owner paused the Supervisor.');
   let facts: EngineFacts | null = null;
   try {
-    facts = (o.engines ?? ENGINES)[flow]?.(o.repoRoot, o.fwHome, o.now ?? new Date()) ?? null;
+    facts = engineFor(o.engines ?? ENGINES, o.repoRoot, o.fwHome, flow, o.now ?? new Date());
   } catch {
     facts = null;
   }
