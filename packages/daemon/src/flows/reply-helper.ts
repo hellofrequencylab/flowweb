@@ -55,11 +55,10 @@ export interface ReplyResult {
 }
 
 export class ReplyError extends Error {
-  constructor(
-    readonly status: 400 | 404,
-    message: string,
-  ) {
+  readonly status: 400 | 404;
+  constructor(status: 400 | 404, message: string) {
     super(message);
+    this.status = status;
   }
 }
 
