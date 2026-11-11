@@ -1,0 +1,29 @@
+{
+  "id": "FW-C-102",
+  "title": "No draft that breaks a hard copy or outreach rule ever waits in the Owner's inbox: a draft gate blocks it with its reasons, checked against a facts sheet fwd keeps fresh from Frequency",
+  "core_milestone": "C1",
+  "phase": 1,
+  "epic": "C1.5 First flow",
+  "priority": "P1",
+  "size": "L",
+  "lane": "workstreams",
+  "agent_suitability": "agent",
+  "gate": "none",
+  "depends_on": [],
+  "description": "On 2026-11-11 the Owner asked for the launch machine's kept rules to become code (plan v2 section 5, v1 section 4 day 2). A pure module packages/daemon/src/flows/draft-gate.ts gives checkDraft(draft, ctx) -> {ok, blocks, warns}. It blocks an em or en dash, an emoji, any number or date found in none of the facts sheet, the event payload, the lead's own source text or the draft's own links, the word Midnight, no tagged Frequency link (utm_source set, or a frequencylocal.com/q/ short link, or the claim slot), over 120 words (links, the sign-off block and the P.S. not counted), a touch past the third, an address or domain on do-not-contact, and an EU, EEA, UK or Canada lead. It only warns on a DM over 70 words and a follow-up over 40. packages/daemon/src/flows/facts.ts reads $FW_HOME/facts.json ({beta_ends, prices, launcher_minutes, fetched_at}) and, when crd_frequencyoutcomes is set, refreshes it once a day with a signed GET of Frequency's /api/webhooks/flowweb-facts; a failed refresh keeps the last good file and records why in facts-pull.json. Where fwd stores a cycle's drafts (overseer/cycle.ts), a blocked draft is stored with status gate_blocked and its reasons, never handed off, and never counted as waiting; persistDraft stores a draft for flows that write their own, rewriting it once first when a rewrite hook is given. approveDraft refuses a gate_blocked draft. Hunt drafts always need a tagged link; a flow's own drafts.json drafts need one once its config says gate: true. No em dashes.",
+  "acceptance": [
+    "A draft with a dash, an invented price, Midnight, no tagged link, 130 words or a 4th touch is stored gate_blocked with that reason",
+    "A clean draft waits for the Owner, and a gate_blocked draft is never listed as waiting and cannot be approved",
+    "A cycle at Autopilot never hands a blocked draft to the outbox",
+    "A failed facts refresh keeps the last good facts.json and records why"
+  ],
+  "verify_probe": "pnpm probe flows/draft-gate",
+  "files_hint": [
+    "packages/daemon/src/flows/draft-gate.ts",
+    "packages/daemon/src/flows/facts.ts",
+    "packages/daemon/src/overseer/cycle.ts",
+    "packages/daemon/src/overseer/drafts.ts",
+    "packages/daemon/test/draft-gate.test.ts"
+  ],
+  "origin": "new Core row"
+}
