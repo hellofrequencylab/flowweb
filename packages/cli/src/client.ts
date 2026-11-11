@@ -107,6 +107,14 @@ export interface CloseReport {
   probe: ProbeEvidence;
 }
 
+export interface ParkReport {
+  code: string;
+  from: string;
+  to: 'parked';
+  reason: string;
+  event_id: string;
+}
+
 export interface IssueReport {
   code: string;
   work_order_id: string;
@@ -509,6 +517,8 @@ export interface CoreClient {
   ledgerNext(): Promise<{ row: RowView | null; retest_candidates: number }>;
   ledgerRetest(code: string, opts?: { repoDir?: string }): Promise<PremiseReport>;
   ledgerClose(code: string, opts: { mergedSha: string; repoDir?: string }): Promise<CloseReport>;
+  /** Optional, so an older provider still loads. */
+  ledgerPark?(code: string, opts: { reason: string }): Promise<ParkReport>;
   woIssue(code: string, opts?: { doer?: string; verifier?: string; repoDir?: string }): Promise<IssueReport>;
   auditVerify(): Promise<VerifyResult>;
   /** Stream commands: optional, so a provider without the stream model still loads. */

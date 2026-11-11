@@ -13,6 +13,7 @@ import {
   expireDecisionItems,
   labelProject,
   type ProjectAdd,
+  parkRow,
 } from '@fw/ledger';
 import { ApiError, sendError } from './api/http.ts';
 import { buildRouter, principalOf, type RunStartBody } from './api/routes.ts';
@@ -362,6 +363,7 @@ export async function startDaemon(opts: DaemonOptions): Promise<Daemon> {
     },
     ledger: {
       close: (code, mergedSha, repoDir) => closeRow(writer, code, { mergedSha, repoDir }),
+      park: async (code, reason) => parkRow(writer, code, { reason }),
     },
   });
 

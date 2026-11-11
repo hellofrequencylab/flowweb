@@ -107,6 +107,8 @@ export interface ApiDeps {
 
 export interface LedgerControls {
   close(code: string, mergedSha: string, repoDir: string): Promise<unknown>;
+  /** Owner parks a row with a reason. Optional so an older host still loads. */
+  park?(code: string, reason: string): Promise<unknown>;
 }
 
 /** FW-C-039: the project writes the CLI hands to fwd while fwd holds the writer. */
@@ -810,6 +812,24 @@ export function buildRouter(deps: ApiDeps): Router {
     let data: unknown;
     try {
       data = await c.close(params.id ?? '', b.merged_sha, b.repo_dir);
+    } catch (e) {
+      throw kernelError(e);
+    }
+    return env(() => ({ data }));
+  });
+  // The CLI's ledger park, run on fwd's writer. CLI token only, like close.
+  r.post('/v1/ledger/rows/{id}/park', async ({ req, params }) => {
+    const c = deps.ledger;
+    if (!c?.park) throw new ApiError(501, 'not_implemented', 'this fwd does not host ledger park');
+    const p = principalOf.get(req);
+    if (p?.kind !== 'cli' && p?.kind !== 'dev_no_auth')
+      throw new ApiError(403, 'forbidden', 'rows are parked with the CLI token, not a browser session');
+    const b = await readJsonBody(req);
+    if (typeof b.reason !== 'string' || b.reason.trim().length < 3)
+      throw new ApiError(400, 'validation_failed', 'a reason of at least 3 characters is required');
+    let data: unknown;
+    try {
+      data = await c.park(params.id ?? '', b.reason);
     } catch (e) {
       throw kernelError(e);
     }

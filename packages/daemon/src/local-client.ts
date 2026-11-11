@@ -162,6 +162,13 @@ export function createCoreClient(opts: LocalClientOptions): DaemonCoreClient {
         `/v1/ledger/rows/${encodeURIComponent(code)}/close`,
         { merged_sha: o.mergedSha, repo_dir: resolve(o.repoDir ?? repoDir) },
       ),
+    ledgerPark: (code, o) =>
+      viaFwdWhenLocked(
+        () => viaLedger(ledger.ledgerPark)(code, o),
+        'POST',
+        `/v1/ledger/rows/${encodeURIComponent(code)}/park`,
+        { reason: o.reason },
+      ),
     woIssue: viaLedger(ledger.woIssue),
     auditVerify: viaLedger(ledger.auditVerify),
     async status() {

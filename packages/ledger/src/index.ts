@@ -68,6 +68,7 @@ export {
   releaseLease,
 } from './leases/index.ts';
 export { createCoreClient, type LocalClientOptions, type LocalCoreClient } from './local-client.ts';
+export { type ParkReport, parkRow } from './park.ts';
 export { type CorePolicy, loadCorePolicy, type SizeRule } from './policy.ts';
 export { type PremiseOptions, type PremiseOutcome, type PremiseReport, retestPremise } from './premise.ts';
 export {

@@ -33,3 +33,34 @@ describe('ledger close route on fwd', () => {
     expect(row.json.data.status).toBe('blocked');
   });
 });
+
+describe('ledger park route on fwd', () => {
+  const home = tempHome();
+  let d: Daemon;
+  beforeAll(async () => {
+    seed(home.path);
+    d = await startDaemon({ fwHome: home.path, port: 0, devNoAuth: true, log: () => {} });
+  });
+  afterAll(async () => {
+    await d?.stop('test done');
+    home.cleanup();
+  });
+  const post = (path: string, body: unknown) => call(d.port, 'POST', `/v1${path}`, { body });
+
+  test('needs a reason', async () => {
+    expect((await post('/ledger/rows/FW-C-020/park', {})).status).toBe(400);
+  });
+
+  test('parks a blocked row with the reason', async () => {
+    const r = await post('/ledger/rows/FW-C-020/park', { reason: 'superseded' });
+    expect(r.status).toBe(200);
+    expect(r.json.data).toMatchObject({
+      code: 'FW-C-020',
+      from: 'blocked',
+      to: 'parked',
+      reason: 'superseded',
+    });
+    const row = await call(d.port, 'GET', '/v1/ledger/rows/lr_FWC020');
+    expect(row.json.data.status).toBe('parked');
+  });
+});
