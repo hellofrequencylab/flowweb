@@ -1,0 +1,17 @@
+{
+  "version": 1,
+  "offer": {"name": "Frequency", "url": "https://frequencylocal.com"},
+  "window_days": 14,
+  "group_cooldown_days": 7,
+  "open_sub_areas": [
+    {"id": "encinitas", "name": "Encinitas", "towns": ["Encinitas", "Leucadia", "Cardiff", "Cardiff by the Sea", "Olivenhain"]},
+    {"id": "carlsbad", "name": "Carlsbad", "towns": ["Carlsbad", "La Costa"]},
+    {"id": "solana-del-mar", "name": "Solana Beach and Del Mar", "towns": ["Solana Beach", "Del Mar"]}
+  ],
+  "groups": [
+    {"name": "Placeholder Encinitas neighbors group", "url": "https://example.com/replace-me", "allows_promo": false, "last_posted_at": null}
+  ],
+  "venues": [
+    {"venue": "Placeholder coffee shop that agreed to a poster", "source_tag": "qr-placeholder", "poster_dropped_at": null}
+  ]
+}
