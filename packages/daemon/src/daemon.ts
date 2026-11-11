@@ -20,6 +20,8 @@ import { buildRouter, principalOf, type RunStartBody } from './api/routes.ts';
 import type { ChainStatus } from './api/status.ts';
 import { hostAllowed, PairingStore, writeOriginAllowed } from './auth.ts';
 import { syncAll as syncCrm } from './flows/crm.ts';
+import { FLOW_KEY as LOCAL_PULSE } from './flows/local-pulse.ts';
+import { runRoundup } from './flows/local-pulse-roundup.ts';
 import { pullOutcomes } from './flows/outcomes.ts';
 import { loadFlow as loadAdsFlow } from './flows/paid-ads.ts';
 import { ga4Of, pullDue, pullGa4, readPullStatus } from './flows/paid-ads-ga4.ts';
@@ -484,9 +486,17 @@ export async function startDaemon(opts: DaemonOptions): Promise<Daemon> {
         setImmediate(() => {
           if (stopped) return;
           const ac = new AbortController();
-          const done = runFlowCycle(
-            { writer, repoRoot: REPO_ROOT, fwHome, env: process.env, log, signal: ac.signal },
-            { flow: f.streamKey, streamId: f.streamId, fireId: f.fireId },
+          // FW-C-107: local pulse fills fixed templates, so its fire drafts the roundup without a model.
+          const done = (
+            f.streamKey === LOCAL_PULSE
+              ? runRoundup({ repoRoot: REPO_ROOT, fwHome, env: process.env, fireId: f.fireId, log }).then(
+                  () => {},
+                  (e) => log(`local-pulse: run failed: ${(e as Error)?.message ?? e}`),
+                )
+              : runFlowCycle(
+                  { writer, repoRoot: REPO_ROOT, fwHome, env: process.env, log, signal: ac.signal },
+                  { flow: f.streamKey, streamId: f.streamId, fireId: f.fireId },
+                )
           ).finally(() => cycles.delete(entry));
           const entry = { flow: f.streamKey, ac, done };
           cycles.add(entry);

@@ -1,13 +1,14 @@
 // FW-C-107: the local pulse flow's data. fwd asks Frequency for the next 14 days of public events
 // (GET /api/webhooks/flowweb-upcoming, signed like the outcomes pull) and keeps the ones in the open
 // sub-areas. A failed pull keeps the last good upcoming.json and records why. It also keeps the venue QR
-// poster list (venues.json).
+// poster list (venues.json). The roundup drafts are written by local-pulse-roundup.ts.
 import { existsSync, readFileSync } from 'node:fs';
 import { join } from 'node:path';
 import type { Reader } from '@fw/eventlog';
 import { ApiError, envelope, readJsonBody } from '../api/http.ts';
 import type { Router } from '../api/router.ts';
 import { CredentialError, resolveCredential } from '../creds/index.ts';
+import { runRoundup } from './local-pulse-roundup.ts';
 import { writeJsonAtomic } from './neighborhood-admin.ts';
 import { OUTCOMES_HANDLE, sign } from './outcomes.ts';
 
@@ -283,6 +284,10 @@ export function addLocalPulseRoutes(
   deps: { reader: Reader; repoRoot: string; fwHome: string },
 ): void {
   const base = `/v1/flows/${FLOW_KEY}`;
+  r.post(`${base}/run`, async () => {
+    const data = await runRoundup({ repoRoot: deps.repoRoot, fwHome: deps.fwHome, env: process.env });
+    return envelope(deps.reader, () => ({ data }));
+  });
   r.get(`${base}/venues`, () =>
     envelope(deps.reader, () => ({ data: readVenues(deps.repoRoot, deps.fwHome) })),
   );

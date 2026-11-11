@@ -8,6 +8,7 @@ import { existsSync, mkdirSync, readdirSync, readFileSync, renameSync, writeFile
 import { join } from 'node:path';
 import type { ActorKind, Reader, Writer } from '@fw/eventlog';
 import { ownerActor, setStreamCron } from '@fw/ledger';
+import * as localPulse from '../flows/local-pulse.ts';
 import { loadFlow as loadLocalSaturation } from '../flows/local-saturation.ts';
 import * as neighborhood from '../flows/neighborhood-activation.ts';
 import { registerFlowProjects } from '../flows/projects.ts';
@@ -93,6 +94,7 @@ export const ENGINES: Record<string, Engine> = {
     const spend = paused || !capUsed(f.budget, { usd, turns }) ? { usd, turns } : { usd: 0, turns: 0 };
     return { caps: f.budget, spend, outward: f.cfg.send_routes ?? null };
   },
+  [localPulse.FLOW_KEY]: (repoRoot, fwHome) => localPulse.engineFacts(repoRoot, fwHome),
 };
 
 /** JSON with sorted keys, so the same facts always hash the same. */
