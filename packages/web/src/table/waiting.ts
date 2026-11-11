@@ -3,8 +3,14 @@ import { useLive } from '../api/live';
 import { useResource } from '../api/resource';
 import { stateOf } from '../flows/drafts';
 
-/** The flows whose drafts land in the Inbox. */
-export const INBOX_FLOWS = ['neighborhood-activation'] as const;
+/** The flows whose drafts land in the Inbox. FW-C-113: the email approval queue (S9) sits under the DMs. */
+export const INBOX_FLOWS = ['neighborhood-activation', 'email-queue'] as const;
+
+/** The heading each flow's drafts panel carries in the Inbox. */
+export const INBOX_TITLES: Record<(typeof INBOX_FLOWS)[number], string> = {
+  'neighborhood-activation': 'Drafts',
+  'email-queue': 'Emails for Email Studio',
+};
 
 /** Drafts ready to check and send: no blanks left, not sent, not handled. Null until fwd answers. */
 export function useReadyMessages(): number | null {

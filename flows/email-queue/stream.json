@@ -1,0 +1,27 @@
+{
+  "id": "stm_emailqueue1",
+  "key": "email-queue",
+  "name": "Email approval queue",
+  "project_id": "prj_frequency1",
+  "version": 1,
+  "template": "email",
+  "enabled": false,
+  "trigger": {"type": "manual"},
+  "inputs": [
+    {"name": "posted_email", "kind": "webhook_payload", "ref": "fwd://v1/flows/email-queue/drafts", "untrusted": true},
+    {"name": "facts_sheet", "kind": "query", "ref": "fw-home://facts.json", "untrusted": false}
+  ],
+  "tools": [],
+  "action_classes": ["outbound_email_external"],
+  "output": {"artifacts": ["marketing_draft_batch"], "result_schema": "run-result.json"},
+  "verifier": {"agent_profile": "marketing-reviewer", "vendor_policy": "different_vendor_preferred", "read_only": true},
+  "human_gate": {"min_tier": "L3", "approver": "owner", "gate_on": ["outbound_email_external"]},
+  "default_tier": "L1",
+  "tier_caps": {"sandbox": "L1", "staging": "L1", "production": "L1"},
+  "budget": {"caps": {"max_usd": 0, "max_turns": 0}, "period": "week"},
+  "wip_limit": 1,
+  "dedupe": {"against": ["recent_runs"], "window_hours": 1},
+  "metrics": ["emails_queued", "emails_blocked", "emails_sent_from_studio"],
+  "injection_isolation": "A posted email is text another agent wrote. fwd runs no model on it: it checks it against fixed rules and the facts sheet and stores it. It is a template for an opted-in list, so approving it is refused; the Owner pastes it into Frequency Email Studio and sends it there.",
+  "created_at": "2026-11-11T00:00:00Z"
+}
