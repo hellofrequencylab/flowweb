@@ -897,7 +897,7 @@ export function buildRouter(deps: ApiDeps): Router {
     const key = params.key ?? '';
     if (!Object.hasOwn(FLOWS, key)) throw notFound('flow', params.key);
     return env(() => {
-      const due = dueTouches(key, new Date(), deps.fwHome);
+      const due = dueTouches(key, new Date(), deps.fwHome, deps.repoRoot);
       return { data: { due, leads: Object.values(loadSequence(deps.fwHome, key).leads) } };
     });
   });

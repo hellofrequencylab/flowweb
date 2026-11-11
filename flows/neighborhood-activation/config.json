@@ -77,7 +77,7 @@
       {"key": "teachers_alone", "line": "Your teachers each promote their own classes, alone."},
       {"key": "own_page", "line": "One page and calendar for every teacher in the room."}]}
   ],
-  "sequence": {"email_batch_approval": true},
+  "sequence": {"email_batch_approval": false, "cold_max_touches": 2, "email_opt_in_only": true, "note": "Launch defaults (Owner, 2026-11-11): email touches stay off until the Owner turns batch approval on; a cold lead gets two touches, day 0 and about day 5; email only to an address that opted in. leads.max_touches_per_lead stays the lifetime cap of three."},
   "dm_door": {"path": "/start/host", "venue_niche": "venue", "note": "v2: one door for every DM. Venues use it with niche venue. DM links carry area, channel and niche, never persona."},
   "funnels": {
     "host": {"path": "/start/host", "persona": "practitioner"},

@@ -192,6 +192,7 @@ function link(cfg: Config, base: string | URL, niche: string | null, tag: string
   u.searchParams.set('utm_medium', medium);
   u.searchParams.set('utm_campaign', cfg.links.utm_campaign);
   u.searchParams.set('utm_content', niche ? `${niche}.${tag}` : tag);
+  if (!u.searchParams.has('ref')) u.searchParams.set('ref', tag);
   return u.toString();
 }
 

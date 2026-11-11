@@ -220,6 +220,25 @@ export function tagLinks(text: string, tag: string): string {
   });
 }
 
+/**
+ * FW-C-114: adds ref=<tag> to every link in the text that carries utm_source=flowweb and has no ref yet,
+ * so each draft can be learned from on its own. utm_source stays flowweb. Other text is kept.
+ */
+export function refLinks(text: string, tag: string): string {
+  return text.replace(/https?:\/\/[^\s<>"')\]]+/g, (raw) => {
+    const tail = /[.,;:!?]+$/.exec(raw)?.[0] ?? '';
+    let u: URL;
+    try {
+      u = new URL(tail ? raw.slice(0, -tail.length) : raw);
+    } catch {
+      return raw;
+    }
+    if (u.searchParams.get('utm_source') !== 'flowweb' || u.searchParams.has('ref')) return raw;
+    u.searchParams.set('ref', tag);
+    return `${u.toString()}${tail}`;
+  });
+}
+
 export const DRAFT_OUTCOMES = ['sent', 'replied', 'declined'] as const;
 export type DraftOutcome = (typeof DRAFT_OUTCOMES)[number];
 
