@@ -2,9 +2,11 @@
 // (about day 12) -> closed, and any reply or "no" closes it the same day. Three touches per person, ever.
 // State lives in $FW_HOME/flows/<flow>/sequence.json; draft marks (sent, replied, declined), the
 // do-not-contact list and the sender's outbox folders move it. Email touches go out only through
-// a batch the Owner approves (part 2), at most 20 a day. DMs stay by hand.
+// batchApprove, after the Owner approves the batch, at most 20 a day. DMs stay by hand.
 import { existsSync, mkdirSync, readdirSync, readFileSync, renameSync, writeFileSync } from 'node:fs';
 import { join } from 'node:path';
+import type { Writer } from '@fw/eventlog';
+import { handOff, SupervisorError } from '../overseer/index.ts';
 
 /** Days after touch 1 that each touch is due: touch 1 at once, touch 2 about day 5, touch 3 about day 12. */
 export const TOUCH_DAYS = [0, 5, 12] as const;
@@ -232,4 +234,136 @@ export function dueTouches(flow: string, now: Date, fwHome: string): DueTouch[] 
     });
   }
   return out.sort((a, b) => a.due_at.localeCompare(b.due_at) || a.lead.localeCompare(b.lead));
+}
+
+/** The flow's sequence settings: config.json in $FW_HOME overrides the repo's. */
+export function sequenceSettings(repoRoot: string, fwHome: string, flow: string) {
+  const home = join(flowDir(fwHome, flow), 'config.json');
+  const cfg = readJson(existsSync(home) ? home : join(repoRoot, 'flows', flow, 'config.json')) as Doc | null;
+  const seq = (cfg?.sequence ?? {}) as Doc;
+  const cap = seq.email_daily_cap;
+  return {
+    /** The Owner's 2026-11-11 choice: email touches may be batch-approved while DMs stay on Draft. */
+    email_batch_approval: seq.email_batch_approval === true,
+    email_daily_cap:
+      Number.isInteger(cap) && (cap as number) >= 1
+        ? Math.min(cap as number, EMAIL_DAILY_CAP)
+        : EMAIL_DAILY_CAP,
+  };
+}
+
+export interface BatchResult {
+  handed_off: string[];
+  held: { id: string; reason: string }[];
+  refused: { id: string; reason: string }[];
+  cap: number;
+  used_today: number;
+}
+
+const ID = /^[A-Za-z0-9_-]{1,100}$/;
+
+/**
+ * POST /v1/flows/{key}/batch/approve: the Owner approves a batch of email touches. Each one goes to the
+ * sender's outbox through handOff, at most the daily cap in any 24 hours; the rest are held for a later
+ * batch. A draft that is not an email touch, has no address, was rejected, or belongs to a closed lead
+ * or a lead past three touches is refused. Approving the same draft twice changes nothing.
+ */
+export function batchApprove(o: {
+  writer: Writer;
+  repoRoot: string;
+  fwHome: string;
+  flow: string;
+  draftIds: unknown;
+  now?: Date;
+}): BatchResult {
+  const ids = o.draftIds;
+  if (!Array.isArray(ids) || ids.length === 0 || ids.length > 100 || !ids.every((x) => typeof x === 'string'))
+    throw new SupervisorError('INVALID', 'draft_ids must be a list of 1 to 100 draft ids');
+  const now = o.now ?? new Date();
+  const set = sequenceSettings(o.repoRoot, o.fwHome, o.flow);
+  const s = syncSequence(o.fwHome, o.flow, now);
+  const byDraft = new Map<string, SeqLead>();
+  for (const l of Object.values(s.leads)) for (const t of l.touches) byDraft.set(t.draft_id, l);
+  let used = Object.values(s.handed_off).filter((at) => now.getTime() - Date.parse(at) < DAY).length;
+  const res: BatchResult = {
+    handed_off: [],
+    held: [],
+    refused: [],
+    cap: set.email_daily_cap,
+    used_today: used,
+  };
+  const dir = join(flowDir(o.fwHome, o.flow), 'drafts');
+  for (const id of new Set(ids as string[])) {
+    const refuse = (reason: string) => res.refused.push({ id, reason });
+    const path = join(dir, `${id}.json`);
+    const d = ID.test(id) && existsSync(path) ? (readJson(path) as Doc | null) : null;
+    if (!d) {
+      refuse('not_found: no such draft');
+      continue;
+    }
+    if (s.handed_off[id] || d.status === 'handed_off') {
+      res.handed_off.push(id);
+      continue;
+    }
+    const route = routeOf(d);
+    const to = str(d, 'to');
+    if (!isEmailRoute(route)) refuse(`not_email: ${route} touches are sent by hand`);
+    else if (!to || !publicEmail(d)) refuse('no_address: this draft has no email address');
+    else if (d.status === 'rejected') refuse('rejected: the Owner rejected this draft');
+    else {
+      const l = byDraft.get(id) ?? s.leads[leadKeyOf(d)];
+      const n = l ? l.touches.length + 1 : 1;
+      if (l?.state === 'closed') refuse(`closed: this lead's sequence ended (${l.closed_reason})`);
+      else if (n > MAX_TOUCHES) refuse('past_three_touches: three touches per person, ever');
+      else if (l?.next_due_at && Date.parse(l.next_due_at) > now.getTime())
+        refuse(`not_due: touch ${n} is due ${l.next_due_at}`);
+      else if (l && l.touches.length > 0 && !l.touches[l.touches.length - 1]?.sent_at)
+        refuse('touch_pending: the last touch has not gone out yet');
+      else if (used >= set.email_daily_cap)
+        res.held.push({ id, reason: `daily_cap: ${set.email_daily_cap} email touches a day` });
+      else {
+        const lead = {
+          to,
+          name: str(d, 'name'),
+          subject: str(d, 'subject'),
+          source_url: str(d, 'source_url'),
+          ...(d.event ? { event: d.event } : {}),
+          ...(str(d, 'region') ? { region: str(d, 'region') } : {}),
+          ...(d.build === true ? { build: true } : {}),
+          send_via: 'email',
+          sequence_touch: n,
+        };
+        const r = handOff({
+          writer: o.writer,
+          repoRoot: o.repoRoot,
+          fwHome: o.fwHome,
+          flow: o.flow,
+          item: { id, channel: String(d.channel ?? route), body: String(d.body ?? ''), lead },
+          approved: true,
+          batch: set.email_batch_approval,
+          now,
+        });
+        if (r.outcome !== 'queued') {
+          res.held.push({ id, reason: r.reason });
+          continue;
+        }
+        const at = now.toISOString();
+        const { held: _h, ...rest } = d;
+        writeAtomic(path, { ...rest, status: 'handed_off', approved_at: at });
+        const key = l?.lead ?? leadKeyOf(d);
+        const lead2 = leadOf(s, key);
+        const email = publicEmail(d);
+        if (!lead2.email && email) lead2.email = email;
+        lead2.touches.push({ n, route, draft_id: id, sent_at: null, approved_at: at });
+        advance(lead2);
+        byDraft.set(id, lead2);
+        s.handed_off[id] = at;
+        res.handed_off.push(id);
+        used++;
+      }
+    }
+  }
+  res.used_today = used;
+  saveSequence(o.fwHome, o.flow, s);
+  return res;
 }

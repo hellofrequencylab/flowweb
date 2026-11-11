@@ -18,7 +18,7 @@ import * as paidAds from '../flows/paid-ads.ts';
 import * as adsPull from '../flows/paid-ads-ga4.ts';
 import * as review from '../flows/review.ts';
 import { reviewSummary } from '../flows/review-summary.ts';
-import { dueTouches, loadSequence } from '../flows/sequence.ts';
+import { type BatchResult, dueTouches, loadSequence } from '../flows/sequence.ts';
 import { type DraftView, editDraft, listDrafts, markDraft } from '../overseer/drafts.ts';
 import { readSettings, SupervisorError, supervisorView } from '../overseer/index.ts';
 import type { RewriteProposal } from '../overseer/rewrite.ts';
@@ -136,6 +136,8 @@ export interface SupervisorControls {
   /** FW-C-046: the Owner approves or rejects one cycle draft. */
   approveDraft?(key: string, id: string): DraftView;
   rejectDraft?(key: string, id: string): DraftView;
+  /** FW-C-104: the Owner approves a batch of email sequence touches for the sender. */
+  batchApprove?(key: string, draftIds: unknown): BatchResult;
   /** FW-C-051: a proposal from the flow's engine; the draft is not changed. */
   rewriteDraft?(key: string, id: string, body: Record<string, unknown>): Promise<RewriteProposal>;
 }
@@ -740,7 +742,8 @@ export function buildRouter(deps: ApiDeps): Router {
       }
     });
 
-  // FW-C-104: the outreach sequence. GET lists the touches due now and every lead's state.
+  // FW-C-104: the outreach sequence. GET lists the touches due now and every lead's state; POST hands
+  // an approved batch of email touches to the sender, capped a day.
   r.get('/v1/flows/{key}/sequence', ({ req, params }) => {
     ownerOnly(req);
     const key = params.key ?? '';
@@ -749,6 +752,18 @@ export function buildRouter(deps: ApiDeps): Router {
       const due = dueTouches(key, new Date(), deps.fwHome);
       return { data: { due, leads: Object.values(loadSequence(deps.fwHome, key).leads) } };
     });
+  });
+  r.post('/v1/flows/{key}/batch/approve', async ({ req, params }) => {
+    ownerOnly(req);
+    const body = await readJsonBody(req);
+    const c = deps.supervisor;
+    if (!c?.batchApprove) throw new ApiError(501, 'not_implemented', 'this fwd does not host batch approval');
+    try {
+      const data = c.batchApprove(params.key ?? '', body.draft_ids);
+      return env(() => ({ data }));
+    } catch (e) {
+      throw draftError(e);
+    }
   });
 
   r.get('/v1/status-reports', ({ query }) => {
