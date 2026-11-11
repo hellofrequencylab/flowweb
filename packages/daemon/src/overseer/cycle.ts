@@ -42,6 +42,7 @@ import { runCredentials } from '../pipeline/credentials.ts';
 import { chooseAdapter } from '../pipeline/route.ts';
 import { killOrphanGroup } from '../reconciler.ts';
 import { readFlowAi } from './ai.ts';
+import { copyStream, flowRef } from './copies.ts';
 import { draftTag, refLinks, tagLinks } from './drafts.ts';
 import { handOff, perDayFor } from './index.ts';
 
@@ -80,8 +81,11 @@ export function flowStream(repoRoot: string, key: string): Record<string, unknow
 
 /** Adds the flow's stream to the ledger (active) unless it is there already. */
 export function registerFlowStream(w: Writer, repoRoot: string, key: string): void {
-  const def = flowStream(repoRoot, key);
-  if (!def) return;
+  const ref = flowRef('', key);
+  const shipped = flowStream(repoRoot, ref.base);
+  if (!shipped) return;
+  // FW-C-121: a copy runs the base flow's stream under its own key and stream id.
+  const def = ref.copy ? copyStream(shipped, key) : shipped;
   if (w.get('SELECT 1 FROM streams WHERE id = ? OR key = ?', [def.id, key])) return;
   // A flow whose project fwd does not know yet (no project.json) is not dispatched until it is.
   if (!w.get('SELECT 1 FROM projects WHERE id = ?', [def.project_id])) return;
@@ -181,6 +185,8 @@ export interface CycleDeps {
   keychain?: Parameters<typeof injectCredentials>[1]['keychain'];
   /** Aborting it kills the vendor process group; the cycle still ends in a report. */
   signal?: AbortSignal;
+  /** FW-C-121: fwd's own $FW_HOME when fwHome is a copy's home (settings, outbox and hand-offs use it). */
+  rootHome?: string;
   /** Builds the adapter (tests pass a stub); createAdapter otherwise. */
   adapterFactory?: (
     name: AdapterName,
@@ -190,6 +196,8 @@ export interface CycleDeps {
 
 export interface CycleFire {
   flow: string;
+  /** FW-C-121: the copy's key when this fire is a copy's; flow is then its base flow. */
+  copy?: string;
   streamId: string;
   fireId: string;
 }
@@ -326,8 +334,27 @@ export function brief(
   return lines.join('\n');
 }
 
-/** Runs one cycle of a flow for an admitted fire. Never throws; failures end in a report. */
+/** The flow key and home a cycle's settings and hand-offs use: the copy's own key on fwd's own home. */
+const owner = (d: CycleDeps, fire: CycleFire) => ({
+  fwHome: d.rootHome ?? d.fwHome,
+  flow: fire.copy ?? fire.flow,
+});
+
+/**
+ * Runs one cycle of a flow for an admitted fire. Never throws; failures end in a report. FW-C-121: a copy's
+ * fire runs its base flow against the copy's home, so its state, drafts and spend stay its own.
+ */
 export async function runFlowCycle(d: CycleDeps, fire: CycleFire): Promise<void> {
+  const ref = flowRef(d.fwHome, fire.flow);
+  if (ref.copy)
+    return runCycle(
+      { ...d, fwHome: ref.home, rootHome: d.fwHome },
+      { ...fire, flow: ref.base, copy: fire.flow },
+    );
+  return runCycle(d, fire);
+}
+
+async function runCycle(d: CycleDeps, fire: CycleFire): Promise<void> {
   const w = d.writer;
   const log = d.log ?? (() => {});
   const stream = flowStream(d.repoRoot, fire.flow) ?? {};
@@ -482,7 +509,7 @@ export async function runFlowCycle(d: CycleDeps, fire: CycleFire): Promise<void>
       const rec: VendorRecord = {
         pgid,
         started_at: started,
-        flow: fire.flow,
+        flow: owner(d, fire).flow,
         fire_id: fire.fireId,
         stream_id: fire.streamId,
         adapter: adapterName,
@@ -576,17 +603,11 @@ export async function runFlowCycle(d: CycleDeps, fire: CycleFire): Promise<void>
         );
         const handed =
           channel && !unaddressed && gate.ok
-            ? handOff({
-                writer: w,
-                repoRoot: d.repoRoot,
-                fwHome: d.fwHome,
-                flow: fire.flow,
-                item: { id, channel, body },
-              })
+            ? handOff({ writer: w, repoRoot: d.repoRoot, ...owner(d, fire), item: { id, channel, body } })
             : null;
         const created = nowIso();
         const doc = {
-          flow: fire.flow,
+          flow: owner(d, fire).flow,
           id,
           fire_id: fire.fireId,
           lead_id: leadId,
@@ -618,7 +639,7 @@ export async function runFlowCycle(d: CycleDeps, fire: CycleFire): Promise<void>
   }
   const body = {
     stream_id: fire.streamId,
-    flow: fire.flow,
+    flow: owner(d, fire).flow,
     fire_id: fire.fireId,
     adapter: adapterName,
     outcome,
@@ -696,6 +717,9 @@ export function reapOrphanCycles(
   log: (m: string) => void = () => {},
 ): string[] {
   const reaped: string[] = [];
+  // FW-C-121: each copy keeps its cycles under its own home, so those are reaped too.
+  for (const copy of listDirs(join(fwHome, 'copies')))
+    reaped.push(...reapOrphanCycles(w, repoRoot, join(fwHome, 'copies', copy), log));
   const flowsDir = join(fwHome, 'flows');
   for (const flow of listDirs(flowsDir)) {
     const cyclesDir = join(flowsDir, flow, 'cycles');
@@ -716,7 +740,7 @@ export function reapOrphanCycles(
         ensureReporter(w);
         writeCycleReport(w, {
           streamId: typeof rec.stream_id === 'string' ? rec.stream_id : '',
-          projectId: String(flowStream(repoRoot, flowKey)?.project_id ?? ''),
+          projectId: String(flowStream(repoRoot, flowRef('', flowKey).base)?.project_id ?? ''),
           started: typeof rec.started_at === 'string' ? rec.started_at : nowIso(),
           body: {
             stream_id: rec.stream_id ?? null,
@@ -796,7 +820,7 @@ async function runHunts(
   const leads = existsSync(p) ? parseLeads(JSON.parse(readFileSync(p, 'utf8'))) : [];
   const state = f.state as typeof f.state & { hunt_contacts?: HuntContacts };
   // FW-C-063: no more new people today than the Owner's intensity (after auto) allows.
-  const perDay = perDayFor(d.writer, d.fwHome, fire.flow, now);
+  const perDay = perDayFor(d.writer, owner(d, fire).fwHome, owner(d, fire).flow, now);
   const { kept, counts } = screenLeads({ cfg: f.cfg, state, hunts, leads, now, perDay });
   const contacts = { ...(state.hunt_contacts ?? {}) };
   for (const k of kept) {
@@ -846,13 +870,12 @@ async function runHunts(
       ? handOff({
           writer: d.writer,
           repoRoot: d.repoRoot,
-          fwHome: d.fwHome,
-          flow: fire.flow,
+          ...owner(d, fire),
           item: { id: k.id, channel: 'frequency', body, lead: { ...lead, subject } },
         })
       : null;
     const doc = {
-      flow: fire.flow,
+      flow: owner(d, fire).flow,
       id: k.id,
       fire_id: fire.fireId,
       ...lead,
