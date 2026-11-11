@@ -81,7 +81,11 @@ async function startFwd(home) {
   const port = await freePort();
   const d = spawnTs(DAEMON_BIN, ['--home', home, '--port', String(port)], { env: { FW_HOME: home, FW_VENDOR: 'fake' } });
   kids.push(d);
-  await waitFor(() => /listening on/.test(d.output()) || d.exitCode !== null, { timeoutMs: 30000, what: 'fwd to listen' });
+  // Both lines, so a slow write of the second one is not read as a missing token.
+  await waitFor(() => (/listening on/.test(d.output()) && /CLI token file: \S+\n/.test(d.output())) || d.exitCode !== null, {
+    timeoutMs: 30000,
+    what: 'fwd to listen and print its token file',
+  });
   check(d.exitCode === null, `fwd did not start: ${d.output().trim().split('\n')[0]}`);
   const tokenPath = /CLI token file: (\S+)/.exec(d.output())?.[1];
   check(tokenPath, 'fwd did not print "CLI token file: <path>"');
