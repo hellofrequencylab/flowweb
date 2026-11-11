@@ -990,3 +990,39 @@ export interface AdsFlow extends Envelope {
     last: { ok: boolean; at: string; days?: number; error?: string } | null;
   } | null;
 }
+
+/** FW-C-123: one agent on a team, with its personality card. Building roles have no card (nulls). */
+export type TeamLevel = 'ceo' | 'exec' | 'manager' | 'staff' | 'contractor' | 'building';
+export interface TeamMember {
+  id: string;
+  level: TeamLevel;
+  department: string | null;
+  title: string;
+  name: string;
+  default_name: string;
+  archetype: string | null;
+  voice: string | null;
+  default_voice: string | null;
+  says: string | null;
+  cares_about: string | null;
+  judged_on: string | null;
+  never: string | null;
+  escalates: string | null;
+  tier: 'top' | 'mid' | 'small' | 'theirs' | 'none';
+  face: string | null;
+  reports_to: string | null;
+  flows: string[];
+  status: 'working' | 'bench';
+}
+
+/** FW-C-123: the main team (the owner's CEO) and one per business brand. */
+export interface Team {
+  key: string;
+  brand: string | null;
+  label: string;
+  members: TeamMember[];
+}
+
+export interface Teams extends Envelope {
+  teams: Team[];
+}

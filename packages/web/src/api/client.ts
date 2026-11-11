@@ -981,6 +981,18 @@ export const api = {
   /** FW-C-118: links to Frequency's funnel pages on or off for every flow; null hands it back to the Mac. */
   setFunnelsLive: (live: boolean | null, onQueued?: () => void) =>
     ownerWrite<unknown>('POST', '/supervisor/funnels-live', { live }, onQueued),
+  /** FW-C-123: the Owner's agent teams. */
+  async team(): Promise<V.Teams> {
+    const e = await get<Omit<V.Teams, 'data_as_of'>>('/team');
+    return { data_as_of: e.as_of, ...e.data };
+  },
+  /** FW-C-123: rename an agent or change its voice; null restores the default. */
+  setTeamMember: (
+    team: string,
+    role: string,
+    change: { name?: string | null; voice?: string | null },
+    onQueued?: () => void,
+  ) => ownerWrite<unknown>('POST', `/team/${enc(team)}/${enc(role)}`, change, onQueued),
   /** FW-C-062: pause or resume every flow. */
   setSupervisorPaused: (paused: boolean, onQueued?: () => void) =>
     ownerWrite<unknown>('POST', `/supervisor/${paused ? 'pause' : 'resume'}`, {}, onQueued),
