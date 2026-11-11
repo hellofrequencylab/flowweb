@@ -4,7 +4,7 @@
     "profile": "core",
     "schema": "ledger-row/1",
     "generated": "2026-11-09",
-    "row_count": 156,
+    "row_count": 157,
     "conventions": {
       "verify_probe": "Same convention as 04-build-plan/backlog.json: 'pnpm probe <path>' runs probes/<path>.probe.ts, a Tier 0 file written before the implementation row starts and never edited by the agent doing the row. Every probe fails today because its target does not exist (a missing probe file exits 2, a missing behaviour exits 1). The probe pack for a milestone is committed by the Owner or a pair session before the milestone's rows start.",
       "status": "All rows start as open. Status lives only in the ledger database (imported with fw ledger sync), never in prose.",
@@ -28,7 +28,7 @@
       }
     },
     "full_plan_rows_included": 37,
-    "new_core_rows": 107
+    "new_core_rows": 108
   },
   "rows": [
     {
@@ -5493,6 +5493,37 @@
         "packages/daemon/src/overseer/intake-engine.ts",
         "packages/daemon/src/api/routes.ts",
         "packages/daemon/test/meter.test.ts"
+      ],
+      "origin": "new Core row"
+    },
+    {
+      "id": "FW-C-133",
+      "title": "The Owner picks how the crew talks (Straight, House or Theatrical), and personality shows only in headlines, empty states and check-ins",
+      "core_milestone": "C1",
+      "phase": 1,
+      "epic": "C1.5 First flow",
+      "priority": "P2",
+      "size": "M",
+      "lane": "workstreams",
+      "agent_suitability": "agent",
+      "gate": "none",
+      "depends_on": [
+        "FW-C-061"
+      ],
+      "description": "Master plan v2 (2026-11-11): opening FlowWeb should feel like checking in on a crew that has it handled and is mildly theatrical about it. Dry and confident, never a cartoon mascot: no emoji confetti, no exclamation-mark cheer. Each Owner sets a personality dial: straight, house (the default) or theatrical. Personality lives only in three slots: headlines, empty states and check-ins. A pure catalog LINES[slot][voice] holds at least 5 lines per slot and voice, with no em dash, exclamation mark or emoji, and Straight shares no line with Theatrical. pick(slot, voice, week, used) is stable and never repeats a line within a week while an unused one is left, so the voice does not get old. Numbers, warnings, money and anything that sends stay plain: plain(kind, value) takes no voice. Only the Owner hears the crew; customers always get the brand voice, so drafts never read the dial. GET and POST /v1/voice read and set the dial, and it survives a restart. Per-CEO heat (Juniper hotter than Kevin) comes with the roster. Wave 2 of the master plan v2.",
+      "acceptance": [
+        "LINES has at least 5 clean lines for headline, empty_state and check_in in each of straight, house and theatrical; Straight and Theatrical share none",
+        "pick is stable and five picks in one week never repeat; plain formats $1.50 and 1,234 and takes no voice",
+        "A fresh fwd answers house; POST /v1/voice sets theatrical (unknown voice 400, no session 401) and it survives a restart"
+      ],
+      "verify_probe": "pnpm probe flows/voice-dial",
+      "files_hint": [
+        "packages/daemon/src/voice/lines.ts",
+        "packages/daemon/src/api/routes.ts",
+        "packages/daemon/src/daemon.ts",
+        "packages/daemon/test/voice-lines.test.ts",
+        "packages/web/src/api/client.ts",
+        "packages/web/src/settings/SettingsPage.tsx"
       ],
       "origin": "new Core row"
     }
