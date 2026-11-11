@@ -1,0 +1,31 @@
+{
+  "id": "FW-C-141",
+  "title": "A flow that earns the next dial stop shows as a promotion card the Owner approves, a bad send demotes it at once, and badges come only from real rows",
+  "core_milestone": "C1",
+  "phase": 1,
+  "epic": "C1.5 First flow",
+  "priority": "P2",
+  "size": "M",
+  "lane": "workstreams",
+  "agent_suitability": "agent",
+  "gate": "none",
+  "depends_on": [
+    "FW-C-035",
+    "FW-C-054"
+  ],
+  "description": "The master plan's promotions and badges (2026-11-11), with the trust ladder rule: promotion is slow and Owner-approved, demotion is automatic. Pure promotionFor: Draft to Copilot after 14 days at Draft with at least 20 approved and at most 10% rejected; Copilot to Autopilot after 30 days with no bad send; Autopilot never promotes. A bad send is a sent draft whose person asked not to be contacted, or one the Owner marked a regret. Pure demotionFor: any bad send moves Autopilot to Copilot and Copilot to Draft; fwd applies it without asking and records an event, while promotion is only ever a card (GET /v1/supervisor/promotions lists them). Pure badges(facts) gives five badges in order, each with the rows behind it as evidence: first_reply, ten_rsvps, first_paid_space, zero_stalls_week, cheapest_win. GET /v1/game/badges answers them for this home. Agent cards showing results and cost per result come with the roster. Wave 4 of the master plan v2.",
+  "acceptance": [
+    "promotionFor and demotionFor follow the bars exactly, including the edges (13 days, 19 approved, 13% rejected, 29 days, one bad send)",
+    "badges earns nothing without evidence and names the rows behind each earned badge",
+    "A fresh fwd lists no promotions and no badges; one replied draft earns first_reply with that draft as evidence"
+  ],
+  "verify_probe": "pnpm probe flows/promotions",
+  "files_hint": [
+    "packages/daemon/src/game/promotions.ts",
+    "packages/daemon/src/game/badges.ts",
+    "packages/daemon/src/overseer/index.ts",
+    "packages/daemon/src/api/routes.ts",
+    "packages/daemon/test/game-promotions.test.ts"
+  ],
+  "origin": "new Core row"
+}
