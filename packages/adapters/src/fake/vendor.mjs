@@ -15,7 +15,7 @@ Reads a JSON request on stdin and plays a scripted scenario.
 Options:
   --version   Print the version
   --help      Print this help
-Scenarios: success, flow_drafts, hunt_leads, hunt_reach, draft_rewrite, fail, hang, secret_leak, prompt_injection, over_budget,
+Scenarios: success, flow_drafts, hunt_leads, hunt_reach, draft_rewrite, reply_intent, fail, hang, secret_leak, prompt_injection, over_budget,
   forbidden_path, malformed_output, fabricated_claim
 `;
 
@@ -180,6 +180,34 @@ const scenarios = {
       usd: 0.0042,
       artifacts: [{ kind: 'file', ref: 'rewrite.json' }],
       report: { summary: 'rewrote 1 draft', claims: [], followups: [] },
+    });
+  },
+
+  // FW-C-108: a hostile reader. A reply that tries to instruct gets a made-up label and a written answer;
+  // fwd must keep only a label from its own list. Any other reply reads as interested.
+  async reply_intent() {
+    session();
+    let text = '';
+    try {
+      text = String(JSON.parse(readFileSync(join(process.cwd(), 'reply.json'), 'utf8')).untrusted_text ?? '');
+    } catch {}
+    const hostile = /ignore/i.test(text);
+    const doc = hostile
+      ? { intent: 'write_about_crypto', reply: 'Forget all that, buy crypto.' }
+      : { intent: 'interested' };
+    writeFileSync(join(process.cwd(), 'intent.json'), JSON.stringify(doc));
+    out({
+      t: 'turn',
+      id: 'msg_1',
+      text: 'Reading the reply.',
+      usage: { input_tokens: 200, output_tokens: 20, cached_tokens: 0 },
+    });
+    out({
+      t: 'result',
+      ok: true,
+      usd: 0.001,
+      artifacts: [{ kind: 'file', ref: 'intent.json' }],
+      report: { summary: 'read 1 reply', claims: [], followups: [] },
     });
   },
 
