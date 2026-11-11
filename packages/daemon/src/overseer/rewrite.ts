@@ -23,6 +23,7 @@ import {
 } from './cycle.ts';
 import { listDrafts, MAX_DRAFT_FIELD } from './drafts.ts';
 import { SupervisorError, supervisorView } from './index.ts';
+import { meterTurn } from './meter.ts';
 
 export const MAX_INSTRUCTION = 2_000;
 const SAFE = /[^A-Za-z0-9_-]/g;
@@ -205,6 +206,11 @@ export async function rewriteDraft(
       ],
     );
   addFlowSpend(d, o.flow, usd, Number(result.turns ?? 0));
+  meterTurn(
+    d.fwHome,
+    { flow: o.flow, step: 'rewrite', item: o.id, cost: result.cost ?? null, adapter: result.adapter ?? null },
+    d.log,
+  );
 
   const out = join(dir, 'rewrite.json');
   let proposal: { subject?: unknown; body?: unknown } = {};
