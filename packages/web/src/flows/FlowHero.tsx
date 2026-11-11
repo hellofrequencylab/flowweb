@@ -3,8 +3,9 @@ import { useResource } from '../api/resource';
 import { Link } from '../shell/router';
 import { FlowRing, hueAt } from '../ui-kit/flow';
 import { Icon } from '../ui-kit/Icon';
-import { draftCounts, FLOW_STAGES, positionOf } from './FlowsHome';
-import { DIAL } from './flowState';
+import type { Loop, LoopInfo } from '../ui-kit/loop';
+import { type Counts, draftCounts, FLOW_STAGES, positionOf } from './FlowsHome';
+import { DIAL, flowLoop } from './flowState';
 import './flows-home.css';
 
 /**
@@ -38,6 +39,7 @@ export function FlowHero({ flowKey }: { flowKey: string }) {
           label={p && p.state !== 'quiet' && p.state !== 'unknown' ? FLOW_STAGES[p.at] : undefined}
           sublabel={p ? p.word : 'Unknown'}
           title={f && p ? `${f.name}: ${p.word}` : 'This flow: Unknown'}
+          {...(f ? stageLoops(flowLoop(f), c, f.reason) : {})}
         />
         <div className="flow-hero-text">
           <span className="overline">Run by your Supervisor</span>
@@ -68,4 +70,58 @@ export function FlowHero({ flowKey }: { flowKey: string }) {
       </div>
     </section>
   );
+}
+
+/** What each stage of a flow is, in the order of FLOW_STAGES. */
+const STAGE_WHAT = [
+  'The agent searches public event listings in your regions for organizers to invite.',
+  'Each find becomes a short, personal draft with your link.',
+  'Drafts wait here for you to read, edit and send. Nothing goes out on its own.',
+  'Drafts you copied and sent yourself, marked as sent.',
+  'Organizers who wrote back. What gets replies teaches the next cycle.',
+];
+
+/**
+ * FW-C-098: each stage's loop state and the line to the next one, from the flow's state and its draft
+ * counts. A running cycle lights Find and Draft; drafts waiting on you hold You check; Sent and Replies
+ * wait until something has been sent or answered. Every line carries the flow's own state, so a healthy loop flows all the way round.
+ */
+function stageLoops(base: Loop, c: Counts | null, reason: string): { loops: LoopInfo[]; links: LoopInfo[] } {
+  const idle = base === 'working' ? 'connected' : base;
+  const has = (n: number | undefined): Loop => (base === 'broken' ? 'broken' : n ? idle : 'waiting');
+  const states: Loop[] = [
+    base,
+    base,
+    c && c.ready > 0 ? 'waiting' : idle,
+    has(c ? c.sent + c.replied : 0),
+    has(c?.replied),
+  ];
+  const counts = c
+    ? [
+        undefined,
+        `${c.total} drafted so far.`,
+        `${c.ready} ready for you.`,
+        `${c.sent + c.replied} sent.`,
+        `${c.replied} replied.`,
+      ]
+    : [];
+  const loops = FLOW_STAGES.map((title, i) => ({
+    title,
+    loop: states[i],
+    what: STAGE_WHAT[i],
+    why: [counts[i], i < 2 ? reason : undefined].filter(Boolean).join(' ') || undefined,
+  }));
+  const links = FLOW_STAGES.map((from, i) => {
+    const to = FLOW_STAGES[(i + 1) % FLOW_STAGES.length];
+    return {
+      title: `${from} to ${to}`,
+      // The loop is as healthy as the flow: a running cycle lights the leg it is on, the rest flow slowly.
+      loop: base === 'working' && i > 0 ? 'connected' : base,
+      what:
+        i === FLOW_STAGES.length - 1
+          ? 'Replies feed back into the next search, which closes the loop.'
+          : `How work moves from ${from} to ${to}.`,
+    } satisfies LoopInfo;
+  });
+  return { loops, links };
 }

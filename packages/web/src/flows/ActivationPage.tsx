@@ -13,6 +13,7 @@ import type {
 import { Link } from '../shell/router';
 import { Gauge, IconTile } from '../ui-kit/flow';
 import { AsOf, ResourceView } from '../ui-kit/honest';
+import { type Loop, type LoopInfo, LoopProvider, useLoopTarget } from '../ui-kit/loop';
 import { PageHead } from '../ui-kit/page';
 import { StatusLabel, type StatusSpec } from '../ui-kit/status';
 import { usd } from '../ui-kit/time';
@@ -20,7 +21,7 @@ import { DraftsInbox } from './DraftsInbox';
 import { FlowControls } from './FlowControls';
 import { FlowHero } from './FlowHero';
 import { FlowPulse, MeasureDials, PipelineBar, type PulseState, RegionPath } from './FlowVisuals';
-import { flowSpec } from './flowState';
+import { flowLoop, flowSpec } from './flowState';
 import { LeadHunts } from './LeadHunts';
 import { PaidAdsPanel } from './PaidAdsPanel';
 import { WhatsWorking } from './WhatsWorking';
@@ -144,8 +145,11 @@ export function ActivationPage({ flow }: { flow?: string } = {}) {
   const sup = useResource('supervisor', () => api.supervisor(), ['runs', 'cards']);
   const pulse = pulseOf(sup.honesty === 'current' ? sup.data : null);
   const live = pulse.state === 'running';
+  // FW-C-098: the flow's loop state from a current read only; Unknown draws no state at all.
+  const supNow = sup.honesty === 'current' ? sup.data : null;
+  const loop: Loop | undefined = supNow ? flowLoop(supNow.flows.find((x) => x.key === KEY)) : undefined;
   return (
-    <>
+    <LoopProvider>
       <PageHead
         overline="Flow · drafts only"
         title={res.data?.name ?? 'Neighborhood activation'}
@@ -162,15 +166,33 @@ export function ActivationPage({ flow }: { flow?: string } = {}) {
       />
       <FlowHero flowKey={flow ?? KEY} />
       <ul className="kpis" aria-label="Flow at a glance">
-        <li className={`kpi${live ? ' is-live live-edge' : ''}`}>
+        <Kpi
+          live={live}
+          info={
+            loop && {
+              title: 'Active region',
+              loop,
+              what: 'The region the flow is working on now. It finds and drafts here until the region is fully active.',
+              why: active ? `${active.name}.` : 'No active region yet.',
+            }
+          }
+        >
           <IconTile name="flow" tone="brand" />
           <span className="kpi-text">
             <span className="kpi-value">{active ? active.name : 'Unknown'}</span>
             <span className="kpi-label">active region</span>
           </span>
-        </li>
+        </Kpi>
         <li className={`kpi${live ? ' is-live live-edge' : ''}`}>
           <Gauge
+            loop={
+              loop && {
+                title: 'Weakest measure',
+                loop,
+                what: 'How close the active region is to fully active, read from its weakest measure.',
+                why: active?.progress != null ? `${pct(active.progress)} of target.` : 'No reading yet.',
+              }
+            }
             size={60}
             value={active?.progress ?? null}
             cap={1}
@@ -183,17 +205,37 @@ export function ActivationPage({ flow }: { flow?: string } = {}) {
             <span className="kpi-label">weakest measure</span>
           </span>
         </li>
-        <li
-          className={`kpi${d && d.awaiting_owner_total > 0 ? ' is-waiting' : ''}${live ? ' is-live live-edge' : ''}`}
+        <Kpi
+          live={live}
+          extra={d && d.awaiting_owner_total > 0 ? 'is-waiting' : ''}
+          info={
+            loop && {
+              title: 'Invites waiting for you',
+              loop: d && d.awaiting_owner_total > 0 ? 'waiting' : loop === 'working' ? 'connected' : loop,
+              what: 'Drafts the flow wrote that wait for you to read, edit and send. Nothing goes out on its own.',
+              why: d ? `${d.awaiting_owner_total} waiting.` : undefined,
+            }
+          }
         >
           <IconTile name="waiting" tone={d && d.awaiting_owner_total > 0 ? 'waiting' : 'neutral'} />
           <span className="kpi-text">
             <span className="kpi-value">{d ? d.awaiting_owner_total : 'Unknown'}</span>
             <span className="kpi-label">invites waiting for you</span>
           </span>
-        </li>
+        </Kpi>
         <li className={`kpi${live ? ' is-live live-edge' : ''}`}>
           <Gauge
+            loop={
+              loop && {
+                title: 'Spend this period',
+                loop:
+                  d && d.budget.max_usd != null && d.budget.spent_usd >= d.budget.max_usd ? 'broken' : loop,
+                what: 'What the flow spent on AI this period, against its cap. At the cap the flow stops until the period ends.',
+                why: d
+                  ? `${usd(d.budget.spent_usd)}${d.budget.max_usd != null ? ` of ${usd(d.budget.max_usd)}` : ', no cap'}.`
+                  : undefined,
+              }
+            }
             size={60}
             value={d ? d.budget.spent_usd : null}
             cap={d?.budget.max_usd ?? Math.max(1, d?.budget.spent_usd ?? 1)}
@@ -224,7 +266,7 @@ export function ActivationPage({ flow }: { flow?: string } = {}) {
               n={1}
               id="na-now"
               title="Right now"
-              lede="Lines move only while a cycle is working. Still means idle."
+              lede="Lines flow fast while a cycle works and slowly while the flow is on. Tap any node or line to see what it is."
             />
             <section className={`panel${live ? ' is-live' : ''}`} aria-labelledby="na-next">
               <div className="panel-head">
@@ -237,7 +279,7 @@ export function ActivationPage({ flow }: { flow?: string } = {}) {
                   The flow never opens a region by itself. This becomes a card in Sign-offs.
                 </p>
               )}
-              <RegionPath territories={f.territories} live={live} />
+              <RegionPath territories={f.territories} live={live} loop={loop} />
               {f.plan.sub_areas.length > 0 && (
                 <Fold label="This cycle works" hint={`${f.plan.sub_areas.length} sub-areas`}>
                   <ul className="chip-list">
@@ -275,7 +317,13 @@ export function ActivationPage({ flow }: { flow?: string } = {}) {
                 {[...f.territories]
                   .sort((a, b) => a.order - b.order)
                   .map((t) => (
-                    <Region key={t.id} t={t} holdWeeks={f.thresholds.hold_weeks} live={live} />
+                    <Region
+                      key={t.id}
+                      t={t}
+                      holdWeeks={f.thresholds.hold_weeks}
+                      live={live}
+                      loop={regionLoop(t, loop)}
+                    />
                   ))}
               </div>
             </section>
@@ -435,15 +483,49 @@ export function ActivationPage({ flow }: { flow?: string } = {}) {
           </div>
         )}
       </ResourceView>
-    </>
+    </LoopProvider>
   );
+}
+
+/** FW-C-098: a region's dials take the flow's state once the flow has reached it; one not opened waits. */
+function regionLoop(t: ActivationTerritory, loop: Loop | undefined): Loop | undefined {
+  if (!loop) return undefined;
+  if (t.status === 'waiting') return 'waiting';
+  return t.status === 'upkeep' && loop === 'working' ? 'connected' : loop;
+}
+
+/** A figure tile that takes the flow's loop state and says what it is on click. */
+function Kpi({
+  live,
+  extra = '',
+  info,
+  children,
+}: {
+  live: boolean;
+  extra?: string;
+  info: LoopInfo | undefined;
+  children: ReactNode;
+}) {
+  const target = useLoopTarget();
+  const cls = `kpi${extra ? ` ${extra}` : ''}${live ? ' is-live live-edge' : ''}`;
+  return info ? <li {...target(info, cls)}>{children}</li> : <li className={cls}>{children}</li>;
 }
 
 function subAreaName(f: ActivationFlow, id: string) {
   return f.territories.flatMap((t) => t.sub_areas).find((s) => s.id === id)?.name ?? id;
 }
 
-function Region({ t, holdWeeks, live }: { t: ActivationTerritory; holdWeeks: number; live: boolean }) {
+function Region({
+  t,
+  holdWeeks,
+  live,
+  loop,
+}: {
+  t: ActivationTerritory;
+  holdWeeks: number;
+  live: boolean;
+  loop?: Loop;
+}) {
   const here = t.status === 'active';
   return (
     <section
@@ -457,7 +539,7 @@ function Region({ t, holdWeeks, live }: { t: ActivationTerritory; holdWeeks: num
         <StatusLabel spec={STATUS[t.status]} />
       </div>
       {t.measures ? (
-        <MeasureDials t={t} measures={MEASURES} compact />
+        <MeasureDials t={t} measures={MEASURES} compact loop={loop} />
       ) : (
         <p className="small muted">
           No measures yet. Targets:{' '}
