@@ -1,0 +1,38 @@
+{
+  "id": "FW-C-099",
+  "title": "The Owner sees a flow's learning, regions and spend as rings inside its outreach ring, each with its loop state, and picks the site's accent colour",
+  "core_milestone": "C1",
+  "phase": 1,
+  "epic": "C1.5 First flow",
+  "priority": "P2",
+  "size": "L",
+  "lane": "workstreams",
+  "agent_suitability": "agent",
+  "gate": "none",
+  "depends_on": [
+    "FW-C-098"
+  ],
+  "description": "On 2026-11-11 the Owner asked for one more design pass with the design system: more rings for more processes, and a compact accent picker for the site. A flow is more than its outreach cycle. The flow hero's FlowRing (outreach: Find, Draft, You check, Sent, Replies) gains inner rings drawn into the same box (FlowRing inner prop, ui-kit/orbit.tsx OrbitRings): learning (Outcomes, Weekly score, Shift, Next brief, from GET /v1/flows/{key}/review/summary), regions (in the order the flow works them, upkeep closing the ring, from the activation flow) and spend (a meter against the period cap, broken at the cap or the budget gate), with the Supervisor at the hub (flows/processes.ts). Every ring, node, line and the hub takes the FW-C-098 loop state and opens what it is on click; a legend (OrbitLegend) names each ring, outer first, with its state in words. A read fwd has not answered leaves its ring waiting and says Unknown. The accent picker (shell/AccentPicker.tsx) sits under Calm mode in Settings, Look and feel: five swatches from the design system's flow hues (teal by default, harbor blue, indigo, olive, clay; mauve is left out because it is too close to the warning purple), saved per browser in prefs.accent and set as data-accent on the root. One --accent token in tokens.css drives every loop, glow, live edge and the hero ring; status colours (saffron waiting, purple warning) never change. No em dashes.",
+  "acceptance": [
+    "The flow hero draws learning, regions and spend rings inside its outreach ring, with the Supervisor at the hub",
+    "Each inner ring maps fwd's reads to working, connected, waiting or broken; an unanswered read waits and says Unknown",
+    "Spend shows broken at its cap or when the budget gate holds the flow",
+    "A legend names every ring, outer first, with its state in words, and a click on a ring, node, line or the hub says what it is",
+    "Settings has a compact accent picker; teal is the default and the loops, glows and hero ring take the pick through --accent"
+  ],
+  "verify_probe": "pnpm probe ui/process-orbit",
+  "files_hint": [
+    "packages/web/src/ui-kit/orbit.tsx",
+    "packages/web/src/ui-kit/flow.tsx",
+    "packages/web/src/ui-kit/flow.css",
+    "packages/web/src/ui-kit/base.css",
+    "packages/web/src/ui-kit/tokens.css",
+    "packages/web/src/flows/processes.ts",
+    "packages/web/src/flows/FlowHero.tsx",
+    "packages/web/src/shell/AccentPicker.tsx",
+    "packages/web/src/shell/prefs.tsx",
+    "packages/web/src/settings/SettingsPage.tsx",
+    "packages/web/src/dawn/today.css"
+  ],
+  "origin": "new Core row"
+}
