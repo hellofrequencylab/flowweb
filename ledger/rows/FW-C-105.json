@@ -1,0 +1,38 @@
+{
+  "id": "FW-C-105",
+  "title": "The Owner works one ranked Today list of up to 15 actions (25 with intensity) in about 20 minutes",
+  "core_milestone": "C1",
+  "phase": 1,
+  "epic": "C1.5 First flow",
+  "priority": "P1",
+  "size": "L",
+  "lane": "workstreams",
+  "agent_suitability": "agent",
+  "gate": "none",
+  "depends_on": [
+    "FW-C-066"
+  ],
+  "description": "Launch machine v2, loop 2 (Reach). On 2026-11-11 the Owner asked for the daily batch to become Today: one ranked list he works in about 20 minutes each weekday morning. fwd serves GET /v1/flows/{key}/today (packages/daemon/src/flows/today.ts, Owner only, like the drafts): actions built from the flow's waiting drafts (cold first touch, sequence touch, warm follow-up and venue pitch, read from the draft's niche, angle, route and lead kind), proposed borderline leads (one tap to approve) and show up suggestions when there are any. Each action names the lead, niche, town, source link, route (email, dm, form or platform), the link to open (mailto, the profile or the form), the draft and its word count. It ranks by expected value: the lead score from $FW_HOME/flows/<flow>/leads.json when that file exists, sequence due dates from sequence.json when that exists, and draft age (oldest first) when neither does. The list never holds more than the day's size: 15 by default, raised by the flow's intensity up to 25, and ?size asks for fewer or more within 1 to 25. Drafts older than 3 days drop off the list without being deleted. Skipping a draft rejects it through the existing reject route with one of four reasons (wrong_niche, not_local, not_a_fit, on_frequency), which fwd records for the weekly review and counts in the Today answer. The web Today panel (packages/web/src/flows/Today.tsx) sits above the drafts inbox on the flow's page: each row shows the lead, niche, town, source link, route, word count and draft, with Copy and open, Mark sent, Edit and Skip with one-tap reasons, and the keys J, K, C, S, E and X. Approve email batch posts POST /v1/flows/{key}/batch/approve with the email-route draft ids only and shows fwd's answer, or says politely that this fwd has no batch approval yet. White with hairlines, design tokens only, no avatars, no em dashes.",
+  "acceptance": [
+    "GET /v1/flows/{key}/today answers at most 15 actions by default and at most 25 when asked, never past the day's size",
+    "With leads.json the actions rank by lead score, highest first, and proposed borderline leads appear as one-tap approvals; without it they rank by draft age, oldest first",
+    "A waiting draft older than 3 days, a rejected draft and a sent draft never appear",
+    "A skip rejects the draft with one of the four reasons, an unknown reason answers 400, and today's skip counts come back with the list",
+    "The Today panel renders the ranked list above the drafts inbox; C copies the draft and opens its route, S marks it sent, X records a skip reason, J and K move",
+    "Approve email batch posts only the email-route draft ids and shows the answer, and a 404 is shown politely"
+  ],
+  "verify_probe": "pnpm probe flows/today",
+  "files_hint": [
+    "packages/daemon/src/flows/today.ts",
+    "packages/daemon/src/api/routes.ts",
+    "packages/web/src/flows/Today.tsx",
+    "packages/web/src/flows/today.css",
+    "packages/web/src/flows/index.ts",
+    "packages/web/src/flows/ActivationPage.tsx",
+    "packages/web/src/api/client.ts",
+    "packages/web/src/api/types.ts",
+    "hosted/relay/fw-relay.mjs",
+    "hosted/server/requests.mjs"
+  ],
+  "origin": "new Core row"
+}

@@ -3,6 +3,7 @@
 // Design: flows/neighborhood-activation/README.md.
 import { existsSync, readFileSync } from 'node:fs';
 import { join } from 'node:path';
+import { noDashes } from './short-links.ts';
 
 export const FLOW_KEY = 'neighborhood-activation';
 const DAY = 86_400_000;
@@ -23,7 +24,10 @@ export type Activation = Num<'hosts_floor' | 'hosts_per_10k' | 'events_per_host_
   Num<'channels_per_sub_area' | 'wam_per_host' | 'hold_weeks' | 'upkeep_relapse_weeks'>;
 export type Funnel = { path: string; persona: string; placeholder?: boolean };
 type LeadRules = Num<'fit_threshold' | 'timing_threshold' | 'timing_half_life_days'> &
-  Num<'max_touches_per_lead_30d' | 'watch_recheck_days' | 'max_new_invites_per_week'>;
+  Num<'max_touches_per_lead_30d' | 'watch_recheck_days' | 'max_new_invites_per_week'> &
+  Partial<Num<'max_touches_per_lead' | 'max_new_contacts_per_day'>>;
+/** FW-C-101: a niche with its angles, pain point first. */
+export type Niche = { key: string; label: string; angles: { key: string; line: string }[] };
 export type FlowConfig = { version: number; seed_territory_id: string; territories: Territory[] } & {
   offer: { name: string; url: string; pitch: string; call_to_action: string };
   engine: { label: string; fallback: string; runs_on: string };
@@ -33,6 +37,11 @@ export type FlowConfig = { version: number; seed_territory_id: string; territori
   funnels: Record<LeadKind, Funnel>;
   send_routes: Record<SendVia, R<unknown>>;
   sources: { key: string; label: string; finds: string; reach: string; action_class: string }[];
+} & {
+  first_map?: { territory_id: string; sub_areas: string[] };
+  niches?: Niche[];
+  dm_door?: { path: string; venue_niche?: string };
+  hunts?: { sign_off?: string; local_to?: string };
 };
 const MEASURE_KEYS = ['hosts_active_28d', 'events_next_14d', 'sub_areas_covered_14d', 'wam'] as const;
 /** Frequency's numbers for one territory. channels_by_sub_area (optional) feeds the cycle plan. */
@@ -42,6 +51,8 @@ export type Lead = { id: string; name: string; kind: LeadKind; territory_id: str
   source: string;
   sub_area?: string;
   channel?: string;
+  niche?: string;
+  angle?: string;
 } & { fit: number; timing: number; timing_at: string; touches: Touch[]; found_at: string; status?: string };
 type Counters = { weeks_at_threshold: R<number>; weeks_below: R<number>; awaiting_owner: R<number> };
 type Opened = { opened: string[]; metrics: R<Measures>; leads: Lead[]; do_not_contact: string[] };
@@ -150,6 +161,83 @@ export function funnelOf(cfg: FlowConfig, l: Lead, via: SendVia) {
   return { path: f.path, persona: f.persona, url: url.toString() };
 }
 
+// FW-C-101: the v2 message system. Every draft is built from a niche, an angle and a route.
+export type DraftRoute = 'dm' | 'email';
+export const SEED_CAMPAIGN = 'creator-seed';
+export const WORDS = { dm: 70, follow_up: 40, hard_cap: 120 } as const;
+export const slug = (s: string) =>
+  s
+    .toLowerCase()
+    .replace(/[^a-z0-9]+/g, '-')
+    .replace(/^-+|-+$/g, '')
+    .slice(0, 32);
+export const wordCount = (s: string) => s.split(/\s+/).filter(Boolean).length;
+export const signOffOf = (cfg: FlowConfig) =>
+  cfg.hunts?.sign_off?.trim() || 'Daniel Tyack\nFounder\nfrequencylocal.com';
+export const localOf = (cfg: FlowConfig) => cfg.hunts?.local_to?.trim() || 'San Diego (North County)';
+
+/** The lead's niche: venues always use the venue niche; otherwise its own, else "other". */
+export function nicheOf(cfg: FlowConfig, l: Pick<Lead, 'kind' | 'niche'>): string {
+  if (l.kind === 'venue') return cfg.dm_door?.venue_niche ?? 'venue';
+  return slug(l.niche ?? '') || 'other';
+}
+
+/** The angle to use: the one asked for when the niche has it, else the niche's first (pain point first). */
+export function angleOf(cfg: FlowConfig, niche: string, want?: string | null): string | null {
+  const angles = cfg.niches?.find((n) => n.key === niche)?.angles ?? [];
+  return angles.find((a) => a.key === want)?.key ?? angles[0]?.key ?? (want ? slug(want) : null);
+}
+
+/**
+ * The one DM door: /start/host with region, area, Channel, niche and source. No persona. utm_source stays
+ * flowweb (short links and Frequency attribution key on it); utm_content is <niche>.<tag>.
+ */
+export function seedLink(cfg: FlowConfig, l: Lead, route: DraftRoute, tag: string): string {
+  const niche = nicheOf(cfg, l);
+  const url = new URL(cfg.dm_door?.path ?? cfg.funnels.host.path, cfg.offer.url);
+  const q = { region: l.territory_id, area: l.sub_area, channel: l.channel, niche, src: l.source };
+  const utm = { utm_source: 'flowweb', utm_medium: route === 'dm' ? 'one-to-one' : 'founder_email' };
+  const tags = { utm_campaign: SEED_CAMPAIGN, utm_content: `${niche}.${tag}` };
+  for (const [k, v] of Object.entries({ ...q, ...utm, ...tags })) if (v) url.searchParams.set(k, v);
+  return url.toString();
+}
+
+/**
+ * A Creator seed draft. A dm has no sign-off and no P.S. and aims for 70 words (40 for a follow-up); an
+ * email keeps the Owner's sign-off and a P.S. with the reply-no opt-out. Word limits are warnings; over
+ * the hard cap of 120 the draft is marked over_cap and must not be offered as it is.
+ */
+export function seedDraft(
+  cfg: FlowConfig,
+  l: Lead,
+  o: { route: DraftRoute; tag: string; opener: string; angle?: string | null; follow_up?: boolean },
+) {
+  const niche = nicheOf(cfg, l);
+  const angle = angleOf(cfg, niche, o.angle);
+  const link = seedLink(cfg, l, o.route, o.tag);
+  const opener = noDashes(o.opener.trim());
+  const body =
+    o.route === 'dm'
+      ? [opener, '', link].join('\n')
+      : [
+          opener,
+          '',
+          `If you'd like to host on Frequency, start here: ${link}`,
+          '',
+          signOffOf(cfg),
+          '',
+          `P.S. I'm local to ${localOf(cfg)}. If you aren't interested, just reply "no" and I won't reach out again.`,
+        ].join('\n');
+  const words = wordCount(body);
+  const aim = o.route === 'dm' ? (o.follow_up ? WORDS.follow_up : WORDS.dm) : null;
+  const warnings: string[] = [];
+  if (aim !== null && words > aim)
+    warnings.push(`${words} words; a ${o.follow_up ? 'follow-up' : 'DM'} aims for ${aim}.`);
+  const over_cap = words > WORDS.hard_cap;
+  if (over_cap) warnings.push(`${words} words is over the hard cap of ${WORDS.hard_cap}.`);
+  return { lead_id: l.id, niche, angle, route: o.route, tag: o.tag, body, link, words, warnings, over_cap };
+}
+
 export type Routed = { lead: Lead; timing: number; stage: Stage; reason: string; send_via: SendVia | null };
 
 /** Routes every lead, in order: blocked, post_only, drop, watch, capped, watch (timing), invite. */
@@ -171,6 +259,10 @@ export function routeLeads(cfg: FlowConfig, state: FlowState, now: Date): Routed
     if (lead.fit < r.fit_threshold) return at('drop', `Fit ${round3(lead.fit)} is below ${r.fit_threshold}.`);
     const status = statusOf(cfg, state, lead.territory_id);
     if (status !== 'active') return at('watch', `Territory is ${status}; only the active one gets outreach.`);
+    // FW-C-101: three touches in a lifetime, however long ago; the 30-day cap still holds too.
+    const life = r.max_touches_per_lead ?? Number.POSITIVE_INFINITY;
+    if (lead.touches.length >= life)
+      return at('capped', `Already touched ${life} times; that is the limit for life.`);
     if (lead.touches.filter((x) => t - ms(x.at) < 30 * DAY).length >= r.max_touches_per_lead_30d)
       return at('capped', `Already touched ${r.max_touches_per_lead_30d} times in 30 days.`);
     if (lead.kind === 'host' && timing < r.timing_threshold)
@@ -193,14 +285,24 @@ export function routeLeads(cfg: FlowConfig, state: FlowState, now: Date): Routed
   return out;
 }
 
-/** Sub-areas to work this cycle: active territories only, least covered first (unknown first). */
+/** Sub-areas to work this cycle: active territories only, least covered first (unknown first), then the first map. */
 export function planCycle(cfg: FlowConfig, state: FlowState, now: Date) {
   const cov = (id: string, sub: string) => state.metrics[id]?.channels_by_sub_area?.[sub] ?? null;
+  const fm = cfg.first_map;
+  const firstRank = (t: string, s: string) => {
+    const i = fm?.territory_id === t ? fm.sub_areas.indexOf(s) : -1;
+    return i < 0 ? Number.POSITIVE_INFINITY : i;
+  };
   const subs = cfg.territories
     .filter((t) => statusOf(cfg, state, t.id) === 'active')
     .flatMap((t) => t.sub_areas.map((s) => ({ t, s, ch: cov(t.id, s.id) })))
     .filter((x) => x.ch == null || x.ch < cfg.activation.channels_per_sub_area)
-    .sort((x, y) => (x.ch ?? -1) - (y.ch ?? -1) || y.s.population - x.s.population)
+    .sort(
+      (x, y) =>
+        (x.ch ?? -1) - (y.ch ?? -1) ||
+        firstRank(x.t.id, x.s.id) - firstRank(y.t.id, y.s.id) ||
+        y.s.population - x.s.population,
+    )
     .slice(0, Math.max(0, cfg.max_active_sub_areas))
     .map(({ t, s, ch }) => {
       const reason = ch == null ? 'Channel coverage unknown' : `${ch} of 7 Channels in the next 14 days`;
