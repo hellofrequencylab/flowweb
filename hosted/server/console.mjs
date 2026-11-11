@@ -21,6 +21,18 @@ const MAX_PROPOSALS = 3;
 const MAX_CONTEXT = 6000;
 const FLOW = /^[a-z0-9][a-z0-9-]{0,63}$/;
 const WRITE_ROLES = new Set(['owner', 'admin', 'helper']);
+/** FW-C-112: who may ask for something FlowWeb cannot do yet (fw_can 'control' in the database). */
+const BUILD_ROLES = new Set(['owner', 'admin']);
+
+/** A build request's fields, trimmed, or null when it would be refused (api/v1.mjs checks the same limits). */
+export function buildRequestOf(body) {
+  const text = (v) => (typeof v === 'string' ? v.trim() : '');
+  const title = text(body?.title);
+  const what = text(body?.what);
+  const done_when = text(body?.done_when);
+  if (!title || title.length > 120 || !what || what.length > 4000 || done_when.length > 1000) return null;
+  return { title, what, done_when };
+}
 
 /** Words in page text that look like keys are hidden before the text goes anywhere. */
 export function hideSecrets(text) {
@@ -67,6 +79,7 @@ When the person wants something changed, or when the review clearly points to a 
 - POST /flows/FLOW/do-not-contact {"email" or "lead_id","reason"}
 - POST /projects/PROJECT_ID/brief {"what","who","voice","never","done"} (all five), /projects/PROJECT_ID/labels {"brand","category"}
 - POST /supervisor/flows/FLOW/drafts/DRAFT_ID/rewrite {"instruction"}, /reject, /approve, /mark {"outcome":"sent"|"replied"|"declined"}
+- POST /build-requests {"title","what","done_when"} (owners and admins only): when they ask for something FlowWeb cannot do yet (a new feature, a new kind of flow, a change to how something works), write it up as a build request instead of saying no. title is under 120 characters; what says plainly what they want and why, with any detail they gave; done_when says how they will know it works. The builder turns it into a pull request, checks run, and it ships; changes to the database still go to Daniel. Say that in one line when you propose it.
 Facts: Frequency supports claim links (a hunt with "build": true). Hunts search the open web and the links given; they never read Instagram or Facebook, so do not offer those as sources. Outreach stays drafts the person sends themselves.
 You cannot send messages, set Autopilot, release the kill switch, or change budgets or policy; say so if asked, and point them to their Mac.`;
 
@@ -110,6 +123,12 @@ export function keepProposals(blocks, { role, flows }) {
     const summary = typeof i.summary === 'string' ? i.summary.trim().slice(0, 300) : '';
     if (!summary || (method !== 'POST' && method !== 'DELETE') || !path.startsWith('/')) continue;
     const body = method === 'POST' && i.body && typeof i.body === 'object' && !Array.isArray(i.body) ? i.body : {};
+    if (method === 'POST' && path === '/build-requests') {
+      const ask = buildRequestOf(body);
+      if (!ask || !BUILD_ROLES.has(role) || looksLikeSecret(summary) || looksLikeSecret(JSON.stringify(ask))) continue;
+      out.push({ id: String(b.id ?? out.length), summary, method, path, body: ask, kind: 'build.request', flow: null });
+      continue;
+    }
     const asked = requestOf(method, path, body);
     if (!asked || asked.error) continue;
     if (mine && !mine.has(asked.flow)) continue;
@@ -156,7 +175,7 @@ export async function answerConsole(body, { env = {}, fetchImpl = fetch, role = 
     .filter(Boolean)
     .join('\n');
   const who = canChange
-    ? `Their role is ${role}${Array.isArray(flows) && flows.length ? `, limited to the flows ${flows.join(', ')}` : ''}.`
+    ? `Their role is ${role}${Array.isArray(flows) && flows.length ? `, limited to the flows ${flows.join(', ')}` : ''}.${BUILD_ROLES.has(role) ? '' : ' They cannot ask for build requests; an owner or admin can.'}`
     : `Their role is ${role}: they can ask questions but not change anything, so do not propose changes.`;
   const context = read ? await contextFor(flow, read) : '';
 

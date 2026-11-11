@@ -61,7 +61,11 @@ function ProposalCard({
         )
       ) : (
         <p className={p.state === 'failed' ? 'console-note console-failed' : 'console-note'} role="status">
-          {p.state === 'failed' ? p.note : NOTE[p.state]}
+          {p.state === 'failed'
+            ? p.note
+            : p.state === 'done' && p.kind === 'build.request'
+              ? 'Saved as a build request. See it in Settings.'
+              : NOTE[p.state]}
         </p>
       )}
     </fieldset>
