@@ -142,6 +142,9 @@ async function snapshot() {
       // FW-C-072: what's working, from the flow's latest weekly review. Older fwd builds answer 404.
       const summary = await fwd(`/flows/${encodeURIComponent(key)}/review/summary`).catch(ifFound);
       if (summary) put(`/flows/${key}/review/summary`, summary);
+      // FW-C-105: Today, the ranked list of the morning's actions. Older fwd builds answer 404.
+      const today = await fwd(`/flows/${encodeURIComponent(key)}/today`).catch(ifFound);
+      if (today) put(`/flows/${key}/today`, today);
     }
   }
   // The paid ads flow is read only and not run by the Supervisor, so it is not in the list above.
