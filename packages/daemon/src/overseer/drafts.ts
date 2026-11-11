@@ -29,6 +29,8 @@ export interface DraftView {
   to?: string;
   name?: string;
   crm?: Record<string, unknown>;
+  /** FW-C-102: why the draft gate blocked it (status gate_blocked), or what it only warned about. */
+  gate?: Record<string, unknown>;
 }
 
 const ID = /^[A-Za-z0-9_-]{1,100}$/;
@@ -61,6 +63,9 @@ function view(doc: Record<string, unknown>): DraftView {
     ),
     ...(doc.crm && typeof doc.crm === 'object' && !Array.isArray(doc.crm)
       ? { crm: doc.crm as Record<string, unknown> }
+      : {}),
+    ...(doc.gate && typeof doc.gate === 'object' && !Array.isArray(doc.gate)
+      ? { gate: doc.gate as Record<string, unknown> }
       : {}),
   };
 }
@@ -110,6 +115,8 @@ export function approveDraft(o: {
   const { path, doc } = load(o.repoRoot, o.fwHome, o.flow, o.id);
   if (doc.status === 'handed_off') return view(doc);
   if (doc.status === 'rejected') throw conflict('rejected', 'The Owner rejected this draft.');
+  // FW-C-102: a draft the gate blocked breaks a hard rule, so it never goes out.
+  if (doc.status === 'gate_blocked') throw conflict('gate_blocked', 'This draft breaks a hard rule.');
   const lead = typeof doc.lead_id === 'string' ? doc.lead_id : '';
   if (lead === '') throw conflict('no_recipient', 'This draft names no lead to send to.');
   if (lead.startsWith('template:'))
