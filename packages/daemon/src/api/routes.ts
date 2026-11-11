@@ -41,6 +41,7 @@ import { type RunHost, RunHostStoppingError } from '../run-host.ts';
 import { isInside, RUN_ID_RE } from '../runtime/paths.ts';
 import { setupReport } from '../setup/index.ts';
 import { spendRollup } from '../spend.ts';
+import { brandsOf, enabledFlowsOf, readTeamSettings, TeamError, teamView } from '../team/index.ts';
 import { rowIdOf } from './codes.ts';
 import { checkSender, connectionsOf, saveSender } from './connections.ts';
 import {
@@ -152,6 +153,8 @@ export interface SupervisorControls {
   copyFlow?(base: string, body: Record<string, unknown>): { changed: boolean; key: string };
   /** FW-C-118: the Owner's funnel links switch: true, false, or null to hand it back to env and config. */
   setFunnelsLive?(live: unknown): { changed: boolean };
+  /** FW-C-123: the Owner renames an agent or changes its voice ({ name?, voice? }; null restores). */
+  setTeamMember?(team: string, role: string, body: Record<string, unknown>): { changed: boolean };
   /** FW-C-038: fire the flow's stream by hand; the Supervisor decides it like any fire. */
   runFlow?(key: string): Promise<{ fire_id: string; outcome: string; reason?: string }>;
   /** FW-C-097: flow cycles in flight now, by flow key, so the Supervisor can say a flow is running. */
@@ -744,6 +747,31 @@ export function buildRouter(deps: ApiDeps): Router {
         throw new ApiError(501, 'not_implemented', 'this fwd cannot switch funnel links');
       return c.setFunnelsLive(body.live);
     });
+  });
+  // FW-C-123: the Owner's agent teams, and renaming or re-voicing one agent.
+  r.get('/v1/team', () =>
+    env(() => ({ data: teamView(readTeamSettings(reader), brandsOf(reader), enabledFlowsOf(reader)) })),
+  );
+  r.post('/v1/team/{team}/{role}', async ({ req, params }) => {
+    const body = await readJsonBody(req);
+    const c = deps.supervisor;
+    if (!c?.setTeamMember) throw new ApiError(501, 'not_implemented', 'this fwd cannot change the team');
+    requireOwner(req);
+    try {
+      const out = c.setTeamMember(params.team ?? '', params.role ?? '', body);
+      return env(() => ({
+        data: {
+          changed: out.changed,
+          ...teamView(readTeamSettings(reader), brandsOf(reader), enabledFlowsOf(reader)),
+        },
+      }));
+    } catch (e) {
+      if (e instanceof TeamError)
+        throw e.code === 'NOT_FOUND'
+          ? new ApiError(404, 'not_found', e.message)
+          : new ApiError(400, 'validation_failed', e.message);
+      throw kernelError(e);
+    }
   });
   r.post('/v1/supervisor/pause', ({ req }) => ownerControl(req, (c) => c.setPaused(true)));
   r.post('/v1/supervisor/resume', ({ req }) => ownerControl(req, (c) => c.setPaused(false)));

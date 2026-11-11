@@ -144,3 +144,14 @@ test('the funnel links switch becomes links.funnels with only live, and the rela
   assert.equal(requestOf('GET', '/supervisor/funnels-live', {}), null);
   assert.equal(fwdCallFor({ kind: 'links.funnels', flow: 'all', payload: { live: 1 } }), null);
 });
+
+test('renaming an agent becomes team.edit with only name and voice, and the relay maps it back (FW-C-123)', () => {
+  const r = requestOf('POST', '/team/frequency/ceo', { name: ' Nova ', other: 1 });
+  assert.deepEqual(r, { kind: 'team.edit', flow: 'all', draft_id: null, payload: { team: 'frequency', role: 'ceo', name: 'Nova' } });
+  assert.deepEqual(fwdCallFor(r), { method: 'POST', path: '/team/frequency/ceo', body: { name: 'Nova' } });
+  assert.ok(requestOf('POST', '/team/frequency/ceo', {}).error);
+  assert.ok(requestOf('POST', '/team/frequency/ceo', { voice: 'x'.repeat(201) }).error);
+  assert.ok(requestOf('POST', '/team/Bad Team/ceo', { name: 'X' }).error);
+  assert.equal(requestOf('GET', '/team/frequency/ceo', {}), null);
+  assert.equal(fwdCallFor({ kind: 'team.edit', flow: 'all', payload: { team: 'main', role: 'ceo' } }), null);
+});
