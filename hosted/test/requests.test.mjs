@@ -144,3 +144,16 @@ test('the funnel links switch becomes links.funnels with only live, and the rela
   assert.equal(requestOf('GET', '/supervisor/funnels-live', {}), null);
   assert.equal(fwdCallFor({ kind: 'links.funnels', flow: 'all', payload: { live: 1 } }), null);
 });
+
+test('FW-C-124: a flow copy carries only name, note and slug, and the relay maps it back', () => {
+  const r = requestOf('POST', '/supervisor/flows/neighborhood-activation/copy', { name: ' Austin ', slug: 'austin', extra: 1 });
+  assert.deepEqual(r, { kind: 'flow.copy', flow: 'neighborhood-activation', draft_id: null, payload: { name: 'Austin', slug: 'austin' } });
+  assert.deepEqual(fwdCallFor({ id: 'r1', ...r }), {
+    method: 'POST',
+    path: '/supervisor/flows/neighborhood-activation/copy',
+    body: { name: 'Austin', slug: 'austin' },
+  });
+  assert.ok(requestOf('POST', '/supervisor/flows/paid-ads/copy', { slug: 'Bad Slug' }).error);
+  assert.ok(requestOf('POST', '/supervisor/flows/paid-ads/copy', { note: 'x'.repeat(501) }).error);
+  assert.equal(requestOf('GET', '/supervisor/flows/paid-ads/copy', {}), null);
+});
