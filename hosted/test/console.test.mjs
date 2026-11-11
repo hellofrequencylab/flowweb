@@ -34,3 +34,24 @@ test('a key-shaped build request is dropped', () => {
   const body = { title: 'Key', what: `use sk-ant-api03-${'a'.repeat(40)}` };
   assert.equal(keepProposals([block(body)], { role: 'owner', flows: null }).length, 0);
 });
+
+test('Kevin may propose renaming, archiving and restoring a flow', () => {
+  const p = (path, body) => ({
+    type: 'tool_use',
+    id: path,
+    name: 'propose_change',
+    input: { summary: 'Tidy the flow.', method: 'POST', path, body },
+  });
+  const kept = keepProposals(
+    [
+      p('/supervisor/flows/local-pulse/edit', { name: 'Pulse' }),
+      p('/supervisor/flows/local-pulse/archive', {}),
+      p('/supervisor/flows/local-pulse/restore', {}),
+    ],
+    { role: 'owner', flows: null },
+  );
+  assert.deepEqual(
+    kept.map((k) => k.kind),
+    ['flow.edit', 'flow.archive', 'flow.restore'],
+  );
+});
