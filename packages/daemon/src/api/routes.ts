@@ -140,6 +140,8 @@ export interface SupervisorControls {
   /** FW-C-115: rename a flow or note it ({ name?, note? }), and archive or restore it. */
   editFlow?(key: string, body: Record<string, unknown>): { changed: boolean };
   setFlowArchived?(key: string, archived: boolean): { changed: boolean };
+  /** FW-C-121: copy a shipped flow ({ slug?, name?, note?, config? }); answers the copy's key. */
+  copyFlow?(base: string, body: Record<string, unknown>): { changed: boolean; key: string };
   /** FW-C-118: the Owner's funnel links switch: true, false, or null to hand it back to env and config. */
   setFunnelsLive?(live: unknown): { changed: boolean };
   /** FW-C-038: fire the flow's stream by hand; the Supervisor decides it like any fire. */
@@ -761,6 +763,19 @@ export function buildRouter(deps: ApiDeps): Router {
         return c.setFlowArchived(params.key ?? '', archived);
       }),
     );
+  // FW-C-121: copy a shipped flow under "<base>--<slug>"; answers { key, flow } with the copy's view.
+  r.post('/v1/supervisor/flows/{key}/copy', async ({ req, params }) => {
+    const body = await readJsonBody(req);
+    let key = '';
+    ownerControl(req, (c) => {
+      if (!c.copyFlow) throw new ApiError(501, 'not_implemented', 'this fwd cannot copy a flow');
+      const out = c.copyFlow(params.key ?? '', body);
+      key = out.key;
+      return out;
+    });
+    const flow = supervisorView(supView()).flows.find((f) => f.key === key) ?? null;
+    return env(() => ({ data: { key, flow } }));
+  });
   // FW-C-038: run a flow now. The fire goes through the scheduler, so the Supervisor decides it.
   r.post('/v1/supervisor/flows/{key}/run', async ({ req, params }) => {
     const c = deps.supervisor;
