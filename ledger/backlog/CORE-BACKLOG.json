@@ -4,7 +4,7 @@
     "profile": "core",
     "schema": "ledger-row/1",
     "generated": "2026-11-09",
-    "row_count": 142,
+    "row_count": 143,
     "conventions": {
       "verify_probe": "Same convention as 04-build-plan/backlog.json: 'pnpm probe <path>' runs probes/<path>.probe.ts, a Tier 0 file written before the implementation row starts and never edited by the agent doing the row. Every probe fails today because its target does not exist (a missing probe file exits 2, a missing behaviour exits 1). The probe pack for a milestone is committed by the Owner or a pair session before the milestone's rows start.",
       "status": "All rows start as open. Status lives only in the ledger database (imported with fw ledger sync), never in prose.",
@@ -28,7 +28,7 @@
       }
     },
     "full_plan_rows_included": 37,
-    "new_core_rows": 100
+    "new_core_rows": 101
   },
   "rows": [
     {
@@ -4993,6 +4993,42 @@
         "packages/daemon/src/api/routes.ts",
         "packages/daemon/src/daemon.ts",
         "packages/daemon/src/overseer/index.ts"
+      ],
+      "origin": "new Core row"
+    },
+    {
+      "id": "FW-C-108",
+      "title": "The Owner pastes a host's reply and gets a drafted answer from the flow's reply tree, and a no puts them on do-not-contact",
+      "core_milestone": "C1",
+      "phase": 1,
+      "epic": "C1.5 First flow",
+      "priority": "P1",
+      "size": "L",
+      "lane": "workstreams",
+      "agent_suitability": "agent",
+      "gate": "none",
+      "depends_on": [],
+      "description": "On 2026-11-11 the Owner asked for the reply helper (stream S3 of the beta channels work order). Daniel pastes an inbound reply from a host into the Growth page; FlowWeb classifies it and drafts an answer from a per-niche reply tree (flows/neighborhood-activation/reply-tree.json) that cites only the facts sheet: the beta is free through January 31, 2027 and the Founding Year closes the same day, prices are never typed (a reply that needs one points to /pricing), nothing is deleted when the beta ends, and the links /start/host, /for/<niche>, /create-a-space, /launch and /help. Niche doors: teacher, studio, gathering, maker, music, and venue as supply. Intents: interested, asks_price, asks_what, asks_time, other_tool, not_now, no. Keyword rules classify first; only when none match does the flow's own engine (Codex today, the fake vendor in tests) pick one label from that closed set, with the inbound text wrapped as untrusted data, and anything else is read as unclear. Inbound text never reaches the draft: the draft is built from the tree. Any no, stop, not interested or unsubscribe puts the sender on the flow's do-not-contact list the same day, ends their sequence and drafts nothing. A positive reply drafts a short answer, under 70 words, with the niche's tagged door. Every draft runs through the draft gate when it is present, and through the helper's own checks always. POST /v1/flows/{key}/replies { lead_id?, contact?, niche?, text } answers the draft and saves it in the drafts folder as waiting_for_owner with route reply. Nothing sends.",
+      "acceptance": [
+        "An opt-out reply drafts nothing, lands on the flow's do-not-contact list the same day and ends the sender's sequence",
+        "A price question drafts a reply that points to /pricing and types no price",
+        "A positive reply drafts under 70 words with the niche's /for/<niche> door tagged utm_source=flowweb, saved as waiting_for_owner with route reply",
+        "A reply that tells the helper to ignore its instructions still gets an on-topic draft built from the tree",
+        "No draft has an em or en dash or the word Midnight"
+      ],
+      "verify_probe": "pnpm probe flows/reply-helper",
+      "files_hint": [
+        "flows/neighborhood-activation/reply-tree.json",
+        "packages/daemon/src/flows/reply-helper.ts",
+        "packages/daemon/src/overseer/reply-engine.ts",
+        "packages/daemon/test/reply-helper.test.ts",
+        "packages/adapters/src/fake/index.ts",
+        "packages/adapters/src/fake/vendor.mjs",
+        "packages/daemon/src/api/routes.ts",
+        "packages/daemon/src/daemon.ts",
+        "packages/web/src/flows/ReplyHelper.tsx",
+        "packages/web/src/api/client.ts",
+        "packages/web/src/flows/ActivationPage.tsx"
       ],
       "origin": "new Core row"
     }

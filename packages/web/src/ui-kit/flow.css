@@ -2443,11 +2443,12 @@ a.flow-line:hover .flow-line-name {
   color: var(--text-inverse);
 }
 .console-panel {
-  display: grid;
+  display: flex;
+  flex-direction: column;
   gap: var(--space-4);
-  width: min(400px, calc(100vw - 2 * var(--space-6)));
-  max-height: min(640px, calc(100vh - 140px));
-  overflow-y: auto;
+  width: min(420px, calc(100vw - 2 * var(--space-6)));
+  max-height: min(680px, calc(100vh - 140px));
+  overflow: hidden;
   padding: var(--space-6);
   border-radius: var(--radius-lg);
   background: var(--surface-page);
@@ -2462,6 +2463,14 @@ a.flow-line:hover .flow-line-name {
   margin: 0;
   font: var(--type-heading);
 }
+.console-subtitle {
+  margin-left: var(--space-2);
+  font: var(--type-small);
+  color: var(--text-tertiary);
+}
+.console-panel > * {
+  flex-shrink: 0;
+}
 .console-where,
 .console-note,
 .console-hint,
@@ -2472,10 +2481,35 @@ a.flow-line:hover .flow-line-name {
   font: var(--type-label);
 }
 .console-answer {
-  white-space: pre-wrap;
+  display: grid;
+  gap: var(--space-2);
+  line-height: 1.5;
+  overflow-wrap: anywhere;
 }
-.console-log {
-  max-height: 340px;
+.console-answer p,
+.console-answer ul,
+.console-answer ol {
+  margin: 0;
+}
+.console-answer ul,
+.console-answer ol {
+  display: grid;
+  gap: var(--space-1);
+  padding-left: 1.2em;
+}
+.console-answer code {
+  font-size: 0.92em;
+}
+.console-panel > .console-log {
+  flex: 1 1 auto;
+  flex-shrink: 1;
+  min-height: 120px;
+  max-height: none;
+  padding-right: var(--space-1);
+  overscroll-behavior: contain;
+}
+.console-log .assist-reply {
+  max-width: 100%;
 }
 .console-failed {
   color: var(--fail-fg);
