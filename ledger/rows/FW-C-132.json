@@ -1,0 +1,31 @@
+{
+  "id": "FW-C-132",
+  "title": "The Monday staff meeting: one weekly read across the marketing flows, each with one number, one win and one ask",
+  "core_milestone": "C1",
+  "phase": 1,
+  "epic": "C1.5 First flow",
+  "priority": "P2",
+  "size": "M",
+  "lane": "workstreams",
+  "agent_suitability": "agent",
+  "gate": "none",
+  "depends_on": [
+    "FW-C-061"
+  ],
+  "description": "The game's weekly boss (master plan, 2026-11-11): once a week each manager reports one number, one win and one ask, so the Owner reads the whole marketing department in one minute. GET /v1/supervisor/staff-meeting covers the 7 days before as_of and lists every shipped marketing flow that is not archived, in the Supervisor's order. Each report is { flow, name, number { label, value }, win, ask }: the number is the flow's goal progress when it has a goal, else drafts sent in the 7 days; win is null without a reply in the 7 days, else one plain sentence naming the count; ask is null when nothing waits, else one sentence naming how many drafts wait for the Owner. Plain code from rows, no model call, no em dashes, and the same rows always give the same meeting. The Monday 06:00 digest carries the meeting; persona names on the reports come from the roster when it exists. Wave 2 of the master plan v2.",
+  "acceptance": [
+    "GET /v1/supervisor/staff-meeting needs a session and lists each marketing flow once, in order, over 7 days",
+    "A flow with 4 sends, 2 replies and 3 waiting drafts reports number 4, a win naming 2 and an ask naming 3; a flow with no rows reports 0, null, null",
+    "An archived flow leaves the meeting"
+  ],
+  "verify_probe": "pnpm probe flows/staff-meeting",
+  "files_hint": [
+    "packages/daemon/src/flows/staff-meeting.ts",
+    "packages/daemon/src/api/routes.ts",
+    "packages/daemon/test/staff-meeting.test.ts",
+    "packages/web/src/api/client.ts",
+    "packages/web/src/api/types.ts",
+    "packages/web/src/flows/Today.tsx"
+  ],
+  "origin": "new Core row"
+}
