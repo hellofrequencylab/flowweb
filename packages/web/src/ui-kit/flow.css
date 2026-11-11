@@ -2246,63 +2246,134 @@ a.flow-line:hover .flow-line-name {
   box-shadow: none;
 }
 
-/* Flow controls: one soft card per flow, side by side; the dial is a tray that explains only its choice. */
+/*
+ * Flow controls (FW-C-114): one card per flow, side by side, every card built the same way. The card is the
+ * fieldset itself, so its padding, its state edge and its live sweep all sit on one box. Inside: head, one
+ * line of why, the two actions, the dial as a segmented control, then the morning run and the daily reach.
+ */
 .flow-ctl > .panel {
   padding: var(--space-6);
   box-shadow: var(--shadow-1);
 }
-.flow-ctl .plain-list {
+.flow-ctl-head {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--space-3) var(--space-5);
+}
+.flow-ctl-head > p {
+  margin: 0;
+}
+.flow-cards {
   display: grid;
-  grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
+  grid-template-columns: repeat(auto-fill, minmax(300px, 1fr));
+  align-items: start;
   gap: var(--space-4);
 }
-.flow-ctl .plain-list > li {
+.flow-cards > li,
+.flow-cards > li:last-child {
   margin: 0;
-  padding: var(--space-5);
-  border-radius: var(--radius-lg);
-  background: var(--surface-soft);
+  padding: 0;
   box-shadow: none;
 }
-.flow-ctl .plain-list > li > * + * {
-  margin-top: var(--space-4);
+.flow-card {
+  display: grid;
+  gap: var(--space-5);
+  min-width: 0;
+  margin: 0;
+  padding: var(--space-5);
+  border: 0;
+  border-radius: var(--radius-lg);
+  background: var(--surface-soft);
 }
-.flow-ctl .plain-list > li .panel-head {
-  margin-bottom: 0;
+.flow-card > p {
+  margin: 0;
 }
-.flow-ctl .plain-list > li .row {
+.flow-card-head {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--space-2) var(--space-3);
+}
+.flow-card-actions,
+.flow-card-inputs {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: flex-start;
   gap: var(--space-2);
 }
-.flow-ctl [role="radiogroup"] {
+.flow-card .btn-small {
+  min-height: 36px;
+  padding: 0 var(--space-5);
+}
+.flow-card-field {
   display: grid;
-  gap: 2px;
-  padding: 4px;
-  border-radius: var(--radius-md);
-  background: var(--surface-sunken);
-  box-shadow: var(--shadow-inset);
+  gap: var(--space-2);
+  min-width: 0;
 }
-.flow-ctl [role="radiogroup"] > * + * {
-  margin-top: 0;
+.flow-card-field > p {
+  margin: 0;
 }
-.flow-ctl [role="radiogroup"] > label {
-  position: relative;
-  gap: var(--space-3);
-  padding: 6px var(--space-4);
-  border-radius: var(--radius-sm);
+.flow-card-tuning {
+  display: grid;
+  gap: var(--space-5);
+  padding-top: var(--space-5);
+  box-shadow: 0 -1px 0 var(--border-subtle);
+}
+.flow-card-inputs select,
+.flow-card-inputs input[type="time"] {
+  min-height: 36px;
+  padding-left: var(--space-4);
+  font-size: var(--text-sm);
+}
+.flow-card-inputs select {
+  padding-right: var(--space-8);
+}
+.flow-card-count {
+  display: flex;
+  justify-content: space-between;
+}
+.flow-card-count strong {
+  color: var(--text-primary);
+}
+.flow-card-range {
+  width: 100%;
+  margin: 0;
+  accent-color: var(--action-primary-bg);
+}
+.flow-card-check {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--space-2);
+  min-height: 36px;
+  margin-right: auto;
+  font-size: var(--text-sm);
   cursor: pointer;
-  transition: background var(--dur-fast) var(--ease-standard);
 }
-.flow-ctl [role="radiogroup"] > label:hover {
-  background: var(--surface-hover);
+.flow-dial {
+  display: flex;
+  flex-wrap: nowrap;
 }
-.flow-ctl [role="radiogroup"] > label:has(input:checked) {
-  background: var(--surface-raised);
-  box-shadow: var(--shadow-1);
+.flow-dial label {
+  flex: 1 1 0;
+  justify-content: center;
+  min-width: 0;
+  padding: 0 var(--space-3);
 }
-.flow-ctl [role="radiogroup"] > label:not(:has(input:checked)) .muted {
-  display: none;
+.flow-dial label:has(input:disabled) {
+  cursor: not-allowed;
+  opacity: 0.55;
 }
-.flow-ctl [role="radiogroup"] > label:has(input:checked) strong {
-  color: var(--accent);
+
+/* A flow card shows its state in its status word, not a side bar (Owner, 2026-11-11). Broken keeps its caution ring. */
+.flow-card.loop-row.loop-connected,
+.flow-card.loop-row.loop-working {
+  box-shadow: none;
+}
+.flow-card.loop-row.loop-broken {
+  box-shadow: inset 0 0 0 1.5px var(--caution-border);
 }
 
 /* FW-C-072: what's working, a few plain lines from the weekly review. */

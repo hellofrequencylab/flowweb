@@ -103,50 +103,56 @@ function Tuning({ f, why, reload }: { f: SupervisorFlow; why: string | null; rel
     );
   const off = why ?? busy;
   return (
-    <div className="stack">
+    <div className="flow-card-tuning">
       {sch && (
-        <div className="row">
-          <label className="row">
-            <span>Runs at</span>
+        <div className="flow-card-field">
+          <span className="field-label">Morning run</span>
+          <div className="flow-card-inputs">
             <input
               type="time"
               aria-label={`Morning run time for ${f.name}`}
               value={time}
               onChange={(e) => setTime(e.target.value)}
             />
-          </label>
-          <select
-            aria-label={`Days for ${f.name}`}
-            value={days}
-            onChange={(e) => setDays(e.target.value as typeof days)}
-          >
-            {DAY_CHOICES.map((d) => (
-              <option key={d.value} value={d.value}>
-                {d.label}
-              </option>
-            ))}
-          </select>
-          <Button onClick={saveSchedule} disabledReason={off} aria-label={`Save schedule for ${f.name}`}>
-            Save time
-          </Button>
-          <span className="muted small">{sch.timezone}</span>
+            <select
+              aria-label={`Days for ${f.name}`}
+              value={days}
+              onChange={(e) => setDays(e.target.value as typeof days)}
+            >
+              {DAY_CHOICES.map((d) => (
+                <option key={d.value} value={d.value}>
+                  {d.label}
+                </option>
+              ))}
+            </select>
+            <Button
+              className="btn-small"
+              onClick={saveSchedule}
+              disabledReason={off}
+              aria-label={`Save schedule for ${f.name}`}
+            >
+              Save time
+            </Button>
+          </div>
+          <span className="muted small">Times are {sch.timezone}.</span>
         </div>
       )}
       {cur && (
-        <div className="stack">
-          <div className="row">
-            <label className="row">
-              <span>New people a day: {perDay}</span>
-              <input
-                type="range"
-                min={1}
-                max={25}
-                aria-label={`Leads per day for ${f.name}`}
-                value={perDay}
-                onChange={(e) => setPerDay(Number(e.target.value))}
-              />
-            </label>
-            <label className="row">
+        <div className="flow-card-field">
+          <span className="field-label flow-card-count">
+            New people a day <strong>{perDay}</strong>
+          </span>
+          <input
+            type="range"
+            className="flow-card-range"
+            min={1}
+            max={25}
+            aria-label={`Leads per day for ${f.name}`}
+            value={perDay}
+            onChange={(e) => setPerDay(Number(e.target.value))}
+          />
+          <div className="flow-card-inputs">
+            <label className="flow-card-check">
               <input
                 type="checkbox"
                 aria-label={`Adjust from replies for ${f.name}`}
@@ -155,7 +161,12 @@ function Tuning({ f, why, reload }: { f: SupervisorFlow; why: string | null; rel
               />
               <span>Adjust from replies</span>
             </label>
-            <Button onClick={saveIntensity} disabledReason={off} aria-label={`Save intensity for ${f.name}`}>
+            <Button
+              className="btn-small"
+              onClick={saveIntensity}
+              disabledReason={off}
+              aria-label={`Save intensity for ${f.name}`}
+            >
               Save
             </Button>
           </div>
@@ -169,16 +180,6 @@ function Tuning({ f, why, reload }: { f: SupervisorFlow; why: string | null; rel
     </div>
   );
 }
-
-/** A fieldset holds one flow's row so it reads as a group named after the flow, inside the list. */
-const ROW = {
-  border: 0,
-  padding: 0,
-  margin: 0,
-  minWidth: 0,
-  display: 'grid',
-  gap: 'var(--space-4)',
-} as const;
 
 function FlowRow({
   f,
@@ -229,23 +230,24 @@ function FlowRow({
   };
   const why = busy ?? (stopped ? 'The kill switch is engaged.' : null);
   const name = useId();
+  const chosen = STOPS.find((x) => x.stop === f.dial) ?? STOPS[0];
   return (
     <li>
       <fieldset
         aria-labelledby={name}
-        style={ROW}
-        className={`loop-row loop-${flowLoop(f)}${f.state === 'running' ? ' is-live live-edge' : ''}`}
+        className={`flow-card loop-row loop-${flowLoop(f)}${f.state === 'running' ? ' is-live live-edge' : ''}`}
       >
-        <div className="panel-head">
+        <div className="flow-card-head">
           <strong id={name}>{f.name}</strong>
           <StatusLabel spec={flowSpec(f)} />
         </div>
         <p className="muted small">
           {f.reason} · {budgetLine(f)}
         </p>
-        <div className="row">
+        <div className="flow-card-actions">
           <Button
-            variant={f.enabled ? 'quiet' : 'primary'}
+            variant={f.enabled ? 'default' : 'primary'}
+            className="btn-small"
             onClick={toggle}
             disabledReason={why}
             aria-label={`${f.enabled ? 'Turn off' : 'Turn on'} ${f.name}`}
@@ -253,6 +255,7 @@ function FlowRow({
             {f.enabled ? 'Turn off' : 'Turn on'}
           </Button>
           <Button
+            className="btn-small"
             onClick={runNow}
             disabledReason={why ?? (f.enabled ? null : 'Turn it on first.')}
             aria-label={`Run ${f.name} now`}
@@ -260,36 +263,29 @@ function FlowRow({
             Run now
           </Button>
         </div>
-        <div role="radiogroup" aria-label={`Dial for ${f.name}`} className="stack">
-          {STOPS.map(({ stop, hint }) => {
-            const noSender = stop !== 'draft' && !sender;
-            return (
-              <label key={stop} className="row">
-                <input
-                  type="radio"
-                  name={group}
-                  value={stop}
-                  checked={f.dial === stop}
-                  disabled={Boolean(why) || noSender}
-                  onChange={() => (stop === 'autopilot' ? askAutopilot() : dial(stop))}
-                />
-                <span>
-                  <strong>{DIAL[stop]}</strong>{' '}
-                  <span className="muted small">{noSender ? NEEDS_SENDER : hint}</span>
-                </span>
-              </label>
-            );
-          })}
+        <div className="flow-card-field">
+          <span className="field-label">How drafts go out</span>
+          <div role="radiogroup" aria-label={`Dial for ${f.name}`} className="segmented flow-dial">
+            {STOPS.map(({ stop }) => {
+              const noSender = stop !== 'draft' && !sender;
+              return (
+                <label key={stop}>
+                  <input
+                    type="radio"
+                    name={group}
+                    value={stop}
+                    checked={f.dial === stop}
+                    disabled={Boolean(why) || noSender}
+                    onChange={() => (stop === 'autopilot' ? askAutopilot() : dial(stop))}
+                  />
+                  <span>{DIAL[stop]}</span>
+                </label>
+              );
+            })}
+          </div>
+          <p className="muted small">{chosen.hint}</p>
+          {!sender && <p className="muted small">Copilot and Autopilot are locked. {NEEDS_SENDER}</p>}
         </div>
-        {!sender && (
-          <p className="muted small">
-            Copilot and Autopilot hand drafts to a sender on your Mac, and none has run there in the last day.
-            Until one does, copy each draft and send it from your own mail.{' '}
-            <a href={SENDER_STEPS} target="_blank" rel="noreferrer">
-              How to set up a sender
-            </a>
-          </p>
-        )}
         <Tuning f={f} why={why} reload={reload} />
         {confirm && (
           <div className="callout callout-attention stack">
@@ -326,7 +322,7 @@ export function Controls({ s, reload }: { s: Supervisor; reload: () => void }) {
     );
   return (
     <div className="stack">
-      <div className="row">
+      <div className="flow-ctl-head">
         <p>
           {s.kill_switch
             ? 'The kill switch is engaged. Nothing runs until you release it.'
@@ -334,13 +330,27 @@ export function Controls({ s, reload }: { s: Supervisor; reload: () => void }) {
               ? 'Paused: no flow starts until you resume.'
               : `Runs up to ${s.max_concurrent} at once; ${s.running} running now.`}
         </p>
-        <Button variant={s.paused ? 'primary' : 'quiet'} onClick={pause} disabledReason={busy}>
+        <Button
+          variant={s.paused ? 'primary' : 'default'}
+          className="btn-small"
+          onClick={pause}
+          disabledReason={busy}
+        >
           {s.paused ? 'Resume all flows' : 'Pause all flows'}
         </Button>
       </div>
       {busy && <p className="muted small">{busy}</p>}
       {shown}
-      <ul className="plain-list stack" aria-label="Flows">
+      {s.sender?.installed !== true && (
+        <p className="muted small">
+          Copilot and Autopilot hand drafts to a sender on your Mac, and none has run there in the last day.
+          Until one does, copy each draft and send it from your own mail.{' '}
+          <a href={SENDER_STEPS} target="_blank" rel="noreferrer">
+            How to set up a sender
+          </a>
+        </p>
+      )}
+      <ul className="plain-list flow-cards" aria-label="Flows">
         {s.flows.map((f) => (
           <FlowRow
             key={f.key}
