@@ -20,6 +20,8 @@ import type { WorkOrder } from '@fw/contracts';
 import { newId, nowIso, type Writer } from '@fw/eventlog';
 import { addStream, DEFAULT_AGENTS, isCompleteBrief, ownerActor, readBriefs } from '@fw/ledger';
 import { type InjectedCredentials, injectCredentials, redactLiterals } from '../creds/index.ts';
+import { checkDraft, type GateCtx, gateFields } from '../flows/draft-gate.ts';
+import { readFacts, refreshFactsIfDue } from '../flows/facts.ts';
 import {
   dueHunts,
   HUNTS_FLOW,
@@ -198,6 +200,40 @@ interface Draft {
   channel?: unknown;
   subject?: unknown;
   body?: unknown;
+  to?: unknown;
+  contact_url?: unknown;
+  country?: unknown;
+  region?: unknown;
+  touch?: unknown;
+  payload?: unknown;
+  event?: unknown;
+  source_text?: unknown;
+}
+
+const strOr = (x: unknown) => (typeof x === 'string' ? x : null);
+
+/**
+ * FW-C-102: what the draft gate checks a flow's drafts against: the facts sheet (refreshed once a day when
+ * the outcomes secret is set), the flow's do-not-contact list and the hosts a tagged link may use. A flow's
+ * own drafts.json drafts need a tagged link only when its config says gate: true; fwd's hunt drafts always do.
+ */
+async function gateContext(d: CycleDeps, flow: string, site: string): Promise<GateCtx> {
+  await refreshFactsIfDue({ fwHome: d.fwHome, site });
+  const read = (p: string) => {
+    try {
+      return JSON.parse(readFileSync(p, 'utf8')) as Record<string, unknown>;
+    } catch {
+      return {};
+    }
+  };
+  const dnc = read(join(d.fwHome, 'flows', flow, 'state.json')).do_not_contact;
+  const host = URL.canParse(site) ? new URL(site).hostname : '';
+  return {
+    facts: readFacts(d.fwHome) as Record<string, unknown> | null,
+    doNotContact: Array.isArray(dnc) ? dnc.map(String) : [],
+    linkHosts: host ? [host] : [],
+    requireLink: read(join(d.repoRoot, 'flows', flow, 'config.json')).gate === true,
+  };
 }
 
 /** The funnels a flow's config names (the copy in the cycle folder); empty when it names none. */
@@ -495,13 +531,14 @@ export async function runFlowCycle(d: CycleDeps, fire: CycleFire): Promise<void>
       // FW-C-084: links become Frequency short links when the outcomes secret is set.
       const offer = loadFlow(d.repoRoot, d.fwHome, new Date())?.cfg.offer.url ?? '';
       const short = shortenerFor({ fwHome: d.fwHome, site: d.env.FW_FREQUENCY_URL || offer, log });
+      const gateCtx = await gateContext(d, fire.flow, d.env.FW_FREQUENCY_URL || offer);
       for (const [i, x] of drafts.entries()) {
         if (typeof x.body !== 'string' || x.body.length === 0) continue;
         const id = `${fire.fireId}-${String(x.id ?? i)}`.replace(SAFE, '_').slice(0, 100);
         // FW-C-054: every flowweb link names this draft, so Frequency can trace a signup back to it.
         const tag = draftTag(id);
         const title = typeof x.subject === 'string' ? x.subject : id;
-        const text = await short.shorten(noDashes(tagLinks(x.body, tag)), title);
+        const body = await short.shorten(noDashes(tagLinks(x.body, tag)), title);
         const channel =
           typeof (x.channel ?? x.send_via) === 'string' ? String(x.channel ?? x.send_via) : null;
         // At confirmed Autopilot the draft goes to the outbox; at any other stop handOff holds it for the Owner.
@@ -509,35 +546,54 @@ export async function runFlowCycle(d: CycleDeps, fire: CycleFire): Promise<void>
         const leadId = typeof x.lead_id === 'string' && x.lead_id.length > 0 ? x.lead_id : null;
         const unaddressed =
           leadId === null ? 'no_recipient' : leadId.startsWith('template:') ? 'template' : null;
+        const subject = typeof x.subject === 'string' ? noDashes(x.subject) : null;
+        // FW-C-102: a draft that breaks a hard rule is stored gate_blocked and never handed off.
+        const gate = checkDraft(
+          {
+            body,
+            subject,
+            channel,
+            send_via: strOr(x.send_via),
+            lead_id: leadId,
+            to: strOr(x.to),
+            contact_url: strOr(x.contact_url),
+            country: strOr(x.country),
+            region: strOr(x.region),
+            touch: typeof x.touch === 'number' ? x.touch : null,
+          },
+          { ...gateCtx, payload: x.payload ?? x.event ?? null, source: strOr(x.source_text) },
+        );
         const handed =
-          channel && !unaddressed
+          channel && !unaddressed && gate.ok
             ? handOff({
                 writer: w,
                 repoRoot: d.repoRoot,
                 fwHome: d.fwHome,
                 flow: fire.flow,
-                item: { id, channel, body: text },
+                item: { id, channel, body },
               })
             : null;
+        const created = nowIso();
         const doc = {
           flow: fire.flow,
           id,
           fire_id: fire.fireId,
           lead_id: leadId,
           channel,
-          subject: typeof x.subject === 'string' ? noDashes(x.subject) : null,
-          body: text,
+          subject,
+          body,
           tag,
           status: handed?.outcome === 'queued' ? 'handed_off' : 'waiting_for_owner',
           ...(handed && handed.outcome !== 'queued' ? { held: handed.reason } : {}),
           ...(unaddressed ? { held: unaddressed } : {}),
-          created_at: nowIso(),
+          ...gateFields(gate, created),
+          created_at: created,
         };
         writeFileSync(join(out, `${id}.json`), `${JSON.stringify(doc, null, 2)}\n`, { mode: 0o600 });
         written++;
       }
       if (hunts.length > 0) {
-        const n = await runHunts(d, fire, dir, hunts, out, short);
+        const n = await runHunts(d, fire, dir, hunts, out, short, gateCtx);
         huntCounts = n.counts;
         written += n.written;
         // FW-C-103: the hunt's drafts become scored nodes in the flow's lead graph.
@@ -720,6 +776,7 @@ async function runHunts(
   hunts: Hunt[],
   out: string,
   short: Shortener,
+  gateCtx: GateCtx,
 ) {
   const now = new Date();
   const f = loadFlow(d.repoRoot, d.fwHome, now);
@@ -750,14 +807,35 @@ async function runHunts(
     const subject = noDashes(k.lead.subject ?? `About ${k.lead.event.title || 'your event'}`);
     const tag = draftTag(k.id);
     const body = await short.shorten(tagLinks(k.body, tag), k.lead.organizer.name || subject);
+    // FW-C-102: checked against the lead's own event and page; a hunt draft is always a first touch.
+    const gate = checkDraft(
+      {
+        body,
+        subject,
+        send_via: k.send_via,
+        to: lead.to,
+        contact_url: k.lead.organizer.contact_url,
+        country: k.lead.organizer.country ?? k.lead.event.country,
+        region: k.hunt.region,
+        touch: 1,
+      },
+      {
+        ...gateCtx,
+        requireLink: true,
+        payload: { event: k.lead.event, organizer: k.lead.organizer.name, hunt: k.hunt.name },
+        source: k.lead.organizer.source_url,
+      },
+    );
     // handOff holds anything that is not email (FW-C-052), so those drafts wait for the Owner.
-    const res = handOff({
-      writer: d.writer,
-      repoRoot: d.repoRoot,
-      fwHome: d.fwHome,
-      flow: fire.flow,
-      item: { id: k.id, channel: 'frequency', body, lead: { ...lead, subject } },
-    });
+    const res = gate.ok
+      ? handOff({
+          writer: d.writer,
+          repoRoot: d.repoRoot,
+          fwHome: d.fwHome,
+          flow: fire.flow,
+          item: { id: k.id, channel: 'frequency', body, lead: { ...lead, subject } },
+        })
+      : null;
     const doc = {
       flow: fire.flow,
       id: k.id,
@@ -767,8 +845,9 @@ async function runHunts(
       subject,
       body,
       tag,
-      status: res.outcome === 'queued' ? 'handed_off' : 'waiting_for_owner',
-      ...(res.outcome === 'held' ? { held: res.reason } : {}),
+      status: res?.outcome === 'queued' ? 'handed_off' : 'waiting_for_owner',
+      ...(res?.outcome === 'held' ? { held: res.reason } : {}),
+      ...gateFields(gate, now.toISOString()),
       created_at: now.toISOString(),
     };
     writeFileSync(join(out, `${k.id}.json`), `${JSON.stringify(doc, null, 2)}\n`, { mode: 0o600 });
