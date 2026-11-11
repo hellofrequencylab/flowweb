@@ -8,6 +8,7 @@ import { existsSync, mkdirSync, readdirSync, readFileSync, renameSync, writeFile
 import { join } from 'node:path';
 import type { ActorKind, Reader, Writer } from '@fw/eventlog';
 import { ownerActor, setStreamCron } from '@fw/ledger';
+import * as hostMoments from '../flows/host-moments.ts';
 import { loadFlow as loadLocalSaturation } from '../flows/local-saturation.ts';
 import * as neighborhood from '../flows/neighborhood-activation.ts';
 import { registerFlowProjects } from '../flows/projects.ts';
@@ -77,6 +78,11 @@ type Engine = (repoRoot: string, fwHome: string, now: Date) => EngineFacts | nul
 
 /** Flows fwd has decision logic for. A shipped flow missing here is held by no_engine. */
 export const ENGINES: Record<string, Engine> = {
+  // FW-C-106: fixed templates, no model, so nothing is spent; its notes go out through Frequency by hand.
+  [hostMoments.FLOW_KEY]: (repoRoot, fwHome) => {
+    const f = hostMoments.loadFlow(repoRoot, fwHome);
+    return f && { caps: f.budget, spend: { usd: 0, turns: 0 }, outward: f.cfg.send_routes ?? null };
+  },
   'local-saturation': (repoRoot, fwHome, now) => {
     const f = loadLocalSaturation(repoRoot, fwHome, now);
     if (!f) return null;
@@ -625,6 +631,8 @@ export function handOff(o: {
   now?: Date;
   /** FW-C-046: the Owner approved this item (Copilot or Autopilot), so the autopilot gate does not apply. */
   approved?: boolean;
+  /** FW-C-104: an approved email batch on a flow whose config sets sequence.email_batch_approval. */
+  batch?: boolean;
 }): HandOffResult {
   const { writer: w, flow, item } = o;
   if (!shippedFlows(o.repoRoot).some((f) => f.key === flow))
@@ -657,7 +665,7 @@ export function handOff(o: {
   if (o.approved) {
     // FW-C-046: the Owner approved this one item. Copilot and Autopilot both allow that; at Draft the
     // Owner sends by hand, so nothing goes to the outbox.
-    if (stop === 'draft')
+    if (stop === 'draft' && !(o.batch && via === 'email'))
       return held(
         'needs_copilot',
         'At draft the Owner sends each item by hand; set the flow to copilot to approve items here.',
