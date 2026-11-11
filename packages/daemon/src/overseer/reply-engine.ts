@@ -14,6 +14,7 @@ import { runCredentials } from '../pipeline/credentials.ts';
 import { chooseAdapter } from '../pipeline/route.ts';
 import { addFlowSpend, type CycleDeps, flowEngine, flowStream } from './cycle.ts';
 import { supervisorView } from './index.ts';
+import { meterTurn } from './meter.ts';
 
 function goal(labels: string[]): string {
   return [
@@ -133,6 +134,11 @@ export async function engineIntent(
   }
   const result = await run.result;
   addFlowSpend(d, flow, Number(result.cost?.usd ?? 0), Number(result.turns ?? 0));
+  meterTurn(
+    d.fwHome,
+    { flow: flow, step: 'reply', item: runId, cost: result.cost ?? null, adapter: result.adapter ?? null },
+    d.log,
+  );
   try {
     const out = JSON.parse(readFileSync(join(dir, 'intent.json'), 'utf8')) as { intent?: unknown };
     return typeof out.intent === 'string' && labels.includes(out.intent) ? out.intent : null;
