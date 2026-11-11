@@ -29,6 +29,10 @@ export async function extractWithEngine(d: CycleDeps, flow: string, text: string
   const view = supervisorView({ reader: d.writer, repoRoot: d.repoRoot, fwHome: d.fwHome });
   if (view.kill_switch) throw new SupervisorError('CONFLICT', 'The kill switch is engaged.');
   if (view.paused) throw new SupervisorError('CONFLICT', 'The Supervisor is paused.');
+  // FW-C-117: the same spend guard as the reply engine: a spent flow budget starts no paid run.
+  const b = view.flows.find((f) => f.key === flow)?.budget;
+  if (b && b.max_usd != null && b.spent_usd != null && b.spent_usd >= b.max_usd)
+    throw new SupervisorError('CONFLICT', `The ${flow} budget is spent for this period.`);
   const stamp = new Date()
     .toISOString()
     .replace(/[^0-9]/g, '')
