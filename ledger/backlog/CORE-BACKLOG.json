@@ -4,7 +4,7 @@
     "profile": "core",
     "schema": "ledger-row/1",
     "generated": "2026-11-09",
-    "row_count": 137,
+    "row_count": 138,
     "conventions": {
       "verify_probe": "Same convention as 04-build-plan/backlog.json: 'pnpm probe <path>' runs probes/<path>.probe.ts, a Tier 0 file written before the implementation row starts and never edited by the agent doing the row. Every probe fails today because its target does not exist (a missing probe file exits 2, a missing behaviour exits 1). The probe pack for a milestone is committed by the Owner or a pair session before the milestone's rows start.",
       "status": "All rows start as open. Status lives only in the ledger database (imported with fw ledger sync), never in prose.",
@@ -28,7 +28,7 @@
       }
     },
     "full_plan_rows_included": 37,
-    "new_core_rows": 95
+    "new_core_rows": 96
   },
   "rows": [
     {
@@ -4816,6 +4816,40 @@
         "packages/daemon/src/overseer/cycle.ts",
         "packages/daemon/src/overseer/drafts.ts",
         "packages/daemon/test/draft-gate.test.ts"
+      ],
+      "origin": "new Core row"
+    },
+    {
+      "id": "FW-C-101",
+      "title": "The Creator seed flow drafts in the launch machine's v2 shape: the coastal first map, niches with pain-point angles, short DMs, three touches for life and creator-seed links",
+      "core_milestone": "C1",
+      "phase": 1,
+      "epic": "C1.5 First flow",
+      "priority": "P1",
+      "size": "M",
+      "lane": "workstreams",
+      "agent_suitability": "agent",
+      "gate": "none",
+      "depends_on": [],
+      "description": "On 2026-11-11 the Owner asked for the launch machine (v2 plan, sections 2, 3 and 5). The Creator seed flow (neighborhood-activation) still drafts in the old shape: every note is a signed letter with a P.S., the touch cap resets every 30 days, links carry persona and name the region as the campaign, a draft names no niche or angle, and a hunt cycle may read any page. Now config.json carries first_map (encinitas, carlsbad, solana-del-mar first, inside the North County region, which stays), niches (sound, breathwork, yoga, ecstatic-dance, music, makers-art, venue), each with 2 or 3 pain-point angles (filling the room each week, ticket and platform fees, a crowd scattered across Instagram, WhatsApp and email, no page or list of their own, and for venues teachers each promoting alone), leads.max_touches_per_lead 3 for life (the 30-day cap stays), leads.max_new_contacts_per_day 15, hunts.send_via founder_email, hunts.every_days 1 and one DM door (dm_door /start/host; venues use it with niche venue). seedDraft(cfg, lead, {route, angle, tag, opener}) builds a draft carrying niche, angle and route: a dm has no sign-off and no P.S. and aims for 70 words (40 for a follow-up) with a hard cap of 120; an email keeps the Owner's sign-off, P.S. and reply-no opt-out. Its link goes to /start/host with utm_source=flowweb, utm_medium=one-to-one for a dm, utm_campaign=creator-seed and utm_content=<niche>.<tag>, keeps area and channel and drops persona. routeLeads caps a lead touched three times in its life. The hunt brief lists the allowed sources and never fetches instagram.com or facebook.com; fetchAllowed refuses those hosts and a hunt link to them answers 400. A social hunt draft is unsigned, has no P.S. and its link drops persona. Drafts only: nothing is sent.",
+      "acceptance": [
+        "config.json has first_map starting encinitas, carlsbad, solana-del-mar, the seven niches with 2 or 3 angles each, a lifetime cap of 3 touches, 15 new contacts a day, the founder send route, daily hunts and the /start/host DM door",
+        "A dm draft has no sign-off or P.S., is under 120 words and carries niche, angle and route; an email draft keeps the sign-off, P.S. and opt-out",
+        "Draft links carry utm_campaign=creator-seed, utm_content=<niche>.<tag>, utm_medium=one-to-one for a dm, area and channel, and no persona; a venue carries niche=venue on /start/host",
+        "A fourth touch is refused however long ago the first three were",
+        "instagram.com and facebook.com are refused by the hunt fetch guard, and a hunt link to them answers 400"
+      ],
+      "verify_probe": "pnpm probe flows/seed-config",
+      "files_hint": [
+        "flows/neighborhood-activation/config.json",
+        "flows/neighborhood-activation/README.md",
+        "packages/daemon/src/flows/neighborhood-activation.ts",
+        "packages/daemon/src/flows/hunts.ts",
+        "packages/daemon/src/flows/short-links.ts",
+        "packages/daemon/src/overseer/cycle.ts",
+        "packages/daemon/src/overseer/intensity.ts",
+        "packages/daemon/test/neighborhood-activation.test.ts",
+        "packages/daemon/test/hunts.test.ts"
       ],
       "origin": "new Core row"
     }
