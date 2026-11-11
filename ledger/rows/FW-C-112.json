@@ -28,7 +28,8 @@
     "packages/daemon/src/flows/host-moments.ts",
     "packages/daemon/src/overseer/drafts.ts",
     "packages/daemon/src/overseer/cycle.ts",
-    "packages/daemon/src/api/routes.ts"
+    "packages/daemon/src/api/routes.ts",
+    "packages/daemon/test/sequence-cold.test.ts"
   ],
   "origin": "new Core row"
 }
