@@ -2752,3 +2752,136 @@ fieldset.flow-ring {
   padding: 0;
   border: 0;
 }
+
+/* ---------------------------------------------------------------- Process orbit (FW-C-099) */
+/*
+ * A flow's other processes as rings inside its outreach ring: learning, regions and spend, with the
+ * Supervisor at the hub. Each takes the loop states above; the legend names each ring, outer first.
+ */
+.orbit-track {
+  fill: none;
+  stroke: var(--flow-line-quiet);
+  stroke-width: 0.8;
+  stroke-opacity: 0.7;
+}
+.orbit-rings .loop-line {
+  stroke-width: 2.2;
+}
+.orbit-rings .loop-target:hover .loop-line,
+.orbit-rings .loop-target:focus-visible .loop-line {
+  stroke-width: 3.2;
+}
+.orbit-meter .loop-hit {
+  fill: none;
+  stroke-width: 6;
+}
+.orbit-dot {
+  fill: var(--loop-c);
+  fill-opacity: var(--loop-o);
+  stroke: var(--flow-ground);
+  stroke-width: 0.8;
+}
+.orbit-node.loop-working .orbit-dot,
+.orbit-hub.loop-working .orbit-hub-core {
+  filter: drop-shadow(0 0 2.5px var(--flow-teal));
+}
+.orbit-node.loop-waiting .orbit-dot,
+.orbit-hub.loop-waiting .orbit-hub-glow,
+.orbit-key.loop-waiting .orbit-key-ring {
+  animation: fw-soft-pulse 2.4s var(--ease-standard) infinite;
+}
+.orbit-hub-glow {
+  fill: color-mix(in srgb, var(--loop-c) 18%, transparent);
+}
+.orbit-hub-core {
+  fill: var(--loop-c);
+  fill-opacity: var(--loop-o);
+}
+.orbit-hub.loop-working .orbit-hub-glow {
+  animation: fw-hub-breathe 1.6s var(--ease-standard) infinite;
+  transform-box: fill-box;
+  transform-origin: center;
+}
+@keyframes fw-hub-breathe {
+  50% {
+    transform: scale(1.25);
+  }
+}
+
+/* The legend: one row per ring, outer first, with a small ring sized to match. */
+.orbit-legend {
+  display: grid;
+  gap: var(--space-1);
+  margin: var(--space-2) 0 0;
+  padding: 0;
+  list-style: none;
+}
+.orbit-key {
+  display: flex;
+  align-items: center;
+  gap: var(--space-3);
+  min-height: 44px;
+  padding: var(--space-2) var(--space-3);
+  border-radius: var(--radius-md);
+}
+.orbit-key:hover,
+.orbit-key[aria-pressed="true"] {
+  background: var(--surface-hover);
+}
+.orbit-key-ring {
+  display: grid;
+  flex: none;
+  place-items: center;
+  width: 24px;
+  height: 24px;
+}
+.orbit-key-ring::before {
+  width: calc(24px - var(--k, 0) * 5px);
+  height: calc(24px - var(--k, 0) * 5px);
+  border: 2.5px solid var(--loop-c);
+  border-radius: 99px;
+  opacity: var(--loop-o);
+  content: "";
+}
+.orbit-key.loop-working .orbit-key-ring::before {
+  box-shadow: 0 0 6px var(--flow-teal);
+}
+.orbit-key.loop-broken .orbit-key-ring::before {
+  border-style: dashed;
+}
+.orbit-key-ring[data-ring="1"] {
+  --k: 1;
+}
+.orbit-key-ring[data-ring="2"] {
+  --k: 2;
+}
+.orbit-key-ring[data-ring="3"] {
+  --k: 3;
+}
+.orbit-key-text {
+  display: grid;
+  min-width: 0;
+}
+.orbit-key-name {
+  display: flex;
+  gap: var(--space-2);
+  align-items: baseline;
+  font: var(--weight-semibold) var(--text-base) / 1.3 var(--font-sans);
+}
+.orbit-key-state {
+  font: var(--weight-medium) var(--text-xs) / 1 var(--font-sans);
+  color: var(--text-tertiary);
+}
+.orbit-key.loop-working .orbit-key-state {
+  color: var(--active-fg);
+}
+.orbit-key.loop-broken .orbit-key-state {
+  color: var(--caution-fg);
+}
+.orbit-key-sum {
+  overflow: hidden;
+  font: var(--type-small);
+  color: var(--text-secondary);
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}

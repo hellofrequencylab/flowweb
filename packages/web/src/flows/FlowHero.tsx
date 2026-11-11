@@ -4,8 +4,10 @@ import { Link } from '../shell/router';
 import { FlowRing, hueAt } from '../ui-kit/flow';
 import { Icon } from '../ui-kit/Icon';
 import type { Loop, LoopInfo } from '../ui-kit/loop';
+import { OrbitLegend, type OrbitProcess, OrbitRings } from '../ui-kit/orbit';
 import { type Counts, draftCounts, FLOW_STAGES, positionOf } from './FlowsHome';
 import { DIAL, flowLoop } from './flowState';
+import { learningRing, regionRing, spendRing } from './processes';
 import './flows-home.css';
 
 /**
@@ -16,6 +18,8 @@ import './flows-home.css';
 export function FlowHero({ flowKey }: { flowKey: string }) {
   const sup = useResource('supervisor', () => api.supervisor(), ['runs', 'cards']);
   const counts = useResource('home:drafts', draftCounts, ['runs', 'cards']);
+  const review = useResource(`review-summary:${flowKey}`, () => api.reviewSummary(flowKey), ['runs']);
+  const area = useResource('flow:neighborhood-activation', () => api.activationFlow(), ['runs', 'cards']);
   const s = sup.honesty === 'current' ? sup.data : null;
   const i = s ? s.flows.findIndex((f) => f.key === flowKey) : -1;
   const f = s && i >= 0 ? s.flows[i] : null;
@@ -23,6 +27,32 @@ export function FlowHero({ flowKey }: { flowKey: string }) {
   const p = f ? positionOf(f, c) : null;
   // FW-C-097: motion only while fwd says a cycle is running now; idle stays still.
   const live = p?.state === 'running';
+  // FW-C-099: the flow's other processes as rings inside the outreach ring, from current reads only.
+  const base = f ? flowLoop(f) : null;
+  const territories = area.honesty === 'current' ? area.data?.territories : null;
+  const inner = [
+    learningRing(base, review.honesty === 'current' ? review.data : null),
+    regionRing(base, Array.isArray(territories) ? territories : null),
+    spendRing(base, f),
+  ].filter((r): r is OrbitProcess => r != null);
+  const outreach: OrbitProcess = {
+    key: 'outreach',
+    summary: c
+      ? `${c.total} drafted, ${c.ready} to check, ${c.replied} replied`
+      : 'Find, draft, you check, send',
+    info: {
+      title: 'Outreach',
+      loop: base ?? 'waiting',
+      what: 'The outer ring. Each cycle finds organizers, drafts to them and waits for you to check and send.',
+      why: f?.reason || undefined,
+    },
+  };
+  const hub: LoopInfo = {
+    title: 'Supervisor',
+    loop: base ?? 'waiting',
+    what: 'Your Supervisor runs every ring of this flow within its caps, and stops it at the kill switch.',
+    why: f?.reason || 'Unknown until fwd answers.',
+  };
   return (
     <section className={`flow-hero${live ? ' is-live' : ''}`} aria-label="Where this flow is">
       <Link to="/" className="flow-hero-back">
@@ -33,12 +63,11 @@ export function FlowHero({ flowKey }: { flowKey: string }) {
           hue={hueAt(Math.max(0, i))}
           at={p?.at ?? 0}
           state={p?.state ?? 'unknown'}
-          size={240}
+          size={320}
           stages={FLOW_STAGES}
           showLabels
-          label={p && p.state !== 'quiet' && p.state !== 'unknown' ? FLOW_STAGES[p.at] : undefined}
-          sublabel={p ? p.word : 'Unknown'}
           title={f && p ? `${f.name}: ${p.word}` : 'This flow: Unknown'}
+          inner={<OrbitRings rings={inner} hub={hub} />}
           {...(f ? stageLoops(flowLoop(f), c, f.reason) : {})}
         />
         <div className="flow-hero-text">
@@ -59,13 +88,9 @@ export function FlowHero({ flowKey }: { flowKey: string }) {
                 {p?.word} · {DIAL[f.dial]}
               </p>
               {f.reason && <p className="flow-hero-reason">{f.reason}</p>}
-              {c && (
-                <p className="small muted">
-                  {c.total} drafted · {c.ready} to check · {c.sent + c.replied} sent · {c.replied} replied
-                </p>
-              )}
             </>
           )}
+          <OrbitLegend rings={[outreach, ...inner]} />
         </div>
       </div>
     </section>

@@ -116,6 +116,7 @@ export function FlowRing({
   title,
   loops,
   links,
+  inner,
 }: {
   hue?: Hue;
   at?: number;
@@ -132,6 +133,8 @@ export function FlowRing({
   loops?: LoopInfo[];
   /** FW-C-098: the line from each stage to the next, as a clickable, stateful connection. */
   links?: LoopInfo[];
+  /** FW-C-099: more processes drawn as rings inside this one (OrbitRings), in the same 100 by 100 box. */
+  inner?: ReactNode;
 }) {
   const target = useLoopTarget();
   const n = stages.length;
@@ -204,6 +207,7 @@ export function FlowRing({
               );
             });
           })}
+        {!tiny && inner}
         {links &&
           !tiny &&
           links.map((l, i) => {
@@ -863,7 +867,7 @@ export function GroupBadge({
 
 /* ---------------------------------------------------------------- Gauges */
 
-const arcPath = (a0: number, a1: number, r: number) => {
+export const arcPath = (a0: number, a1: number, r: number) => {
   const p = (a: number) => [50 + r * Math.cos((a * Math.PI) / 180), 50 + r * Math.sin((a * Math.PI) / 180)];
   const [x0, y0] = p(a0);
   const [x1, y1] = p(a1);
