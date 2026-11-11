@@ -625,6 +625,8 @@ export function handOff(o: {
   now?: Date;
   /** FW-C-046: the Owner approved this item (Copilot or Autopilot), so the autopilot gate does not apply. */
   approved?: boolean;
+  /** FW-C-104: an approved email batch on a flow whose config sets sequence.email_batch_approval. */
+  batch?: boolean;
 }): HandOffResult {
   const { writer: w, flow, item } = o;
   if (!shippedFlows(o.repoRoot).some((f) => f.key === flow))
@@ -657,7 +659,7 @@ export function handOff(o: {
   if (o.approved) {
     // FW-C-046: the Owner approved this one item. Copilot and Autopilot both allow that; at Draft the
     // Owner sends by hand, so nothing goes to the outbox.
-    if (stop === 'draft')
+    if (stop === 'draft' && !(o.batch && via === 'email'))
       return held(
         'needs_copilot',
         'At draft the Owner sends each item by hand; set the flow to copilot to approve items here.',
