@@ -693,6 +693,35 @@ export interface FlowDrafts extends Envelope {
   drafts: FlowDraft[];
 }
 
+/** FW-C-105: one action on the Today list, as GET /v1/flows/{key}/today answers it. */
+export interface TodayAction {
+  id: string;
+  kind: 'cold' | 'sequence' | 'warm' | 'venue' | 'approve_lead' | 'show_up';
+  draft_id: string | null;
+  lead_id: string | null;
+  name: string;
+  niche: string | null;
+  town: string | null;
+  source_url: string | null;
+  route: 'email' | 'dm' | 'form' | 'platform' | null;
+  open_url: string | null;
+  to: string | null;
+  subject: string | null;
+  body: string | null;
+  words: number | null;
+  score: number | null;
+  created_at: string | null;
+}
+
+/** FW-C-105: the morning's ranked list, cut at the day's size. */
+export interface TodayList extends Envelope {
+  flow: string;
+  size: number;
+  ranked_by: 'score' | 'age';
+  actions: TodayAction[];
+  skips?: Record<string, number>;
+}
+
 /** FW-C-072: one value of a review dimension (a source, hunt, funnel, sub-area or message angle). */
 export interface ReviewValue {
   value: string;

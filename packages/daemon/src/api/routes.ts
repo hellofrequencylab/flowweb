@@ -10,6 +10,7 @@ import { type Reader, sha256Hex } from '@fw/eventlog';
 import type { PairingStore, Principal } from '../auth.ts';
 import * as crm from '../flows/crm.ts';
 import * as hunts from '../flows/hunts.ts';
+import * as leads from '../flows/leads.ts';
 import * as localPulse from '../flows/local-pulse.ts';
 import * as localSaturation from '../flows/local-saturation.ts';
 import * as neighborhoodActivation from '../flows/neighborhood-activation.ts';
@@ -17,10 +18,13 @@ import * as naAdmin from '../flows/neighborhood-admin.ts';
 import * as outcomes from '../flows/outcomes.ts';
 import * as paidAds from '../flows/paid-ads.ts';
 import * as adsPull from '../flows/paid-ads-ga4.ts';
+import { ReplyError, type ReplyResult } from '../flows/reply-helper.ts';
 import * as review from '../flows/review.ts';
 import { reviewSummary } from '../flows/review-summary.ts';
+import { type BatchResult, dueTouches, loadSequence } from '../flows/sequence.ts';
+import { isSkipReason, recordSkip, todaySize, todayView } from '../flows/today.ts';
 import { type DraftView, editDraft, listDrafts, markDraft } from '../overseer/drafts.ts';
-import { readSettings, SupervisorError, supervisorView } from '../overseer/index.ts';
+import { perDayFor, readSettings, SupervisorError, shippedFlows, supervisorView } from '../overseer/index.ts';
 import type { RewriteProposal } from '../overseer/rewrite.ts';
 import { type RunHost, RunHostStoppingError } from '../run-host.ts';
 import { isInside, RUN_ID_RE } from '../runtime/paths.ts';
@@ -137,8 +141,12 @@ export interface SupervisorControls {
   /** FW-C-046: the Owner approves or rejects one cycle draft. */
   approveDraft?(key: string, id: string): DraftView;
   rejectDraft?(key: string, id: string): DraftView;
+  /** FW-C-104: the Owner approves a batch of email sequence touches for the sender. */
+  batchApprove?(key: string, draftIds: unknown): BatchResult;
   /** FW-C-051: a proposal from the flow's engine; the draft is not changed. */
   rewriteDraft?(key: string, id: string, body: Record<string, unknown>): Promise<RewriteProposal>;
+  /** FW-C-108: a pasted reply becomes a drafted answer for the Owner, or a do-not-contact entry. */
+  draftReply?(key: string, body: Record<string, unknown>): Promise<ReplyResult>;
 }
 
 /** The body of POST /v1/runs, checked. */
@@ -294,6 +302,46 @@ function addFlowAdminRoutes(r: Router, deps: ApiDeps): void {
     res.end(req.method === 'HEAD' ? undefined : text);
     return undefined;
   });
+}
+
+/**
+ * FW-C-103: a flow's lead graph. GET refreshes it from the hunt drafts and lists the nodes (?state=
+ * proposed|approved|dropped); approve and drop are the Owner's tap; paste adds people met in person.
+ */
+function addLeadRoutes(r: Router, deps: ApiDeps): void {
+  const base = '/v1/flows/{key}/leads';
+  const opts = (key: string | undefined) => {
+    if (!key || !Object.hasOwn(FLOWS, key)) throw notFound('flow', key);
+    const na = key === neighborhoodActivation.FLOW_KEY;
+    const cfg = na ? neighborhoodActivation.loadFlow(deps.repoRoot, deps.fwHome)?.cfg.leads : undefined;
+    return { fwHome: deps.fwHome, flow: key, rules: leads.rulesOf(cfg) };
+  };
+  r.get(base, ({ params, query }) => {
+    const want = oneOf(query, 'state', ['proposed', 'approved', 'dropped'] as const);
+    const g = leads.refreshLeads(opts(params.key));
+    return envelope(deps.reader, () => ({ data: g.nodes.filter((n) => !want || n.state === want) }));
+  });
+  r.post(`${base}/paste`, async ({ req, params }) => {
+    const body = await readJsonBody(req);
+    if (typeof body.text !== 'string' || !body.text.trim()) throw invalid('text is required');
+    const town = typeof body.town === 'string' && body.town.trim() ? body.town.trim() : null;
+    const extra = leads.parsePaste(body.text, new Date(), town);
+    const g = leads.refreshLeads({ ...opts(params.key), extra });
+    return envelope(deps.reader, () => ({ data: leads.nodesFor(g, extra) }));
+  });
+  for (const [action, state] of [
+    ['approve', 'approved'],
+    ['drop', 'dropped'],
+  ] as const)
+    r.post(`${base}/{id}/${action}`, ({ params }) => {
+      try {
+        const data = leads.decideLead({ ...opts(params.key), id: params.id ?? '', state });
+        return envelope(deps.reader, () => ({ data }));
+      } catch (e) {
+        if (!(e instanceof leads.LeadError)) throw e;
+        throw new ApiError(e.status, e.status === 404 ? 'not_found' : 'conflict', e.message);
+      }
+    });
 }
 
 /**
@@ -554,6 +602,7 @@ export function buildRouter(deps: ApiDeps): Router {
     }),
   );
   addFlowAdminRoutes(r, deps);
+  addLeadRoutes(r, deps);
   localPulse.addLocalPulseRoutes(r, deps);
 
   // ---- supervisor (FW-C-033) ----------------------------------------------------------------
@@ -677,6 +726,15 @@ export function buildRouter(deps: ApiDeps): Router {
       throw draftError(e);
     }
   });
+  // FW-C-105: Today, the ranked list of the morning's actions. Owner only, like the drafts it holds.
+  r.get('/v1/flows/{key}/today', ({ req, params, query }) => {
+    ownerOnly(req);
+    const key = params.key ?? '';
+    if (!shippedFlows(deps.repoRoot).some((f) => f.key === key)) throw notFound('flow', params.key);
+    const now = new Date();
+    const size = todaySize(perDayFor(reader, deps.fwHome, key, now), query.get('size'));
+    return env(() => ({ data: todayView({ fwHome: deps.fwHome, flow: key, size, now }) }));
+  });
   // FW-C-050: the Owner changes a draft's subject and text before it goes out.
   r.post('/v1/supervisor/flows/{key}/drafts/{id}/edit', async ({ req, params }) => {
     ownerOnly(req);
@@ -727,20 +785,69 @@ export function buildRouter(deps: ApiDeps): Router {
       throw draftError(e);
     }
   });
+  // FW-C-108: the Owner pastes a host's reply; fwd drafts the answer from the flow's reply tree.
+  r.post('/v1/flows/{key}/replies', async ({ req, params }) => {
+    ownerOnly(req);
+    const body = await readJsonBody(req);
+    const c = deps.supervisor;
+    if (!c?.draftReply) throw new ApiError(501, 'not_implemented', 'this fwd does not host the reply helper');
+    try {
+      const data = await c.draftReply(params.key ?? '', body);
+      return env(() => ({ data }));
+    } catch (e) {
+      if (!(e instanceof ReplyError)) throw kernelError(e);
+      throw new ApiError(e.status, e.status === 404 ? 'not_found' : 'validation_failed', e.message);
+    }
+  });
   for (const action of ['approve', 'reject'] as const)
-    r.post(`/v1/supervisor/flows/{key}/drafts/{id}/${action}`, ({ req, params }) => {
+    r.post(`/v1/supervisor/flows/{key}/drafts/{id}/${action}`, async ({ req, params }) => {
       ownerOnly(req);
       const c = deps.supervisor;
       const act = action === 'approve' ? c?.approveDraft : c?.rejectDraft;
       if (!c || !act)
         throw new ApiError(501, 'not_implemented', 'this fwd does not host the Copilot controls');
+      // FW-C-105: a skip from Today rejects with a reason, recorded for the weekly review.
+      const reason =
+        action === 'reject' && req.headers['content-type'] ? (await readJsonBody(req)).reason : undefined;
+      if (reason !== undefined && !isSkipReason(reason))
+        throw new ApiError(
+          400,
+          'validation_failed',
+          'reason must be wrong_niche, not_local, not_a_fit or on_frequency',
+        );
       try {
         const data = act.call(c, params.key ?? '', params.id ?? '');
+        if (reason !== undefined)
+          recordSkip({ fwHome: deps.fwHome, flow: params.key ?? '', draftId: params.id ?? '', reason });
         return env(() => ({ data }));
       } catch (e) {
         throw draftError(e);
       }
     });
+
+  // FW-C-104: the outreach sequence. GET lists the touches due now and every lead's state; POST hands
+  // an approved batch of email touches to the sender, capped a day.
+  r.get('/v1/flows/{key}/sequence', ({ req, params }) => {
+    ownerOnly(req);
+    const key = params.key ?? '';
+    if (!Object.hasOwn(FLOWS, key)) throw notFound('flow', params.key);
+    return env(() => {
+      const due = dueTouches(key, new Date(), deps.fwHome);
+      return { data: { due, leads: Object.values(loadSequence(deps.fwHome, key).leads) } };
+    });
+  });
+  r.post('/v1/flows/{key}/batch/approve', async ({ req, params }) => {
+    ownerOnly(req);
+    const body = await readJsonBody(req);
+    const c = deps.supervisor;
+    if (!c?.batchApprove) throw new ApiError(501, 'not_implemented', 'this fwd does not host batch approval');
+    try {
+      const data = c.batchApprove(params.key ?? '', body.draft_ids);
+      return env(() => ({ data }));
+    } catch (e) {
+      throw draftError(e);
+    }
+  });
 
   r.get('/v1/status-reports', ({ query }) => {
     const kind = oneOf(query, 'kind', REPORT_KINDS);
