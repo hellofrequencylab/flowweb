@@ -4,7 +4,7 @@
     "profile": "core",
     "schema": "ledger-row/1",
     "generated": "2026-11-09",
-    "row_count": 136,
+    "row_count": 140,
     "conventions": {
       "verify_probe": "Same convention as 04-build-plan/backlog.json: 'pnpm probe <path>' runs probes/<path>.probe.ts, a Tier 0 file written before the implementation row starts and never edited by the agent doing the row. Every probe fails today because its target does not exist (a missing probe file exits 2, a missing behaviour exits 1). The probe pack for a milestone is committed by the Owner or a pair session before the milestone's rows start.",
       "status": "All rows start as open. Status lives only in the ledger database (imported with fw ledger sync), never in prose.",
@@ -28,7 +28,7 @@
       }
     },
     "full_plan_rows_included": 37,
-    "new_core_rows": 94
+    "new_core_rows": 98
   },
   "rows": [
     {
@@ -4755,6 +4755,136 @@
         "hosted/server/frequency-link.mjs",
         "hosted/test/frequency-link.test.mjs",
         "docs/api/FREQUENCY-INTEGRATION-V1.md"
+      ],
+      "origin": "new Core row"
+    },
+    {
+      "id": "FW-C-103",
+      "title": "Every lead is a scored node in a small graph of people, venues and referrers, and a strong one approves itself",
+      "core_milestone": "C1",
+      "phase": 1,
+      "epic": "C1.5 First flow",
+      "priority": "P1",
+      "size": "L",
+      "lane": "workstreams",
+      "agent_suitability": "agent",
+      "gate": "none",
+      "depends_on": [
+        "FW-C-041"
+      ],
+      "description": "On 2026-11-11 the Owner asked for the launch machine v2 (Loop 1 Find and Loop 5 Grow). Today a hunt lead is a row that only knows its own address, so venue and referral leverage cannot be computed and every lead waits for a tap. flows/leads.ts keeps a lead graph per flow in $FW_HOME/flows/<flow>/leads.json: nodes { id, kind person|venue, name, niche, town, contact_routes [{ kind email|dm|form, value, public_source_url }], source_url, last_event_at, current_tool, consent_note, state proposed|approved|dropped, score { p_reply, p_publish, leverage, timing, value }, links { venues, events, referred_by }, warm met_in_person|referred|null, created_at }. It reads the drafts the hunts already write (read only) and upserts nodes, deduped by normalized email, handle, a venue's own domain, and name plus town; a person found on a venue's own site links to that venue. The Owner pastes people met in person (POST /v1/flows/{key}/leads/paste { text }, one per line: name, where met, contact), which become warm nodes; the text is data. value = p_reply x p_publish x leverage x timing: warm beats cold, a public contact of their own and recent activity raise p_reply; recurring events, ticket fees and a known niche raise p_publish; a venue's teacher count and a person's venues and referrals raise leverage; timing is the half-life on the last public activity. At or above the approve threshold (config leads.auto_approve_at, default 0.6) a node approves itself, from 0.45 it stays proposed, below it drops; do-not-contact and restricted regions (EU, EEA, UK, Canada) always drop. GET /v1/flows/{key}/leads?state= lists nodes, POST .../leads/{id}/approve and .../drop are the Owner's tap (approving a blocked node answers 409). The graph refreshes after each hunt cycle and once a day. No em dashes.",
+      "acceptance": [
+        "Two hunt results for the same person dedupe to one node with both events",
+        "A venue and two teachers found on its site link, and the teachers raise the venue's leverage above a venue with none",
+        "A strong lead approves itself, a borderline one stays proposed, and do-not-contact and restricted leads drop",
+        "The Owner can approve or drop a node, the choice survives a refresh, and approving a blocked node is refused",
+        "A paste of three names met in person makes three warm person nodes, and pasting them again makes no more"
+      ],
+      "verify_probe": "pnpm probe flows/lead-graph",
+      "files_hint": [
+        "packages/daemon/src/flows/leads.ts",
+        "packages/daemon/test/leads.test.ts",
+        "packages/daemon/src/api/routes.ts",
+        "packages/daemon/src/daemon.ts",
+        "packages/daemon/src/overseer/cycle.ts"
+      ],
+      "origin": "new Core row"
+    },
+    {
+      "id": "FW-C-102",
+      "title": "No draft that breaks a hard copy or outreach rule ever waits in the Owner's inbox: a draft gate blocks it with its reasons, checked against a facts sheet fwd keeps fresh from Frequency",
+      "core_milestone": "C1",
+      "phase": 1,
+      "epic": "C1.5 First flow",
+      "priority": "P1",
+      "size": "L",
+      "lane": "workstreams",
+      "agent_suitability": "agent",
+      "gate": "none",
+      "depends_on": [],
+      "description": "On 2026-11-11 the Owner asked for the launch machine's kept rules to become code (plan v2 section 5, v1 section 4 day 2). A pure module packages/daemon/src/flows/draft-gate.ts gives checkDraft(draft, ctx) -> {ok, blocks, warns}. It blocks an em or en dash, an emoji, any number or date found in none of the facts sheet, the event payload, the lead's own source text or the draft's own links, the word Midnight, no tagged Frequency link (utm_source set, or a frequencylocal.com/q/ short link, or the claim slot), over 120 words (links, the sign-off block and the P.S. not counted), a touch past the third, an address or domain on do-not-contact, and an EU, EEA, UK or Canada lead. It only warns on a DM over 70 words and a follow-up over 40. packages/daemon/src/flows/facts.ts reads $FW_HOME/facts.json ({beta_ends, prices, launcher_minutes, fetched_at}) and, when crd_frequencyoutcomes is set, refreshes it once a day with a signed GET of Frequency's /api/webhooks/flowweb-facts; a failed refresh keeps the last good file and records why in facts-pull.json. Where fwd stores a cycle's drafts (overseer/cycle.ts), a blocked draft is stored with status gate_blocked and its reasons, never handed off, and never counted as waiting; persistDraft stores a draft for flows that write their own, rewriting it once first when a rewrite hook is given. approveDraft refuses a gate_blocked draft. Hunt drafts always need a tagged link; a flow's own drafts.json drafts need one once its config says gate: true. No em dashes.",
+      "acceptance": [
+        "A draft with a dash, an invented price, Midnight, no tagged link, 130 words or a 4th touch is stored gate_blocked with that reason",
+        "A clean draft waits for the Owner, and a gate_blocked draft is never listed as waiting and cannot be approved",
+        "A cycle at Autopilot never hands a blocked draft to the outbox",
+        "A failed facts refresh keeps the last good facts.json and records why"
+      ],
+      "verify_probe": "pnpm probe flows/draft-gate",
+      "files_hint": [
+        "packages/daemon/src/flows/draft-gate.ts",
+        "packages/daemon/src/flows/facts.ts",
+        "packages/daemon/src/overseer/cycle.ts",
+        "packages/daemon/src/overseer/drafts.ts",
+        "packages/daemon/test/draft-gate.test.ts"
+      ],
+      "origin": "new Core row"
+    },
+    {
+      "id": "FW-C-101",
+      "title": "The Creator seed flow drafts in the launch machine's v2 shape: the coastal first map, niches with pain-point angles, short DMs, three touches for life and creator-seed links",
+      "core_milestone": "C1",
+      "phase": 1,
+      "epic": "C1.5 First flow",
+      "priority": "P1",
+      "size": "M",
+      "lane": "workstreams",
+      "agent_suitability": "agent",
+      "gate": "none",
+      "depends_on": [],
+      "description": "On 2026-11-11 the Owner asked for the launch machine (v2 plan, sections 2, 3 and 5). The Creator seed flow (neighborhood-activation) still drafts in the old shape: every note is a signed letter with a P.S., the touch cap resets every 30 days, links carry persona and name the region as the campaign, a draft names no niche or angle, and a hunt cycle may read any page. Now config.json carries first_map (encinitas, carlsbad, solana-del-mar first, inside the North County region, which stays), niches (sound, breathwork, yoga, ecstatic-dance, music, makers-art, venue), each with 2 or 3 pain-point angles (filling the room each week, ticket and platform fees, a crowd scattered across Instagram, WhatsApp and email, no page or list of their own, and for venues teachers each promoting alone), leads.max_touches_per_lead 3 for life (the 30-day cap stays), leads.max_new_contacts_per_day 15, hunts.send_via founder_email, hunts.every_days 1 and one DM door (dm_door /start/host; venues use it with niche venue). seedDraft(cfg, lead, {route, angle, tag, opener}) builds a draft carrying niche, angle and route: a dm has no sign-off and no P.S. and aims for 70 words (40 for a follow-up) with a hard cap of 120; an email keeps the Owner's sign-off, P.S. and reply-no opt-out. Its link goes to /start/host with utm_source=flowweb, utm_medium=one-to-one for a dm, utm_campaign=creator-seed and utm_content=<niche>.<tag>, keeps area and channel and drops persona. routeLeads caps a lead touched three times in its life. The hunt brief lists the allowed sources and never fetches instagram.com or facebook.com; fetchAllowed refuses those hosts and a hunt link to them answers 400. A social hunt draft is unsigned, has no P.S. and its link drops persona. Drafts only: nothing is sent.",
+      "acceptance": [
+        "config.json has first_map starting encinitas, carlsbad, solana-del-mar, the seven niches with 2 or 3 angles each, a lifetime cap of 3 touches, 15 new contacts a day, the founder send route, daily hunts and the /start/host DM door",
+        "A dm draft has no sign-off or P.S., is under 120 words and carries niche, angle and route; an email draft keeps the sign-off, P.S. and opt-out",
+        "Draft links carry utm_campaign=creator-seed, utm_content=<niche>.<tag>, utm_medium=one-to-one for a dm, area and channel, and no persona; a venue carries niche=venue on /start/host",
+        "A fourth touch is refused however long ago the first three were",
+        "instagram.com and facebook.com are refused by the hunt fetch guard, and a hunt link to them answers 400"
+      ],
+      "verify_probe": "pnpm probe flows/seed-config",
+      "files_hint": [
+        "flows/neighborhood-activation/config.json",
+        "flows/neighborhood-activation/README.md",
+        "packages/daemon/src/flows/neighborhood-activation.ts",
+        "packages/daemon/src/flows/hunts.ts",
+        "packages/daemon/src/flows/short-links.ts",
+        "packages/daemon/src/overseer/cycle.ts",
+        "packages/daemon/src/overseer/intensity.ts",
+        "packages/daemon/test/neighborhood-activation.test.ts",
+        "packages/daemon/test/hunts.test.ts"
+      ],
+      "origin": "new Core row"
+    },
+    {
+      "id": "FW-C-104",
+      "title": "Every lead moves through three touches and stops on a reply or a no, and email touches go to the Gmail sender only in a batch the Owner approves",
+      "core_milestone": "C1",
+      "phase": 1,
+      "epic": "C1.5 First flow",
+      "priority": "P1",
+      "size": "M",
+      "lane": "workstreams",
+      "agent_suitability": "agent",
+      "gate": "owner-approval",
+      "depends_on": [
+        "FW-C-054",
+        "FW-C-046",
+        "FW-C-071"
+      ],
+      "description": "Launch machine v2, Loop 2 (Reach): every lead moves through one state machine, new, touch 1, touch 2 (about day 5), touch 3 (about day 12), closed, and any reply or any no ends it the same day. Three touches per person, ever. A touch may switch route: when touch 1 went by DM and the lead has a public email, touch 2 may be email. On 2026-11-11 the Owner chose to let email-route touches go out through the existing email sender (senders/email.mjs, the outbox) after he approves each batch, at most 20 a day, while DMs, posts and forms stay by hand and the flow stays on Draft. fwd keeps each flow's sequence in $FW_HOME/flows/<flow>/sequence.json: per lead its touches (n, route, draft_id, sent_at), state, next_due_at and closed_reason. Draft marks (sent, replied, declined), the do-not-contact list and the sender's outbox folders move it. packages/daemon/src/flows/sequence.ts exports dueTouches(flow, now, fwHome) for the Today view and the cycle. GET /v1/flows/{key}/sequence lists the touches due and every lead's state. POST /v1/flows/{key}/batch/approve {draft_ids} hands each email-route draft to the outbox through the same hand-off as Copilot, up to the daily cap (20, or lower from config sequence.email_daily_cap), and holds the rest; it refuses DM, form and social drafts, drafts with no address, rejected drafts, and drafts for a closed lead or a lead past three touches. With the flow at Draft this works only when the flow's config sets sequence.email_batch_approval true, the narrowest allowance for the Owner's choice; without it the batch is held as before. Both routes need the Owner.",
+      "acceptance": [
+        "A lead whose touch 1 was sent 5 days ago is due for touch 2; one sent 2 days ago is not",
+        "A reply closes a lead, and a no closes it the same day",
+        "A lead with three touches sent is never due again",
+        "A DM lead with a public email is offered touch 2 by email",
+        "A batch of 25 email drafts hands 20 to the outbox and holds 5 for the daily cap, with the flow still at Draft",
+        "A DM draft and a draft for a closed lead in the batch are refused and never reach the outbox"
+      ],
+      "verify_probe": "pnpm probe flows/sequence",
+      "files_hint": [
+        "packages/daemon/src/flows/sequence.ts",
+        "packages/daemon/src/overseer/index.ts",
+        "packages/daemon/src/api/routes.ts",
+        "packages/daemon/src/daemon.ts",
+        "packages/daemon/test/sequence.test.ts"
       ],
       "origin": "new Core row"
     },

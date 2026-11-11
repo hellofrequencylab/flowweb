@@ -1,0 +1,35 @@
+{
+  "id": "FW-C-104",
+  "title": "Every lead moves through three touches and stops on a reply or a no, and email touches go to the Gmail sender only in a batch the Owner approves",
+  "core_milestone": "C1",
+  "phase": 1,
+  "epic": "C1.5 First flow",
+  "priority": "P1",
+  "size": "M",
+  "lane": "workstreams",
+  "agent_suitability": "agent",
+  "gate": "owner-approval",
+  "depends_on": [
+    "FW-C-054",
+    "FW-C-046",
+    "FW-C-071"
+  ],
+  "description": "Launch machine v2, Loop 2 (Reach): every lead moves through one state machine, new, touch 1, touch 2 (about day 5), touch 3 (about day 12), closed, and any reply or any no ends it the same day. Three touches per person, ever. A touch may switch route: when touch 1 went by DM and the lead has a public email, touch 2 may be email. On 2026-11-11 the Owner chose to let email-route touches go out through the existing email sender (senders/email.mjs, the outbox) after he approves each batch, at most 20 a day, while DMs, posts and forms stay by hand and the flow stays on Draft. fwd keeps each flow's sequence in $FW_HOME/flows/<flow>/sequence.json: per lead its touches (n, route, draft_id, sent_at), state, next_due_at and closed_reason. Draft marks (sent, replied, declined), the do-not-contact list and the sender's outbox folders move it. packages/daemon/src/flows/sequence.ts exports dueTouches(flow, now, fwHome) for the Today view and the cycle. GET /v1/flows/{key}/sequence lists the touches due and every lead's state. POST /v1/flows/{key}/batch/approve {draft_ids} hands each email-route draft to the outbox through the same hand-off as Copilot, up to the daily cap (20, or lower from config sequence.email_daily_cap), and holds the rest; it refuses DM, form and social drafts, drafts with no address, rejected drafts, and drafts for a closed lead or a lead past three touches. With the flow at Draft this works only when the flow's config sets sequence.email_batch_approval true, the narrowest allowance for the Owner's choice; without it the batch is held as before. Both routes need the Owner.",
+  "acceptance": [
+    "A lead whose touch 1 was sent 5 days ago is due for touch 2; one sent 2 days ago is not",
+    "A reply closes a lead, and a no closes it the same day",
+    "A lead with three touches sent is never due again",
+    "A DM lead with a public email is offered touch 2 by email",
+    "A batch of 25 email drafts hands 20 to the outbox and holds 5 for the daily cap, with the flow still at Draft",
+    "A DM draft and a draft for a closed lead in the batch are refused and never reach the outbox"
+  ],
+  "verify_probe": "pnpm probe flows/sequence",
+  "files_hint": [
+    "packages/daemon/src/flows/sequence.ts",
+    "packages/daemon/src/overseer/index.ts",
+    "packages/daemon/src/api/routes.ts",
+    "packages/daemon/src/daemon.ts",
+    "packages/daemon/test/sequence.test.ts"
+  ],
+  "origin": "new Core row"
+}
