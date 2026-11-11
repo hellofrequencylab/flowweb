@@ -1,0 +1,37 @@
+{
+  "id": "FW-C-137",
+  "title": "A flow's progress steps come from its own definition, not one list hard-coded in the web UI",
+  "core_milestone": "C1",
+  "phase": 1,
+  "epic": "C1.5 First flow",
+  "priority": "P2",
+  "size": "M",
+  "lane": "workstreams",
+  "agent_suitability": "agent",
+  "gate": "none",
+  "depends_on": [
+    "FW-C-091"
+  ],
+  "description": "Hub model (2026-11-11): flows are data and the kernel stays department-blind, but the web draws every flow through the same five words (FLOW_STAGES: Find, Draft, You check, Sent, Replies) even for Paid ads, which drafts nothing to people, and a support or sales flow will not fit them either. Each shipped flow's config.json declares stages: 3 to 7 { key, label } in order (keys lowercase with dashes, labels up to 24 characters, no em dash). fwd serves them on every FlowView as stages, and FlowsHome, FlowHero and the flow map read the flow's stages instead of a constant. Where a stage's count comes from stays fwd's job; a stage with no count shows Unknown, never zero. Wave 3 of the master plan v2.",
+  "acceptance": [
+    "Every shipped flow's config.json has 3 to 7 valid stages; paid-ads has its own words",
+    "Every FlowView in GET /v1/supervisor has stages equal to its config's",
+    "FlowsHome.tsx and FlowHero.tsx no longer assign a hard-coded stage list; FlowHero reads the flow's stages and SupervisorFlow has a stages field"
+  ],
+  "verify_probe": "pnpm probe flows/flow-stages",
+  "files_hint": [
+    "flows/email-queue/config.json",
+    "flows/host-moments/config.json",
+    "flows/local-pulse/config.json",
+    "flows/local-saturation/config.json",
+    "flows/neighborhood-activation/config.json",
+    "flows/paid-ads/config.json",
+    "packages/daemon/src/overseer/index.ts",
+    "packages/daemon/test/overseer.test.ts",
+    "packages/web/src/api/client.ts",
+    "packages/web/src/api/types.ts",
+    "packages/web/src/flows/FlowsHome.tsx",
+    "packages/web/src/flows/FlowHero.tsx"
+  ],
+  "origin": "new Core row"
+}
