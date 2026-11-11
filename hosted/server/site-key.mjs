@@ -19,6 +19,15 @@ export const SIGN_IN_TOKEN =
 /** Should a refused call be asked once more without the fallback beta? */
 export const retryWithoutBeta = (status) => status === 400 || status === 403;
 
+/** The API's own error sentence, short and with anything key-shaped removed, safe for logs and the page. */
+export function apiDetail(message) {
+  return String(message ?? '')
+    .replace(/sk-ant-[A-Za-z0-9_-]+/g, '[key]')
+    .replace(/\s+/g, ' ')
+    .trim()
+    .slice(0, 240);
+}
+
 /** The person-facing reason for a refusal, by HTTP status and the API's error type. */
 export function refusalReason(status, type, fallback, message = '') {
   if (status === 401 || type === 'authentication_error')
@@ -27,5 +36,6 @@ export function refusalReason(status, type, fallback, message = '') {
     return "Anthropic says the site key may not do this (its workspace may not allow this model). Check the key's workspace at console.anthropic.com.";
   if (type === 'billing_error' || /credit/i.test(String(message)))
     return 'Anthropic turned the request down; the key\'s account may be out of credit. Check Plans and billing at console.anthropic.com.';
+  if (status === 400 && apiDetail(message)) return `Anthropic turned the request down: ${apiDetail(message)}`;
   return fallback;
 }
