@@ -324,7 +324,7 @@ function SupervisorMap({
           if (k === '+')
             return (
               <li key="+" className="sup-node is-add" style={style}>
-                <Link to="/setup" className="sup-node-link">
+                <Link to="/start" className="sup-node-link">
                   <span className="sup-node-add" aria-hidden="true">
                     +
                   </span>

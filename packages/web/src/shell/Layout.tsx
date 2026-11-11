@@ -13,6 +13,7 @@ import { RunsPage } from '../runs/RunsPage';
 import { SettingsPage } from '../settings/SettingsPage';
 import { SetupNudge, SetupPage } from '../setup/SetupPage';
 import { SpendPage } from '../spend/SpendPage';
+import { OnePrompt } from '../start/OnePrompt';
 import { TablePage } from '../table/TablePage';
 import { useWaiting } from '../table/waiting';
 import { PageHead } from '../ui-kit/page';
@@ -130,6 +131,8 @@ export function Layout({ pairedAt, onSignedOut }: { pairedAt: string; onSignedOu
         );
       case 'more':
         return <MorePage />;
+      case 'start':
+        return <OnePrompt />;
       default:
         return (
           <header className="page-head">
