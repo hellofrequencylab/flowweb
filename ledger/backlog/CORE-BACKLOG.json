@@ -4,7 +4,7 @@
     "profile": "core",
     "schema": "ledger-row/1",
     "generated": "2026-11-09",
-    "row_count": 153,
+    "row_count": 154,
     "conventions": {
       "verify_probe": "Same convention as 04-build-plan/backlog.json: 'pnpm probe <path>' runs probes/<path>.probe.ts, a Tier 0 file written before the implementation row starts and never edited by the agent doing the row. Every probe fails today because its target does not exist (a missing probe file exits 2, a missing behaviour exits 1). The probe pack for a milestone is committed by the Owner or a pair session before the milestone's rows start.",
       "status": "All rows start as open. Status lives only in the ledger database (imported with fw ledger sync), never in prose.",
@@ -28,7 +28,7 @@
       }
     },
     "full_plan_rows_included": 37,
-    "new_core_rows": 104
+    "new_core_rows": 105
   },
   "rows": [
     {
@@ -5382,6 +5382,47 @@
       "files_hint": [
         "packages/web/src/hosted/FrequencyLink.tsx",
         "packages/web/src/hosted/auth.ts",
+        "packages/web/src/settings/SettingsPage.tsx"
+      ],
+      "origin": "new Core row"
+    },
+    {
+      "id": "FW-C-118",
+      "title": "The Owner turns Frequency funnel page links on or off from Settings, on the Mac or on flowweb.app",
+      "core_milestone": "C1",
+      "phase": 1,
+      "epic": "C1.5 First flow",
+      "priority": "P0",
+      "size": "M",
+      "lane": "workstreams",
+      "agent_suitability": "agent",
+      "gate": "none",
+      "depends_on": [
+        "FW-C-117",
+        "FW-C-062"
+      ],
+      "description": "Daniel (2026-11-11) asked for buttons to turn live links on and off. Today the switch is funnels_live in each flow's config plus FW_FUNNELS_LIVE=off in fwd's environment, both on the Mac. fwd now keeps one stored switch, funnels_live true, false or unset, in the Supervisor settings. When it is set it wins over the env var and every flow's config, so the button works even with FW_FUNNELS_LIVE set; unset keeps today's env-then-config behaviour. Every generated link honours it: hunts, neighborhood activation, host moments and the reply helper (funnelsLive keeps its two-argument form and takes the stored value as an optional third). GET /v1/supervisor/funnels-live answers { live, source: setting | env | config, setting, env_off }, GET /v1/supervisor carries the same as funnels_live so the hosted mirror shows it, and POST /v1/supervisor/funnels-live { live: true | false | null } sets or clears it (CLI token or paired session). The site queues links.funnels through hosted/server/requests.mjs and migration 0012 allows it with every kind 0011 allowed. Settings shows the switch (On, Off, Flow default) with one line: Off: drafts link to /create-a-space until Frequency's /start/host, /for/<niche> and /launch pages are live.",
+      "acceptance": [
+        "POST /v1/supervisor/funnels-live { live: false } makes a drafted reply link go to /create-a-space while fwd runs with FW_FUNNELS_LIVE=on",
+        "POST { live: true } brings /for/<niche> back while fwd runs with FW_FUNNELS_LIVE=off; { live: null } hands it back to the env var",
+        "GET /v1/supervisor/funnels-live and GET /v1/supervisor show the value and where it came from; bad input 400; no session 401",
+        "A hunt link follows the stored switch over its flow's config",
+        "The site queues links.funnels and the relay maps it to the same route and body; migration 0012 allows it and every earlier kind",
+        "Settings renders the switch, shows the current value, and a click posts only { live }"
+      ],
+      "verify_probe": "pnpm probe flows/funnels-switch",
+      "files_hint": [
+        "packages/daemon/src/flows/live-links.ts",
+        "packages/daemon/src/overseer/index.ts",
+        "packages/daemon/src/api/routes.ts",
+        "packages/daemon/src/daemon.ts",
+        "packages/daemon/test/funnels-switch.test.ts",
+        "hosted/server/requests.mjs",
+        "hosted/supabase/migrations/0012_flowweb_funnels_switch.sql",
+        "hosted/test/requests.test.mjs",
+        "packages/web/src/api/client.ts",
+        "packages/web/src/api/types.ts",
+        "packages/web/src/settings/FunnelsSwitch.tsx",
         "packages/web/src/settings/SettingsPage.tsx"
       ],
       "origin": "new Core row"
