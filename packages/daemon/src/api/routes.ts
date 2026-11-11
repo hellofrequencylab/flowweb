@@ -128,6 +128,8 @@ export interface SupervisorControls {
   setFlowAi?(key: string, body: Record<string, unknown>): { changed: boolean };
   /** FW-C-038: fire the flow's stream by hand; the Supervisor decides it like any fire. */
   runFlow?(key: string): Promise<{ fire_id: string; outcome: string; reason?: string }>;
+  /** FW-C-097: flow cycles in flight now, by flow key, so the Supervisor can say a flow is running. */
+  inFlight?(): Record<string, number>;
   /** FW-C-046: the Owner approves or rejects one cycle draft. */
   approveDraft?(key: string, id: string): DraftView;
   rejectDraft?(key: string, id: string): DraftView;
@@ -550,9 +552,13 @@ export function buildRouter(deps: ApiDeps): Router {
   addFlowAdminRoutes(r, deps);
 
   // ---- supervisor (FW-C-033) ----------------------------------------------------------------
-  r.get('/v1/supervisor', () =>
-    env(() => ({ data: supervisorView({ reader, repoRoot: deps.repoRoot, fwHome: deps.fwHome }) })),
-  );
+  const supView = () => ({
+    reader,
+    repoRoot: deps.repoRoot,
+    fwHome: deps.fwHome,
+    ...(deps.supervisor?.inFlight ? { inFlight: () => deps.supervisor?.inFlight?.() ?? {} } : {}),
+  });
+  r.get('/v1/supervisor', () => env(() => ({ data: supervisorView(supView()) })));
   // The Owner's controls (FW-C-062): the CLI token or the paired browser session. Autopilot still
   // needs the confirm hash, and the hosted site reaches these only through the relay's CLI token.
   const requireOwner = (req: object) => {
@@ -569,7 +575,7 @@ export function buildRouter(deps: ApiDeps): Router {
       return env(() => ({
         data: {
           changed: out.changed,
-          ...supervisorView({ reader, repoRoot: deps.repoRoot, fwHome: deps.fwHome }),
+          ...supervisorView(supView()),
         },
       }));
     } catch (e) {

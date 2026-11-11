@@ -20,12 +20,14 @@ export function FlowHero({ flowKey }: { flowKey: string }) {
   const f = s && i >= 0 ? s.flows[i] : null;
   const c = counts.honesty === 'current' && counts.data ? counts.data.byFlow[flowKey] : null;
   const p = f ? positionOf(f, c) : null;
+  // FW-C-097: motion only while fwd says a cycle is running now; idle stays still.
+  const live = p?.state === 'running';
   return (
-    <section className="flow-hero" aria-label="Where this flow is">
+    <section className={`flow-hero${live ? ' is-live' : ''}`} aria-label="Where this flow is">
       <Link to="/" className="flow-hero-back">
         <Icon name="arrow-left" size={16} /> All flows
       </Link>
-      <div className="flow-hero-body">
+      <div className={`flow-hero-body${live ? ' live-edge' : ''}`}>
         <FlowRing
           hue={hueAt(Math.max(0, i))}
           at={p?.at ?? 0}
@@ -51,6 +53,7 @@ export function FlowHero({ flowKey }: { flowKey: string }) {
           ) : (
             <>
               <p className={`flow-hero-state is-${p?.state}`}>
+                {live && <span className="flow-pulse-dot" aria-hidden="true" />}
                 {p?.word} · {DIAL[f.dial]}
               </p>
               {f.reason && <p className="flow-hero-reason">{f.reason}</p>}

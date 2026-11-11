@@ -162,14 +162,14 @@ export function ActivationPage({ flow }: { flow?: string } = {}) {
       />
       <FlowHero flowKey={flow ?? KEY} />
       <ul className="kpis" aria-label="Flow at a glance">
-        <li className={`kpi${live ? ' is-live' : ''}`}>
+        <li className={`kpi${live ? ' is-live live-edge' : ''}`}>
           <IconTile name="flow" tone="brand" />
           <span className="kpi-text">
             <span className="kpi-value">{active ? active.name : 'Unknown'}</span>
             <span className="kpi-label">active region</span>
           </span>
         </li>
-        <li className="kpi">
+        <li className={`kpi${live ? ' is-live live-edge' : ''}`}>
           <Gauge
             size={60}
             value={active?.progress ?? null}
@@ -183,14 +183,16 @@ export function ActivationPage({ flow }: { flow?: string } = {}) {
             <span className="kpi-label">weakest measure</span>
           </span>
         </li>
-        <li className={`kpi${d && d.awaiting_owner_total > 0 ? ' is-waiting' : ''}`}>
+        <li
+          className={`kpi${d && d.awaiting_owner_total > 0 ? ' is-waiting' : ''}${live ? ' is-live live-edge' : ''}`}
+        >
           <IconTile name="waiting" tone={d && d.awaiting_owner_total > 0 ? 'waiting' : 'neutral'} />
           <span className="kpi-text">
             <span className="kpi-value">{d ? d.awaiting_owner_total : 'Unknown'}</span>
             <span className="kpi-label">invites waiting for you</span>
           </span>
         </li>
-        <li className="kpi">
+        <li className={`kpi${live ? ' is-live live-edge' : ''}`}>
           <Gauge
             size={60}
             value={d ? d.budget.spent_usd : null}

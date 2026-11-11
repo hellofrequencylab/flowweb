@@ -231,7 +231,11 @@ function FlowRow({
   const name = useId();
   return (
     <li>
-      <fieldset aria-labelledby={name} style={ROW}>
+      <fieldset
+        aria-labelledby={name}
+        style={ROW}
+        className={f.state === 'running' ? 'is-live live-edge' : undefined}
+      >
         <div className="panel-head">
           <strong id={name}>{f.name}</strong>
           <StatusLabel spec={flowSpec(f)} />

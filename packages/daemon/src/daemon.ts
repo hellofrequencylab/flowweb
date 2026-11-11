@@ -353,6 +353,7 @@ export async function startDaemon(opts: DaemonOptions): Promise<Daemon> {
         const rec = await scheduler.fireNow(s.id);
         return { fire_id: rec.fire_id, outcome: rec.outcome, ...(rec.reason ? { reason: rec.reason } : {}) };
       },
+      inFlight: () => inFlight(),
     },
     projects: {
       add: (input) => addProject(writer, input as unknown as ProjectAdd),
@@ -453,7 +454,13 @@ export async function startDaemon(opts: DaemonOptions): Promise<Daemon> {
   port = typeof addr === 'object' && addr ? addr.port : opts.port;
 
   // FW-C-036: by default the Supervisor decides every fire of a flow (a hold names its gate).
-  const supervise = createSupervisorOnFire({ reader: writer, repoRoot: REPO_ROOT, fwHome });
+  // FW-C-097: cycles in flight count as running, so a second fire waits at the flow's wip limit.
+  const supervise = createSupervisorOnFire({
+    reader: writer,
+    repoRoot: REPO_ROOT,
+    fwHome,
+    inFlight: () => inFlight(),
+  });
   // FW-C-038: an admitted fire of a flow runs one cycle, after the fire is recorded.
   const onFire: OnFire =
     opts.onFire ??
@@ -479,7 +486,7 @@ export async function startDaemon(opts: DaemonOptions): Promise<Daemon> {
             { writer, repoRoot: REPO_ROOT, fwHome, env: process.env, log, signal: ac.signal },
             { flow: f.streamKey, streamId: f.streamId, fireId: f.fireId },
           ).finally(() => cycles.delete(entry));
-          const entry = { ac, done };
+          const entry = { flow: f.streamKey, ac, done };
           cycles.add(entry);
         });
       return v;
@@ -495,7 +502,13 @@ export async function startDaemon(opts: DaemonOptions): Promise<Daemon> {
       .catch((e) => log(`scheduler: reload failed: ${(e as Error)?.message ?? e}`));
   };
   /** Flow cycles in flight: a stop kills each one and waits for its report before closing the store. */
-  const cycles = new Set<{ ac: AbortController; done: Promise<void> }>();
+  const cycles = new Set<{ flow: string; ac: AbortController; done: Promise<void> }>();
+  /** FW-C-097: the cycles above, counted by flow key. GET /v1/supervisor reports them as running. */
+  const inFlight = (): Record<string, number> => {
+    const out: Record<string, number> = {};
+    for (const c of cycles) out[c.flow] = (out[c.flow] ?? 0) + 1;
+    return out;
+  };
 
   const stop = async (reason = 'stop requested'): Promise<void> => {
     if (stopped) return;
@@ -513,17 +526,17 @@ export async function startDaemon(opts: DaemonOptions): Promise<Daemon> {
       );
     else if (drained.interrupted > 0) log(`stop: interrupted ${drained.interrupted} run(s)`);
     if (cycles.size > 0) {
-      const inFlight = [...cycles];
-      for (const c of inFlight) c.ac.abort(`fwd stopping (${reason})`);
+      const pending = [...cycles];
+      for (const c of pending) c.ac.abort(`fwd stopping (${reason})`);
       const timeout = new Promise<'timeout'>((ok) =>
         setTimeout(() => ok('timeout'), opts.stopTimeoutMs ?? DEFAULT_STOP_TIMEOUT_MS).unref(),
       );
       const end = await Promise.race([
-        Promise.all(inFlight.map((c) => c.done)).then(() => 'ok' as const),
+        Promise.all(pending.map((c) => c.done)).then(() => 'ok' as const),
         timeout,
       ]);
       log(
-        `stop: interrupted ${inFlight.length} flow cycle(s)${end === 'timeout' ? ', not all ended in time' : ''}`,
+        `stop: interrupted ${pending.length} flow cycle(s)${end === 'timeout' ? ', not all ended in time' : ''}`,
       );
     }
     clearInterval(chainTimer);
