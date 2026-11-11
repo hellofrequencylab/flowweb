@@ -4,7 +4,7 @@
     "profile": "core",
     "schema": "ledger-row/1",
     "generated": "2026-11-09",
-    "row_count": 156,
+    "row_count": 157,
     "conventions": {
       "verify_probe": "Same convention as 04-build-plan/backlog.json: 'pnpm probe <path>' runs probes/<path>.probe.ts, a Tier 0 file written before the implementation row starts and never edited by the agent doing the row. Every probe fails today because its target does not exist (a missing probe file exits 2, a missing behaviour exits 1). The probe pack for a milestone is committed by the Owner or a pair session before the milestone's rows start.",
       "status": "All rows start as open. Status lives only in the ledger database (imported with fw ledger sync), never in prose.",
@@ -28,7 +28,7 @@
       }
     },
     "full_plan_rows_included": 37,
-    "new_core_rows": 107
+    "new_core_rows": 108
   },
   "rows": [
     {
@@ -5493,6 +5493,41 @@
         "packages/daemon/src/overseer/intake-engine.ts",
         "packages/daemon/src/api/routes.ts",
         "packages/daemon/test/meter.test.ts"
+      ],
+      "origin": "new Core row"
+    },
+    {
+      "id": "FW-C-131",
+      "title": "Trust you can see: every draft card shows its lane's track record, a second check, the rows behind it and a receipt, and lanes switch off one by one",
+      "core_milestone": "C1",
+      "phase": 1,
+      "epic": "C1.5 First flow",
+      "priority": "P2",
+      "size": "L",
+      "lane": "workstreams",
+      "agent_suitability": "agent",
+      "gate": "none",
+      "depends_on": [
+        "FW-C-046",
+        "FW-C-054"
+      ],
+      "description": "The master plan's fourth hard pass (2026-11-11), from the 2026 human-AI teaming study: confidence scores were right about half the time, agreement between two checks and evidence links helped, and people muted bad AI too late. A draft's lane is \"<channel>:<hunt_id>\" (\"<channel>:all\" without a hunt). Every draft gains trust { lane, record { approved, rejected, regrets }, second_check, evidence }: the record is counted from the flow's other drafts in that lane, evidence lists their ids, and second_check is agree, disagree or null when no cheap second check ran. A draft that went out gains receipt { at, channel, to, body_sha256 }; one that has not has receipt null. Lanes switch off one at a time (POST /v1/supervisor/flows/{key}/lanes/{lane}/off and /on, GET .../lanes); approving a draft in a lane that is off answers 409 and changes nothing. No confidence percentages anywhere on a card. The cheap second check itself (a smaller model or a rule pass) is a later row; until then second_check is null. Wave 2 of the master plan v2.",
+      "acceptance": [
+        "Each draft's trust record counts its lane only, lists its evidence, and holds no percentage or confidence figure",
+        "A draft marked sent carries a receipt whose body_sha256 matches its body; a waiting draft has receipt null",
+        "Switching one lane off blocks approvals in that lane only (409, no outbox write); no session 401"
+      ],
+      "verify_probe": "pnpm probe flows/trust-cards",
+      "files_hint": [
+        "packages/daemon/src/overseer/lanes.ts",
+        "packages/daemon/src/overseer/drafts.ts",
+        "packages/daemon/src/api/routes.ts",
+        "packages/daemon/src/daemon.ts",
+        "packages/daemon/test/trust-cards.test.ts",
+        "packages/web/src/api/client.ts",
+        "packages/web/src/api/types.ts",
+        "packages/web/src/flows/DraftsInbox.tsx",
+        "packages/web/src/flows/Today.tsx"
       ],
       "origin": "new Core row"
     }
