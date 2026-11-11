@@ -1,5 +1,6 @@
 // fwd composition root: FW_HOME layout, the single writer, the startup reconciler, the chain
 // check, and the loopback HTTP API. bin.ts wraps this with flags, signals and exit codes.
+
 import { randomBytes } from 'node:crypto';
 import { chmodSync, mkdirSync, readFileSync } from 'node:fs';
 import { createServer, type IncomingMessage, type Server, type ServerResponse } from 'node:http';
@@ -64,6 +65,7 @@ import {
   publishForStream,
   registerDigestStreams,
 } from './streams/digest/index.ts';
+import { setTeamMember } from './team/index.ts';
 
 export const DEFAULT_PORT = 7317;
 /** How long a stop waits for interrupted runs to be recorded before it gives up (clean: false). */
@@ -381,6 +383,7 @@ export async function startDaemon(opts: DaemonOptions): Promise<Daemon> {
       setFlowArchived: (key, archived) => setFlowArchived(writer, REPO_ROOT, key, archived),
       copyFlow: (base, body) => copyFlow(writer, REPO_ROOT, fwHome, base, body),
       setFunnelsLive: (live) => setFunnelsLive(writer, live),
+      setTeamMember: (team, role, body) => setTeamMember(writer, team, role, body),
       approveDraft: (key, id) => approveDraft({ writer, repoRoot: REPO_ROOT, fwHome, flow: key, id }),
       rejectDraft: (key, id) => rejectDraft({ repoRoot: REPO_ROOT, fwHome, flow: key, id }),
       batchApprove: (key, draftIds) =>
