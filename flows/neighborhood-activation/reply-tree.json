@@ -1,0 +1,68 @@
+{
+  "version": 1,
+  "note": "FW-C-108: the reply helper. The Owner pastes a host's reply; fwd picks one intent and fills its answer from these lines. Facts come only from the facts block. Prices are never typed: a reply that needs one points to /pricing. {door} is the niche's tagged link, {label} its name.",
+  "site": "https://frequencylocal.com",
+  "utm": {"utm_source": "flowweb", "utm_medium": "one-to-one", "utm_campaign": "creator-seed"},
+  "facts": {
+    "beta_ends": "January 31, 2027",
+    "founding_year_closes": "January 31, 2027",
+    "create_minutes": 12,
+    "create_minutes_min": 5,
+    "kept_after_beta": "Nothing is deleted when the beta ends."
+  },
+  "links": {"start": "/start/host", "create": "/create-a-space", "launch": "/launch", "help": "/help", "pricing": "/pricing"},
+  "default_niche": "host",
+  "niches": {
+    "host": {"label": "hosts", "path": "/start/host", "keywords": []},
+    "teacher": {"label": "teachers", "path": "/for/teacher", "keywords": ["teach", "class", "yoga", "breathwork", "workshop", "instructor", "lesson", "meditation"]},
+    "studio": {"label": "studios", "path": "/for/studio", "keywords": ["studio", "our studio", "my studio"]},
+    "gathering": {"label": "gathering hosts", "path": "/for/gathering", "keywords": ["meetup", "gathering", "circle", "swap", "potluck", "book club", "community"]},
+    "maker": {"label": "makers", "path": "/for/maker", "keywords": ["maker", "craft", "hackerspace", "pottery", "sewing", "art night", "open studio"]},
+    "music": {"label": "music hosts", "path": "/for/music", "keywords": ["music", "jam", "drum", "band", "open mic", "sound bath", "choir", "sing"]},
+    "venue": {
+      "label": "venues",
+      "path": "/for/venue",
+      "supply": true,
+      "keywords": ["venue", "cafe", "café", "brewery", "our space", "event space", "rent the room", "our room"],
+      "answers": {
+        "interested": "Love it. An empty room on a quiet night is the worst. Frequency helps local hosts find a place to gather, and venues like yours get found by them. It is free through {beta_ends}. Here is the door for venues: {door} Want me to point a host or two your way?"
+      }
+    }
+  },
+  "order": ["no", "asks_price", "asks_time", "other_tool", "asks_what", "not_now", "interested"],
+  "intents": {
+    "no": {
+      "opt_out": true,
+      "keywords": ["stop", "unsubscribe", "not interested", "no thanks", "no thank you", "remove me", "take me off", "don't contact", "do not contact", "don't message", "leave me alone", "not for me", "no longer", "spam"],
+      "first_words": ["no", "nope", "nah"],
+      "first_words_except": ["no worries", "no problem", "no rush", "no pressure"]
+    },
+    "asks_price": {
+      "keywords": ["how much", "price", "pricing", "cost", "costs", "fee", "fees", "pay", "charge", "subscription", "is it free", "what's the catch", "$"],
+      "answer": "Fair question. The beta is free through {beta_ends}, and the Founding Year closes the same day. Plans after that live on one page, so nothing sneaks up on you: {pricing} Nothing is deleted when the beta ends. Here is your door when you are ready: {door}"
+    },
+    "asks_time": {
+      "keywords": ["how long", "how much time", "time commitment", "how quick", "how fast", "take to set up", "set up time", "setup time"],
+      "answer": "Less than you would think. Creating a Space takes about {create_minutes} minutes, and as little as {create_minutes_min} if you keep it simple: {create} If you get stuck, {help} has you covered. Here is the door for {label} too: {door}"
+    },
+    "other_tool": {
+      "keywords": ["already use", "already have", "already on", "we use", "i use", "meetup.com", "eventbrite", "mailchimp", "facebook group", "discord", "patreon", "my own site", "my website", "another platform", "another app"],
+      "answer": "Totally fair, most hosts juggle a few tools already. Keep yours. Frequency is where neighbors who do not follow you yet find your Circle and RSVP. It is free through {beta_ends}. Take a look: {door}"
+    },
+    "asks_what": {
+      "keywords": ["what is", "what's this", "what is this", "what's frequency", "tell me more", "more info", "more details", "how does it work", "is this legit", "who are you", "explain", "what do you do", "learn more"],
+      "answer": "Short version: finding people for an in-person thing is the hard part. Frequency is a free way for neighbors to find or start local Circles around what they love, with events and RSVPs in one place. Here is what it looks like for {label}: {door}"
+    },
+    "not_now": {
+      "keywords": ["not now", "not right now", "maybe later", "later", "busy", "next year", "after the holidays", "circle back", "not yet", "another time", "swamped"],
+      "answer": "No pressure at all. The beta stays free through {beta_ends}, so there is time. When you are ready, this is the spot: {door}"
+    },
+    "interested": {
+      "keywords": ["yes", "yeah", "yep", "sure", "sounds good", "sounds great", "sounds fun", "love", "interested", "count me in", "sign me up", "let's do", "lets do", "happy to", "i'm in", "im in", "cool", "awesome", "great", "down for"],
+      "answer": "Love that. Filling a room for your thing should not mean chasing sign-ups across a pile of apps. Frequency puts your Circle, events and RSVPs in one free place. Here is the door for {label}: {door} Setup takes about {create_minutes} minutes. Want me to walk you through it?"
+    },
+    "unclear": {
+      "answer": "Thanks for writing back. Quick version: Frequency is a free way for neighbors to find or start local Circles around what they love. Here is what it looks like for {label}: {door} Happy to answer anything."
+    }
+  }
+}
