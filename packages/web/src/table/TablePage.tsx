@@ -13,7 +13,7 @@ import { Icon } from '../ui-kit/Icon';
 import { PageHead, SectionHead } from '../ui-kit/page';
 import { age, clock, useNow, when } from '../ui-kit/time';
 import { CardView, type Decided } from './CardView';
-import { INBOX_FLOWS, useReadyMessages } from './waiting';
+import { INBOX_FLOWS, INBOX_TITLES, useReadyMessages } from './waiting';
 
 export const VARIANT_LABEL: Record<CardSummary['variant'], string> = {
   approve: 'Approve or deny',
@@ -146,7 +146,7 @@ export function TablePage({ cardId }: { cardId?: string }) {
           overline="Check, copy and send from your own email"
         />
         {INBOX_FLOWS.map((f) => (
-          <DraftsInbox key={f} flow={f} />
+          <DraftsInbox key={f} flow={f} title={INBOX_TITLES[f]} />
         ))}
       </section>
 

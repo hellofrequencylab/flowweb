@@ -687,6 +687,17 @@ export interface FlowDraft {
   sent_at?: string;
   replied_at?: string;
   declined_at?: string;
+  /** FW-C-102/113: the facts check. blocks stop the draft (status gate_blocked); warns only flag it. */
+  gate?: { at?: string; blocks?: GateNote[]; warns?: GateNote[]; facts_from?: string };
+  /** FW-C-113: a queue email's preheader line. */
+  preheader?: string;
+  /** Who the draft is for, as fwd names it (a queue email names its opted-in list). */
+  name?: string;
+}
+
+export interface GateNote {
+  code: string;
+  detail: string;
 }
 
 export interface FlowDrafts extends Envelope {

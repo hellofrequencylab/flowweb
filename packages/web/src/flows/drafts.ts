@@ -52,10 +52,20 @@ export function groupDrafts(drafts: FlowDraft[]): DraftGroups {
 }
 
 /** FW-C-066: the one state word a draft shows in the inbox list. */
-export type DraftState = 'Ready' | 'Has blanks' | 'Sent' | 'Replied' | 'Said no' | 'Approved' | 'Rejected';
+export type DraftState =
+  | 'Ready'
+  | 'Has blanks'
+  | 'Blocked'
+  | 'Sent'
+  | 'Replied'
+  | 'Said no'
+  | 'Approved'
+  | 'Rejected';
 
 export function stateOf(d: FlowDraft): DraftState {
   if (d.status === 'rejected') return 'Rejected';
+  // FW-C-113: the facts check stopped it; it never goes out until it is rewritten.
+  if (d.status === 'gate_blocked') return 'Blocked';
   const o = outcomeOf(d);
   if (o === 'declined') return 'Said no';
   if (o === 'replied') return 'Replied';
@@ -72,6 +82,8 @@ export function inboxOrder(drafts: FlowDraft[]): FlowDraft[] {
 
 /** Who a draft is for, read from its greeting ("Hi Front Porch Gallery team,"), else null. */
 export function recipientOf(d: FlowDraft): string | null {
+  // FW-C-113: a queue email greets a merge field, so it names its list instead.
+  if (d.lead_id?.startsWith('template:email-studio:')) return d.name ?? null;
   const m = /^\s*(?:hi|hello|hey|dear)\s+([^,\n!.]{2,48})[,\n!.]/i.exec(d.body);
   const who = m?.[1].trim();
   return who && !SLOT.test(who) ? who : null;

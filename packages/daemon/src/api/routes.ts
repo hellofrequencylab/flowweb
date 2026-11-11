@@ -9,6 +9,7 @@ import { isAbsolute, join, resolve } from 'node:path';
 import { type Reader, sha256Hex } from '@fw/eventlog';
 import type { PairingStore, Principal } from '../auth.ts';
 import * as crm from '../flows/crm.ts';
+import * as emailQueue from '../flows/email-queue.ts';
 import * as intake from '../flows/event-intake.ts';
 import * as hunts from '../flows/hunts.ts';
 import * as leads from '../flows/leads.ts';
@@ -862,6 +863,18 @@ export function buildRouter(deps: ApiDeps): Router {
     } catch (e) {
       if (!(e instanceof ReplyError)) throw kernelError(e);
       throw new ApiError(e.status, e.status === 404 ? 'not_found' : 'validation_failed', e.message);
+    }
+  });
+  // FW-C-113: S9. Claude or ChatGPT posts a list email; it waits with its facts check and never sends.
+  r.post('/v1/flows/{key}/drafts', async ({ req, params }) => {
+    ownerOnly(req);
+    const body = await readJsonBody(req);
+    if (params.key !== emailQueue.FLOW_KEY) throw notFound('email queue', params.key);
+    try {
+      const data = emailQueue.postEmailDraft({ repoRoot: deps.repoRoot, fwHome: deps.fwHome, body });
+      return env(() => ({ data }));
+    } catch (e) {
+      throw draftError(e);
     }
   });
   for (const action of ['approve', 'reject'] as const)

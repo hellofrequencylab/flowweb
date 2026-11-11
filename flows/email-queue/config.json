@@ -1,0 +1,14 @@
+{
+  "version": 1,
+  "links": {"utm_source": "email", "utm_medium": "email", "utm_campaigns": ["founding", "launch"]},
+  "closed_paths": ["/launch", "/for/", "/start/host"],
+  "audiences": [
+    {"key": "subscribed_members", "label": "Opted-in members (Email Studio: subscribed_members)", "unsubscribe_footer": true},
+    {"key": "host_note", "label": "One host, a personal note from Daniel", "unsubscribe_footer": false}
+  ],
+  "facts_fallback": {"beta_ends": "2027-01-31", "opening_day": "2027-01-01"},
+  "dates": [
+    {"month": "January", "day": 31, "year": 2027},
+    {"month": "January", "day": 1, "year": 2027}
+  ]
+}

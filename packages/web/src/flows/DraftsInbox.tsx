@@ -10,13 +10,14 @@ import { IconTile } from '../ui-kit/flow';
 import { AsOf, ResourceView } from '../ui-kit/honest';
 import { DraftEditor } from './DraftEditor';
 import { ageOf, type DraftState, inboxOrder, recipientOf, stateOf } from './drafts';
+import { FactsCheck } from './FactsCheck';
 import { DraftBars, ReplyMeter, StatePill, TONE } from './FlowVisuals';
 
 type Filter = 'all' | 'ready' | 'blanks' | 'sent' | 'done';
 const FILTERS: { key: Filter; label: string; has: (s: DraftState) => boolean }[] = [
   { key: 'all', label: 'All', has: () => true },
   { key: 'ready', label: 'Ready', has: (s) => s === 'Ready' },
-  { key: 'blanks', label: 'Has blanks', has: (s) => s === 'Has blanks' },
+  { key: 'blanks', label: 'Has blanks', has: (s) => s === 'Has blanks' || s === 'Blocked' },
   { key: 'sent', label: 'Sent', has: (s) => s === 'Sent' || s === 'Replied' || s === 'Said no' },
   { key: 'done', label: 'Handled', has: (s) => s === 'Approved' || s === 'Rejected' },
 ];
@@ -162,6 +163,7 @@ function Inbox({
                 sender={sender}
                 onChanged={onChanged}
               />
+              {selected.gate && <FactsCheck draft={selected} />}
             </>
           ) : (
             <div className="viewer-empty">
@@ -176,7 +178,7 @@ function Inbox({
 }
 
 /** The drafts panel on the Flows page: a header with recent activity, then the two-pane inbox. */
-export function DraftsInbox({ flow }: { flow: string }) {
+export function DraftsInbox({ flow, title = 'Drafts' }: { flow: string; title?: string }) {
   const res = useResource(`flow-drafts:${flow}`, () => api.flowDrafts(flow), ['runs']);
   // FW-C-071: Approve only when a sender on the Mac reads the outbox; until it is known, assume none.
   const sup = useResource('supervisor', () => api.supervisor(), ['runs', 'cards']);
@@ -190,7 +192,7 @@ export function DraftsInbox({ flow }: { flow: string }) {
       <div className="inbox-head">
         <IconTile name="mail" tone={ready > 0 ? 'waiting' : 'neutral'} />
         <div className="inbox-head-text">
-          <h2 id={head}>Drafts</h2>
+          <h2 id={head}>{title}</h2>
           <span className="muted small">
             {res.data ? (
               ready > 0 ? (
