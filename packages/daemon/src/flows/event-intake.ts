@@ -58,6 +58,8 @@ export function refusedUrl(raw: string): string | null {
   return null;
 }
 
+/** A link worth keeping: http or https only, so a javascript: or data: link never reaches the page. */
+const webUrl = (u: string | null | undefined) => (u && /^https?:\/\//i.test(u) && URL.canParse(u) ? u : null);
 const clip = (s: string | null | undefined, n = 200) => {
   const t = (s ?? '').replace(/\s+/g, ' ').trim();
   return t ? t.slice(0, n) : null;
@@ -242,7 +244,7 @@ export function parseIcal(text: string, calendarUrl: string | null): Extracted[]
           town: parts.length > 1 ? clip(parts[parts.length - 1], 80) : null,
           niche: nicheOf(title, venue),
           host_name: clip(cn, 120),
-          source_url: url && URL.canParse(url) ? url : calendarUrl,
+          source_url: webUrl(url) ?? calendarUrl,
           contact: mail ? mail.trim() : null,
         });
       cur = null;
@@ -278,7 +280,7 @@ export function parseRss(text: string, feedUrl: string | null, now: Date): Extra
       town: null,
       niche: nicheOf(title),
       host_name: null,
-      source_url: href && URL.canParse(href) ? href : feedUrl,
+      source_url: webUrl(href) ?? feedUrl,
       contact: null,
     });
   }
@@ -306,6 +308,32 @@ export async function fetchCalendar(
   if (/BEGIN:VCALENDAR/i.test(text)) return { source: 'ical', events: parseIcal(text, url) };
   if (/<(rss|feed|rdf:RDF)[\s>]/i.test(text)) return { source: 'rss', events: parseRss(text, url, now) };
   throw new IntakeError(400, 'the address is not an iCal calendar or an RSS feed');
+}
+
+/** The engine's answer, checked: only the known fields, as short text, with a real date and link. */
+export function fromEngine(raw: unknown): Extracted[] {
+  const list = Array.isArray(raw) ? raw : [];
+  const s = (v: unknown, n = 200) => (typeof v === 'string' ? clip(v, n) : null);
+  return list.flatMap((x) => {
+    if (typeof x !== 'object' || x === null) return [];
+    const o = x as Record<string, unknown>;
+    const title = s(o.title);
+    if (!title) return [];
+    const at = s(o.starts_at, 16);
+    const url = s(o.source_url, 500);
+    return [
+      {
+        title,
+        starts_at: at && /^\d{4}-\d\d-\d\d(T\d\d:\d\d)?$/.test(at) ? at : null,
+        town: s(o.town, 80),
+        venue: s(o.venue),
+        niche: s(o.niche, 40),
+        host_name: s(o.host_name, 120),
+        source_url: webUrl(url),
+        contact: s(o.contact, 200),
+      },
+    ];
+  });
 }
 
 // ---- the queue ------------------------------------------------------------------------------------

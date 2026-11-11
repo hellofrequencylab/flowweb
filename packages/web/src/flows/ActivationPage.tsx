@@ -18,6 +18,7 @@ import { PageHead } from '../ui-kit/page';
 import { StatusLabel, type StatusSpec } from '../ui-kit/status';
 import { usd } from '../ui-kit/time';
 import { DraftsInbox } from './DraftsInbox';
+import { EventIntake } from './EventIntake';
 import { FlowControls } from './FlowControls';
 import { FlowHero } from './FlowHero';
 import { FlowPulse, MeasureDials, PipelineBar, type PulseState, RegionPath } from './FlowVisuals';
@@ -336,6 +337,7 @@ export function ActivationPage({ flow }: { flow?: string } = {}) {
             />
             <DraftsInbox flow={KEY} />
             <LeadHunts regions={f.territories.map((t) => ({ id: t.id, name: t.name }))} />
+            <EventIntake flow={KEY} />
 
             <ChapterHead
               n={4}

@@ -37,6 +37,7 @@ import {
   setSchedule,
   shippedFlows,
 } from './overseer/index.ts';
+import { extractWithEngine } from './overseer/intake-engine.ts';
 import { rewriteDraft } from './overseer/rewrite.ts';
 import { runStart } from './pipeline/run-start.ts';
 import { type ReconcileReport, reconcileOnStart } from './reconciler.ts';
@@ -344,6 +345,9 @@ export async function startDaemon(opts: DaemonOptions): Promise<Daemon> {
           { writer, repoRoot: REPO_ROOT, fwHome, env: process.env, log },
           { flow: key, id, instruction: body.instruction, subject: body.subject, body: body.body },
         ),
+      // FW-C-109: event intake asks the flow's engine only when its parsers find no event.
+      extractEvents: (key, text) =>
+        extractWithEngine({ writer, repoRoot: REPO_ROOT, fwHome, env: process.env, log }, key, text),
       runFlow: async (key) => {
         const s = writer.get<{ id: string }>('SELECT id FROM streams WHERE key = ?', [key]);
         if (!s || !shippedFlows(REPO_ROOT).some((f) => f.key === key))

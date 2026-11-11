@@ -138,6 +138,8 @@ export interface SupervisorControls {
   rejectDraft?(key: string, id: string): DraftView;
   /** FW-C-051: a proposal from the flow's engine; the draft is not changed. */
   rewriteDraft?(key: string, id: string, body: Record<string, unknown>): Promise<RewriteProposal>;
+  /** FW-C-109: the flow's engine reads pasted text once and answers the events in it, unchecked. */
+  extractEvents?(key: string, text: string): Promise<unknown>;
 }
 
 /** The body of POST /v1/runs, checked. */
@@ -356,7 +358,7 @@ function addHuntRoutes(r: Router, deps: ApiDeps, base: string, load: (now: Date)
 /**
  * FW-C-109: event intake. The Owner pastes listings or a forwarded email ({text}) or names one calendar
  * or feed ({ical_url}); fwd extracts, dedupes and queues them as needs_check, and the Owner checks each.
- * Nothing is published or sent.
+ * The engine is asked only when the parsers find nothing. Nothing is published or sent.
  */
 function addIntakeRoutes(r: Router, deps: ApiDeps): void {
   const base = '/v1/flows/{key}/intake';
@@ -392,7 +394,17 @@ function addIntakeRoutes(r: Router, deps: ApiDeps): void {
         throw new intake.IntakeError(400, `paste at most ${intake.MAX_TEXT} characters at a time`);
       if (/BEGIN:VCALENDAR/i.test(text))
         return intake.enqueue(deps.fwHome, key, intake.parseIcal(text, null), 'ical', now);
-      return intake.enqueue(deps.fwHome, key, intake.parsePaste(text, now), 'paste', now);
+      const found = intake.parsePaste(text, now);
+      const ask = deps.supervisor?.extractEvents;
+      if (found.length || !ask) return intake.enqueue(deps.fwHome, key, found, 'paste', now);
+      // Nothing the parsers know: the flow's engine reads the text once, and fwd checks its answer.
+      const answer = await ask(key, text).catch((e: unknown) => {
+        throw new intake.IntakeError(
+          502,
+          `the engine could not read the text: ${e instanceof Error ? e.message : e}`,
+        );
+      });
+      return intake.enqueue(deps.fwHome, key, intake.fromEngine(answer), 'engine', now);
     });
     return envelope(deps.reader, () => ({ data }));
   });

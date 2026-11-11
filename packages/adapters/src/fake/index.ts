@@ -33,6 +33,7 @@ export const FAKE_SCENARIOS = [
   'hunt_leads',
   'hunt_reach',
   'draft_rewrite',
+  'event_extract',
 ] as const;
 
 export type FakeScenario = (typeof FAKE_SCENARIOS)[number];
@@ -66,6 +67,10 @@ export const FAKE_EXPECTED: Record<FakeScenario, { status: RunStatus; note: stri
   draft_rewrite: {
     status: 'completed',
     note: 'a draft rewrite: rewrite.json from draft.json and instruction.json, no commit',
+  },
+  event_extract: {
+    status: 'completed',
+    note: 'event intake: events.json read from inbound.txt, one good event and one malformed, no commit',
   },
 };
 
