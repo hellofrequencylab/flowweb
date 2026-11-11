@@ -88,6 +88,22 @@ function projectPayload(action, b) {
 
 /** FW-C-118: funnel links on, off, or null to hand the choice back to the Mac's env var and flow configs. */
 const FUNNELS = [true, false, null];
+// FW-C-123: an agent's name (up to 40) or voice (up to 200); null restores the default.
+const TEAM_KEY = /^[a-z0-9][a-z0-9-]{0,39}$/;
+const pick = (o, keys) => Object.fromEntries(keys.filter((k) => k in o).map((k) => [k, o[k]]));
+function teamPayload(p) {
+  if (!TEAM_KEY.test(String(p.team ?? '')) || !TEAM_KEY.test(String(p.role ?? ''))) return { error: 'unknown team or agent' };
+  const payload = { team: p.team, role: p.role };
+  for (const [f, max] of [['name', 40], ['voice', 200]]) {
+    if (!(f in p)) continue;
+    const v = p[f];
+    if (v !== null && (typeof v !== 'string' || !v.trim() || v.trim().length > max))
+      return { error: `${f} must be text of 1 to ${max} characters, or null` };
+    payload[f] = v === null ? null : v.trim();
+  }
+  if (!('name' in payload) && !('voice' in payload)) return { error: 'send name or voice' };
+  return { payload };
+}
 
 /** FW-C-086: the AI accounts a flow may use. Only which one; the key stays on the Owner's machine. */
 const AI_ACCOUNTS = ['claude_plan', 'anthropic_key', 'chatgpt_plan', 'openai_key'];
@@ -233,6 +249,12 @@ export function requestOf(method, path, body) {
     if (!FUNNELS.includes(b.live)) return { error: 'live must be true, false or null' };
     return { kind: 'links.funnels', flow: 'all', draft_id: null, payload: { live: b.live } };
   }
+  const team = /^\/team\/([^/]+)\/([^/]+)$/.exec(path);
+  if (team) {
+    if (method !== 'POST') return null;
+    const t = teamPayload({ team: team[1], role: team[2], ...pick(b, ['name', 'voice']) });
+    return t.error ? t : { kind: 'team.edit', flow: 'all', draft_id: null, payload: t.payload };
+  }
   if (path === '/connections/email') {
     if (method !== 'POST') return null;
     const sp = senderPayload(b);
@@ -338,6 +360,12 @@ export function fwdCallFor(req) {
     return { method: 'POST', path: `/supervisor/${kind.slice(11)}`, body: {} };
   if (kind === 'links.funnels')
     return FUNNELS.includes(p.live) ? { method: 'POST', path: '/supervisor/funnels-live', body: { live: p.live } } : null;
+  if (kind === 'team.edit') {
+    const t = teamPayload(p);
+    if (t.error) return null;
+    const { team, role, ...body } = t.payload;
+    return { method: 'POST', path: `/team/${team}/${role}`, body };
+  }
   if (kind === 'connection.email') {
     const sp = senderPayload(p);
     return sp.error ? null : { method: 'POST', path: '/connections/email', body: sp.payload };

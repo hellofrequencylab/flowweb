@@ -4,7 +4,7 @@
     "profile": "core",
     "schema": "ledger-row/1",
     "generated": "2026-11-09",
-    "row_count": 157,
+    "row_count": 160,
     "conventions": {
       "verify_probe": "Same convention as 04-build-plan/backlog.json: 'pnpm probe <path>' runs probes/<path>.probe.ts, a Tier 0 file written before the implementation row starts and never edited by the agent doing the row. Every probe fails today because its target does not exist (a missing probe file exits 2, a missing behaviour exits 1). The probe pack for a milestone is committed by the Owner or a pair session before the milestone's rows start.",
       "status": "All rows start as open. Status lives only in the ledger database (imported with fw ledger sync), never in prose.",
@@ -5497,6 +5497,89 @@
       "origin": "new Core row"
     },
     {
+      "id": "FW-C-130",
+      "title": "Teach once: the Owner turns a choice on a draft into a house rule, and matching drafts arrive pre-checked with the rule named",
+      "core_milestone": "C1",
+      "phase": 1,
+      "epic": "C1.5 First flow",
+      "priority": "P2",
+      "size": "L",
+      "lane": "workstreams",
+      "agent_suitability": "agent",
+      "gate": "none",
+      "depends_on": [
+        "FW-C-046"
+      ],
+      "description": "The master plan's first hard pass (2026-11-11): approvals are the bottleneck (34 drafts waiting on one person), so the cheapest way to raise results per owner minute is to stop asking the same question twice. When the Owner approves, edits or rejects a draft, the CEO can ask \"handle ones like this the same way?\"; a yes saves a house rule the Owner can read, edit or delete. A rule is { decision approve or reject, text up to 280 characters, match } where match names one or more of channel, hunt_id, niche, area and is compared for equality with the draft, so matching is plain code and never a model guess. Drafts waiting for the Owner that a rule matches carry suggest { decision, rule_id, rule }; the Owner applies a rule to a batch in one call, and a batch that names any draft the rule does not match changes nothing. A suggestion never changes a status or writes to the outbox: nothing auto-sends at any dial. The home number becomes owner minutes this week: distinct minutes in the last 7 days in which the Owner decided at least one draft, read from fwd's own records. Routes: POST/GET /v1/supervisor/flows/{key}/rules, POST .../rules/{id}/edit and /delete, POST .../drafts/batch; GET /v1/supervisor gains owner_minutes. The Today and drafts screens show the pre-checked batch with the rule named; the site and relay buttons are a later row. Wave 2 of the master plan v2.",
+      "acceptance": [
+        "POST /v1/supervisor/flows/{key}/rules saves a rule; no session 401, unknown flow 404, an empty or unknown match key, unknown decision or bad text 400",
+        "A waiting draft a rule matches carries suggest with the rule id and text; others carry suggest null; statuses and the outbox are untouched",
+        "POST .../drafts/batch applies the rule to every named draft, or changes nothing and answers 400 when one does not match",
+        "Rules can be edited and deleted and survive a restart; a deleted rule suggests nothing",
+        "GET /v1/supervisor owner_minutes.week is 0 on a fresh home and counts the minutes with an Owner decision"
+      ],
+      "verify_probe": "pnpm probe flows/teach-once",
+      "files_hint": [
+        "packages/daemon/src/overseer/rules.ts",
+        "packages/daemon/src/overseer/drafts.ts",
+        "packages/daemon/src/overseer/index.ts",
+        "packages/daemon/src/api/routes.ts",
+        "packages/daemon/src/daemon.ts",
+        "packages/daemon/test/house-rules.test.ts",
+        "packages/web/src/api/client.ts",
+        "packages/web/src/api/types.ts",
+        "packages/web/src/flows/DraftsInbox.tsx",
+        "packages/web/src/flows/Today.tsx"
+      ],
+      "origin": "new Core row"
+    },
+    {
+      "id": "FW-C-123",
+      "title": "The Owner meets their agent team: an org chart of named agents with archetype personalities, one team per business",
+      "core_milestone": "C1",
+      "phase": 1,
+      "epic": "C1.5 First flow",
+      "priority": "P1",
+      "size": "L",
+      "lane": "workstreams",
+      "agent_suitability": "agent",
+      "gate": "none",
+      "depends_on": [
+        "FW-C-092",
+        "FW-C-062"
+      ],
+      "description": "Daniel (2026-11-11) wants FlowWeb set up like a company the owner already understands, with every core fixture an agent with an archetype personality the owner gets to know. The primary agent is the CEO, the only one the owner talks to; each owner names theirs (Daniel's is Kevin) and each business gets its own (Frequency's is Juniper, The Host, picked by Daniel). Spec: the agent roster doc https://claude.ai/artifact/5GmjmTZb53E7rZUgxLkYf3, which replaces the org chart in the loop protocol doc. fwd keeps the roster in packages/daemon/src/team/roles.ts (ROLES): the CEO (id ceo), six chiefs reporting to it (COO operations, CMO marketing, CRO sales, CCO customers, CFO finance, CTO build), fourteen managers each under its department's chief (managers behind running Frequency flows name them in flows: the Connector runs neighborhood-activation and local-saturation, the Mentor host-moments, the Town Crier local-pulse, the Strategist paid-ads), eight staff in a shared pool, contractors (vendor-blind: the kernel names no vendor) and the building (scheduler, gates, watchdog, receipts), which is code with no personality and no model. Every other role carries the roster's personality card: name, title, reports_to, archetype, voice and one line it would say, cares_about, judged_on, never, escalates, model tier and face. teamView(settings, brands, enabledFlows) answers one 'main' team whose CEO defaults to Kevin, plus one team per project brand (key is the brand in lower case) whose CEO is that brand's preset (Frequency: Juniper). A member is working when one of its flows is on; a chief when one of its managers is; the CEO and COO always; everyone else is on the bench. The Owner renames an agent or changes its voice: settings('team') keeps only overrides per team, and null restores the default. GET /v1/team answers { teams }; POST /v1/team/{team}/{role} { name?, voice? } (CLI token or paired session) changes one agent; unknown team or role 404, a building role or a bad value 400 (names up to 40 characters), no session 401. The relay mirrors /team, the site queues team.edit through hosted/server/requests.mjs, and migration 0013 allows it with every kind 0012 allowed, plus flow.copy for FW-C-121. flowweb.app gets a Team page at /team: the org chart by level, a team switcher, and a profile per agent with its card and Not hired yet on the bench, where the Owner renames it. Personas are for the Owner's team view only: customer-facing text keeps the brand voice, and no persona changes a safety rule. FW-C-121 edits routes.ts and daemon.ts in other places; keep each edit to its own block.",
+      "acceptance": [
+        "ROLES is the roster: one CEO, six chiefs under it, at least fourteen managers each under its department's chief, at least eight staff, contractors that name no vendor, and building roles with no personality; one reporting tree; a manager runs every shipped Frequency flow",
+        "Every role but the building has a full personality card with a distinct name and voice",
+        "teamView answers a main team with CEO Kevin and a frequency team with CEO Juniper, The Host",
+        "A real fwd answers GET /v1/team; labelling a project Frequency adds its team; POST renames and re-voices an agent and null restores the default; 404, 400 and 401 as above",
+        "Turning neighborhood-activation on puts the Connector and the CMO to work and leaves the Mentor and the CFO on the bench",
+        "The site queues team.edit and the relay maps it to the same route and body; migration 0013 allows it and every kind 0012 allowed; the relay mirrors /team",
+        "/team renders the org chart by level, switches teams, opens a profile, and a rename posts only { name }"
+      ],
+      "verify_probe": "pnpm probe ui/agent-team",
+      "files_hint": [
+        "packages/daemon/src/team/roles.ts",
+        "packages/daemon/src/team/index.ts",
+        "packages/daemon/src/api/routes.ts",
+        "packages/daemon/src/daemon.ts",
+        "packages/daemon/test/team.test.ts",
+        "hosted/relay/fw-relay.mjs",
+        "hosted/server/requests.mjs",
+        "hosted/supabase/migrations/0013_flowweb_team.sql",
+        "hosted/test/requests.test.mjs",
+        "packages/web/src/api/client.ts",
+        "packages/web/src/api/types.ts",
+        "packages/web/src/team/TeamPage.tsx",
+        "packages/web/src/team/team.css",
+        "packages/web/src/shell/routes.ts",
+        "packages/web/src/shell/Layout.tsx",
+        "packages/web/src/shell/Nav.tsx"
+      ],
+      "origin": "new Core row"
+    },
+    {
       "id": "FW-C-124",
       "title": "The Owner starts from one prompt: it becomes a node that shows its steps, asks only for what it needs, and becomes a draft flow",
       "core_milestone": "C1",
@@ -5536,6 +5619,38 @@
         "packages/web/src/shell/Layout.tsx",
         "packages/web/src/console/console-model.ts",
         "packages/web/src/flows/FlowsHome.tsx"
+      ],
+      "origin": "new Core row"
+    },
+    {
+      "id": "FW-C-150",
+      "title": "flowweb.app wears the Signal look, and its public homepage shows flows moving",
+      "core_milestone": "C2",
+      "phase": 1,
+      "epic": "C2.2 Daily screens",
+      "priority": "P1",
+      "size": "L",
+      "lane": "workstreams",
+      "agent_suitability": "agent",
+      "gate": "none",
+      "depends_on": [
+        "FW-C-081",
+        "FW-C-079"
+      ],
+      "description": "Daniel (2026-11-11): redesign the whole site with the Signal design system, then design a website experience. The app moves to the Signal faces (Bricolage Grotesque for display and numbers, Geist for UI, JetBrains Mono for labels, Instrument Serif italic for human moments), its colour tokens take the Signal values in light and dark, and base.css gets the Signal type and button treatment. The signed-out homepage becomes a short scroll story: energy streams behind the hero, the account card beside it, one example flow whose spark holds gold at You, three tiles that say what motion means (running, waiting on you, stopped), three steps, your people, and a closing call to action. Copy is short. Every animation stops under reduced motion and calm mode.",
+      "acceptance": [
+        "tokens.css loads the four Signal faces from ui-kit/fonts and names none of the old ones",
+        "The homepage has the motion, how-it-works, people and closing sections, and two calls to action point at the account card",
+        "home.css animates the page and base.css still stops all motion under reduced motion and calm mode",
+        "The FW-C-081 portal checks, the legal pages check and the radius scale check still pass"
+      ],
+      "verify_probe": "pnpm probe ui/signal-look",
+      "files_hint": [
+        "packages/web/src/ui-kit/tokens.css",
+        "packages/web/src/ui-kit/base.css",
+        "packages/web/src/ui-kit/fonts/",
+        "packages/web/src/home/HomePage.tsx",
+        "packages/web/src/home/home.css"
       ],
       "origin": "new Core row"
     }

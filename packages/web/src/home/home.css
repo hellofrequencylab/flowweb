@@ -1,85 +1,464 @@
-/* The public homepage and login portal (FW-C-081). Cards 12px, inner panes 8px, controls 6px. */
+/* The public homepage and login portal (FW-C-081), Signal look. Cards 12px, inner panes 8px, controls 6px.
+   Motion stops under reduced motion and calm mode (base.css); every section reads the same when still. */
 
 .home {
+  position: relative;
   min-height: 100vh;
+  overflow-x: clip;
   background: var(--page-glow), var(--surface-page);
   color: var(--text-primary);
 }
 .home-top,
 .home-hero,
+.home-lane,
 .home-band,
+.home-end,
 .home-foot {
+  position: relative;
   width: min(var(--content-max), calc(100% - 32px));
   margin-inline: auto;
 }
 .home-top {
   display: flex;
   align-items: center;
-  justify-content: space-between;
-  padding-block: var(--space-7);
+  gap: var(--space-7);
+  padding-block: var(--space-6);
 }
 .home-top .logo-word {
   display: inline-flex;
+}
+.home-nav {
+  display: flex;
+  gap: var(--space-6);
+  margin-left: auto;
+  font: var(--weight-medium) var(--text-sm) / 1 var(--font-sans);
+}
+.home-nav a {
+  color: var(--text-secondary);
+  text-decoration: none;
+}
+.home-nav a:hover {
+  color: var(--text-primary);
+}
+@media (max-width: 640px) {
+  .home-nav {
+    display: none;
+  }
+  .home-top .btn {
+    margin-left: auto;
+  }
+}
+
+/* Energy streams behind the hero. */
+.home-streams {
+  position: absolute;
+  inset: 40px 0 auto;
+  width: 100%;
+  height: 520px;
+  pointer-events: none;
+  mask-image: linear-gradient(to bottom, transparent, black 20%, black 70%, transparent);
+}
+.home-stream-line {
+  fill: none;
+  stroke: var(--border-default);
+  stroke-width: 1;
+  vector-effect: non-scaling-stroke;
+}
+.home-stream-pulse {
+  fill: none;
+  stroke: var(--accent);
+  stroke-width: 2;
+  stroke-linecap: round;
+  vector-effect: non-scaling-stroke;
+  stroke-dasharray: 8 92;
+  stroke-dashoffset: 100;
+  filter: drop-shadow(0 0 4px var(--accent));
+  animation: home-run 6s linear infinite;
+}
+.s2 .home-stream-pulse {
+  animation-duration: 8s;
+  animation-delay: -3s;
+}
+.s3 .home-stream-pulse {
+  stroke: var(--waiting-solid);
+  filter: drop-shadow(0 0 4px var(--waiting-solid));
+  animation-duration: 10s;
+  animation-delay: -6s;
+}
+@keyframes home-run {
+  to {
+    stroke-dashoffset: 0;
+  }
 }
 
 /* Pitch and card side by side; on a phone the card follows the headline. */
 .home-hero {
   display: grid;
-  grid-template-columns: minmax(0, 1fr) minmax(0, 420px);
-  grid-template-areas:
-    "pitch card"
-    "flow card";
+  grid-template-columns: minmax(0, 1fr) minmax(0, 400px);
   column-gap: var(--space-12);
   row-gap: var(--space-9);
-  align-items: start;
-  padding-block: var(--space-10) var(--space-12);
-}
-.home-pitch {
-  grid-area: pitch;
-  padding-top: var(--space-8);
-}
-.home-card {
-  grid-area: card;
-}
-.home-flow {
-  grid-area: flow;
+  align-items: center;
+  padding-block: var(--space-11) var(--space-12);
 }
 @media (max-width: 880px) {
   .home-hero {
     grid-template-columns: minmax(0, 1fr);
-    grid-template-areas: "pitch" "card" "flow";
-    padding-top: var(--space-6);
-  }
-  .home-pitch {
-    padding-top: 0;
+    padding-top: var(--space-8);
   }
 }
-
 .home-eyebrow {
-  margin: 0 0 var(--space-5);
-  font: var(--weight-medium) var(--text-xs) / 1.3 var(--font-sans);
-  letter-spacing: var(--tracking-caps);
-  text-transform: uppercase;
-  color: var(--active-fg);
+  display: inline-flex;
+  align-items: center;
+  gap: var(--space-3);
+  margin: 0 0 var(--space-6);
+  color: var(--text-secondary);
+}
+.home-live {
+  width: 8px;
+  height: 8px;
+  border-radius: var(--radius-full);
+  background: var(--accent);
+  box-shadow: 0 0 0 0 var(--accent);
+  animation: home-ping 2.4s var(--ease-standard) infinite;
+}
+@keyframes home-ping {
+  0% {
+    box-shadow: 0 0 0 0 color-mix(in srgb, var(--accent) 60%, transparent);
+  }
+  70%,
+  100% {
+    box-shadow: 0 0 0 10px transparent;
+  }
 }
 .home-pitch h1 {
   margin: 0;
-  max-width: 14ch;
-  font: var(--weight-light) clamp(38px, 6vw, 60px) / 1.04 var(--font-display);
-  letter-spacing: var(--tracking-tight);
+  font: 700 clamp(48px, 8.5vw, 104px) / 0.92 var(--font-display);
+  letter-spacing: -0.05em;
+}
+.home-pitch h1 .script {
+  display: block;
+  font-size: 1.04em;
+  letter-spacing: -0.02em;
+  color: var(--accent);
+}
+.home-lede {
+  max-width: 34ch;
+  margin: var(--space-7) 0 0;
+  font: var(--weight-regular) var(--text-lg) / var(--leading-body) var(--font-sans);
+  color: var(--text-secondary);
 }
 .home-invite {
   max-width: 46ch;
   margin-top: var(--space-7);
 }
-.home-lede {
-  max-width: 46ch;
-  margin: var(--space-7) 0 0;
-  font: var(--weight-regular) var(--text-md) / var(--leading-body) var(--font-sans);
+
+/* One example flow on a track. */
+.home-lane {
+  margin-block: 0 var(--space-12);
+  padding: var(--space-8) var(--space-9) var(--space-9);
+  border: var(--border-width) solid var(--border-subtle);
+  border-radius: var(--radius-lg);
+  background: var(--surface-raised);
+  box-shadow: var(--shadow-card);
+}
+.home-lane figcaption {
+  margin-bottom: var(--space-8);
+  color: var(--text-tertiary);
+}
+.home-track {
+  position: relative;
+  display: flex;
+  justify-content: space-between;
+  --lane-h: 2px;
+}
+.home-track::before,
+.home-track-fill {
+  content: "";
+  position: absolute;
+  top: 7px;
+  left: 8px;
+  right: 8px;
+  height: var(--lane-h);
+  border-radius: var(--radius-full);
+  background: var(--border-default);
+}
+.home-track-fill {
+  right: auto;
+  width: 0;
+  background: var(--accent);
+  animation: home-fill 7s var(--ease-standard) infinite;
+}
+.home-spark {
+  position: absolute;
+  top: 2px;
+  left: 0;
+  width: 12px;
+  height: 12px;
+  border-radius: var(--radius-full);
+  background: var(--accent);
+  box-shadow: 0 0 12px 2px var(--accent);
+  animation: home-spark 7s var(--ease-standard) infinite;
+  z-index: 1;
+}
+@keyframes home-fill {
+  0% {
+    width: 0;
+  }
+  30% {
+    width: calc(66.6% - 10px);
+  }
+  75% {
+    width: calc(66.6% - 10px);
+  }
+  95%,
+  100% {
+    width: calc(100% - 16px);
+  }
+}
+@keyframes home-spark {
+  0% {
+    left: 2px;
+    opacity: 1;
+    background: var(--accent);
+  }
+  30% {
+    left: calc(66.6% - 6px);
+    background: var(--waiting-solid);
+    box-shadow: 0 0 14px 3px var(--waiting-solid);
+  }
+  75% {
+    left: calc(66.6% - 6px);
+    background: var(--waiting-solid);
+    box-shadow: 0 0 20px 5px var(--waiting-solid);
+  }
+  80% {
+    background: var(--accent);
+    box-shadow: 0 0 12px 2px var(--accent);
+  }
+  95% {
+    left: calc(100% - 14px);
+    opacity: 1;
+  }
+  100% {
+    left: calc(100% - 14px);
+    opacity: 0;
+  }
+}
+.home-stop {
+  position: relative;
+  display: grid;
+  justify-items: center;
+  gap: var(--space-4);
+  width: 16px;
+}
+.home-stop:first-child {
+  justify-items: start;
+}
+.home-stop:last-child {
+  justify-items: end;
+}
+.home-stop-dot {
+  width: 16px;
+  height: 16px;
+  border-radius: var(--radius-full);
+  border: 2px solid var(--border-strong);
+  background: var(--surface-raised);
+}
+.home-stop.is-mine .home-stop-dot {
+  border-color: var(--waiting-solid);
+}
+.home-stop-label {
+  font: var(--weight-semibold) var(--text-md) / 1 var(--font-display);
+  white-space: nowrap;
+}
+.home-stop.is-mine .home-stop-label {
+  color: var(--waiting-fg);
+}
+
+/* Bands: an overline, one big line, then the content. */
+.home-band {
+  padding-block: var(--space-11);
+  border-top: var(--border-width) solid var(--border-subtle);
+}
+.home-band .overline {
+  margin: 0 0 var(--space-4);
+  color: var(--text-tertiary);
+}
+.home-band h2,
+.home-end h2 {
+  margin: 0 0 var(--space-9);
+  max-width: 18ch;
+  font: 700 clamp(32px, 4.6vw, 52px) / 1 var(--font-display);
+  letter-spacing: -0.045em;
+}
+.home-states,
+.home-steps,
+.home-roles {
+  display: grid;
+  gap: var(--space-5);
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+.home-states,
+.home-steps {
+  grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+}
+
+/* What the motion means: three tiles, each drawing its own state. */
+.home-state {
+  display: grid;
+  gap: var(--space-2);
+  padding: var(--space-7);
+  border: var(--border-width) solid var(--border-subtle);
+  border-radius: var(--radius-lg);
+  background: var(--surface-raised);
+}
+.home-state strong {
+  font: var(--weight-semibold) var(--text-lg) / 1.2 var(--font-display);
+}
+.home-state > span:last-child {
+  font: var(--type-small);
+  color: var(--text-secondary);
+}
+.home-state-art {
+  position: relative;
+  display: grid;
+  place-items: center;
+  width: 56px;
+  height: 56px;
+  margin-bottom: var(--space-5);
+}
+.home-state-art span {
+  position: absolute;
+  inset: 0;
+  border-radius: var(--radius-full);
+}
+.is-run .home-state-art span {
+  border: 2px solid var(--accent);
+  opacity: 0;
+  animation: home-ring 2.4s var(--ease-standard) infinite;
+}
+.is-run .home-state-art span:nth-child(2) {
+  animation-delay: 0.8s;
+}
+.is-run .home-state-art span:nth-child(3) {
+  inset: 20px;
+  opacity: 1;
+  border: 0;
+  background: var(--accent);
+  box-shadow: 0 0 12px var(--accent);
+  animation: none;
+}
+@keyframes home-ring {
+  0% {
+    transform: scale(0.35);
+    opacity: 1;
+  }
+  100% {
+    transform: scale(1);
+    opacity: 0;
+  }
+}
+.is-wait .home-state-art span:nth-child(1) {
+  border: 2px solid var(--waiting-solid);
+}
+.is-wait .home-state-art span:nth-child(2) {
+  inset: 14px;
+  background: var(--waiting-solid);
+  box-shadow: 0 0 16px var(--waiting-solid);
+  animation: home-breathe 2.4s ease-in-out infinite;
+}
+.is-wait .home-state-art span:nth-child(3) {
+  display: none;
+}
+@keyframes home-breathe {
+  50% {
+    transform: scale(0.7);
+    opacity: 0.7;
+  }
+}
+.is-stop .home-state-art span {
+  inset: 8px;
+  border-radius: var(--radius-md);
+  background: var(--stop-solid);
+}
+.is-stop .home-state-art span:nth-child(2) {
+  inset: 22px 18px;
+  border-radius: var(--radius-xs);
+  background: var(--stop-on-solid);
+}
+.is-stop .home-state-art span:nth-child(3) {
+  display: none;
+}
+
+/* Three steps with big numerals; the one that is yours is gold. */
+.home-step {
+  padding-top: var(--space-6);
+  border-top: 2px solid var(--border-default);
+}
+.home-step.is-mine {
+  border-top-color: var(--waiting-solid);
+}
+.home-step-n {
+  display: block;
+  margin-bottom: var(--space-6);
+  font: 700 56px / 1 var(--font-display);
+  letter-spacing: -0.05em;
+  color: var(--text-tertiary);
+}
+.home-step.is-mine .home-step-n {
+  color: var(--waiting-fg);
+}
+.home-step h3 {
+  margin: 0 0 var(--space-2);
+  font: var(--weight-semibold) var(--text-lg) / 1.2 var(--font-display);
+}
+.home-step p {
+  margin: 0;
+  font: var(--type-small);
   color: var(--text-secondary);
 }
 
-/* ---------- account card ---------- */
+/* People as pills. */
+.home-roles {
+  grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+}
+.home-role {
+  display: flex;
+  align-items: center;
+  gap: var(--space-3);
+  padding: var(--space-4) var(--space-5);
+  border: var(--border-width) solid var(--border-subtle);
+  border-radius: var(--radius-full);
+  background: var(--surface-raised);
+  font: var(--type-small);
+  color: var(--text-secondary);
+}
+.home-role .icon {
+  color: var(--accent);
+}
+.home-role strong {
+  color: var(--text-primary);
+}
+
+/* The closing line. */
+.home-end {
+  display: grid;
+  justify-items: center;
+  padding-block: var(--space-12);
+  text-align: center;
+}
+.home-end h2 {
+  max-width: none;
+  margin-bottom: var(--space-8);
+  font-size: clamp(48px, 9vw, 112px);
+}
+.home-end h2 .script {
+  font-size: 1.04em;
+  color: var(--accent);
+  letter-spacing: -0.02em;
+}
 
 .home-card {
   display: flex;
@@ -215,159 +594,6 @@
   margin: 0;
 }
 
-/* ---------- the still flow picture ---------- */
-
-.home-flow {
-  margin: 0;
-  padding: var(--space-7) var(--space-8);
-  border-radius: var(--radius-lg);
-  background: var(--surface-sheen), var(--surface-raised);
-  box-shadow: var(--shadow-card);
-}
-.home-flow figcaption {
-  margin-bottom: var(--space-6);
-  font: var(--type-heading);
-}
-.home-flow ol {
-  display: grid;
-  grid-template-columns: repeat(4, minmax(0, 1fr));
-  gap: var(--space-4);
-  margin: 0;
-  padding: 0;
-  list-style: none;
-}
-.home-flow-stage {
-  position: relative;
-  display: flex;
-  flex-direction: column;
-  gap: var(--space-2);
-  padding-top: var(--space-8);
-  font: var(--type-small);
-  color: var(--text-secondary);
-}
-.home-flow-stage strong {
-  color: var(--text-primary);
-  font-weight: var(--weight-medium);
-}
-/* The track runs from each node to the next one. */
-.home-flow-stage::before {
-  content: "";
-  position: absolute;
-  top: 7px;
-  left: 16px;
-  right: calc(-1 * var(--space-4));
-  height: var(--flow-track);
-  border-radius: var(--radius-full);
-  background: var(--flow-line-quiet);
-}
-.home-flow-stage:last-child::before {
-  display: none;
-}
-.home-flow-stage.is-done::before {
-  background: var(--harbor-400);
-}
-.home-flow-node {
-  position: absolute;
-  top: 0;
-  left: 0;
-  width: 17px;
-  height: 17px;
-  border-radius: var(--radius-full);
-  background: var(--surface-raised);
-  box-shadow: inset 0 0 0 3px var(--flow-line-quiet);
-}
-.is-done .home-flow-node {
-  background: var(--harbor-500);
-  box-shadow: none;
-}
-.is-waiting .home-flow-node {
-  background: var(--waiting-solid);
-  box-shadow: var(--flow-glow);
-  --c: var(--waiting-400);
-}
-.is-waiting span:last-child {
-  color: var(--waiting-fg);
-}
-@media (max-width: 520px) {
-  .home-flow ol {
-    grid-template-columns: repeat(2, minmax(0, 1fr));
-    row-gap: var(--space-7);
-  }
-  .home-flow-stage:nth-child(2)::before {
-    display: none;
-  }
-}
-
-/* ---------- bands below the fold ---------- */
-
-.home-band {
-  padding-block: var(--space-10);
-  border-top: var(--border-width) solid var(--border-default);
-}
-.home-band h2 {
-  margin: 0 0 var(--space-8);
-  font: var(--type-title);
-  font-size: var(--text-2xl);
-  letter-spacing: var(--tracking-tight);
-}
-.home-steps,
-.home-roles {
-  display: grid;
-  gap: var(--space-6);
-  margin: 0;
-  padding: 0;
-  list-style: none;
-}
-.home-steps {
-  grid-template-columns: repeat(auto-fit, minmax(240px, 1fr));
-}
-.home-step {
-  padding: var(--space-8);
-  border-radius: var(--radius-lg);
-  background: var(--surface-raised);
-  box-shadow: var(--shadow-card);
-}
-.home-step-n {
-  display: inline-grid;
-  place-items: center;
-  width: 32px;
-  height: 32px;
-  border-radius: var(--radius-md);
-  background: var(--active-bg);
-  color: var(--active-fg);
-  font: var(--weight-medium) var(--text-sm) / 1 var(--font-mono);
-}
-.home-step h3 {
-  margin: var(--space-6) 0 var(--space-3);
-  font: var(--type-heading);
-}
-.home-step p,
-.home-role {
-  margin: 0;
-  font: var(--type-small);
-  color: var(--text-secondary);
-}
-.home-roles {
-  grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
-}
-.home-role {
-  display: flex;
-  gap: var(--space-5);
-  align-items: flex-start;
-  padding: var(--space-6) var(--space-7);
-  border-radius: var(--radius-md);
-  background: var(--surface-soft);
-}
-.home-role .icon {
-  flex: none;
-  margin-top: 2px;
-  color: var(--active-fg);
-}
-.home-role strong {
-  display: block;
-  color: var(--text-primary);
-  font-weight: var(--weight-medium);
-}
 .home-foot {
   display: flex;
   flex-wrap: wrap;

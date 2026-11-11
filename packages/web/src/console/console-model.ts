@@ -20,6 +20,7 @@ const NAMES: Record<Route, string> = {
   settings: 'Settings',
   more: 'More',
   start: 'Start',
+  team: 'Your team',
 };
 
 const FLOW_KEY = /^[a-z0-9][a-z0-9-]{0,63}$/;
