@@ -34,6 +34,7 @@ export const FAKE_SCENARIOS = [
   'hunt_reach',
   'draft_rewrite',
   'reply_intent',
+  'event_extract',
 ] as const;
 
 export type FakeScenario = (typeof FAKE_SCENARIOS)[number];
@@ -71,6 +72,10 @@ export const FAKE_EXPECTED: Record<FakeScenario, { status: RunStatus; note: stri
   reply_intent: {
     status: 'completed',
     note: 'reads reply.json; a reply that tries to instruct gets a made-up label, others read as interested',
+  },
+  event_extract: {
+    status: 'completed',
+    note: 'event intake: events.json read from inbound.txt, one good event and one malformed, no commit',
   },
 };
 
