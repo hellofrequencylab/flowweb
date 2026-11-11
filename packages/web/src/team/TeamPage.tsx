@@ -2,7 +2,7 @@
 // the exec team, managers by department, the shared staff pool, contractors and the building.
 // Every agent but the building has a personality card; the Owner renames one or changes its voice here.
 // Personas are for this team view only: anything a customer sees keeps the business's brand voice.
-import { type FormEvent, useState } from 'react';
+import { type FormEvent, useEffect, useRef, useState } from 'react';
 import { api } from '../api/client';
 import { useResource } from '../api/resource';
 import type { Team, TeamLevel, TeamMember } from '../api/types';
@@ -153,6 +153,11 @@ function OrgChart({
 
 function Profile({ team, who, onSaved }: { team: Team; who: TeamMember; onSaved: () => void }) {
   const boss = team.members.find((m) => m.id === who.reports_to);
+  const ref = useRef<HTMLElement>(null);
+  // On a phone the card sits above the chart: bring it into view when someone is picked.
+  useEffect(() => {
+    ref.current?.scrollIntoView?.({ block: 'nearest', behavior: 'smooth' });
+  }, []);
   const [edit, setEdit] = useState<'name' | 'voice' | null>(null);
   const [value, setValue] = useState('');
   const [busy, setBusy] = useState<string | null>(null);
@@ -188,7 +193,7 @@ function Profile({ team, who, onSaved }: { team: Team; who: TeamMember; onSaved:
   };
 
   return (
-    <section className="panel team-profile" aria-label={who.name}>
+    <section ref={ref} className="panel team-profile" aria-label={who.name}>
       <header className="team-profile-head">
         <span className="org-face" aria-hidden="true">
           {who.name.replace(/^The /, '').slice(0, 1)}
