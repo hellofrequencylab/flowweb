@@ -27,6 +27,17 @@ const SKIPS = [
 ] as const;
 
 type Note = { tone: 'ok' | 'fail'; text: string } | null;
+type Why = { id: string; reason: string };
+/** What the last batch did with each draft: held for later or refused, with fwd's reason (FW-C-115). */
+type Batch = { handed: string[]; held: Why[]; refused: Why[] } | null;
+const whys = (v: unknown): Why[] =>
+  Array.isArray(v)
+    ? v.flatMap((x) =>
+        x && typeof x === 'object' && typeof (x as Why).id === 'string'
+          ? [{ id: (x as Why).id, reason: String((x as Why).reason ?? '') }]
+          : [],
+      )
+    : [];
 const failText = (e: unknown) => (e instanceof Error ? e.message : String(e));
 const facts = (a: TodayAction) =>
   [a.niche, a.town, a.route ? ROUTE[a.route] : null, a.words != null ? `${a.words} words` : null]
@@ -44,12 +55,15 @@ export function Today({ flow }: { flow: string }) {
   const [draftText, setDraftText] = useState('');
   const [busy, setBusy] = useState(false);
   const [note, setNote] = useState<Note>(null);
+  const [batch, setBatch] = useState<Batch>(null);
   const at = Math.max(
     0,
     actions.findIndex((a) => a.id === picked),
   );
   const sel = actions[at] ?? null;
   const emailIds = actions.flatMap((a) => (a.route === 'email' && a.draft_id ? [a.draft_id] : []));
+  const emailTo = actions.flatMap((a) => (a.route === 'email' && a.draft_id ? [a.to ?? a.name] : []));
+  const nameOf = (id: string) => actions.find((a) => a.draft_id === id)?.to ?? id;
 
   const pick = (i: number) => {
     const a = actions[Math.min(actions.length - 1, Math.max(0, i))];
@@ -118,8 +132,14 @@ export function Today({ flow }: { flow: string }) {
     run(
       () => api.approveEmailBatch(flow, emailIds).catch(notYet('Batch approval')),
       (r) => {
-        const m = (r as { message?: unknown } | undefined)?.message;
-        return typeof m === 'string' ? m : `Approved ${emailIds.length} emails for the sender.`;
+        const d = (r ?? {}) as Record<string, unknown>;
+        const handed = Array.isArray(d.handed_off) ? d.handed_off.map(String) : [];
+        const held = whys(d.held);
+        const refused = whys(d.refused);
+        setBatch({ handed, held, refused });
+        if (typeof d.message === 'string') return d.message;
+        const n = Array.isArray(d.handed_off) ? handed.length : emailIds.length;
+        return `Handed ${n} of ${emailIds.length} emails to the sender. ${held.length} held, ${refused.length} refused.`;
       },
       false,
     );
@@ -166,6 +186,33 @@ export function Today({ flow }: { flow: string }) {
           </Button>
         )}
       </header>
+      {emailTo.length > 0 && (
+        <p className="muted small">Approve email batch hands these to the sender: {emailTo.join(', ')}</p>
+      )}
+      {batch && (batch.held.length > 0 || batch.refused.length > 0) && (
+        <section className="today-batch small" aria-label="Batch result">
+          {(
+            [
+              ['Held for a later batch', batch.held],
+              ['Refused', batch.refused],
+            ] as const
+          ).map(
+            ([label, list]) =>
+              list.length > 0 && (
+                <div key={label}>
+                  <strong>{label}</strong>
+                  <ul>
+                    {list.map((x) => (
+                      <li key={x.id}>
+                        {nameOf(x.id)}: {x.reason}
+                      </li>
+                    ))}
+                  </ul>
+                </div>
+              ),
+          )}
+        </section>
+      )}
       <p className={`today-note${note ? ` is-${note.tone}` : ''}`} aria-live="polite">
         {note?.text}
       </p>

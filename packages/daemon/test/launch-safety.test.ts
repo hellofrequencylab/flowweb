@@ -1,7 +1,7 @@
 // FW-C-115: launch safety. Live links only while Frequency's funnel pages are not live, no calendar
 // fetch to a private address or past the byte cap, region names block, and an opt-out reaches the
 // person's waiting drafts in every flow, Today and the roundup heads-ups.
-import { mkdirSync, readFileSync, writeFileSync } from 'node:fs';
+import { mkdirSync, readdirSync, readFileSync, writeFileSync } from 'node:fs';
 import { join } from 'node:path';
 import { afterEach, expect, test } from 'vitest';
 import { checkDraft } from '../src/flows/draft-gate.ts';
@@ -170,4 +170,36 @@ test("an opt-out moves the person's waiting drafts in every flow, and Today leav
     (a) => a.draft_id,
   );
   expect(ids).toEqual(['b']);
+});
+
+test('the roundup passes the gate, keeps its result, and sends no heads-up to a host who opted out', async () => {
+  const h = home();
+  const at = (d: number) => new Date(NOW.getTime() + d * 86_400_000).toISOString();
+  const ev = (id: string, host: string) => ({
+    event_id: id,
+    title: `Sound Bath ${id}`,
+    starts_at: at(1),
+    town: 'Encinitas',
+    niche: 'sound',
+    rsvp_url: `https://frequencylocal.com/e/${id}`,
+    host_id: host,
+  });
+  mkdirSync(join(h, 'flows', 'local-pulse'), { recursive: true });
+  writeFileSync(
+    join(h, 'flows', 'local-pulse', 'upcoming.json'),
+    JSON.stringify({ events: [ev('a', 'h1'), ev('b', 'h2')] }),
+  );
+  mkdirSync(join(h, 'flows', 'neighborhood-activation'), { recursive: true });
+  writeFileSync(
+    join(h, 'flows', 'neighborhood-activation', 'state.json'),
+    JSON.stringify({ do_not_contact: ['frequency-host:h1'] }),
+  );
+  const { runRoundup } = await import('../src/flows/local-pulse-roundup.ts');
+  await runRoundup({ repoRoot: join(import.meta.dirname, '../../..'), fwHome: h, env: {}, now: NOW });
+  const dir = join(h, 'flows', 'local-pulse', 'drafts');
+  const docs = readdirSync(dir).map((f) => JSON.parse(readFileSync(join(dir, f), 'utf8')));
+  const heads = docs.filter((d) => d.kind === 'heads_up').map((d) => d.lead_id);
+  expect(heads).toEqual(['host:h2']);
+  expect(docs.every((d) => d.gate && Array.isArray(d.gate.blocks))).toBe(true);
+  expect(docs.find((d) => d.kind === 'roundup_email')?.status).toBe('waiting_for_owner');
 });

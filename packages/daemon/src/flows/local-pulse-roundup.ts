@@ -4,6 +4,7 @@
 // hand; a draft the Owner edited or sent is never overwritten by a later run.
 import { existsSync, mkdirSync, readdirSync } from 'node:fs';
 import { join } from 'node:path';
+import { checkDraft } from './draft-gate.ts';
 import {
   DAY,
   dir,
@@ -21,6 +22,7 @@ import {
   type UpcomingEvent,
 } from './local-pulse.ts';
 import { writeJsonAtomic } from './neighborhood-admin.ts';
+import { dncMatch, doNotContactList } from './opt-out.ts';
 import { noDashes, shortenerFor } from './short-links.ts';
 
 const TZ = 'America/Los_Angeles';
@@ -160,7 +162,10 @@ export function draftRoundup(
     const byHost = new Map<string, UpcomingEvent[]>();
     for (const e of events)
       byHost.set(e.host_id ?? e.event_id, [...(byHost.get(e.host_id ?? e.event_id) ?? []), e]);
+    // A host who opted out gets no heads-up (FW-C-115); their events still go in the roundup.
+    const dnc = doNotContactList(fwHome, FLOW_KEY);
     for (const [host, mine] of byHost) {
+      if (dncMatch(dnc, { lead_id: `host:${host}`, host_id: host })) continue;
       const hid = id(`heads-${slug(host)}`);
       const first = mine[0] as UpcomingEvent;
       const titles = mine.map((e) => e.title).join(' and ');
@@ -203,10 +208,24 @@ export async function runRoundup(o: {
     ...(o.log ? { log: o.log } : {}),
   });
   let written = 0;
+  // FW-C-115: every draft passes the draft gate. Numbers may come from the events and their written
+  // dates; links may point at Frequency or at the events' own RSVP hosts.
+  const payload = { events, when: events.map((e) => when(e.starts_at)) };
+  const linkHosts = [cfg.offer.url, o.env?.FW_FREQUENCY_URL ?? '', ...events.map((e) => e.rsvp_url)]
+    .filter((u) => URL.canParse(u))
+    .map((u) => new URL(u).hostname);
+  const dnc = doNotContactList(o.fwHome, FLOW_KEY);
   for (const d of drafts) {
     const path = join(out, `${d.id}.json`);
     const old = readJson(path);
-    if (isObj(old) && (old.status !== 'waiting_for_owner' || typeof old.edited_at === 'string')) continue;
+    const redo = isObj(old) && (old.status === 'waiting_for_owner' || old.status === 'gate_blocked');
+    if (isObj(old) && (!redo || typeof old.edited_at === 'string')) continue;
+    const body = noDashes(await short.shorten(d.body, d.subject ?? d.id));
+    const subject = d.subject && noDashes(d.subject);
+    const gate = checkDraft(
+      { body, subject, channel: d.channel, touch: 1, lead_id: d.lead_id },
+      { payload, linkHosts, doNotContact: dnc },
+    );
     writeJsonAtomic(path, {
       flow: FLOW_KEY,
       id: d.id,
@@ -214,10 +233,11 @@ export async function runRoundup(o: {
       kind: d.kind,
       lead_id: d.lead_id,
       channel: d.channel,
-      subject: d.subject && noDashes(d.subject),
-      body: noDashes(await short.shorten(d.body, d.subject ?? d.id)),
+      subject,
+      body,
       tag: d.id,
-      status: 'waiting_for_owner',
+      status: gate.ok ? 'waiting_for_owner' : 'gate_blocked',
+      gate: { at: now.toISOString(), ok: gate.ok, blocks: gate.blocks, warns: gate.warns },
       held: d.held,
       ...(d.extra ?? {}),
       created_at: now.toISOString(),
