@@ -9,6 +9,7 @@ import { isAbsolute, join, resolve } from 'node:path';
 import { type Reader, sha256Hex } from '@fw/eventlog';
 import type { PairingStore, Principal } from '../auth.ts';
 import * as crm from '../flows/crm.ts';
+import * as intake from '../flows/event-intake.ts';
 import * as hunts from '../flows/hunts.ts';
 import * as leads from '../flows/leads.ts';
 import * as localPulse from '../flows/local-pulse.ts';
@@ -402,6 +403,57 @@ function addHuntRoutes(r: Router, deps: ApiDeps, base: string, load: (now: Date)
   });
 }
 
+/**
+ * FW-C-109: event intake. The Owner pastes listings or a forwarded email ({text}) or names one calendar
+ * or feed ({ical_url}); fwd extracts, dedupes and queues them as needs_check, and the Owner checks each.
+ * Nothing is published or sent.
+ */
+function addIntakeRoutes(r: Router, deps: ApiDeps): void {
+  const base = '/v1/flows/{key}/intake';
+  const flowOf = (key: string | undefined) => {
+    if (!key || !Object.hasOwn(FLOWS, key)) throw notFound('flow', key);
+    return key;
+  };
+  const guard = async <T>(fn: () => Promise<T> | T): Promise<T> => {
+    try {
+      return await fn();
+    } catch (e) {
+      if (!(e instanceof intake.IntakeError)) throw e;
+      const code = e.status === 404 ? 'not_found' : e.status === 400 ? 'validation_failed' : 'unavailable';
+      throw new ApiError(e.status, code, e.message);
+    }
+  };
+  r.get(base, ({ params }) => {
+    const key = flowOf(params.key);
+    return envelope(deps.reader, () => ({ data: intake.loadQueue(deps.fwHome, key) }));
+  });
+  r.post(base, async ({ req, params }) => {
+    const key = flowOf(params.key);
+    const body = await readJsonBody(req);
+    const now = new Date();
+    const data = await guard(async () => {
+      if (typeof body.ical_url === 'string' && body.ical_url.trim()) {
+        const got = await intake.fetchCalendar(body.ical_url.trim(), now);
+        return intake.enqueue(deps.fwHome, key, got.events, got.source, now);
+      }
+      const text = typeof body.text === 'string' ? body.text : '';
+      if (!text.trim()) throw new intake.IntakeError(400, 'paste some text or give an ical_url');
+      if (text.length > intake.MAX_TEXT)
+        throw new intake.IntakeError(400, `paste at most ${intake.MAX_TEXT} characters at a time`);
+      if (/BEGIN:VCALENDAR/i.test(text))
+        return intake.enqueue(deps.fwHome, key, intake.parseIcal(text, null), 'ical', now);
+      return intake.enqueue(deps.fwHome, key, intake.parsePaste(text, now), 'paste', now);
+    });
+    return envelope(deps.reader, () => ({ data }));
+  });
+  r.post(`${base}/{id}/check`, async ({ req, params }) => {
+    const key = flowOf(params.key);
+    const body = await readJsonBody(req);
+    const data = await guard(() => intake.checkEvent(deps.fwHome, key, params.id ?? '', body.ok, new Date()));
+    return envelope(deps.reader, () => ({ data }));
+  });
+}
+
 /** The principal of the current request, set by the server before the handler runs. */
 export const principalOf = new WeakMap<object, Principal>();
 
@@ -604,6 +656,7 @@ export function buildRouter(deps: ApiDeps): Router {
   addFlowAdminRoutes(r, deps);
   addLeadRoutes(r, deps);
   localPulse.addLocalPulseRoutes(r, deps);
+  addIntakeRoutes(r, deps);
 
   // ---- supervisor (FW-C-033) ----------------------------------------------------------------
   const supView = () => ({
