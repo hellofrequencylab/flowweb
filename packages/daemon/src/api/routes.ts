@@ -12,6 +12,7 @@ import * as crm from '../flows/crm.ts';
 import * as intake from '../flows/event-intake.ts';
 import * as hunts from '../flows/hunts.ts';
 import * as leads from '../flows/leads.ts';
+import * as localPulse from '../flows/local-pulse.ts';
 import * as localSaturation from '../flows/local-saturation.ts';
 import * as neighborhoodActivation from '../flows/neighborhood-activation.ts';
 import * as naAdmin from '../flows/neighborhood-admin.ts';
@@ -75,6 +76,7 @@ const FLOWS: Record<string, (repoRoot: string, fwHome: string, now: Date) => unk
     const view = f && neighborhoodActivation.flowView(f.cfg, f.state, f.budget, f.stream, now);
     return view && { ...view, admin_log: naAdmin.readAdminLog(home) };
   },
+  [localPulse.FLOW_KEY]: localPulse.flowView,
   [paidAds.FLOW_KEY]: (repo, home, now) => {
     const f = paidAds.loadFlow(repo, home);
     if (!f) return null;
@@ -653,6 +655,7 @@ export function buildRouter(deps: ApiDeps): Router {
   );
   addFlowAdminRoutes(r, deps);
   addLeadRoutes(r, deps);
+  localPulse.addLocalPulseRoutes(r, deps);
   addIntakeRoutes(r, deps);
 
   // ---- supervisor (FW-C-033) ----------------------------------------------------------------
