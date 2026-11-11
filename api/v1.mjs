@@ -10,6 +10,7 @@ import { resolveRead, routeOfUrl } from '../hosted/server/mirror.mjs';
 import { answerSetupQuestion } from '../hosted/server/assistant.mjs';
 import { answerConsole } from '../hosted/server/console.mjs';
 import { requestOf } from '../hosted/server/requests.mjs';
+import { nodeFromPrompt } from '../hosted/server/start.mjs';
 
 const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/;
 const ROLE_SET = new Set(['owner', 'admin', 'helper', 'viewer']);
@@ -260,6 +261,13 @@ async function handle(request) {
       flows: account.flows,
       read,
     });
+    return json(r.status, r.body);
+  }
+
+  // FW-C-124: the first run. One sentence becomes a node; making it sends the same queued copy request the
+  // Flows page sends. Nothing is stored or logged.
+  if (path === '/assistant/start' && method === 'POST') {
+    const r = await nodeFromPrompt(await request.json().catch(() => ({})), { env: process.env, role: account.role });
     return json(r.status, r.body);
   }
 
