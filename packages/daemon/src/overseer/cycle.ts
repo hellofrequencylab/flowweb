@@ -42,7 +42,7 @@ import { runCredentials } from '../pipeline/credentials.ts';
 import { chooseAdapter } from '../pipeline/route.ts';
 import { killOrphanGroup } from '../reconciler.ts';
 import { readFlowAi } from './ai.ts';
-import { draftTag, tagLinks } from './drafts.ts';
+import { draftTag, refLinks, tagLinks } from './drafts.ts';
 import { handOff, perDayFor } from './index.ts';
 
 const SAFE = /[^A-Za-z0-9_-]/g;
@@ -549,7 +549,7 @@ export async function runFlowCycle(d: CycleDeps, fire: CycleFire): Promise<void>
         // FW-C-054: every flowweb link names this draft, so Frequency can trace a signup back to it.
         const tag = draftTag(id);
         const title = typeof x.subject === 'string' ? x.subject : id;
-        const body = await short.shorten(noDashes(tagLinks(x.body, tag)), title);
+        const body = await short.shorten(noDashes(refLinks(tagLinks(x.body, tag), tag)), title);
         const channel =
           typeof (x.channel ?? x.send_via) === 'string' ? String(x.channel ?? x.send_via) : null;
         // At confirmed Autopilot the draft goes to the outbox; at any other stop handOff holds it for the Owner.
@@ -821,7 +821,7 @@ async function runHunts(
     };
     const subject = noDashes(k.lead.subject ?? `About ${k.lead.event.title || 'your event'}`);
     const tag = draftTag(k.id);
-    const body = await short.shorten(tagLinks(k.body, tag), k.lead.organizer.name || subject);
+    const body = await short.shorten(refLinks(tagLinks(k.body, tag), tag), k.lead.organizer.name || subject);
     // FW-C-102: checked against the lead's own event and page; a hunt draft is always a first touch.
     const gate = checkDraft(
       {

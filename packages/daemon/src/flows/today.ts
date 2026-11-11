@@ -246,7 +246,11 @@ export function todayView(o: { fwHome: string; flow: string; size: number; now?:
     }
     const lead = leadOf(d);
     if (lead) drafted.add(lead.id);
-    const s = seq?.get(lead?.id ?? leadId ?? '') ?? (leadId ? seq?.get(leadId) : undefined);
+    // The sequence keys a lead by its sequence_lead, lead id, address or contact page, lower case, so a
+    // cold lead it closed at the cold cap (FW-C-112) drops off Today too.
+    const s = [lead?.id, leadId, ...['sequence_lead', 'to', 'contact_url'].map((k) => text(d, k))]
+      .flatMap((k) => (k ? [seq?.get(k) ?? seq?.get(k.toLowerCase())] : []))
+      .find(Boolean);
     if (s?.state && SEQ_ENDED.has(s.state)) continue;
     if (s?.next_due_at && time(s.next_due_at) > now.getTime()) continue;
     const touch = num(d.touch) ?? (s ? s.touches + 1 : 1);

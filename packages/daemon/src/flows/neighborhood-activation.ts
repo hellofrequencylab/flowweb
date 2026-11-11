@@ -197,7 +197,8 @@ export function seedLink(cfg: FlowConfig, l: Lead, route: DraftRoute, tag: strin
   const url = new URL(cfg.dm_door?.path ?? cfg.funnels.host.path, cfg.offer.url);
   const q = { region: l.territory_id, area: l.sub_area, channel: l.channel, niche, src: l.source };
   const utm = { utm_source: 'flowweb', utm_medium: route === 'dm' ? 'one-to-one' : 'founder_email' };
-  const tags = { utm_campaign: SEED_CAMPAIGN, utm_content: `${niche}.${tag}` };
+  // ref names the draft on its own (FW-C-112), so one draft's link can be learned from apart from its niche.
+  const tags = { utm_campaign: SEED_CAMPAIGN, utm_content: `${niche}.${tag}`, ref: tag };
   for (const [k, v] of Object.entries({ ...q, ...utm, ...tags })) if (v) url.searchParams.set(k, v);
   return url.toString();
 }
