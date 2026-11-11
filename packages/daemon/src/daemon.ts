@@ -20,6 +20,8 @@ import { buildRouter, principalOf, type RunStartBody } from './api/routes.ts';
 import type { ChainStatus } from './api/status.ts';
 import { hostAllowed, PairingStore, writeOriginAllowed } from './auth.ts';
 import { syncAll as syncCrm } from './flows/crm.ts';
+import { refreshQuietly as refreshLeads } from './flows/leads.ts';
+import { loadFlow as loadNaFlow, FLOW_KEY as NA_KEY } from './flows/neighborhood-activation.ts';
 import { FLOW_KEY as HOST_MOMENTS, scanEvents as scanHostMoments } from './flows/host-moments.ts';
 import { pullOutcomes } from './flows/outcomes.ts';
 import { loadFlow as loadAdsFlow } from './flows/paid-ads.ts';
@@ -268,6 +270,8 @@ export async function startDaemon(opts: DaemonOptions): Promise<Daemon> {
       },
       (e) => log(`crm: sync failed: ${(e as Error)?.message ?? e}`),
     );
+    // FW-C-103: once a day, rescore the lead graph so timing decays and new links count.
+    refreshLeads(fwHome, NA_KEY, () => loadNaFlow(REPO_ROOT, fwHome)?.cfg.leads, log);
   };
   const everyMs = Number(process.env.FW_OUTCOMES_PULL_EVERY_MS) || 86_400_000;
   const firstPull = setTimeout(pullNow, 2_000);
