@@ -1,0 +1,35 @@
+{
+  "id": "FW-C-112",
+  "title": "An owner asks Kevin, the AI console, for something FlowWeb cannot do yet, and it is saved as a build request the builder picks up",
+  "core_milestone": "C1",
+  "phase": 1,
+  "epic": "C1.5 First flow",
+  "priority": "P1",
+  "size": "M",
+  "lane": "workstreams",
+  "agent_suitability": "agent",
+  "gate": "none",
+  "depends_on": [
+    "FW-C-092"
+  ],
+  "description": "Step 1 of letting Daniel change FlowWeb by talking to Kevin. When an owner or admin asks for a function FlowWeb does not have, Kevin proposes a build request (title, what, done when); pressing Make this change saves it. Migration 0010 adds fw_build_requests: members read their business's requests, owners and admins add them through fw_build_request, and only the builder (service_role or the database owner) moves one along with fw_set_build_request (new, building, pr_open, done, declined) and records its pull request. api/v1.mjs serves GET and POST /v1/build-requests straight to the database, not through the relay. Settings lists the requests with their status and pull request. The builder that turns requests into pull requests is a later row; it never sends outreach, and database changes it needs still go to the Owner.",
+  "acceptance": [
+    "An owner or admin saves a build request; a helper or viewer gets 403; a bad one gets 400",
+    "Every member lists their business's requests, never another business's",
+    "Only the builder moves a request along, and the list shows its status and pull request",
+    "Kevin proposes a build request to an owner, never to a helper or viewer",
+    "Settings shows the build requests"
+  ],
+  "verify_probe": "pnpm probe hosted/build-requests",
+  "files_hint": [
+    "hosted/supabase/migrations/0010_flowweb_build_requests.sql",
+    "api/v1.mjs",
+    "hosted/server/console.mjs",
+    "hosted/test/console.test.mjs",
+    "packages/web/src/settings/BuildRequests.tsx",
+    "packages/web/src/settings/SettingsPage.tsx",
+    "packages/web/src/api/client.ts",
+    "packages/web/src/console/Console.tsx"
+  ],
+  "origin": "new Core row"
+}
