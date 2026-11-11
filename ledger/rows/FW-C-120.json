@@ -1,0 +1,30 @@
+{
+  "id": "FW-C-120",
+  "title": "An owner links their business to Frequency from Settings on flowweb.app and copies the link's secret once",
+  "core_milestone": "C1",
+  "phase": 1,
+  "epic": "C1.5 First flow",
+  "priority": "P1",
+  "size": "S",
+  "lane": "workstreams",
+  "agent_suitability": "agent",
+  "gate": "none",
+  "depends_on": [
+    "FW-C-111"
+  ],
+  "description": "FW-C-111 put /v1/plugin/links live, but nobody can call it without a terminal, so the house link (Frequency itself) could not be made. Settings on flowweb.app gets a Link to Frequency section. An owner or admin types the Space id (and ticks house for Frequency itself), and sees the link id and secret once, each with Copy, with the Frequency Vercel settings they go in (FLOWWEB_HOUSE_LINK_ID, FLOWWEB_HOUSE_LINK_SECRET). A linked business shows its Space, when Frequency was last heard from, and Pause or Resume, Make a new secret and Unlink (both confirmed first). Helpers and viewers see the link and no controls. The secret never comes back from a read.",
+  "acceptance": [
+    "With no link, an owner sends POST /v1/plugin/links {account, space_id, house} and sees the id and secret once, naming FLOWWEB_HOUSE_LINK_ID and FLOWWEB_HOUSE_LINK_SECRET for the house",
+    "A Space id Frequency would refuse cannot be sent; a server refusal shows as an alert in its own words",
+    "A linked business shows its Space and last event; Pause and Resume send PATCH {status}",
+    "Make a new secret and Unlink ask first; the new secret is shown once; Unlink sends revoked and offers a fresh link",
+    "Helpers and viewers see no controls; Settings on the site shows the section"
+  ],
+  "verify_probe": "pnpm probe hosted/frequency-link-card",
+  "files_hint": [
+    "packages/web/src/hosted/FrequencyLink.tsx",
+    "packages/web/src/hosted/auth.ts",
+    "packages/web/src/settings/SettingsPage.tsx"
+  ],
+  "origin": "new Core row"
+}
