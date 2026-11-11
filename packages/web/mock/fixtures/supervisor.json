@@ -55,7 +55,36 @@
         "period": "week",
         "spent_usd": 1.2,
         "used_turns": 31
+      },
+      "schedule": {
+        "time": "06:00",
+        "days": "weekdays",
+        "cron": "0 6 * * 1-5",
+        "timezone": "America/Los_Angeles"
+      },
+      "intensity": {
+        "per_day": 10,
+        "auto": false,
+        "min": 1,
+        "max": 25,
+        "today": {
+          "per_day": 10,
+          "why": "Set to 10 a day."
+        }
       }
+    },
+    {
+      "key": "paid-ads",
+      "name": "Paid ads: Find your people locally",
+      "merged_into": null,
+      "enabled": true,
+      "dial": "draft",
+      "tier": "L1",
+      "state": "held",
+      "gate": "no_engine",
+      "reason": "This flow has a definition but fwd has no decision logic for it yet.",
+      "open_asks": 0,
+      "budget": null
     }
   ],
   "next": []
