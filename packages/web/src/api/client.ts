@@ -915,12 +915,7 @@ export const api = {
 
   /** FW-C-151: stage an opted-in email template in the local draft-only queue. */
   stageEmailDraft: (input: V.EmailQueueDraftInput, onQueued?: () => void) =>
-    ownerWrite<V.EmailQueueDraftStageResult>(
-      'POST',
-      '/flows/email-queue/drafts',
-      input,
-      onQueued,
-    ),
+    ownerWrite<V.EmailQueueDraftStageResult>('POST', '/flows/email-queue/drafts', input, onQueued),
 
   /**
    * A draft change: edit, reject, approve, mark or an AI rewrite. On the live site it is queued and
