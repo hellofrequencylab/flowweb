@@ -168,3 +168,173 @@ test('renaming an agent becomes team.edit with only name and voice, and the rela
   assert.equal(requestOf('GET', '/team/frequency/ceo', {}), null);
   assert.equal(fwdCallFor({ kind: 'team.edit', flow: 'all', payload: { team: 'main', role: 'ceo' } }), null);
 });
+
+test('FW-C-151 stages only a validated opted-in email template through the relay', () => {
+  const path = '/flows/email-queue/drafts';
+  const body = {
+    asset: 'reengagement-14-day',
+    subject: 'A note from Frequency',
+    preheader: 'A few updates for you',
+    body: 'Here is what is new.',
+    audience: 'subscribed_members',
+  };
+  const request = requestOf('POST', path, body);
+  assert.deepEqual(request, {
+    kind: 'email-queue.stage',
+    flow: 'email-queue',
+    draft_id: null,
+    payload: body,
+  });
+  assert.deepEqual(fwdCallFor(request), {
+    method: 'POST',
+    path,
+    body,
+  });
+
+  const boundaryBody = {
+    asset: 'a'.repeat(48),
+    subject: 's'.repeat(200),
+    preheader: 'p'.repeat(200),
+    body: 'b'.repeat(10_000),
+    audience: 'subscribed_members',
+  };
+  assert.deepEqual(requestOf('POST', path, boundaryBody).payload, boundaryBody);
+
+  const withoutPreheader = { ...body };
+  delete withoutPreheader.preheader;
+  assert.deepEqual(requestOf('POST', path, withoutPreheader).payload, withoutPreheader);
+  assert.equal(requestOf('GET', path, body), null);
+  assert.equal(requestOf('POST', '/flows/neighborhood-activation/drafts', body), null);
+  assert.equal(requestOf('POST', '/flows/email-queue/send', body), null);
+  assert.equal(requestOf('POST', '/flows/email-queue/schedule', body), null);
+  assert.equal(requestOf('POST', '/flows/email-queue/drafts/approve', body), null);
+  assert.match(
+    requestOf('POST', '/supervisor/flows/email-queue/schedule', { time: '09:00', days: 'daily' }).error,
+    /cannot be scheduled/,
+  );
+});
+
+test('FW-C-151 refuses invalid, unsupported, oversized or action-bearing email requests', () => {
+  const path = '/flows/email-queue/drafts';
+  const body = {
+    asset: 'whats-new',
+    subject: 'A note from Frequency',
+    body: 'Here is what is new.',
+    audience: 'subscribed_members',
+  };
+  const invalid = [
+    [{ ...body, audience: 'all_contacts' }, /audience/],
+    [{ ...body, asset: 'Bad Asset' }, /asset/],
+    [{ ...body, asset: 'a'.repeat(49) }, /asset/],
+    [{ ...body, subject: ' ' }, /subject/],
+    [{ ...body, subject: 's'.repeat(201) }, /subject/],
+    [{ ...body, preheader: '' }, /preheader/],
+    [{ ...body, preheader: 'p'.repeat(201) }, /preheader/],
+    [{ ...body, body: '' }, /body/],
+    [{ ...body, body: 'b'.repeat(10_001) }, /body/],
+    [{ ...body, send: true }, /unsupported field/],
+    [{ ...body, scheduled_at: '2026-11-12T09:00:00-08:00' }, /unsupported field/],
+    [{ ...body, provider: 'gmail' }, /unsupported field/],
+    [{ ...body, extra: 'ignored fields are not accepted' }, /unsupported field/],
+    [{ asset: body.asset, subject: body.subject, audience: body.audience }, /body/],
+  ];
+  for (const [candidate, message] of invalid) {
+    const result = requestOf('POST', path, candidate);
+    assert.match(result.error, message, JSON.stringify(candidate));
+  }
+  assert.match(requestOf('POST', path, []).error, /object/);
+  assert.equal(
+    fwdCallFor({
+      kind: 'email-queue.stage',
+      flow: 'email-queue',
+      draft_id: null,
+      payload: { ...body, audience: 'all_contacts' },
+    }),
+    null,
+  );
+  assert.equal(
+    fwdCallFor({ kind: 'email-queue.stage', flow: 'email-queue', draft_id: body.asset, payload: body }),
+    null,
+  );
+  assert.equal(
+    fwdCallFor({ kind: 'email-queue.stage', flow: 'neighborhood-activation', draft_id: null, payload: body }),
+    null,
+  );
+  assert.equal(
+    fwdCallFor({ kind: 'email.send', flow: 'email-queue', draft_id: null, payload: body }),
+    null,
+  );
+  assert.equal(
+    fwdCallFor({ kind: 'email.schedule', flow: 'email-queue', draft_id: null, payload: body }),
+    null,
+  );
+  assert.equal(
+    fwdCallFor({
+      kind: 'flow.schedule',
+      flow: 'email-queue',
+      payload: { time: '09:00', days: 'daily' },
+    }),
+    null,
+  );
+});
+
+test('FW-C-151 requires sign-in and propagates the Owner-only queue refusal', async () => {
+  const priorUrl = process.env.SUPABASE_URL;
+  const priorKey = process.env.SUPABASE_ANON_KEY;
+  const priorFetch = globalThis.fetch;
+  process.env.SUPABASE_URL = 'https://flowweb-test.supabase.co';
+  process.env.SUPABASE_ANON_KEY = 'test-anon-key';
+
+  const calls = [];
+  globalThis.fetch = async (input, init = {}) => {
+    const url = new URL(String(input));
+    calls.push({ path: url.pathname, method: init.method ?? 'GET', authorization: init.headers?.authorization });
+    if (url.pathname === '/auth/v1/user')
+      return new Response(JSON.stringify({ email: 'member@example.test' }), { status: 200 });
+    if (url.pathname === '/rest/v1/rpc/fw_my_accounts')
+      return new Response(JSON.stringify([{ id: '11111111-1111-4111-8111-111111111111', role: 'helper', flows: ['email-queue'] }]), {
+        status: 200,
+      });
+    if (url.pathname === '/rest/v1/rpc/fw_request')
+      return new Response(JSON.stringify({ code: '42501', message: 'Owner role required' }), { status: 403 });
+    throw new Error(`unexpected Supabase request: ${url.pathname}`);
+  };
+
+  try {
+    const { POST } = await import(`../../api/v1.mjs?fwc151-auth-test=${Date.now()}`);
+    const endpoint = 'https://flowweb.test/api/v1?__p=flows/email-queue/drafts';
+    const body = JSON.stringify({
+      asset: 'whats-new',
+      subject: 'A note from Frequency',
+      body: 'Here is what is new.',
+      audience: 'subscribed_members',
+    });
+
+    const unauthenticated = await POST(
+      new Request(endpoint, { method: 'POST', headers: { 'content-type': 'application/json' }, body }),
+    );
+    assert.equal(unauthenticated.status, 401);
+    assert.deepEqual(calls, [], 'an unsigned request must not contact Supabase or queue work');
+
+    const denied = await POST(
+      new Request(endpoint, {
+        method: 'POST',
+        headers: { authorization: 'Bearer test-user-token', 'content-type': 'application/json' },
+        body,
+      }),
+    );
+    assert.equal(denied.status, 403);
+    assert.equal((await denied.json()).error.code, 'forbidden');
+    assert.deepEqual(
+      calls.map(({ path }) => path),
+      ['/auth/v1/user', '/rest/v1/rpc/fw_my_accounts', '/rest/v1/rpc/fw_request'],
+      'a denied non-Owner request must stop at the Owner-gated RPC, before relay or local draft handling',
+    );
+  } finally {
+    globalThis.fetch = priorFetch;
+    if (priorUrl === undefined) delete process.env.SUPABASE_URL;
+    else process.env.SUPABASE_URL = priorUrl;
+    if (priorKey === undefined) delete process.env.SUPABASE_ANON_KEY;
+    else process.env.SUPABASE_ANON_KEY = priorKey;
+  }
+});

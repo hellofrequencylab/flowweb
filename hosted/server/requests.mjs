@@ -11,6 +11,8 @@
 
 const FLOW = /^[a-z0-9][a-z0-9-]{0,63}$/;
 const DRAFT = /^[A-Za-z0-9_-]{1,100}$/;
+const EMAIL_QUEUE = 'email-queue';
+const EMAIL_ASSET = /^[a-z0-9-]{1,48}$/;
 const MAX_FIELD = 20_000;
 const MAX_INSTRUCTION = 2_000;
 
@@ -227,6 +229,36 @@ function huntPayload(b) {
   return { payload };
 }
 
+/** FW-C-151: the paired Owner may stage one opted-in Email Studio template, never send it. */
+function emailQueueDraftPayload(b) {
+  if (!b || typeof b !== 'object' || Array.isArray(b)) return { error: 'email draft must be an object' };
+  const allowed = new Set(['asset', 'subject', 'preheader', 'body', 'audience']);
+  if (Object.keys(b).some((k) => !allowed.has(k))) return { error: 'email draft has an unsupported field' };
+
+  if (typeof b.asset !== 'string' || !EMAIL_ASSET.test(b.asset))
+    return { error: 'asset must be 1-48 lowercase letters, digits or hyphens' };
+  if (typeof b.subject !== 'string' || !b.subject.trim() || b.subject.length > 200)
+    return { error: 'subject must be text of 1 to 200 characters' };
+  if (
+    b.preheader !== undefined &&
+    (typeof b.preheader !== 'string' || !b.preheader.trim() || b.preheader.length > 200)
+  )
+    return { error: 'preheader must be text of 1 to 200 characters' };
+  if (typeof b.body !== 'string' || !b.body.trim() || b.body.length > 10_000)
+    return { error: 'body must be text of 1 to 10000 characters' };
+  if (b.audience !== 'subscribed_members')
+    return { error: 'audience must be subscribed_members' };
+
+  const payload = {
+    asset: b.asset,
+    subject: b.subject,
+    ...(b.preheader === undefined ? {} : { preheader: b.preheader }),
+    body: b.body,
+    audience: b.audience,
+  };
+  return { payload };
+}
+
 /**
  * The request a site call asks for (FW-C-062): { kind, flow, draft_id, payload }, { error } for a
  * known control with bad input, or null when the path is not one the site may ask for.
@@ -235,12 +267,23 @@ export function requestOf(method, path, body) {
   const b = body && typeof body === 'object' ? body : {};
   const drafted = draftRequestOf(method, path, b);
   if (drafted) return drafted;
+  const emailQueueDraft = /^\/flows\/([^/]+)\/drafts$/.exec(path);
+  if (emailQueueDraft) {
+    if (method !== 'POST') return null;
+    if (emailQueueDraft[1] !== EMAIL_QUEUE) return null;
+    const e = emailQueueDraftPayload(b);
+    return e.error
+      ? e
+      : { kind: 'email-queue.stage', flow: EMAIL_QUEUE, draft_id: null, payload: e.payload };
+  }
   const sup = /^\/supervisor\/(pause|resume)$/.exec(path);
   if (sup) return method === 'POST' ? { kind: `supervisor.${sup[1]}`, flow: 'all', draft_id: null, payload: {} } : null;
   const tune = /^\/supervisor\/flows\/([^/]+)\/(schedule|intensity)$/.exec(path);
   if (tune) {
     if (method !== 'POST') return null;
     if (!FLOW.test(tune[1])) return { error: 'unknown flow' };
+    if (tune[1] === EMAIL_QUEUE && tune[2] === 'schedule')
+      return { error: 'Email Studio drafts cannot be scheduled' };
     const t = tuningPayload(tune[2], b);
     return t.error ? t : { kind: `flow.${tune[2]}`, flow: tune[1], draft_id: null, payload: t.payload };
   }
@@ -379,6 +422,12 @@ export function fwdCallFor(req) {
       : null;
   }
   if (!FLOW.test(flow)) return null;
+  if (kind === 'email-queue.stage') {
+    if (flow !== EMAIL_QUEUE) return null;
+    const e = emailQueueDraftPayload(p);
+    if (e.error || req?.draft_id !== null) return null;
+    return { method: 'POST', path: `/flows/${EMAIL_QUEUE}/drafts`, body: e.payload };
+  }
   const control = Object.entries(FLOW_ACTIONS).find(([, k]) => k === kind)?.[0];
   if (control) {
     if (control !== 'dial') return { method: 'POST', path: `/supervisor/flows/${f}/${control}`, body: {} };
@@ -387,6 +436,7 @@ export function fwdCallFor(req) {
       : null;
   }
   if (kind === 'flow.schedule' || kind === 'flow.intensity') {
+    if (kind === 'flow.schedule' && flow === EMAIL_QUEUE) return null;
     const action = kind.slice(5);
     const t = tuningPayload(action, p);
     return t.error ? null : { method: 'POST', path: `/supervisor/flows/${f}/${action}`, body: t.payload };

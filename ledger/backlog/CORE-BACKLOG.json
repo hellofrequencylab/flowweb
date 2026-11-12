@@ -4,7 +4,7 @@
     "profile": "core",
     "schema": "ledger-row/1",
     "generated": "2026-11-09",
-    "row_count": 160,
+    "row_count": 161,
     "conventions": {
       "verify_probe": "Same convention as 04-build-plan/backlog.json: 'pnpm probe <path>' runs probes/<path>.probe.ts, a Tier 0 file written before the implementation row starts and never edited by the agent doing the row. Every probe fails today because its target does not exist (a missing probe file exits 2, a missing behaviour exits 1). The probe pack for a milestone is committed by the Owner or a pair session before the milestone's rows start.",
       "status": "All rows start as open. Status lives only in the ledger database (imported with fw ledger sync), never in prose.",
@@ -28,7 +28,7 @@
       }
     },
     "full_plan_rows_included": 37,
-    "new_core_rows": 108
+    "new_core_rows": 109
   },
   "rows": [
     {
@@ -5651,6 +5651,49 @@
         "packages/web/src/ui-kit/fonts/",
         "packages/web/src/home/HomePage.tsx",
         "packages/web/src/home/home.css"
+      ],
+      "origin": "new Core row"
+    },
+    {
+      "id": "FW-C-151",
+      "title": "Stage opted-in beta emails from FlowWeb into the draft-only Email Studio queue",
+      "core_milestone": "C1",
+      "phase": 1,
+      "epic": "C1.5 Beta launch",
+      "priority": "P0",
+      "size": "M",
+      "lane": "workstreams",
+      "agent_suitability": "pair",
+      "gate": "none",
+      "depends_on": [
+        "FW-C-113"
+      ],
+      "description": "The email-queue flow already validates and stores drafts on the Owner's Mac, but flowweb.app cannot stage one. Add a paired-Owner composer for the existing email-queue flow and route its request through the hosted request queue and relay to POST /v1/flows/email-queue/drafts. Accept only subscribed_members, keep campaign content as a template for Email Studio, and show the existing facts gate result. Add an additive hosted request-kind and Owner-only action policy candidate, but do not apply SQL. This row adds no send, schedule, approval, outbox, or spend path.",
+      "acceptance": [
+        "The Flows inbox for email-queue presents an accessible stage form with asset, subject, optional preheader, body and the subscribed_members audience only",
+        "Only an Owner can stage through the hosted request queue; the relay forwards only POST /v1/flows/email-queue/drafts with the validated content to the local Owner machine",
+        "The additive hosted migration permits email-queue.stage and maps it to an Owner-only action while preserving every existing request kind; the candidate remains unapplied",
+        "The local flow's existing facts gate decides waiting_for_owner or gate_blocked, and the result is visible beside the saved draft in the inbox",
+        "Unauthenticated, malformed, oversized, unsupported-audience and unknown-flow requests are refused without creating a draft",
+        "Staging creates no outbox item, send, schedule, approval, provider call or spend record; there is no send or schedule control in this UI"
+      ],
+      "verify_probe": "pnpm probe flows/email-queue-web",
+      "files_hint": [
+        "ledger/backlog/CORE-BACKLOG.json",
+        "ledger/rows/FW-C-151.json",
+        "probes/flows/email-queue-web.mjs",
+        "probes/MANIFEST.sha256",
+        "hosted/server/requests.mjs",
+        "hosted/relay/fw-relay.mjs",
+        "hosted/test/requests.test.mjs",
+        "hosted/supabase/migrations/0014_flowweb_email_queue_stage.sql",
+        "packages/web/src/api/client.ts",
+        "packages/web/src/api/types.ts",
+        "packages/web/src/flows/DraftsInbox.tsx",
+        "packages/web/src/flows/DraftEditor.tsx",
+        "packages/web/src/flows/EmailQueueComposer.tsx",
+        "packages/web/test/email-queue-composer.test.tsx",
+        "packages/web/test/draft-editor-email-template.test.tsx"
       ],
       "origin": "new Core row"
     }
