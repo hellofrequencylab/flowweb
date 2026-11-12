@@ -26,6 +26,7 @@ export function DraftEditor({
   onChanged: () => void;
 }) {
   const locked = draft.status === 'handed_off';
+  const emailQueue = flow === 'email-queue';
   const [mode, setMode] = useState<Mode>('view');
   const [subject, setSubject] = useState(draft.subject ?? '');
   const [body, setBody] = useState(draft.body);
@@ -93,7 +94,15 @@ export function DraftEditor({
 
   const copy = async () => {
     try {
-      const text = `${draft.subject ? `${draft.subject}\n\n` : ''}${draft.body}`;
+      const text = emailQueue
+        ? [
+            draft.subject ? `Subject: ${draft.subject}` : null,
+            draft.preheader ? `Preheader: ${draft.preheader}` : null,
+            draft.body,
+          ]
+            .filter(Boolean)
+            .join('\n\n')
+        : `${draft.subject ? `${draft.subject}\n\n` : ''}${draft.body}`;
       // FW-C-089: an HTML twin carries the Frequency logo above the sign-off, so it pastes into Gmail.
       if (typeof ClipboardItem !== 'undefined' && navigator.clipboard.write) {
         await navigator.clipboard.write([
@@ -122,9 +131,18 @@ export function DraftEditor({
   const why = busy ?? (locked ? 'This draft is already in the outbox.' : null);
   return (
     <div className="draft-editor">
-      <div className="draft-toolbar" role="toolbar" aria-label="Draft actions">
+      <div
+        className="draft-toolbar"
+        role="toolbar"
+        aria-label={emailQueue ? 'Email template actions' : 'Draft actions'}
+      >
         <div className="draft-toolbar-group">
-          {mode === 'view' ? (
+          {emailQueue ? (
+            <Button onClick={copy}>
+              <Icon name={copied ? 'check' : 'copy'} size={15} />
+              {copied ? 'Copied for Email Studio' : 'Copy for Email Studio'}
+            </Button>
+          ) : mode === 'view' ? (
             <>
               <Button onClick={copy}>
                 <Icon name={copied ? 'check' : 'copy'} size={15} /> {copied ? 'Copied' : 'Copy'}
@@ -148,32 +166,34 @@ export function DraftEditor({
             </>
           )}
         </div>
-        <div className="draft-toolbar-group draft-toolbar-end">
-          {canApprove && sender && (
-            <Button
-              variant="primary"
-              onClick={approve}
-              disabledReason={why}
-              title="Needs the flow at Copilot"
-            >
-              Approve
-            </Button>
-          )}
-          {canApprove && !sender && (
-            <Button
-              variant="primary"
-              onClick={copyToSend}
-              title="No sender on your Mac reads the outbox, so you send this one"
-            >
-              Copy and send
-            </Button>
-          )}
-          {draft.status !== 'rejected' && (
-            <Button variant="quiet" onClick={reject} disabledReason={why}>
-              Reject
-            </Button>
-          )}
-        </div>
+        {!emailQueue && (
+          <div className="draft-toolbar-group draft-toolbar-end">
+            {canApprove && sender && (
+              <Button
+                variant="primary"
+                onClick={approve}
+                disabledReason={why}
+                title="Needs the flow at Copilot"
+              >
+                Approve
+              </Button>
+            )}
+            {canApprove && !sender && (
+              <Button
+                variant="primary"
+                onClick={copyToSend}
+                title="No sender on your Mac reads the outbox, so you send this one"
+              >
+                Copy and send
+              </Button>
+            )}
+            {draft.status !== 'rejected' && (
+              <Button variant="quiet" onClick={reject} disabledReason={why}>
+                Reject
+              </Button>
+            )}
+          </div>
+        )}
       </div>
 
       {busy && (
@@ -190,7 +210,7 @@ export function DraftEditor({
         </p>
       )}
 
-      {mode === 'view' ? (
+      {emailQueue || mode === 'view' ? (
         <DraftBody text={draft.body} />
       ) : (
         <div className="draft-fields">
@@ -210,7 +230,7 @@ export function DraftEditor({
         </div>
       )}
 
-      {!locked && (
+      {!emailQueue && !locked && (
         <DraftAssistant
           flow={flow}
           draft={draft}
@@ -225,7 +245,7 @@ export function DraftEditor({
         />
       )}
 
-      {draft.status !== 'rejected' && (
+      {!emailQueue && draft.status !== 'rejected' && (
         <div className="draft-ai draft-after">
           <span className="field-label">
             <Icon name="send" /> After you send it

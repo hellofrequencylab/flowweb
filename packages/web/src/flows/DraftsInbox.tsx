@@ -10,6 +10,7 @@ import { IconTile } from '../ui-kit/flow';
 import { AsOf, ResourceView } from '../ui-kit/honest';
 import { DraftEditor } from './DraftEditor';
 import { ageOf, type DraftState, inboxOrder, recipientOf, stateOf } from './drafts';
+import { EmailQueueComposer } from './EmailQueueComposer';
 import { FactsCheck } from './FactsCheck';
 import { DraftBars, ReplyMeter, StatePill, TONE } from './FlowVisuals';
 
@@ -40,21 +41,30 @@ function Inbox({
   flow,
   drafts,
   sender,
+  selectDraftId,
   onChanged,
 }: {
   flow: string;
   drafts: FlowDraft[];
   sender: boolean;
+  selectDraftId: string | null;
   onChanged: () => void;
 }) {
   const ordered = useMemo(() => inboxOrder(drafts), [drafts]);
   const [filter, setFilter] = useState<Filter>('all');
-  const shown = ordered.filter((d) => FILTERS.find((f) => f.key === filter)?.has(stateOf(d)));
+  const shown = useMemo(
+    () => ordered.filter((d) => FILTERS.find((f) => f.key === filter)?.has(stateOf(d))),
+    [ordered, filter],
+  );
   const [picked, setPicked] = useState<string | null>(null);
   const selected = shown.find((d) => d.id === picked) ?? shown[0] ?? null;
   const listId = useId();
   const listRef = useRef<HTMLDivElement>(null);
   const optId = (d: FlowDraft) => `${listId}-${d.id}`;
+
+  useEffect(() => {
+    if (selectDraftId && shown.some((draft) => draft.id === selectDraftId)) setPicked(selectDraftId);
+  }, [selectDraftId, shown]);
 
   useEffect(() => {
     // Keep the selected draft in view inside the list only; never scroll the page.
@@ -163,7 +173,7 @@ function Inbox({
                 sender={sender}
                 onChanged={onChanged}
               />
-              {selected.gate && <FactsCheck draft={selected} />}
+              {(flow === 'email-queue' || selected.gate) && <FactsCheck draft={selected} />}
             </>
           ) : (
             <div className="viewer-empty">
@@ -184,6 +194,7 @@ export function DraftsInbox({ flow, title = 'Drafts' }: { flow: string; title?: 
   const sup = useResource('supervisor', () => api.supervisor(), ['runs', 'cards']);
   const sender = sup.data?.sender?.installed === true;
   const head = useId();
+  const [stagedDraftId, setStagedDraftId] = useState<string | null>(null);
   const all = res.data?.drafts ?? [];
   const ready = all.filter((d) => stateOf(d) === 'Ready').length;
   const cliOnly = res.error instanceof ApiError && res.error.status === 403;
@@ -195,7 +206,13 @@ export function DraftsInbox({ flow, title = 'Drafts' }: { flow: string; title?: 
           <h2 id={head}>{title}</h2>
           <span className="muted small">
             {res.data ? (
-              ready > 0 ? (
+              flow === 'email-queue' ? (
+                all.length === 1 ? (
+                  '1 email template for Email Studio'
+                ) : (
+                  `${all.length} email templates for Email Studio`
+                )
+              ) : ready > 0 ? (
                 `${ready} ready for you to check and send`
               ) : (
                 'Nothing waiting on you'
@@ -218,18 +235,34 @@ export function DraftsInbox({ flow, title = 'Drafts' }: { flow: string; title?: 
           them here.
         </p>
       ) : (
-        <ResourceView res={res} what="the drafts">
-          {(d) =>
-            d.drafts.length === 0 ? (
-              <div className="viewer-empty">
-                <IconTile name="inbox" size="lg" />
-                <p className="muted">No drafts yet. They appear here after the flow runs.</p>
-              </div>
-            ) : (
-              <Inbox flow={flow} drafts={d.drafts} sender={sender} onChanged={res.reload} />
-            )
-          }
-        </ResourceView>
+        <>
+          {flow === 'email-queue' && (
+            <EmailQueueComposer
+              onStaged={(draftId) => {
+                setStagedDraftId(draftId);
+                res.reload();
+              }}
+            />
+          )}
+          <ResourceView res={res} what="the drafts">
+            {(d) =>
+              d.drafts.length === 0 ? (
+                <div className="viewer-empty">
+                  <IconTile name="inbox" size="lg" />
+                  <p className="muted">No drafts yet. They appear here after the flow runs.</p>
+                </div>
+              ) : (
+                <Inbox
+                  flow={flow}
+                  drafts={d.drafts}
+                  sender={sender}
+                  selectDraftId={stagedDraftId}
+                  onChanged={res.reload}
+                />
+              )
+            }
+          </ResourceView>
+        </>
       )}
     </section>
   );
