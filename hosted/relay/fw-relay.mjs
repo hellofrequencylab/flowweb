@@ -11,8 +11,8 @@
 // Usage:
 //   FW_RELAY_SITE=https://your-site.vercel.app FW_RELAY_TOKEN=fwr_... node hosted/relay/fw-relay.mjs
 //   add --once to push one snapshot and exit, or --dump <file> to write it to a file instead.
-// It also applies the draft changes the Owner asked for on the site (edit, reject, AI rewrite):
-// it takes them from the site's database and calls the matching fwd route. Nothing else.
+// It also applies draft changes and draft-only Email Studio staging the Owner asked for on the site:
+// it takes them from the site's database and calls only the matching fwd route. Nothing sends or schedules.
 // Env: FW_HOME (default ~/.flowweb), FW_PORT (7317), FW_RELAY_INTERVAL_S (60), FW_RELAY_REQUESTS_S (5),
 //      FW_RELAY_TOKEN or the file $FW_HOME/relay.token, FW_RELAY_LABEL (shown on the site).
 import { spawnSync } from 'node:child_process';
@@ -329,8 +329,9 @@ async function rpc(name, args) {
 }
 
 /**
- * Applies the changes the Owner asked for on the site (drafts, flow controls, hunts). Answers how many it handled. A site
- * without the requests table (an older database) answers 404: then there is nothing to do.
+ * Applies queued draft changes, draft-only email staging, flow controls and hunts. The request mapper
+ * permits email staging to call only the local email-queue draft route. A site without the requests
+ * table (an older database) answers 404: then there is nothing to do.
  */
 async function applyRequests() {
   let taken;
