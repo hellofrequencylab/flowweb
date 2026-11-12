@@ -9,7 +9,9 @@
   "lane": "workstreams",
   "agent_suitability": "pair",
   "gate": "none",
-  "depends_on": ["FW-C-113"],
+  "depends_on": [
+    "FW-C-113"
+  ],
   "description": "The email-queue flow already validates and stores drafts on the Owner's Mac, but flowweb.app cannot stage one. Add a paired-Owner composer for the existing email-queue flow and route its request through the hosted request queue and relay to POST /v1/flows/email-queue/drafts. Accept only subscribed_members, keep campaign content as a template for Email Studio, and show the existing facts gate result. Add an additive hosted request-kind and Owner-only action policy candidate, but do not apply SQL. This row adds no send, schedule, approval, outbox, or spend path.",
   "acceptance": [
     "The Flows inbox for email-queue presents an accessible stage form with asset, subject, optional preheader, body and the subscribed_members audience only",
@@ -21,6 +23,7 @@
   ],
   "verify_probe": "pnpm probe flows/email-queue-web",
   "files_hint": [
+    "ledger/backlog/CORE-BACKLOG.json",
     "ledger/rows/FW-C-151.json",
     "probes/flows/email-queue-web.mjs",
     "probes/MANIFEST.sha256",
