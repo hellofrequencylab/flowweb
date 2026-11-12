@@ -27,7 +27,7 @@
     "hosted/server/requests.mjs",
     "hosted/relay/fw-relay.mjs",
     "hosted/test/requests.test.mjs",
-    "hosted/supabase/migrations/20261112033355_email_queue_stage.sql",
+    "hosted/supabase/migrations/0014_flowweb_email_queue_stage.sql",
     "packages/web/src/api/client.ts",
     "packages/web/src/api/types.ts",
     "packages/web/src/flows/DraftsInbox.tsx",
