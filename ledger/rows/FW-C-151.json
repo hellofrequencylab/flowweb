@@ -29,8 +29,10 @@
     "packages/web/src/api/client.ts",
     "packages/web/src/api/types.ts",
     "packages/web/src/flows/DraftsInbox.tsx",
+    "packages/web/src/flows/DraftEditor.tsx",
     "packages/web/src/flows/EmailQueueComposer.tsx",
-    "packages/web/test/email-queue-composer.test.tsx"
+    "packages/web/test/email-queue-composer.test.tsx",
+    "packages/web/test/draft-editor-email-template.test.tsx"
   ],
   "origin": "new Core row"
 }

@@ -24,7 +24,7 @@ assert.equal(requestOf('POST', path.replace('email-queue', 'unknown-flow'), payl
 assert.ok(requestOf('POST', path, { ...payload, audience: 'members' })?.error);
 assert.ok(requestOf('POST', path, { ...payload, asset: '../outside' })?.error);
 assert.ok(requestOf('POST', path, { ...payload, body: ' ' })?.error);
-assert.ok(requestOf('POST', path, { ...payload, body: 'x'.repeat(20_001) })?.error);
+assert.ok(requestOf('POST', path, { ...payload, body: 'x'.repeat(10_001) })?.error);
 
 for (const kind of ['email.send', 'email.schedule', 'email.approve', 'draft.send']) {
   assert.equal(
