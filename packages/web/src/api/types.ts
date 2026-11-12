@@ -704,6 +704,43 @@ export interface FlowDrafts extends Envelope {
   drafts: FlowDraft[];
 }
 
+/** FW-C-151: the only list audience FlowWeb may stage for Email Studio. */
+export interface EmailQueueDraftInput {
+  asset: string;
+  subject: string;
+  preheader?: string;
+  body: string;
+  audience: 'subscribed_members';
+}
+
+/** FW-C-151: a stored email template and the local facts gate result. */
+export interface EmailQueueDraftStageResult {
+  draft: {
+    flow: 'email-queue';
+    id: string;
+    kind: 'list_email';
+    asset: string;
+    fire_id: null;
+    lead_id: string;
+    channel: 'email';
+    send_via: 'email_studio';
+    audience: 'subscribed_members';
+    name: string;
+    tag: string;
+    subject: string;
+    preheader?: string;
+    body: string;
+    status: 'waiting_for_owner' | 'gate_blocked';
+    created_at: Iso;
+    gate: {
+      at: Iso;
+      blocks: GateNote[];
+      warns: GateNote[];
+      facts_from: string;
+    };
+  };
+}
+
 /** FW-C-105: one action on the Today list, as GET /v1/flows/{key}/today answers it. */
 export interface TodayAction {
   id: string;

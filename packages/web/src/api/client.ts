@@ -913,6 +913,15 @@ export const api = {
     return { data_as_of: e.as_of, drafts: Array.isArray(e.data) ? e.data : [] };
   },
 
+  /** FW-C-151: stage an opted-in email template in the local draft-only queue. */
+  stageEmailDraft: (input: V.EmailQueueDraftInput, onQueued?: () => void) =>
+    ownerWrite<V.EmailQueueDraftStageResult>(
+      'POST',
+      '/flows/email-queue/drafts',
+      input,
+      onQueued,
+    ),
+
   /**
    * A draft change: edit, reject, approve, mark or an AI rewrite. On the live site it is queued and
    * applied on the Owner's machine by the relay, so this waits for that answer; `onQueued` says it is waiting.
