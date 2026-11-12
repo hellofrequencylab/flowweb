@@ -277,3 +277,64 @@ test('FW-C-151 refuses invalid, unsupported, oversized or action-bearing email r
     null,
   );
 });
+
+test('FW-C-151 requires sign-in and propagates the Owner-only queue refusal', async () => {
+  const priorUrl = process.env.SUPABASE_URL;
+  const priorKey = process.env.SUPABASE_ANON_KEY;
+  const priorFetch = globalThis.fetch;
+  process.env.SUPABASE_URL = 'https://flowweb-test.supabase.co';
+  process.env.SUPABASE_ANON_KEY = 'test-anon-key';
+
+  const calls = [];
+  globalThis.fetch = async (input, init = {}) => {
+    const url = new URL(String(input));
+    calls.push({ path: url.pathname, method: init.method ?? 'GET', authorization: init.headers?.authorization });
+    if (url.pathname === '/auth/v1/user')
+      return new Response(JSON.stringify({ email: 'member@example.test' }), { status: 200 });
+    if (url.pathname === '/rest/v1/rpc/fw_my_accounts')
+      return new Response(JSON.stringify([{ id: '11111111-1111-4111-8111-111111111111', role: 'helper', flows: ['email-queue'] }]), {
+        status: 200,
+      });
+    if (url.pathname === '/rest/v1/rpc/fw_request')
+      return new Response(JSON.stringify({ code: '42501', message: 'Owner role required' }), { status: 403 });
+    throw new Error(`unexpected Supabase request: ${url.pathname}`);
+  };
+
+  try {
+    const { POST } = await import(`../../api/v1.mjs?fwc151-auth-test=${Date.now()}`);
+    const endpoint = 'https://flowweb.test/api/v1?__p=flows/email-queue/drafts';
+    const body = JSON.stringify({
+      asset: 'whats-new',
+      subject: 'A note from Frequency',
+      body: 'Here is what is new.',
+      audience: 'subscribed_members',
+    });
+
+    const unauthenticated = await POST(
+      new Request(endpoint, { method: 'POST', headers: { 'content-type': 'application/json' }, body }),
+    );
+    assert.equal(unauthenticated.status, 401);
+    assert.deepEqual(calls, [], 'an unsigned request must not contact Supabase or queue work');
+
+    const denied = await POST(
+      new Request(endpoint, {
+        method: 'POST',
+        headers: { authorization: 'Bearer test-user-token', 'content-type': 'application/json' },
+        body,
+      }),
+    );
+    assert.equal(denied.status, 403);
+    assert.equal((await denied.json()).error.code, 'forbidden');
+    assert.deepEqual(
+      calls.map(({ path }) => path),
+      ['/auth/v1/user', '/rest/v1/rpc/fw_my_accounts', '/rest/v1/rpc/fw_request'],
+      'a denied non-Owner request must stop at the Owner-gated RPC, before relay or local draft handling',
+    );
+  } finally {
+    globalThis.fetch = priorFetch;
+    if (priorUrl === undefined) delete process.env.SUPABASE_URL;
+    else process.env.SUPABASE_URL = priorUrl;
+    if (priorKey === undefined) delete process.env.SUPABASE_ANON_KEY;
+    else process.env.SUPABASE_ANON_KEY = priorKey;
+  }
+});
