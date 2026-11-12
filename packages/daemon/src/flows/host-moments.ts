@@ -6,7 +6,7 @@ import { createHash } from 'node:crypto';
 import { existsSync, mkdirSync, readdirSync, readFileSync, renameSync, writeFileSync } from 'node:fs';
 import { join } from 'node:path';
 import { checkDraft } from './draft-gate.ts';
-import { funnelsLive, livePath } from './live-links.ts';
+import { funnelsLive, LIVE_FALLBACK, livePath } from './live-links.ts';
 import { retireDrafts } from './opt-out.ts';
 import { noDashes, shortenerFor } from './short-links.ts';
 
@@ -201,6 +201,26 @@ function link(cfg: Config, base: string | URL, niche: string | null, tag: string
   u.searchParams.set('utm_content', niche ? `${niche}.${tag}` : tag);
   if (!u.searchParams.has('ref')) u.searchParams.set('ref', tag);
   return u.toString();
+}
+
+/** Keep the not-yet-live funnel destination visible in owner drafts, including its campaign tags. */
+function containsVisibleFallback(text: string, site: string): boolean {
+  let origin: string;
+  try {
+    origin = new URL(site).origin;
+  } catch {
+    return false;
+  }
+  for (const raw of text.match(/https?:\/\/[^\s<>"')\]]+/g) ?? []) {
+    const candidate = raw.replace(/[.,;:!?]+$/, '');
+    try {
+      const url = new URL(candidate);
+      if (url.origin === origin && url.pathname === LIVE_FALLBACK) return true;
+    } catch {
+      // A malformed link is handled by the draft gate, not by the shortener choice.
+    }
+  }
+  return false;
 }
 
 function shareKit(cfg: Config, e: Published, tag: string): string {
@@ -437,7 +457,12 @@ export async function scanEvents(o: {
     }
     const path = join(draftsDir, `${id}.json`);
     if (!existsSync(path)) {
-      const note = await short.shorten(noDashes(m.note), m.subject);
+      const noteText = noDashes(m.note);
+      // A short link hides the only live landing route from the Owner reviewing the draft.
+      // Keep the safe fallback and its query tags directly visible while the funnel pages are dark.
+      const note = containsVisibleFallback(noteText, cfg.offer.url)
+        ? noteText
+        : await short.shorten(noteText, m.subject);
       const kit = m.kit ? await short.shorten(noDashes(m.kit), m.subject) : null;
       const body = `${note}\n\n${cfg.sign_off}\n\n${cfg.opt_out}${kit ? `\n\n${kit}` : ''}`;
       // FW-C-117: the note (not the share kit, which is the host's own copy) passes the draft gate. Numbers
