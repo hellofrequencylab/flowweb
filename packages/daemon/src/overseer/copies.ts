@@ -24,6 +24,16 @@ export function isCopyKey(key: string): boolean {
   return flowRef('', key).copy;
 }
 
+/** FW-C-166: the copies of a base flow the Owner still runs (not archived), from the Supervisor settings. */
+export function liveCopies(
+  flows: Record<string, { copy_of?: string; archived?: boolean }>,
+  base: string,
+): string[] {
+  return Object.keys(flows)
+    .filter((k) => flows[k]?.copy_of === base && flows[k]?.archived !== true && flowRef('', k).base === base)
+    .sort();
+}
+
 /** Checks a slug and the key it makes; returns the key or the reason it is refused. */
 export function copyKey(base: string, slug: string): { key: string } | { error: string } {
   if (!SLUG_RE.test(slug)) return { error: 'slug must be lowercase letters and digits, with single dashes' };

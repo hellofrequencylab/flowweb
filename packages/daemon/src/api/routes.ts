@@ -29,7 +29,7 @@ import { type BatchResult, dueTouches, loadSequence } from '../flows/sequence.ts
 import * as targeting from '../flows/targeting.ts';
 import { isSkipReason, recordSkip, todaySize, todayView } from '../flows/today.ts';
 import * as voiceNote from '../flows/voice-note.ts';
-import { flowRef } from '../overseer/copies.ts';
+import { flowRef, liveCopies } from '../overseer/copies.ts';
 import { type DraftView, editDraft, listDrafts, markDraft } from '../overseer/drafts.ts';
 import {
   listFlows,
@@ -281,17 +281,17 @@ function addFlowAdminRoutes(r: Router, deps: ApiDeps): void {
   }
   r.get(`${base}/config`, () => envelope(deps.reader, () => ({ data: load(new Date()).cfg })));
   addHuntRoutes(r, deps);
+  const copies = () => liveCopies(readSettings(deps.reader).flows, neighborhoodActivation.FLOW_KEY);
   // FW-C-055: what became of the people the flow reached, pulled from Frequency (daily, or now).
   r.get(`${base}/outcomes`, () =>
     envelope(deps.reader, () => ({ data: outcomes.readOutcomes(deps.fwHome) })),
   );
   r.post(`${base}/outcomes/pull`, async () => {
     try {
-      const data = await outcomes.pullOutcomes({
-        repoRoot: deps.repoRoot,
-        fwHome: deps.fwHome,
-        env: process.env,
-      });
+      const o = { repoRoot: deps.repoRoot, fwHome: deps.fwHome, env: process.env };
+      const data = await outcomes.pullOutcomes(o);
+      // FW-C-166: each live copy pulls too; a copy's failure is recorded in its own pull.json.
+      for (const flow of copies()) await outcomes.pullOutcomes({ ...o, flow }).catch(() => {});
       return envelope(deps.reader, () => ({ data }));
     } catch (e) {
       if (!(e instanceof outcomes.PullError)) throw e;
@@ -306,7 +306,10 @@ function addFlowAdminRoutes(r: Router, deps: ApiDeps): void {
   // FW-C-056: the weekly review: a scorecard per hunt and shifts toward what works.
   r.get(`${base}/review`, () => envelope(deps.reader, () => ({ data: review.readReview(deps.fwHome) })));
   r.post(`${base}/review/run`, () => {
-    const data = review.runReview({ reader: deps.reader, repoRoot: deps.repoRoot, fwHome: deps.fwHome });
+    const o = { reader: deps.reader, repoRoot: deps.repoRoot, fwHome: deps.fwHome };
+    const data = review.runReview(o);
+    // FW-C-166: each live copy is reviewed from its own drafts, into its own home.
+    for (const flow of copies()) review.runReview({ ...o, flow });
     return envelope(deps.reader, () => ({ data }));
   });
   for (const action of ['apply', 'dismiss'] as const)
