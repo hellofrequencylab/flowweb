@@ -124,7 +124,8 @@ function draft(id, extra) {
     body: 'Hi Front Porch Gallery team. https://frequencylocal.com/start/host?utm_source=flowweb',
     tag: id.toLowerCase(),
     status: 'waiting_for_owner',
-    created_at: '2026-11-10T08:00:00.000Z',
+    // A day old, relative to now: fwd retires an undated hunt draft once it is over 7 days old (FW-C-154).
+    created_at: new Date(Date.now() - 86_400_000).toISOString(),
     ...extra,
   };
 }
