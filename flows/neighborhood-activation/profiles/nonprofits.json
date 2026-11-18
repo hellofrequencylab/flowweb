@@ -1,0 +1,85 @@
+{
+  "version": 1,
+  "slug": "nonprofits",
+  "name": "Frequency Non Profits",
+  "note": "Finds local nonprofits that gather volunteers and supporters in person, and drafts one note each. Draft only. Ships off.",
+  "config": {
+    "offer": {
+      "pitch": "A page, calendar and supporter list for a local nonprofit, with no cut taken of what supporters give.",
+      "call_to_action": "Bring your supporters together"
+    },
+    "niches": [
+      {
+        "key": "community-org",
+        "label": "Community, arts, youth and neighborhood nonprofits",
+        "angles": [
+          {
+            "key": "known",
+            "line": "The people who show up for you are in four different lists."
+          },
+          {
+            "key": "come_back",
+            "line": "A volunteer comes to one day and never hears about the next."
+          },
+          {
+            "key": "fees",
+            "line": "Event and donation tools take a cut of what supporters give."
+          }
+        ]
+      },
+      {
+        "key": "environment-service",
+        "label": "Environmental, garden, food and service groups",
+        "angles": [
+          {
+            "key": "come_back",
+            "line": "A volunteer comes to one cleanup and never hears about the next."
+          },
+          {
+            "key": "fill_room",
+            "line": "Filling a volunteer day takes more than one post."
+          },
+          {
+            "key": "known",
+            "line": "Volunteers, donors and members live in separate lists."
+          }
+        ]
+      }
+    ],
+    "dm_door": {
+      "path": "/for/nonprofits"
+    },
+    "funnels": {
+      "host": {
+        "path": "/for/nonprofits",
+        "persona": "partner"
+      }
+    },
+    "hunts": {
+      "audience": {
+        "focus": [],
+        "steer_away": []
+      },
+      "link_line": "If you'd like a free page for your organization on Frequency, start here:",
+      "playbook": {
+        "seek": "Who to find: local nonprofits and community organizations in the region that gather people in person: arts and culture groups, community gardens, beach and trail cleanups, food shares, youth and mentoring programs, neighborhood associations, friends-of-the-library and friends-of-the-park groups. Keep one only when a public page shows a volunteer day, a community event, a class or a regular meeting people can come to.",
+        "signals": "Strong signs, best first: a volunteer or events calendar with something in the next 60 days; a recurring volunteer day with its own name; sign-ups handled through a general form or ticket site; a named volunteer coordinator or program lead with a listed email; a local chapter page that runs its own events. Weak signs: a donate button and nothing to come to.",
+        "where": "Where to look: the organization's own website and its volunteer, events and get-involved pages, city and library community calendars, local volunteer listings, and event pages on Eventbrite and Meetup.",
+        "queries": "Searches that work: \"<town> volunteer day\", \"<town> beach cleanup\", \"<town> community garden volunteer\", \"<town> friends of the library\", \"<town> arts nonprofit events\", \"<town> food share volunteer\", \"<town> neighborhood association meeting\". Use each area's own town names.",
+        "skip": "Skip national charities' head offices, political campaigns and parties, hospitals and universities, grant-making foundations with no events, and anything that is only a fundraiser appeal.",
+        "rank": "Order leads.json best first, because only the first few are kept: a local group with a named recurring volunteer day and a coordinator's listed email comes first, then one with an events page and a contact form, then the rest. One lead per organization, addressed to the person who runs it when the page names them.",
+        "record": "In leads.json the event is what people can come to: event.title is its name or what kind of thing it is, event.url is the public page that shows it, and starts_at may be empty. The organizer is the nonprofit, with the coordinator's name when the page gives it.",
+        "note": "Write a short, warm, personal note to each one. Name the work they do or the thing people can come to loosely and say what you like about it; never give a date, time, price or address, and never mention money, donations or how many people came. End that opening with an exclamation mark. Then, in a new paragraph, say: \"I'm Daniel, founder of Frequency, a free way for neighbors to find local, in-person gatherings and the people who hold them.\" and ask one easy question that fits them, such as whether they would like their volunteer days where neighbors can find them."
+      }
+    }
+  },
+  "hunts": [
+    {
+      "name": "Nonprofits that gather people",
+      "looking_for": "Local nonprofits in North County San Diego with a public volunteer day, community event or regular meeting",
+      "region": "north-county-sd",
+      "max_sends": 10,
+      "every_days": 1
+    }
+  ]
+}

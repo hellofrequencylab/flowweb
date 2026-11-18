@@ -1,4 +1,4 @@
-// FW-C-152: the three shipped profiles are well formed: each has a full playbook, its own page, niches with
+// FW-C-152: the shipped profiles (three main, five more that ship off) are well formed: each has a full playbook, its own page, niches with
 // angles and a starter hunt the flow accepts, and patches only keys the base config has.
 import { readFileSync } from 'node:fs';
 import { join } from 'node:path';
@@ -12,12 +12,17 @@ const ROOT = fileURLToPath(new URL('../../..', import.meta.url));
 const BASE = 'neighborhood-activation';
 const baseCfg = () => JSON.parse(readFileSync(join(ROOT, 'flows', BASE, 'config.json'), 'utf8'));
 const DOORS: Record<string, string> = {
+  'clubs-groups': '/for/clubs-and-groups',
   'coaches-guides': '/for/coaches-and-healers',
   'local-businesses': '/for/local-businesses',
+  networks: '/for/networks',
+  nonprofits: '/for/nonprofits',
+  spiritual: '/for/spiritual-community',
+  studios: '/for/studios',
   'venues-hosts': '/for/venues',
 };
 
-test('the three profiles ship, each with a playbook, a door, niches and a starter hunt that saves', () => {
+test('every profile ships, each with a playbook, a door, niches and a starter hunt that saves', () => {
   const all = listProfiles(ROOT, BASE);
   expect(all.map((p) => p.slug)).toEqual(Object.keys(DOORS).sort());
   for (const p of all) {
