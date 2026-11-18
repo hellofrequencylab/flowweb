@@ -306,6 +306,16 @@ function emailQueueDraftPayload(b) {
   return { payload };
 }
 
+/** FW-C-167: the Owner's "How I write" note. fwd checks it again and is the one that saves. */
+function voicePayload(b) {
+  const note = b && typeof b === 'object' ? b.note : undefined;
+  if (typeof note !== 'string') return { error: 'note must be text' };
+  if (note.length > 2000) return { error: 'the note is longer than 2000 characters' };
+  if (/[\u2013\u2014]/.test(note)) return { error: 'the note has an em or en dash; use a comma or a new sentence' };
+  if (/midnight/i.test(note)) return { error: 'the note may not use the word "Midnight"' };
+  return { payload: { note } };
+}
+
 /**
  * The request a site call asks for (FW-C-062): { kind, flow, draft_id, payload }, { error } for a
  * known control with bad input, or null when the path is not one the site may ask for.
@@ -363,6 +373,13 @@ export function requestOf(method, path, body) {
     if (!FLOW.test(copy[1])) return { error: 'unknown flow' };
     const c = copyPayload(b);
     return c.error ? c : { kind: 'flow.copy', flow: copy[1], draft_id: null, payload: c.payload };
+  }
+  // FW-C-167: the "How I write" note is for every flow, so it travels as a flow.edit for 'all' whose
+  // payload is { voice }. No new request kind.
+  if (path === '/voice') {
+    if (method !== 'POST') return null;
+    const v = voicePayload(b);
+    return v.error ? v : { kind: 'flow.edit', flow: 'all', draft_id: null, payload: { voice: v.payload } };
   }
   // FW-C-156: who a flow looks for and how its notes read. It travels as a flow.edit whose payload is
   // { targeting }, so the site needs no new request kind.
@@ -503,6 +520,11 @@ export function fwdCallFor(req) {
   }
   if (kind === 'flow.archive' || kind === 'flow.restore')
     return { method: 'POST', path: `/supervisor/flows/${f}/${kind.slice(5)}`, body: {} };
+  // FW-C-167: the "How I write" note.
+  if (kind === 'flow.edit' && p.voice !== undefined) {
+    const v = voicePayload(p.voice);
+    return v.error || flow !== 'all' ? null : { method: 'POST', path: '/voice', body: v.payload };
+  }
   if (kind === 'flow.edit' && p.targeting !== undefined) {
     const t = targetingPayload(p.targeting);
     return t.error ? null : { method: 'POST', path: `/flows/${f}/targeting`, body: t.payload };

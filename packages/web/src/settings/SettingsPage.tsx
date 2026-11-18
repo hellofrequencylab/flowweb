@@ -17,6 +17,7 @@ import { BuildRequests } from './BuildRequests';
 import { ConnectionsSettings } from './ConnectionsSettings';
 import { FunnelsSwitch } from './FunnelsSwitch';
 import { ProjectSettings } from './ProjectSettings';
+import { VoiceSettings } from './VoiceSettings';
 
 function Toggle({
   k,
@@ -226,6 +227,7 @@ export function SettingsPage({
       )}
 
       <AiSettings hosted={HOSTED} />
+      <VoiceSettings />
       <FunnelsSwitch />
       <ProjectSettings />
       <ConnectionsSettings />

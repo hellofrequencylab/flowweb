@@ -49,6 +49,7 @@ import { retirePastDrafts } from '../flows/past-events.ts';
 import { PLAYBOOK_KEYS, type Playbook, playbookOf, sharedReach } from '../flows/profiles.ts';
 import { noDashes, type Shortener, shortenerFor } from '../flows/short-links.ts';
 import { NOTE_MAX_EMOJI, NOTE_MAX_WORDS, VOICE_BRIEF } from '../flows/voice.ts';
+import { voiceBlock } from '../flows/voice-note.ts';
 import { runCredentials } from '../pipeline/credentials.ts';
 import { chooseAdapter } from '../pipeline/route.ts';
 import { killOrphanGroup } from '../reconciler.ts';
@@ -328,6 +329,8 @@ export function brief(
   audience: Audience = { focus: [], steer_away: [] },
   rules: string[] = [],
   playbook: Playbook | null = null,
+  // FW-C-167: the Owner's saved "How I write" note, as one labelled block after the shipped voice.
+  voice = '',
 ): string {
   const lines = [
     `Run one cycle of the flow "${String(stream.name ?? key)}".`,
@@ -357,6 +360,7 @@ export function brief(
       'For each one, find how they can be reached, only where they list it publicly (their own website or the page that shows what they host), and record that page as source_url. Prefer a listed email (contact_via "email"); otherwise a public contact form ("form"), a public social profile ("social") or a listing platform\'s message page ("platform"), with its https address as contact_url. Never guess an address and never use a page behind a login.',
       'Record the country as two-letter codes (event.country, organizer.country) when you can tell. Skip anyone in the EU or EEA, the UK or Canada: fwd drops them anyway.',
       playbook.note ?? '',
+      ...(voice ? [voice] : []),
       'Never use an em dash or an en dash in a subject or a note; use a comma or a new sentence. Keep subjects short and leave dates out of them too. Do not add a sign-off, a link, a P.S. or an opt-out line: fwd adds those.',
       `Write leads.json in the current folder as {"leads":[{"hunt_id","event":{"title","starts_at","url","country"},"organizer":{"name","email","source_url","country","contact_via","contact_url"},"subject","body"}]}, at most twice each hunt's max_sends.${playbook.record ? ` ${playbook.record}` : ''}`,
       ...rules,
@@ -380,6 +384,7 @@ export function brief(
       "Record the event's and the organizer's country as two-letter codes (event.country, organizer.country) when you can tell. Skip any organizer or event in the EU or EEA, the UK or Canada: fwd drops them anyway.",
       VOICE_BRIEF,
       'An opening of his with a second line: "Hi Elya and team, your Pages in Bloom workshop caught my eye, and I love what you are up to. Sounds like a lovely way to spend an evening with the community!"',
+      ...(voice ? [voice] : []),
       'Never use an em dash or an en dash in a subject or a note; use a comma or a new sentence. Keep subjects short and leave dates out of them too. Do not add a sign-off, a link, a P.S. or an opt-out line: fwd adds those.',
       'Write leads.json in the current folder as {"leads":[{"hunt_id","event":{"title","starts_at","url","country"},"organizer":{"name","email","source_url","country","contact_via","contact_url"},"subject","body"}]}, at most twice each hunt\'s max_sends.',
       ...rules,
@@ -506,6 +511,7 @@ async function runCycle(d: CycleDeps, fire: CycleFire): Promise<void> {
         audienceOf(dir),
         [...huntRules(dir), ...knownRule(known)],
         playbookOf(dir),
+        voiceBlock(owner(d, fire).fwHome),
       ),
       context_links: ['README.md', 'config.json'],
       // The agent writes its own outputs only; the files fwd put there for it are read-only.

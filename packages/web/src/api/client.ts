@@ -1197,6 +1197,23 @@ export const flowProfiles = {
     ownerWrite<{ key?: string } | null>('POST', `/supervisor/flows/${enc(flow)}/copy`, { profile }, onQueued),
 };
 
+/** FW-C-167: the Owner's "How I write" note. `saved` is false while it is still the shipped original. */
+export interface OwnerVoice {
+  data_as_of: string;
+  note: string;
+  saved: boolean;
+  updated_at: string | null;
+  edits: number;
+}
+export const ownerVoice = {
+  async get(): Promise<OwnerVoice> {
+    const e = await get<Omit<OwnerVoice, 'data_as_of'>>('/voice');
+    return { data_as_of: e.as_of, ...e.data };
+  },
+  /** An empty note goes back to the original. Queued on the live site, saved at once on the machine. */
+  save: (note: string, onQueued?: () => void) => ownerWrite<unknown>('POST', '/voice', { note }, onQueued),
+};
+
 /** FW-C-092: what the AI console sends about the page, and what it gets back. */
 export interface ConsoleQuestion {
   question: string;

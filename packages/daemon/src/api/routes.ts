@@ -28,6 +28,7 @@ import { reviewSummary } from '../flows/review-summary.ts';
 import { type BatchResult, dueTouches, loadSequence } from '../flows/sequence.ts';
 import * as targeting from '../flows/targeting.ts';
 import { isSkipReason, recordSkip, todaySize, todayView } from '../flows/today.ts';
+import * as voiceNote from '../flows/voice-note.ts';
 import { flowRef } from '../overseer/copies.ts';
 import { type DraftView, editDraft, listDrafts, markDraft } from '../overseer/drafts.ts';
 import {
@@ -943,6 +944,28 @@ export function buildRouter(deps: ApiDeps): Router {
         throw new ApiError(501, 'not_implemented', 'this fwd cannot change a flow AI account');
       return c.setFlowAi(params.key ?? '', body);
     });
+  });
+
+  // FW-C-167: the Owner's "How I write" note, and the draft edits kept for it to learn from. Owner only.
+  r.get('/v1/voice', ({ req }) => {
+    requireOwner(req);
+    return env(() => ({ data: voiceNote.readVoice(deps.fwHome) }));
+  });
+  r.post('/v1/voice', async ({ req }) => {
+    requireOwner(req);
+    const body = await readJsonBody(req);
+    try {
+      const data = voiceNote.saveVoice(deps.fwHome, body);
+      return env(() => ({ data }));
+    } catch (e) {
+      if (e instanceof naAdmin.AdminError) throw new ApiError(400, 'validation_failed', e.message);
+      throw e;
+    }
+  });
+  r.get('/v1/voice/edits', ({ req, query }) => {
+    requireOwner(req);
+    const limit = Number.parseInt(query.get('limit') ?? '20', 10);
+    return env(() => ({ data: voiceNote.listEdits(deps.fwHome, limit) }));
   });
 
   // FW-C-046: Copilot. The Owner lists a flow's cycle drafts and approves or rejects each one
