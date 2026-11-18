@@ -32,7 +32,7 @@ import { loadFlow as loadAdsFlow } from './flows/paid-ads.ts';
 import { ga4Of, pullDue, pullGa4, readPullStatus } from './flows/paid-ads-ga4.ts';
 import { retirePastDrafts } from './flows/past-events.ts';
 import { draftReply } from './flows/reply-helper.ts';
-import { runReview } from './flows/review.ts';
+import { reviewDue, runReview } from './flows/review.ts';
 import { batchApprove } from './flows/sequence.ts';
 import { reapOrphanCycles, runFlowCycle, syncFlowCatchUp } from './overseer/cycle.ts';
 import { approveDraft, rejectDraft } from './overseer/drafts.ts';
@@ -314,7 +314,21 @@ export async function startDaemon(opts: DaemonOptions): Promise<Daemon> {
       log(`review: failed: ${(e as Error)?.message ?? e}`);
     }
   };
-  const reviewTimer = setInterval(reviewNow, Number(process.env.FW_REVIEW_EVERY_MS) || 7 * 86_400_000);
+  // FW-C-159: the review runs when it is due (missing or a week old), checked soon after start and then
+  // a few times a day, so a restart no longer pushes it a whole week out.
+  const reviewEveryMs = Number(process.env.FW_REVIEW_EVERY_MS) || 7 * 86_400_000;
+  const reviewIfDue = (): void => {
+    let due = false;
+    try {
+      due = reviewDue(fwHome, reviewEveryMs);
+    } catch (e) {
+      log(`review: could not tell whether one is due: ${(e as Error)?.message ?? e}`);
+    }
+    if (due) reviewNow();
+  };
+  const firstReview = setTimeout(reviewIfDue, 5_000);
+  firstReview.unref();
+  const reviewTimer = setInterval(reviewIfDue, Math.min(reviewEveryMs, 6 * 3_600_000));
   reviewTimer.unref();
   // ---- host moments (FW-C-106) ---------------------------------------------------------------
   // Every 5 minutes: Frequency host events become drafts while the flow is on; opt-outs always apply.
@@ -502,6 +516,7 @@ export async function startDaemon(opts: DaemonOptions): Promise<Daemon> {
     clearInterval(adsTimer);
     clearInterval(pullTimer);
     clearTimeout(firstPull);
+    clearTimeout(firstReview);
     clearInterval(reviewTimer);
     clearInterval(hostMomentsTimer);
     try {
@@ -622,6 +637,7 @@ export async function startDaemon(opts: DaemonOptions): Promise<Daemon> {
     clearInterval(adsTimer);
     clearInterval(pullTimer);
     clearTimeout(firstPull);
+    clearTimeout(firstReview);
     clearInterval(reviewTimer);
     clearInterval(hostMomentsTimer);
     for (const end of [...streams]) end();

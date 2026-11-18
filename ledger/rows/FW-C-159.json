@@ -1,0 +1,29 @@
+{
+  "id": "FW-C-159",
+  "title": "The weekly review runs when it is due, even when fwd restarts often",
+  "core_milestone": "C1",
+  "phase": 1,
+  "epic": "C1.5 First flow",
+  "priority": "P1",
+  "size": "S",
+  "lane": "workstreams",
+  "agent_suitability": "agent",
+  "gate": "none",
+  "depends_on": [
+    "FW-C-056"
+  ],
+  "description": "The 2026-11-18 build audit found the flow's weekly review had never run on the Owner's Mac: fwd starts it only from a timer that fires after a week of uptime, and fwd had restarted 54 times in 9 days, so the page that says what is working stayed empty. Now fwd checks soon after it starts, and a few times a day after that, whether a review is due: the flow has at least one hunt and review.json is missing or about a week old (FW_REVIEW_EVERY_MS still sets the age). A due review runs as before, with the dial deciding whether shifts apply. A review younger than that is left exactly as it is, so shifts waiting for the Owner are never replaced by a restart.",
+  "acceptance": [
+    "With a hunt and no review.json, a freshly started fwd writes review.json within 20 seconds with no call",
+    "With a review 8 days old, a restart replaces it with a new one",
+    "With a review 1 day old, a restart leaves the file untouched",
+    "A flow with no hunts gets no review written at start"
+  ],
+  "verify_probe": "pnpm probe flows/review-due",
+  "files_hint": [
+    "packages/daemon/src/daemon.ts",
+    "packages/daemon/src/flows/review.ts",
+    "packages/daemon/test/review.test.ts"
+  ],
+  "origin": "new Core row"
+}
