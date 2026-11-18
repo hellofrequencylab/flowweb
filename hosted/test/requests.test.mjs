@@ -158,6 +158,19 @@ test('FW-C-124: a flow copy carries only name, note and slug, and the relay maps
   assert.equal(requestOf('GET', '/supervisor/flows/paid-ads/copy', {}), null);
 });
 
+test('FW-C-165: a flow copy may name a built profile, and the relay carries it to fwd', () => {
+  const r = requestOf('POST', '/supervisor/flows/neighborhood-activation/copy', { profile: 'studios' });
+  assert.deepEqual(r, { kind: 'flow.copy', flow: 'neighborhood-activation', draft_id: null, payload: { profile: 'studios' } });
+  assert.deepEqual(fwdCallFor({ id: 'r1', ...r }), {
+    method: 'POST',
+    path: '/supervisor/flows/neighborhood-activation/copy',
+    body: { profile: 'studios' },
+  });
+  for (const profile of ['Bad Slug', '../studios', 'x'.repeat(31), 7])
+    assert.ok(requestOf('POST', '/supervisor/flows/neighborhood-activation/copy', { profile }).error);
+  assert.equal(fwdCallFor({ kind: 'flow.copy', flow: 'neighborhood-activation', payload: { profile: '../x' } }), null);
+});
+
 test('renaming an agent becomes team.edit with only name and voice, and the relay maps it back (FW-C-123)', () => {
   const r = requestOf('POST', '/team/frequency/ceo', { name: ' Nova ', other: 1 });
   assert.deepEqual(r, { kind: 'team.edit', flow: 'all', draft_id: null, payload: { team: 'frequency', role: 'ceo', name: 'Nova' } });
@@ -367,4 +380,37 @@ test('a targeting edit travels as a flow.edit and lands on the flow it names', (
   assert.ok(requestOf('POST', '/flows/../targeting', { link_line: 'x' }).error);
   // A rename is still a rename.
   assert.equal(fwdCallFor(requestOf('POST', `/supervisor/flows/${COPY}/edit`, { name: 'Coaches' })).path, `/supervisor/flows/${COPY}/edit`);
+});
+
+test('the "How I write" note travels as a flow.edit for every flow and lands on /voice', () => {
+  const req = requestOf('POST', '/voice', { note: 'Short lines. Say thanks once.', extra: 'dropped' });
+  assert.deepEqual(req, {
+    kind: 'flow.edit',
+    flow: 'all',
+    draft_id: null,
+    payload: { voice: { note: 'Short lines. Say thanks once.' } },
+  });
+  assert.deepEqual(fwdCallFor(req), { method: 'POST', path: '/voice', body: { note: 'Short lines. Say thanks once.' } });
+  // An empty note is how the site goes back to the original.
+  assert.deepEqual(fwdCallFor(requestOf('POST', '/voice', { note: '' })).body, { note: '' });
+  assert.equal(requestOf('GET', '/voice', {}), null);
+  for (const note of [undefined, 5, 'Warm \u2014 never stiff', 'Pages 3\u20134', 'Like Midnight oil', 'x'.repeat(2001)])
+    assert.ok(requestOf('POST', '/voice', { note }).error, `accepted ${String(note).slice(0, 20)}`);
+  // The relay refuses a queued row it would not have queued itself.
+  assert.equal(fwdCallFor({ ...req, payload: { voice: { note: 'A \u2014 B' } } }), null);
+  assert.equal(fwdCallFor({ ...req, flow: 'neighborhood-activation' }), null);
+});
+
+test('a review decision travels as a flow.edit and lands on the proposal it names', () => {
+  const COPY = 'neighborhood-activation--coaches-guides';
+  const path = `/flows/${COPY}/review/proposals/shf_0123456789ab`;
+  const req = requestOf('POST', path, { decision: 'accept', extra: 'dropped' });
+  assert.equal(req.kind, 'flow.edit');
+  assert.equal(req.flow, COPY);
+  assert.deepEqual(req.payload, { review_decision: { id: 'shf_0123456789ab', decision: 'accept' } });
+  assert.deepEqual(fwdCallFor(req), { method: 'POST', path, body: { decision: 'accept' } });
+  assert.equal(requestOf('GET', path, {}), null);
+  assert.ok(requestOf('POST', path, { decision: 'send' }).error);
+  assert.ok(requestOf('POST', `/flows/${COPY}/review/proposals/..`, { decision: 'accept' }).error);
+  assert.equal(fwdCallFor({ ...req, payload: { review_decision: { id: 'x', decision: 'accept' } } }), null);
 });

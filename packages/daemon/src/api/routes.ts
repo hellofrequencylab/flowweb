@@ -21,13 +21,16 @@ import * as naAdmin from '../flows/neighborhood-admin.ts';
 import * as outcomes from '../flows/outcomes.ts';
 import * as paidAds from '../flows/paid-ads.ts';
 import * as adsPull from '../flows/paid-ads-ga4.ts';
+import { listProfiles } from '../flows/profiles.ts';
 import { ReplyError, type ReplyResult } from '../flows/reply-helper.ts';
 import * as review from '../flows/review.ts';
+import { decideProposal, proposalsOf } from '../flows/review-proposals.ts';
 import { reviewSummary } from '../flows/review-summary.ts';
 import { type BatchResult, dueTouches, loadSequence } from '../flows/sequence.ts';
 import * as targeting from '../flows/targeting.ts';
 import { isSkipReason, recordSkip, todaySize, todayView } from '../flows/today.ts';
-import { flowRef } from '../overseer/copies.ts';
+import * as voiceNote from '../flows/voice-note.ts';
+import { flowRef, liveCopies } from '../overseer/copies.ts';
 import { type DraftView, editDraft, listDrafts, markDraft } from '../overseer/drafts.ts';
 import {
   listFlows,
@@ -279,17 +282,17 @@ function addFlowAdminRoutes(r: Router, deps: ApiDeps): void {
   }
   r.get(`${base}/config`, () => envelope(deps.reader, () => ({ data: load(new Date()).cfg })));
   addHuntRoutes(r, deps);
+  const copies = () => liveCopies(readSettings(deps.reader).flows, neighborhoodActivation.FLOW_KEY);
   // FW-C-055: what became of the people the flow reached, pulled from Frequency (daily, or now).
   r.get(`${base}/outcomes`, () =>
     envelope(deps.reader, () => ({ data: outcomes.readOutcomes(deps.fwHome) })),
   );
   r.post(`${base}/outcomes/pull`, async () => {
     try {
-      const data = await outcomes.pullOutcomes({
-        repoRoot: deps.repoRoot,
-        fwHome: deps.fwHome,
-        env: process.env,
-      });
+      const o = { repoRoot: deps.repoRoot, fwHome: deps.fwHome, env: process.env };
+      const data = await outcomes.pullOutcomes(o);
+      // FW-C-166: each live copy pulls too; a copy's failure is recorded in its own pull.json.
+      for (const flow of copies()) await outcomes.pullOutcomes({ ...o, flow }).catch(() => {});
       return envelope(deps.reader, () => ({ data }));
     } catch (e) {
       if (!(e instanceof outcomes.PullError)) throw e;
@@ -304,7 +307,10 @@ function addFlowAdminRoutes(r: Router, deps: ApiDeps): void {
   // FW-C-056: the weekly review: a scorecard per hunt and shifts toward what works.
   r.get(`${base}/review`, () => envelope(deps.reader, () => ({ data: review.readReview(deps.fwHome) })));
   r.post(`${base}/review/run`, () => {
-    const data = review.runReview({ reader: deps.reader, repoRoot: deps.repoRoot, fwHome: deps.fwHome });
+    const o = { reader: deps.reader, repoRoot: deps.repoRoot, fwHome: deps.fwHome };
+    const data = review.runReview(o);
+    // FW-C-166: each live copy is reviewed from its own drafts, into its own home.
+    for (const flow of copies()) review.runReview({ ...o, flow });
     return envelope(deps.reader, () => ({ data }));
   });
   for (const action of ['apply', 'dismiss'] as const)
@@ -445,6 +451,19 @@ function addHuntRoutes(r: Router, deps: ApiDeps): void {
       if (e instanceof SupervisorError) throw new ApiError(404, 'not_found', e.message);
       throw kernelError(e);
     }
+  });
+  // FW-C-165: the profiles a flow ships, each with the key of the copy made from it, or null while it is
+  // not made. A copy has no profiles of its own, and neither does a flow that ships none: both answer 404.
+  r.get(`${base}/profiles`, ({ params }) => {
+    const key = params.key ?? '';
+    const list = flowRef(deps.fwHome, key).copy ? [] : listProfiles(deps.repoRoot, key);
+    if (list.length === 0) throw notFound('flow', key);
+    const flows = readSettings(deps.reader).flows;
+    const data = list.map((p) => {
+      const made = `${key}--${p.slug}`;
+      return { slug: p.slug, name: p.name, note: p.note, copy_key: flows[made] ? made : null };
+    });
+    return envelope(deps.reader, () => ({ data }));
   });
   // FW-C-156: who the flow looks for and how its notes read. A save is read by the next cycle.
   r.get(`${base}/targeting`, ({ params }) => {
@@ -931,6 +950,28 @@ export function buildRouter(deps: ApiDeps): Router {
     });
   });
 
+  // FW-C-167: the Owner's "How I write" note, and the draft edits kept for it to learn from. Owner only.
+  r.get('/v1/voice', ({ req }) => {
+    requireOwner(req);
+    return env(() => ({ data: voiceNote.readVoice(deps.fwHome) }));
+  });
+  r.post('/v1/voice', async ({ req }) => {
+    requireOwner(req);
+    const body = await readJsonBody(req);
+    try {
+      const data = voiceNote.saveVoice(deps.fwHome, body);
+      return env(() => ({ data }));
+    } catch (e) {
+      if (e instanceof naAdmin.AdminError) throw new ApiError(400, 'validation_failed', e.message);
+      throw e;
+    }
+  });
+  r.get('/v1/voice/edits', ({ req, query }) => {
+    requireOwner(req);
+    const limit = Number.parseInt(query.get('limit') ?? '20', 10);
+    return env(() => ({ data: voiceNote.listEdits(deps.fwHome, limit) }));
+  });
+
   // FW-C-046: Copilot. The Owner lists a flow's cycle drafts and approves or rejects each one
   // (FW-C-062: from the paired browser too).
   const ownerOnly = requireOwner;
@@ -947,6 +988,31 @@ export function buildRouter(deps: ApiDeps): Router {
       return env(() => ({ data }));
     } catch (e) {
       throw draftError(e);
+    }
+  });
+  // FW-C-168: the weekly review's proposals, for the flow or one of its copies. Accept applies the shift as
+  // the review's own code does; decline keeps it from being raised again for 30 days. Owner only to decide.
+  const reviewHome = (key = '') => {
+    const ref = flowRef(deps.fwHome, key);
+    const known = !ref.copy || readSettings(reader).flows[key]?.copy_of === ref.base;
+    if (!known || ref.base !== neighborhoodActivation.FLOW_KEY) throw notFound('flow', key);
+    return ref.home;
+  };
+  r.get('/v1/flows/{key}/review/proposals', ({ params }) =>
+    env(() => ({ data: { flow: params.key ?? '', proposals: proposalsOf(reviewHome(params.key)) } })),
+  );
+  r.post('/v1/flows/{key}/review/proposals/{id}', async ({ req, params }) => {
+    ownerOnly(req);
+    const home = reviewHome(params.key);
+    const { decision } = await readJsonBody(req);
+    if (decision !== 'accept' && decision !== 'decline')
+      throw new ApiError(400, 'validation_failed', 'decision must be accept or decline');
+    try {
+      const data = decideProposal(home, params.id ?? '', decision);
+      return env(() => ({ data }));
+    } catch (e) {
+      if (!(e instanceof review.ReviewError)) throw e;
+      throw new ApiError(e.status, e.status === 404 ? 'not_found' : 'conflict', e.message);
     }
   });
   // FW-C-105: Today, the ranked list of the morning's actions. Owner only, like the drafts it holds.

@@ -8,6 +8,7 @@ import { createHash } from 'node:crypto';
 import { existsSync, readdirSync, readFileSync } from 'node:fs';
 import { join } from 'node:path';
 import type { Reader } from '@fw/eventlog';
+import { flowRef } from '../overseer/copies.ts';
 import { confirmHash, ENGINES, readSettings, supervisorView } from '../overseer/index.ts';
 import { type Hunt, loadHunts, MAX_SENDS, saveHunts } from './hunts.ts';
 import { FLOW_KEY } from './neighborhood-activation.ts';
@@ -77,6 +78,33 @@ const isObj = (x: unknown): x is Doc => typeof x === 'object' && x !== null && !
 const str = (d: Doc, k: string) => (typeof d[k] === 'string' && d[k] !== '' ? (d[k] as string) : null);
 const num = (v: unknown) => (typeof v === 'number' && Number.isFinite(v) && v > 0 ? v : 0);
 const pct = (r: number) => `${Math.round(r * 100)}%`;
+
+/** FW-C-168: proposals the Owner declined, by what they would change, so a review does not repeat them. */
+export const DECLINE_DAYS = 30;
+const declinedPath = (home: string) => join(dir(home), 'review-declined.json');
+export const declineKey = (kind: string, hunts: string[]) => `${kind}|${[...hunts].sort().join(',')}`;
+
+function declines(home: string, now: Date): Record<string, string> {
+  const raw = readJson(declinedPath(home));
+  const all = isObj(raw) && isObj(raw.declined) ? raw.declined : {};
+  const fresh = (at: unknown) =>
+    typeof at === 'string' && now.getTime() - Date.parse(at) < DECLINE_DAYS * 86_400_000;
+  return Object.fromEntries(Object.entries(all).filter(([, at]) => fresh(at))) as Record<string, string>;
+}
+
+export function recordDecline(home: string, key: string, now: Date): void {
+  writeJsonAtomic(declinedPath(home), { declined: { ...declines(home, now), [key]: now.toISOString() } });
+}
+
+/** Drops a pause, or the whole set of max_sends moves, that the Owner declined in the last 30 days. */
+function undeclined(home: string, shifts: Shift[], now: Date): Shift[] {
+  const no = declines(home, now);
+  const moves = shifts.filter((s) => s.kind === 'max_sends').map((s) => s.hunt_id);
+  return shifts.filter(
+    (s) =>
+      !Object.hasOwn(no, s.kind === 'pause' ? declineKey('pause', [s.hunt_id]) : declineKey(s.kind, moves)),
+  );
+}
 
 function readJson(p: string): unknown {
   try {
@@ -243,14 +271,14 @@ function learningsOf(cards: HuntCard[], pooled: number | null): string[] {
 }
 
 /** Whether the review may apply its own shifts: confirmed Autopilot, kill switch off, not paused. */
-function mayAutoApply(reader: Reader, repoRoot: string, fwHome: string, now: Date): boolean {
-  const view = supervisorView({ reader, repoRoot, fwHome, now: () => now });
+function mayAutoApply(reader: Reader, repoRoot: string, rootHome: string, key: string, now: Date): boolean {
+  const view = supervisorView({ reader, repoRoot, fwHome: rootHome, now: () => now });
   if (view.kill_switch || view.paused) return false;
-  const set = readSettings(reader).flows[FLOW_KEY];
+  const set = readSettings(reader).flows[key];
   if (set?.enabled !== true || set.dial !== 'autopilot') return false;
   try {
-    const facts = ENGINES[FLOW_KEY]?.(repoRoot, fwHome, now);
-    return !!facts && set.dial_hash === confirmHash(FLOW_KEY, facts);
+    const facts = ENGINES[FLOW_KEY]?.(repoRoot, flowRef(rootHome, key).home, now);
+    return !!facts && set.dial_hash === confirmHash(key, facts);
   } catch {
     return false;
   }
@@ -273,18 +301,31 @@ function applyShift(fwHome: string, s: Shift, now: Date): void {
   });
 }
 
-export function runReview(o: { reader: Reader; repoRoot: string; fwHome: string; now?: Date }): Review {
+/**
+ * Runs the review of the base flow, or with `flow` of one copy (FW-C-166): the copy's own hunts, drafts
+ * and outcomes are scored, its own dial decides whether shifts apply, and review.json lands in its home.
+ */
+export function runReview(o: {
+  reader: Reader;
+  repoRoot: string;
+  fwHome: string;
+  now?: Date;
+  flow?: string;
+}): Review {
   const now = o.now ?? new Date();
+  const key = o.flow ?? FLOW_KEY;
+  const home = flowRef(o.fwHome, key).home;
   const at = now.toISOString();
-  const hunts = loadHunts(o.fwHome);
-  const drafts = loadDrafts(o.fwHome);
-  const rows = loadOutcomeRows(o.fwHome);
+  const hunts = loadHunts(home);
+  const drafts = loadDrafts(home);
+  const rows = loadOutcomeRows(home);
   const cards = scorecard(hunts, drafts, rows);
-  const { shifts, pooled } = proposeShifts(hunts, cards, at);
-  const auto = mayAutoApply(o.reader, o.repoRoot, o.fwHome, now);
+  const { shifts: all, pooled } = proposeShifts(hunts, cards, at);
+  const shifts = undeclined(home, all, now);
+  const auto = mayAutoApply(o.reader, o.repoRoot, o.fwHome, key, now);
   if (auto)
     for (const s of shifts) {
-      applyShift(o.fwHome, s, now);
+      applyShift(home, s, now);
       s.status = 'applied';
     }
   const review: Review = {
@@ -294,7 +335,7 @@ export function runReview(o: { reader: Reader; repoRoot: string; fwHome: string;
     shifts,
     learnings: learningsOf(cards, pooled),
   };
-  writeJsonAtomic(reviewPath(o.fwHome), review);
+  writeJsonAtomic(reviewPath(home), review);
   return review;
 }
 

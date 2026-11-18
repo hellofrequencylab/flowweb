@@ -6,6 +6,7 @@ import { existsSync, mkdirSync, readdirSync, readFileSync, renameSync, writeFile
 import { join } from 'node:path';
 import type { Writer } from '@fw/eventlog';
 import { dncMatch, doNotContactList } from '../flows/opt-out.ts';
+import { keepEdit } from '../flows/voice-note.ts';
 import { flowRef } from './copies.ts';
 import { handOff, SupervisorError, shippedFlows } from './index.ts';
 
@@ -197,6 +198,9 @@ export function editDraft(o: {
     ...(has(o.body) ? { body: o.body as string } : {}),
     edited_at: new Date().toISOString(),
   };
+  // FW-C-167: his change to a waiting draft's words is kept for the "How I write" note to learn from.
+  if (has(o.body) && doc.status === 'waiting_for_owner' && typeof doc.body === 'string')
+    keepEdit(o.fwHome, { flow: o.flow, draft_id: o.id, before: doc.body, after: o.body as string });
   save(path, next);
   return view(next);
 }

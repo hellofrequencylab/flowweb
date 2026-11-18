@@ -18,12 +18,15 @@ export function DraftEditor({
   draft,
   sender = false,
   onChanged,
+  onSent,
 }: {
   flow: string;
   draft: FlowDraft;
   /** FW-C-071: a sender on the Mac reads the outbox. Without one, Approve becomes Copy and send. */
   sender?: boolean;
   onChanged: () => void;
+  /** FW-C-163: called once the draft is marked sent, so the inbox can open the next one. */
+  onSent?: () => void;
 }) {
   const locked = draft.status === 'handed_off';
   const emailQueue = flow === 'email-queue';
@@ -33,6 +36,10 @@ export function DraftEditor({
   const [busy, setBusy] = useState<string | null>(null);
   const [note, setNote] = useState<{ tone: 'ok' | 'fail'; text: string } | null>(null);
   const [copied, setCopied] = useState(false);
+  // FW-C-163: after Copy and send, the draft asks whether it went, so marking it is one tap.
+  const [asking, setAsking] = useState(false);
+  const [mail, setMail] = useState<MailApp>(readMailApp);
+  const to = mailAddress(draft);
 
   const start = () => {
     setSubject(draft.subject ?? '');
@@ -89,7 +96,11 @@ export function DraftEditor({
     act(
       label,
       (q) => api.draftChange(flow, draft.id, 'mark', { outcome }, q),
-      () => onChanged(),
+      () => {
+        setAsking(false);
+        if (outcome === 'sent') onSent?.();
+        onChanged();
+      },
     );
 
   const copy = async () => {
@@ -123,9 +134,33 @@ export function DraftEditor({
     }
   };
   // FW-C-071: with no sender to read the outbox, the Owner sends it from his own mail.
+  // FW-C-163: with an address, the same press also starts the message in the Owner's own mail, filled in.
+  // He still presses send there; FlowWeb sends nothing.
   const copyToSend = async () => {
-    if (await copy())
-      setNote({ tone: 'ok', text: 'Copied. Send it from your own mail, then press I sent it below.' });
+    const ok = await copy();
+    if (to) {
+      try {
+        window.open(composeUrl(mail, to, draft.subject ?? '', draft.body), '_blank', 'noopener');
+      } catch {
+        // A blocked pop-up leaves the copied text as the way to send.
+      }
+    }
+    if (!ok && !to) return;
+    setNote({
+      tone: 'ok',
+      text: to
+        ? `Opened a new message to ${to} in ${MAIL_NAME[mail]}${ok ? ', and copied it too' : ''}. Press send there.`
+        : 'Copied. Send it from your own mail, then press Yes, I sent it.',
+    });
+    if (!draft.sent_at) setAsking(true);
+  };
+  const pickMail = (m: MailApp) => {
+    setMail(m);
+    try {
+      localStorage.setItem(MAIL_PREF, m);
+    } catch {
+      // Private windows may refuse storage; the choice then lasts for this page.
+    }
   };
 
   const why = busy ?? (locked ? 'This draft is already in the outbox.' : null);
@@ -196,6 +231,31 @@ export function DraftEditor({
         )}
       </div>
 
+      {canApprove && !sender && to && (
+        <p className="muted draft-status draft-mail-pick">
+          Copy and send opens a new message to {to} in{' '}
+          <select aria-label="Mail app" value={mail} onChange={(e) => pickMail(e.target.value as MailApp)}>
+            <option value="gmail">{MAIL_NAME.gmail}</option>
+            <option value="app">{MAIL_NAME.app}</option>
+          </select>
+          . You press send there.
+        </p>
+      )}
+      {asking && !draft.sent_at && (
+        <fieldset className="draft-ai draft-sent-ask">
+          <legend className="field-label">
+            <Icon name="send" /> Did it go?
+          </legend>
+          <div className="draft-actions">
+            <Button variant="primary" onClick={() => mark('sent', 'Marking it sent.')} disabledReason={busy}>
+              Yes, I sent it
+            </Button>
+            <Button variant="quiet" onClick={() => setAsking(false)}>
+              Not yet
+            </Button>
+          </div>
+        </fieldset>
+      )}
       {busy && (
         <p className="muted draft-status" role="status">
           {busy}
@@ -290,6 +350,32 @@ export function DraftEditor({
       )}
     </div>
   );
+}
+
+type MailApp = 'gmail' | 'app';
+const MAIL_PREF = 'fw:mail-app';
+const MAIL_NAME: Record<MailApp, string> = { gmail: 'Gmail', app: 'your mail app' };
+
+function readMailApp(): MailApp {
+  try {
+    return localStorage.getItem(MAIL_PREF) === 'app' ? 'app' : 'gmail';
+  } catch {
+    return 'gmail';
+  }
+}
+
+/** The address an email draft goes to, or null for a DM, a form, a template or anything not an address. */
+export function mailAddress(d: FlowDraft): string | null {
+  const to = (d.to ?? '').trim();
+  return /^[^\s@<>,;"']+@[^\s@<>,;"']+\.[a-z]{2,}$/i.test(to) ? to : null;
+}
+
+/** A link that starts a new message, filled in, in the Owner's own mail. Opening it sends nothing. */
+export function composeUrl(app: MailApp, to: string, subject: string, body: string): string {
+  const q = (v: string) => encodeURIComponent(v);
+  return app === 'gmail'
+    ? `https://mail.google.com/mail/?view=cm&fs=1&to=${q(to)}&su=${q(subject)}&body=${q(body)}`
+    : `mailto:${q(to)}?subject=${q(subject)}&body=${q(body)}`;
 }
 
 /** FW-C-089: the draft as it will paste, with the Frequency logo above the sign-off. */

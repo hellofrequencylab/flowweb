@@ -4,7 +4,7 @@
     "profile": "core",
     "schema": "ledger-row/1",
     "generated": "2026-11-09",
-    "row_count": 172,
+    "row_count": 178,
     "conventions": {
       "verify_probe": "Same convention as 04-build-plan/backlog.json: 'pnpm probe <path>' runs probes/<path>.probe.ts, a Tier 0 file written before the implementation row starts and never edited by the agent doing the row. Every probe fails today because its target does not exist (a missing probe file exits 2, a missing behaviour exits 1). The probe pack for a milestone is committed by the Owner or a pair session before the milestone's rows start.",
       "status": "All rows start as open. Status lives only in the ledger database (imported with fw ledger sync), never in prose.",
@@ -6017,6 +6017,223 @@
         "packages/daemon/src/overseer/cycle.ts",
         "packages/daemon/test/",
         "flows/neighborhood-activation/profiles/"
+      ],
+      "origin": "new Core row"
+    },
+    {
+      "id": "FW-C-163",
+      "title": "A draft is sent in one tap: it opens in the Owner's own mail, then one press marks it sent and opens the next",
+      "core_milestone": "C1",
+      "phase": 1,
+      "epic": "C1.5 First flow",
+      "priority": "P1",
+      "size": "S",
+      "lane": "flows",
+      "agent_suitability": "agent",
+      "gate": "none",
+      "depends_on": [
+        "FW-C-071"
+      ],
+      "description": "The 2026-11-18 refinement scan found that no draft had ever been recorded as sent: sending one took about five steps (copy, switch to mail, find the address, paste, come back and press I sent it), the only press on record failed, and so the learning loop never had a result to learn from. Now, with no sender on the Mac, Copy and send on a draft that has an email address also starts a new message in the Owner's own mail (Gmail or the mail app, his choice, remembered in the browser) with the address, subject and note filled in. He still presses send there; FlowWeb sends nothing. The draft then asks Did it go, and Yes, I sent it marks it sent and opens the next ready draft, so a morning's notes go out one after another.",
+      "acceptance": [
+        "Copy and send on a draft with an email address opens one filled-in message link carrying the address, subject and whole note, and sends no request",
+        "Yes, I sent it posts the draft's mark with outcome sent, and the viewer moves to the next ready draft",
+        "Not yet withdraws the question and marks nothing",
+        "A draft whose contact is not an email address opens no message"
+      ],
+      "verify_probe": "pnpm probe flows/one-tap-send",
+      "files_hint": [
+        "packages/web/src/flows/DraftEditor.tsx",
+        "packages/web/src/flows/DraftsInbox.tsx",
+        "packages/web/src/api/types.ts"
+      ],
+      "origin": "new Core row"
+    },
+    {
+      "id": "FW-C-164",
+      "title": "Kevin can change who a flow looks for and how its notes read, for the main flow and every copy",
+      "core_milestone": "C1",
+      "phase": 1,
+      "epic": "C1.5 First flow",
+      "priority": "P1",
+      "size": "S",
+      "lane": "ui",
+      "agent_suitability": "agent",
+      "gate": "none",
+      "depends_on": [
+        "FW-C-092",
+        "FW-C-156"
+      ],
+      "description": "The 2026-11-18 refinement scan found that Kevin, the console on every page of the site, could turn flows on and off and change their schedule, caps and hunts, but was never told about the targeting control added by FW-C-156, so asking him to change who a flow looks for, who it skips or how its notes read got nowhere. Now Kevin is shown the current targeting of the flow in view (and of each flow when none is in view), is told the control exists, and may propose a change to it for the main flow or any copy. As with every change he proposes, the site's own request rules decide what is kept and nothing changes until the person presses Make this change.",
+      "acceptance": [
+        "With a flow in view the model is given that flow's targeting; with none in view, each listed flow's",
+        "A proposal to change playbook lines is kept as a flow edit for the main flow and for a copy",
+        "A proposal naming a line the control does not have is dropped",
+        "A viewer, and a helper limited to other flows, get no targeting proposal"
+      ],
+      "verify_probe": "pnpm probe ui/kevin-targeting",
+      "files_hint": [
+        "hosted/server/console.mjs",
+        "hosted/test/console.test.mjs"
+      ],
+      "origin": "new Core row"
+    },
+    {
+      "id": "FW-C-165",
+      "title": "Every flow can be edited on the site, and a built profile can be switched on there",
+      "core_milestone": "C1",
+      "phase": 1,
+      "epic": "C1.5 First flow",
+      "priority": "P1",
+      "size": "M",
+      "lane": "flows",
+      "agent_suitability": "agent",
+      "gate": "none",
+      "depends_on": [
+        "FW-C-156",
+        "FW-C-152"
+      ],
+      "description": "Daniel can edit who the three profile flows look for and how their notes read, but the main flow's page has no such editor, and five profiles that are built (studios, nonprofits, clubs and groups, spiritual, networks) cannot be made into flows from the site. Now the main flow's page shows the same editor as the profile flows, with one line saying the flow follows its built-in brief until the first two boxes, who to look for and how the note reads, are filled. The Flows page lists each built profile that is not a flow yet, with a Switch on button. Switching on makes the flow from that profile through the existing copy request, which now carries the profile; the new flow starts off, on Draft, so nothing runs until Daniel turns it on from its own card. fwd lists a flow's profiles at GET /v1/flows/{key}/profiles, each with the key of the flow made from it or null, and the relay mirrors that list to the site. No new request kind and no schema change. Draft only: nothing here sends.",
+      "acceptance": [
+        "On a fresh fwd, GET /v1/flows/neighborhood-activation/profiles lists every shipped profile with copy_key null",
+        "After a copy from the studios profile, the list marks studios with the new flow's key, and the new flow is off, on Draft",
+        "The site accepts POST /supervisor/flows/neighborhood-activation/copy with a profile as flow.copy, and the relay's call to fwd carries the profile",
+        "The main flow's page shows the editor for who it looks for and how the note reads",
+        "The Flows page shows a Switch on button for each profile not made yet, and pressing it posts the copy request with that profile"
+      ],
+      "verify_probe": "pnpm probe flows/edit-every-flow",
+      "files_hint": [
+        "packages/daemon/src/api/routes.ts",
+        "hosted/relay/fw-relay.mjs",
+        "hosted/server/requests.mjs",
+        "hosted/test/requests.test.mjs",
+        "packages/web/src/api/client.ts",
+        "packages/web/src/flows/ActivationPage.tsx",
+        "packages/web/src/flows/FlowsHome.tsx",
+        "packages/web/src/flows/MoreProfiles.tsx",
+        "packages/web/src/flows/TargetingEditor.tsx"
+      ],
+      "origin": "new Core row"
+    },
+    {
+      "id": "FW-C-167",
+      "title": "A saved \"How I write\" note the Owner edits on the site shapes every draft and rewrite, and the edits he makes to drafts are kept for it to learn from",
+      "core_milestone": "C1",
+      "phase": 1,
+      "epic": "C1.5 First flow",
+      "priority": "P1",
+      "size": "L",
+      "lane": "flows",
+      "agent_suitability": "agent",
+      "gate": "none",
+      "depends_on": [
+        "FW-C-161",
+        "FW-C-156",
+        "FW-C-051"
+      ],
+      "description": "The Owner's voice shipped as fixed text in the code (FW-C-161), so changing how drafts sound meant a code change. Now Settings has a \"How I write\" panel: one note for the whole machine, kept in $FW_HOME/voice.json, that starts from the note he approved. Once he saves his own, every hunt brief (the base flow and each copy) and every AI rewrite carries it as one labelled block in his words, after the voice that shipped; it adds to that voice and replaces none of it. An empty save goes back to the original. A note with an em or en dash, the word \"Midnight\" or more than 2000 characters is refused with the reason. When he saves an edit that changes a waiting draft's words, the before and after are appended to $FW_HOME/voice-edits.jsonl (the newest 200 are kept, nothing but the two bodies, the flow and the draft id) as raw material for a later weekly suggestion; no model is called for this. On the live site the save travels as the existing flow.edit request for 'all' with payload { voice }, so there is no new request kind and no migration, and the relay mirrors GET /voice. Template drafts are unchanged. Draft only: nothing here sends.",
+      "acceptance": [
+        "On a fresh fwd GET /v1/voice answers the shipped original with saved false; POST /v1/voice saves a note and GET returns it; an empty note puts the original back",
+        "A note with an em dash, an en dash, the word \"Midnight\" or more than 2000 characters answers 400 with a reason and writes nothing",
+        "After a save, the next hunt brief of the base flow and of a copy carries the note after the shipped voice, and the three sentences pinned by flows/owner-voice are still there",
+        "The prompt of an AI rewrite carries the same block",
+        "Saving an edit that changes a waiting draft's body appends one before and after pair, listed newest first by GET /v1/voice/edits; an edit that changes no words appends none",
+        "The site's POST /voice is queued as flow.edit and the relay maps it to POST /voice on fwd; the relay snapshot carries /voice",
+        "Settings shows the panel with Save and Back to the original, says it never sends, and shows how many edits are kept"
+      ],
+      "verify_probe": "pnpm probe flows/how-i-write",
+      "files_hint": [
+        "packages/daemon/src/flows/voice-note.ts",
+        "packages/daemon/src/overseer/cycle.ts",
+        "packages/daemon/src/overseer/rewrite.ts",
+        "packages/daemon/src/overseer/drafts.ts",
+        "packages/daemon/src/api/routes.ts",
+        "packages/daemon/test/voice-note.test.ts",
+        "hosted/relay/fw-relay.mjs",
+        "hosted/server/requests.mjs",
+        "hosted/test/requests.test.mjs",
+        "packages/web/src/api/client.ts",
+        "packages/web/src/settings/VoiceSettings.tsx",
+        "packages/web/src/settings/SettingsPage.tsx"
+      ],
+      "origin": "new Core row"
+    },
+    {
+      "id": "FW-C-166",
+      "title": "Outcome pull, the weekly review and What's working cover every copy of the flow, not just the main one",
+      "core_milestone": "C1",
+      "phase": 1,
+      "epic": "C1.5 First flow",
+      "priority": "P1",
+      "size": "M",
+      "lane": "flows",
+      "agent_suitability": "agent",
+      "gate": "none",
+      "depends_on": [
+        "FW-C-055",
+        "FW-C-056",
+        "FW-C-159"
+      ],
+      "description": "A copy of the saturation flow (a profile flow) keeps its drafts and hunts under its own home, but the daily outcome pull and the weekly review only ever read the main flow's folder. So a copy's sent drafts were never scored and its page's What's working stayed empty. Now the pull and the review run per flow: the main flow, then each live copy (in the Supervisor settings as a copy of it, not archived). Each reads its own hunts and drafts and writes its own outcomes.json, pull.json and review.json under its own home, so each copy learns from its own results and its next hunt reads its own learnings. A copy's pull names the copy and its drafts' tags and keeps only the rows for them. The main flow's request, files and answers are unchanged. A copy's review obeys the copy's own dial: at Draft and Copilot shifts only wait as proposals, and no review widens a cap, a region or policy. Drafts fwd retired because their event passed are not counted as sent or as the Owner's skips.",
+      "acceptance": [
+        "A pull makes one more signed request per live copy naming the copy's key and its drafts' tags, and writes the copy's own pull.json and outcomes.json with only its rows",
+        "A review run writes the copy's own review.json scoring the copy's sent and replied drafts",
+        "GET /v1/flows/<copy>/review/summary shows those totals; the main flow's review and summary count none of them",
+        "A freshly started fwd reviews a copy whose review.json is missing within 20 seconds",
+        "The main flow's request body, file locations and existing probes are unchanged"
+      ],
+      "verify_probe": "pnpm probe flows/learn-every-copy",
+      "files_hint": [
+        "packages/daemon/src/flows/outcomes.ts",
+        "packages/daemon/src/flows/review.ts",
+        "packages/daemon/src/overseer/copies.ts",
+        "packages/daemon/src/daemon.ts",
+        "packages/daemon/src/api/routes.ts",
+        "packages/daemon/test/review.test.ts"
+      ],
+      "origin": "new Core row"
+    },
+    {
+      "id": "FW-C-168",
+      "title": "Each flow tests two message angles on purpose, and the weekly review ends in accept-or-decline cards",
+      "core_milestone": "C1",
+      "phase": 1,
+      "epic": "C1.5 First flow",
+      "priority": "P1",
+      "size": "L",
+      "lane": "flows",
+      "agent_suitability": "agent",
+      "gate": "none",
+      "depends_on": [
+        "FW-C-056",
+        "FW-C-072",
+        "FW-C-101",
+        "FW-C-156"
+      ],
+      "description": "Two gaps in how a flow learns. First, the engine picked any angle for any lead, so no angle reached the 8 sends the weekly review needs to judge it. Now each hunt run gets angle-plan.json in its folder, and one more brief line pointing at it: per niche, the two angles to alternate this run. That is the angle with the best reply rate once it has 8 sends plus the least-tried other angle, and until one is proven the two least-tried (with nothing sent, the first two). Second, what the review proposed was only a file. Now the proposals are short cards under What's working, each with its numbers and Accept and Decline. A pause is one card; the review's moves of sends between hunts are one card together, so accepting can never raise the hunts' total. Accept applies the shift through the review's own code and so changes hunts only: no cap, region or policy changes and nothing is sent. Decline changes nothing and keeps the same proposal from coming back for 30 days. On the site the decision rides the existing flow.edit request, so there is no new request kind.",
+      "acceptance": [
+        "GET /v1/flows/{key}/review/proposals lists the last review's proposals with id, one plain line, evidence numbers and state open, accepted or declined, for the flow or a copy",
+        "POST /v1/flows/{key}/review/proposals/{id} with decision accept applies the shifts to hunts.json as the review's apply does and marks it accepted; Owner only",
+        "Decline leaves hunts.json untouched and the same proposal is not raised by the next review",
+        "The relay copies the proposals and the site carries a decision as flow.edit with payload review_decision",
+        "What's working shows each open proposal as a card with Accept and Decline",
+        "A hunt run writes angle-plan.json naming two angles per niche, the proven one first once it has 8 sends"
+      ],
+      "verify_probe": "pnpm probe flows/review-cards",
+      "files_hint": [
+        "packages/daemon/src/flows/angle-plan.ts",
+        "packages/daemon/src/flows/review-proposals.ts",
+        "packages/daemon/src/flows/review.ts",
+        "packages/daemon/src/overseer/cycle.ts",
+        "packages/daemon/src/api/routes.ts",
+        "packages/daemon/test/angle-plan.test.ts",
+        "hosted/relay/fw-relay.mjs",
+        "hosted/server/requests.mjs",
+        "hosted/test/requests.test.mjs",
+        "packages/web/src/api/client.ts",
+        "packages/web/src/api/types.ts",
+        "packages/web/src/flows/WhatsWorking.tsx",
+        "packages/web/src/ui-kit/flow.css"
       ],
       "origin": "new Core row"
     },

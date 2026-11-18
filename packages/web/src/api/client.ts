@@ -884,6 +884,17 @@ export const api = {
     return { data_as_of: e.as_of, ...e.data };
   },
 
+  /** FW-C-168: the weekly review's proposals. A fwd or mirror without them reads as none. */
+  async reviewProposals(key: string): Promise<V.ReviewProposals> {
+    const e = await get<Partial<V.ReviewProposals>>(`/flows/${enc(key)}/review/proposals`);
+    return { data_as_of: e.as_of, flow: key, proposals: e.data?.proposals ?? [] };
+  },
+  /** FW-C-168: accept or decline one proposal. On the live site it is queued for the Owner's Mac. */
+  decideProposal(key: string, id: string, decision: 'accept' | 'decline', onQueued?: () => void) {
+    const path = `/flows/${enc(key)}/review/proposals/${enc(id)}`;
+    return ownerWrite<V.ReviewProposal>('POST', path, { decision }, onQueued);
+  },
+
   /** FW-C-105: the flow's Today list, ranked and cut at the day's size. */
   async flowToday(key: string): Promise<V.TodayList> {
     const e = await get<Partial<Omit<V.TodayList, 'data_as_of'>>>(`/flows/${enc(key)}/today`);
@@ -1181,6 +1192,37 @@ export const flowTargeting = {
   get: async (flow: string) => (await get<Targeting>(`/flows/${enc(flow)}/targeting`)).data,
   save: (flow: string, edit: TargetingEdit, onQueued?: () => void) =>
     ownerWrite<Targeting>('POST', `/flows/${enc(flow)}/targeting`, edit, onQueued),
+};
+
+/** FW-C-165: a profile a flow ships; copy_key is the flow made from it, or null while it is not made. */
+export interface FlowProfile {
+  slug: string;
+  name: string;
+  note: string;
+  copy_key: string | null;
+}
+export const flowProfiles = {
+  list: async (flow: string) => (await get<FlowProfile[]>(`/flows/${enc(flow)}/profiles`)).data,
+  /** Makes the profile's flow. It starts off, on Draft, so nothing runs until the Owner turns it on. */
+  switchOn: (flow: string, profile: string, onQueued?: () => void) =>
+    ownerWrite<{ key?: string } | null>('POST', `/supervisor/flows/${enc(flow)}/copy`, { profile }, onQueued),
+};
+
+/** FW-C-167: the Owner's "How I write" note. `saved` is false while it is still the shipped original. */
+export interface OwnerVoice {
+  data_as_of: string;
+  note: string;
+  saved: boolean;
+  updated_at: string | null;
+  edits: number;
+}
+export const ownerVoice = {
+  async get(): Promise<OwnerVoice> {
+    const e = await get<Omit<OwnerVoice, 'data_as_of'>>('/voice');
+    return { data_as_of: e.as_of, ...e.data };
+  },
+  /** An empty note goes back to the original. Queued on the live site, saved at once on the machine. */
+  save: (note: string, onQueued?: () => void) => ownerWrite<unknown>('POST', '/voice', { note }, onQueued),
 };
 
 /** FW-C-092: what the AI console sends about the page, and what it gets back. */

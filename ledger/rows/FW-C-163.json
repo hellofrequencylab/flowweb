@@ -1,0 +1,29 @@
+{
+  "id": "FW-C-163",
+  "title": "A draft is sent in one tap: it opens in the Owner's own mail, then one press marks it sent and opens the next",
+  "core_milestone": "C1",
+  "phase": 1,
+  "epic": "C1.5 First flow",
+  "priority": "P1",
+  "size": "S",
+  "lane": "flows",
+  "agent_suitability": "agent",
+  "gate": "none",
+  "depends_on": [
+    "FW-C-071"
+  ],
+  "description": "The 2026-11-18 refinement scan found that no draft had ever been recorded as sent: sending one took about five steps (copy, switch to mail, find the address, paste, come back and press I sent it), the only press on record failed, and so the learning loop never had a result to learn from. Now, with no sender on the Mac, Copy and send on a draft that has an email address also starts a new message in the Owner's own mail (Gmail or the mail app, his choice, remembered in the browser) with the address, subject and note filled in. He still presses send there; FlowWeb sends nothing. The draft then asks Did it go, and Yes, I sent it marks it sent and opens the next ready draft, so a morning's notes go out one after another.",
+  "acceptance": [
+    "Copy and send on a draft with an email address opens one filled-in message link carrying the address, subject and whole note, and sends no request",
+    "Yes, I sent it posts the draft's mark with outcome sent, and the viewer moves to the next ready draft",
+    "Not yet withdraws the question and marks nothing",
+    "A draft whose contact is not an email address opens no message"
+  ],
+  "verify_probe": "pnpm probe flows/one-tap-send",
+  "files_hint": [
+    "packages/web/src/flows/DraftEditor.tsx",
+    "packages/web/src/flows/DraftsInbox.tsx",
+    "packages/web/src/api/types.ts"
+  ],
+  "origin": "new Core row"
+}

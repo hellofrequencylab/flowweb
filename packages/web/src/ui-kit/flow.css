@@ -2427,6 +2427,28 @@ a.flow-line:hover .flow-line-name {
   gap: 4px;
 }
 
+/* FW-C-168: the weekly review's proposals, one card each with Accept and Decline. */
+.review-cards {
+  display: grid;
+  gap: var(--space-3);
+  margin-top: var(--space-4);
+}
+.review-card {
+  display: grid;
+  gap: var(--space-2);
+  padding: var(--space-4);
+  border-radius: var(--radius-md);
+  box-shadow: inset 0 0 0 1px var(--border-subtle);
+}
+.review-card p {
+  margin: 0;
+}
+.review-card-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--space-3);
+}
+
 /* FW-C-076: the AI assistant's conversation on a draft. */
 .assist-log {
   display: grid;

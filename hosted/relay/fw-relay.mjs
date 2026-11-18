@@ -126,6 +126,9 @@ async function snapshot() {
   // FW-C-123: the agent teams for the Team page.
   const team = await fwd('/team').catch(ifFound);
   if (team) put('/team', team);
+  // FW-C-167: the Owner's "How I write" note for Settings. Older fwd builds answer 404.
+  const voice = await fwd('/voice').catch(ifFound);
+  if (voice) put('/voice', voice);
   const supervisor = await fwd('/supervisor').catch(ifFound);
   if (supervisor) {
     put('/supervisor', supervisor);
@@ -145,9 +148,15 @@ async function snapshot() {
       // FW-C-156: who the flow looks for and how its notes read. Only flows with hunts answer.
       const targeting = await fwd(`/flows/${encodeURIComponent(key)}/targeting`).catch(ifFound);
       if (targeting) put(`/flows/${key}/targeting`, targeting);
+      // FW-C-165: the built profiles of a flow and which are made. Only a flow that ships profiles answers.
+      const profiles = await fwd(`/flows/${encodeURIComponent(key)}/profiles`).catch(ifFound);
+      if (profiles) put(`/flows/${key}/profiles`, profiles);
       // FW-C-072: what's working, from the flow's latest weekly review. Older fwd builds answer 404.
       const summary = await fwd(`/flows/${encodeURIComponent(key)}/review/summary`).catch(ifFound);
       if (summary) put(`/flows/${key}/review/summary`, summary);
+      // FW-C-168: the review's proposals the Owner can accept or decline. Only flows with a review answer.
+      const proposals = await fwd(`/flows/${encodeURIComponent(key)}/review/proposals`).catch(ifFound);
+      if (proposals) put(`/flows/${key}/review/proposals`, proposals);
       // FW-C-105: Today, the ranked list of the morning's actions. Older fwd builds answer 404.
       const today = await fwd(`/flows/${encodeURIComponent(key)}/today`).catch(ifFound);
       if (today) put(`/flows/${key}/today`, today);

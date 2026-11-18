@@ -181,6 +181,14 @@ function editPayload(b) {
   return Object.keys(payload).length ? { payload } : { error: 'give a name or a note' };
 }
 
+/** FW-C-168: one decision on a weekly review proposal: which one, and accept or decline. */
+function decisionPayload(b) {
+  const ok = b && typeof b === 'object' && /^shf_[0-9a-f]{12}$/.test(b.id ?? '');
+  if (!ok) return { error: 'unknown proposal' };
+  if (b.decision !== 'accept' && b.decision !== 'decline') return { error: 'decision must be accept or decline' };
+  return { payload: { id: b.id, decision: b.decision } };
+}
+
 /**
  * FW-C-156: a targeting edit: playbook lines, the line before the link, and each niche's angles. Only the
  * shape and the sizes are checked here; fwd checks the rest and is the one that saves.
@@ -241,6 +249,12 @@ function copyPayload(b) {
       return { error: 'slug must be lowercase letters and digits, with single dashes' };
     payload.slug = b.slug;
   }
+  // FW-C-165: a built profile to make the copy from. fwd checks that the flow ships it.
+  if (b.profile !== undefined && b.profile !== null && b.profile !== '') {
+    if (typeof b.profile !== 'string' || b.profile.length > 30 || !COPY_SLUG.test(b.profile))
+      return { error: 'profile must be lowercase letters and digits, with single dashes' };
+    payload.profile = b.profile;
+  }
   return { payload };
 }
 
@@ -298,6 +312,16 @@ function emailQueueDraftPayload(b) {
     audience: b.audience,
   };
   return { payload };
+}
+
+/** FW-C-167: the Owner's "How I write" note. fwd checks it again and is the one that saves. */
+function voicePayload(b) {
+  const note = b && typeof b === 'object' ? b.note : undefined;
+  if (typeof note !== 'string') return { error: 'note must be text' };
+  if (note.length > 2000) return { error: 'the note is longer than 2000 characters' };
+  if (/[\u2013\u2014]/.test(note)) return { error: 'the note has an em or en dash; use a comma or a new sentence' };
+  if (/midnight/i.test(note)) return { error: 'the note may not use the word "Midnight"' };
+  return { payload: { note } };
 }
 
 /**
@@ -358,6 +382,13 @@ export function requestOf(method, path, body) {
     const c = copyPayload(b);
     return c.error ? c : { kind: 'flow.copy', flow: copy[1], draft_id: null, payload: c.payload };
   }
+  // FW-C-167: the "How I write" note is for every flow, so it travels as a flow.edit for 'all' whose
+  // payload is { voice }. No new request kind.
+  if (path === '/voice') {
+    if (method !== 'POST') return null;
+    const v = voicePayload(b);
+    return v.error ? v : { kind: 'flow.edit', flow: 'all', draft_id: null, payload: { voice: v.payload } };
+  }
   // FW-C-156: who a flow looks for and how its notes read. It travels as a flow.edit whose payload is
   // { targeting }, so the site needs no new request kind.
   const targeting = /^\/flows\/([^/]+)\/targeting$/.exec(path);
@@ -366,6 +397,14 @@ export function requestOf(method, path, body) {
     if (!FLOW.test(targeting[1])) return { error: 'unknown flow' };
     const t = targetingPayload(b);
     return t.error ? t : { kind: 'flow.edit', flow: targeting[1], draft_id: null, payload: { targeting: t.payload } };
+  }
+  // FW-C-168: accept or decline one proposal of the weekly review. It rides flow.edit like targeting does.
+  const decide = /^\/flows\/([^/]+)\/review\/proposals\/([^/]+)$/.exec(path);
+  if (decide) {
+    if (method !== 'POST') return null;
+    if (!FLOW.test(decide[1])) return { error: 'unknown flow' };
+    const d = decisionPayload({ id: decide[2], decision: b?.decision });
+    return d.error ? d : { kind: 'flow.edit', flow: decide[1], draft_id: null, payload: { review_decision: d.payload } };
   }
   const admin = /^\/supervisor\/flows\/([^/]+)\/(edit|archive|restore)$/.exec(path);
   if (admin) {
@@ -497,9 +536,20 @@ export function fwdCallFor(req) {
   }
   if (kind === 'flow.archive' || kind === 'flow.restore')
     return { method: 'POST', path: `/supervisor/flows/${f}/${kind.slice(5)}`, body: {} };
+  // FW-C-167: the "How I write" note.
+  if (kind === 'flow.edit' && p.voice !== undefined) {
+    const v = voicePayload(p.voice);
+    return v.error || flow !== 'all' ? null : { method: 'POST', path: '/voice', body: v.payload };
+  }
   if (kind === 'flow.edit' && p.targeting !== undefined) {
     const t = targetingPayload(p.targeting);
     return t.error ? null : { method: 'POST', path: `/flows/${f}/targeting`, body: t.payload };
+  }
+  if (kind === 'flow.edit' && p.review_decision !== undefined) {
+    const d = decisionPayload(p.review_decision);
+    return d.error
+      ? null
+      : { method: 'POST', path: `/flows/${f}/review/proposals/${d.payload.id}`, body: { decision: d.payload.decision } };
   }
   if (kind === 'flow.edit') {
     const e = editPayload(p);
