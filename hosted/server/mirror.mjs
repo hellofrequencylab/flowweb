@@ -26,6 +26,34 @@ export function mirrorKey(path, params) {
 }
 
 /**
+ * FW-C-162: which envelopes the relay has to send. fwd stamps every envelope with a fresh as_of and
+ * head_seq, so two reads of unchanged data never compare equal; only `data` and `next_cursor` count.
+ * `sent` is the Map of key -> fingerprint from the last accepted push (empty for a first push).
+ * Answers the envelopes to send and the fingerprints to remember once the push is accepted.
+ */
+export function changedEntries(entries, sent) {
+  const changed = {};
+  const prints = new Map();
+  for (const [key, env] of Object.entries(entries)) {
+    const print = JSON.stringify([env?.data ?? null, env?.next_cursor ?? null]);
+    prints.set(key, print);
+    if (sent.get(key) !== print) changed[key] = env;
+  }
+  return { changed, prints };
+}
+
+/**
+ * FW-C-162: a row the relay confirmed unchanged keeps its old envelope, and only its synced_at moves.
+ * The page still has to say how fresh the data is, so the later of the two times is the envelope's as_of.
+ */
+export function freshEnvelope(envelope, syncedAt) {
+  const t = Date.parse(syncedAt ?? '');
+  if (!envelope || typeof envelope !== 'object' || !Number.isFinite(t)) return envelope;
+  const asOf = Date.parse(envelope.as_of ?? '');
+  return Number.isFinite(asOf) && asOf >= t ? envelope : { ...envelope, as_of: new Date(t).toISOString() };
+}
+
+/**
  * List routes the relay copies in full (no filters). The server filters them here.
  * `fields` are equality filters the UI sends (`fold` ones ignore case and outer spaces, as fwd
  * does for a project's brand); `q` is a substring search.

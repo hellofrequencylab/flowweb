@@ -19,7 +19,7 @@ import { spawnSync } from 'node:child_process';
 import { readFileSync, writeFileSync } from 'node:fs';
 import { homedir, hostname } from 'node:os';
 import { join } from 'node:path';
-import { mirrorKey } from '../server/mirror.mjs';
+import { changedEntries, mirrorKey } from '../server/mirror.mjs';
 import { fwdCallFor, senderHold } from '../server/requests.mjs';
 
 const VERSION = '0.1.0';
@@ -311,20 +311,51 @@ async function hostedConfig() {
   return target;
 }
 
-async function push(entries, report) {
+async function ingest(name, body) {
   const cfg = await hostedConfig();
-  const res = await fetch(`${cfg.supabase_url}/rest/v1/rpc/fw_relay_ingest`, {
+  const res = await fetch(`${cfg.supabase_url}/rest/v1/rpc/${name}`, {
     method: 'POST',
     headers: {
       apikey: cfg.anon_key,
       authorization: `Bearer ${cfg.anon_key}`,
       'content-type': 'application/json',
     },
-    body: JSON.stringify({ p_token: RELAY_TOKEN, p_entries: entries, p_report: report }),
+    body: JSON.stringify({ p_token: RELAY_TOKEN, ...body }),
   });
   const text = await res.text();
-  if (!res.ok) throw new Error(`push refused: HTTP ${res.status} ${text.slice(0, 200)}`);
+  if (!res.ok) {
+    const e = new Error(`push refused: HTTP ${res.status} ${text.slice(0, 200)}`);
+    e.status = res.status;
+    throw e;
+  }
   return JSON.parse(text);
+}
+
+// FW-C-162: what the site holds after the last accepted push (key -> fingerprint of its data). Kept in
+// memory only, so a restarted relay sends everything once. `deltaOk` turns false for this process when
+// the site's database has no fw_relay_ingest_delta yet (migration 0015 not applied): then every push is
+// the whole snapshot, as before.
+let sent = new Map();
+let deltaOk = true;
+
+async function push(entries, report) {
+  if (!deltaOk) return ingest('fw_relay_ingest', { p_entries: entries, p_report: report });
+  const { changed, prints } = changedEntries(entries, sent);
+  let r;
+  try {
+    r = await ingest('fw_relay_ingest_delta', { p_keys: Object.keys(entries), p_entries: changed, p_report: report });
+  } catch (e) {
+    // Whatever went wrong, the site may hold anything now: send everything next time.
+    sent = new Map();
+    if (e.status !== 404) throw e;
+    deltaOk = false;
+    console.log('fw-relay: this site takes whole snapshots only (migration 0015 not applied); sending everything');
+    return ingest('fw_relay_ingest', { p_entries: entries, p_report: report });
+  }
+  // A key the site says it does not hold is sent in full on the next push.
+  for (const key of Array.isArray(r.missing) ? r.missing : []) prints.delete(key);
+  sent = prints;
+  return { ...r, sent: Object.keys(changed).length };
 }
 
 async function rpc(name, args) {
@@ -419,7 +450,9 @@ async function once() {
   } catch (e) {
     console.error(`fw-relay: could not record the push in ${FW_HOME}: ${e.message}`);
   }
-  console.log(`fw-relay: pushed ${r.stored} entries at ${r.synced_at} (head_seq ${report.head_seq})`);
+  console.log(
+    `fw-relay: pushed ${r.sent ?? r.stored} of ${report.entries} entries at ${r.synced_at} (head_seq ${report.head_seq})`,
+  );
 }
 
 async function main() {

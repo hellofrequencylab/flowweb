@@ -1,0 +1,32 @@
+{
+  "id": "FW-C-162",
+  "title": "The relay sends only what changed, so a quiet minute costs a few bytes instead of the whole mirror",
+  "core_milestone": "C1",
+  "phase": 1,
+  "epic": "C1.5 First flow",
+  "priority": "P1",
+  "size": "M",
+  "lane": "workstreams",
+  "agent_suitability": "agent",
+  "gate": "none",
+  "depends_on": [
+    "FW-C-083"
+  ],
+  "description": "The 2026-11-18 build audit found the relay on the Owner's Mac rewriting all 347 mirror rows (3.1 MB) every minute, with 307 pushes refused in nine days, because the hosted function takes the whole snapshot each time. fwd stamps every answer with a fresh time, so nothing ever looked unchanged. Now the relay remembers what the site holds, compares the data only, and sends the full list of keys plus only the envelopes that changed. A new hosted function (migration 0015) stores those, deletes rows the machine no longer has, moves synced_at forward on the rows it confirmed, and reports any key it is missing so the relay sends it in full next time. The site reads synced_at with each row and shows the later of the two times, so a confirmed row still reads as fresh. A site without migration 0015 answers 404 and the relay goes back to whole snapshots, so the code is safe to ship before the Owner applies the migration.",
+  "acceptance": [
+    "A second push with one changed envelope rewrites only that row; unchanged rows keep their envelope and get a newer synced_at",
+    "A key left out of the key list is deleted, and a key the table lost comes back as missing",
+    "A wrong runner token is refused, another business's rows are untouched, and the old whole-snapshot call still works",
+    "The relay falls back to whole snapshots when the database has no delta function",
+    "The hosted /v1 serves a confirmed row with the time of the push that confirmed it"
+  ],
+  "verify_probe": "pnpm probe hosted/relay-delta",
+  "files_hint": [
+    "hosted/supabase/migrations/0015_flowweb_relay_delta.sql",
+    "hosted/relay/fw-relay.mjs",
+    "hosted/server/mirror.mjs",
+    "hosted/test/mirror.test.mjs",
+    "api/v1.mjs"
+  ],
+  "origin": "new Core row"
+}

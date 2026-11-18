@@ -1,7 +1,7 @@
 // node --test hosted/test
 import assert from 'node:assert/strict';
 import { test } from 'node:test';
-import { filterList, mirrorKey, resolveRead, routeOfUrl, sumSpend } from '../server/mirror.mjs';
+import { changedEntries, filterList, freshEnvelope, mirrorKey, resolveRead, routeOfUrl, sumSpend } from '../server/mirror.mjs';
 
 const env = (data, as_of = '2026-11-09T10:00:00.000Z') => ({ data, as_of, head_seq: 7, next_cursor: null });
 
@@ -99,4 +99,26 @@ test('the rewrite copy of the path is not part of the query', () => {
   // A real filter that happens to equal the path is kept.
   const same = routeOfUrl('https://x.test/api/v1?__p=runs&path=runs&status=runs');
   assert.equal(mirrorKey(same.path, same.params), '/runs?status=runs');
+});
+
+test('the relay sends only envelopes whose data changed, whatever their as_of', () => {
+  const first = { '/status': env({ up: 1 }), '/runs': env([{ id: 'r1' }]) };
+  const a = changedEntries(first, new Map());
+  assert.deepEqual(Object.keys(a.changed).sort(), ['/runs', '/status']);
+  const later = {
+    '/status': env({ up: 2 }, '2026-11-09T10:01:00.000Z'),
+    '/runs': { ...env([{ id: 'r1' }], '2026-11-09T10:01:00.000Z'), head_seq: 9 },
+    '/team': env([]),
+  };
+  const b = changedEntries(later, a.prints);
+  assert.deepEqual(Object.keys(b.changed).sort(), ['/status', '/team']);
+  assert.deepEqual([...b.prints.keys()].sort(), ['/runs', '/status', '/team']);
+});
+
+test('a row confirmed unchanged reads as fresh as the push that confirmed it', () => {
+  const e = env({ a: 1 }, '2026-11-09T10:00:00.000Z');
+  assert.equal(freshEnvelope(e, '2026-11-09T10:05:00+00:00').as_of, '2026-11-09T10:05:00.000Z');
+  assert.equal(freshEnvelope(e, '2026-11-09T09:00:00+00:00'), e);
+  assert.equal(freshEnvelope(e, null), e);
+  assert.deepEqual(freshEnvelope(e, '2026-11-09T10:05:00+00:00').data, { a: 1 });
 });
