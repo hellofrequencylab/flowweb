@@ -999,7 +999,7 @@ export function buildRouter(deps: ApiDeps): Router {
         repoRoot: deps.repoRoot,
         fwHome: deps.fwHome,
         env: process.env,
-        flow: params.key,
+        ...(params.key ? { flow: params.key } : {}),
         id: data.id,
       });
       return env(() => ({ data }));
