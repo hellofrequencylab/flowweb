@@ -1,6 +1,9 @@
+import { mkdirSync, mkdtempSync, writeFileSync } from 'node:fs';
+import { tmpdir } from 'node:os';
+import { join } from 'node:path';
 import { describe, expect, it } from 'vitest';
-import type { Hunt } from '../src/flows/hunts.ts';
-import { type HuntCard, proposeShifts } from '../src/flows/review.ts';
+import { type Hunt, saveHunts } from '../src/flows/hunts.ts';
+import { type HuntCard, proposeShifts, reviewDue } from '../src/flows/review.ts';
 
 const hunt = (id: string, max_sends: number): Hunt =>
   ({ id, name: id, max_sends, enabled: true }) as unknown as Hunt;
@@ -41,5 +44,33 @@ describe('proposeShifts (FW-C-056)', () => {
     expect(
       proposeShifts([hunt('a', 10), hunt('b', 10)], [card('a', 3, 3), card('b', 3, 0)], 't').shifts,
     ).toEqual([]);
+  });
+});
+
+describe('reviewDue (FW-C-159)', () => {
+  const WEEK = 7 * 86_400_000;
+  const now = new Date('2026-11-18T20:00:00.000Z');
+  const home = () => mkdtempSync(join(tmpdir(), 'fw-review-'));
+  const write = (h: string, at: unknown) => {
+    mkdirSync(join(h, 'flows', 'neighborhood-activation'), { recursive: true });
+    writeFileSync(join(h, 'flows', 'neighborhood-activation', 'review.json'), JSON.stringify({ at }));
+  };
+  it('is never due for a flow with no hunts', () => {
+    expect(reviewDue(home(), WEEK, now)).toBe(false);
+  });
+  it('is due when there are hunts and no review, or one with no readable date', () => {
+    const h = home();
+    saveHunts(h, [hunt('a', 10)]);
+    expect(reviewDue(h, WEEK, now)).toBe(true);
+    write(h, 'not a date');
+    expect(reviewDue(h, WEEK, now)).toBe(true);
+  });
+  it('is due at about a week old and not before', () => {
+    const h = home();
+    saveHunts(h, [hunt('a', 10)]);
+    write(h, new Date(now.getTime() - 86_400_000).toISOString());
+    expect(reviewDue(h, WEEK, now)).toBe(false);
+    write(h, new Date(now.getTime() - 8 * 86_400_000).toISOString());
+    expect(reviewDue(h, WEEK, now)).toBe(true);
   });
 });

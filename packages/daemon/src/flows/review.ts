@@ -303,6 +303,17 @@ export function readReview(fwHome: string): Review | null {
   return isObj(r) ? (r as unknown as Review) : null;
 }
 
+/**
+ * FW-C-159: whether the weekly review should run now. It is due when the flow has hunts to score and its
+ * last review is missing, unreadable or at least `everyMs` old. A timer alone never came due on a Mac
+ * whose fwd restarts more often than once a week.
+ */
+export function reviewDue(fwHome: string, everyMs: number, now = new Date()): boolean {
+  if (loadHunts(fwHome).length === 0) return false;
+  const at = Date.parse(readReview(fwHome)?.at ?? '');
+  return !Number.isFinite(at) || now.getTime() - at >= everyMs * 0.9;
+}
+
 /** The Owner applies or dismisses one proposed shift of the last review. */
 export function decideShift(
   fwHome: string,
