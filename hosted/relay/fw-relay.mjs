@@ -126,6 +126,9 @@ async function snapshot() {
   // FW-C-123: the agent teams for the Team page.
   const team = await fwd('/team').catch(ifFound);
   if (team) put('/team', team);
+  // FW-C-167: the Owner's "How I write" note for Settings. Older fwd builds answer 404.
+  const voice = await fwd('/voice').catch(ifFound);
+  if (voice) put('/voice', voice);
   const supervisor = await fwd('/supervisor').catch(ifFound);
   if (supervisor) {
     put('/supervisor', supervisor);

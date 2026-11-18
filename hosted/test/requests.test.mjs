@@ -381,3 +381,22 @@ test('a targeting edit travels as a flow.edit and lands on the flow it names', (
   // A rename is still a rename.
   assert.equal(fwdCallFor(requestOf('POST', `/supervisor/flows/${COPY}/edit`, { name: 'Coaches' })).path, `/supervisor/flows/${COPY}/edit`);
 });
+
+test('the "How I write" note travels as a flow.edit for every flow and lands on /voice', () => {
+  const req = requestOf('POST', '/voice', { note: 'Short lines. Say thanks once.', extra: 'dropped' });
+  assert.deepEqual(req, {
+    kind: 'flow.edit',
+    flow: 'all',
+    draft_id: null,
+    payload: { voice: { note: 'Short lines. Say thanks once.' } },
+  });
+  assert.deepEqual(fwdCallFor(req), { method: 'POST', path: '/voice', body: { note: 'Short lines. Say thanks once.' } });
+  // An empty note is how the site goes back to the original.
+  assert.deepEqual(fwdCallFor(requestOf('POST', '/voice', { note: '' })).body, { note: '' });
+  assert.equal(requestOf('GET', '/voice', {}), null);
+  for (const note of [undefined, 5, 'Warm \u2014 never stiff', 'Pages 3\u20134', 'Like Midnight oil', 'x'.repeat(2001)])
+    assert.ok(requestOf('POST', '/voice', { note }).error, `accepted ${String(note).slice(0, 20)}`);
+  // The relay refuses a queued row it would not have queued itself.
+  assert.equal(fwdCallFor({ ...req, payload: { voice: { note: 'A \u2014 B' } } }), null);
+  assert.equal(fwdCallFor({ ...req, flow: 'neighborhood-activation' }), null);
+});

@@ -1,0 +1,43 @@
+{
+  "id": "FW-C-167",
+  "title": "A saved \"How I write\" note the Owner edits on the site shapes every draft and rewrite, and the edits he makes to drafts are kept for it to learn from",
+  "core_milestone": "C1",
+  "phase": 1,
+  "epic": "C1.5 First flow",
+  "priority": "P1",
+  "size": "L",
+  "lane": "flows",
+  "agent_suitability": "agent",
+  "gate": "none",
+  "depends_on": [
+    "FW-C-161",
+    "FW-C-156",
+    "FW-C-051"
+  ],
+  "description": "The Owner's voice shipped as fixed text in the code (FW-C-161), so changing how drafts sound meant a code change. Now Settings has a \"How I write\" panel: one note for the whole machine, kept in $FW_HOME/voice.json, that starts from the note he approved. Once he saves his own, every hunt brief (the base flow and each copy) and every AI rewrite carries it as one labelled block in his words, after the voice that shipped; it adds to that voice and replaces none of it. An empty save goes back to the original. A note with an em or en dash, the word \"Midnight\" or more than 2000 characters is refused with the reason. When he saves an edit that changes a waiting draft's words, the before and after are appended to $FW_HOME/voice-edits.jsonl (the newest 200 are kept, nothing but the two bodies, the flow and the draft id) as raw material for a later weekly suggestion; no model is called for this. On the live site the save travels as the existing flow.edit request for 'all' with payload { voice }, so there is no new request kind and no migration, and the relay mirrors GET /voice. Template drafts are unchanged. Draft only: nothing here sends.",
+  "acceptance": [
+    "On a fresh fwd GET /v1/voice answers the shipped original with saved false; POST /v1/voice saves a note and GET returns it; an empty note puts the original back",
+    "A note with an em dash, an en dash, the word \"Midnight\" or more than 2000 characters answers 400 with a reason and writes nothing",
+    "After a save, the next hunt brief of the base flow and of a copy carries the note after the shipped voice, and the three sentences pinned by flows/owner-voice are still there",
+    "The prompt of an AI rewrite carries the same block",
+    "Saving an edit that changes a waiting draft's body appends one before and after pair, listed newest first by GET /v1/voice/edits; an edit that changes no words appends none",
+    "The site's POST /voice is queued as flow.edit and the relay maps it to POST /voice on fwd; the relay snapshot carries /voice",
+    "Settings shows the panel with Save and Back to the original, says it never sends, and shows how many edits are kept"
+  ],
+  "verify_probe": "pnpm probe flows/how-i-write",
+  "files_hint": [
+    "packages/daemon/src/flows/voice-note.ts",
+    "packages/daemon/src/overseer/cycle.ts",
+    "packages/daemon/src/overseer/rewrite.ts",
+    "packages/daemon/src/overseer/drafts.ts",
+    "packages/daemon/src/api/routes.ts",
+    "packages/daemon/test/voice-note.test.ts",
+    "hosted/relay/fw-relay.mjs",
+    "hosted/server/requests.mjs",
+    "hosted/test/requests.test.mjs",
+    "packages/web/src/api/client.ts",
+    "packages/web/src/settings/VoiceSettings.tsx",
+    "packages/web/src/settings/SettingsPage.tsx"
+  ],
+  "origin": "new Core row"
+}
