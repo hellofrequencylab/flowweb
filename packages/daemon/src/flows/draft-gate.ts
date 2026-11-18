@@ -59,6 +59,10 @@ export interface GateCtx {
   restrictedRegions?: string[];
   /** False skips only the tagged-link rule (flows whose drafts are not opted in yet). */
   requireLink?: boolean;
+  /** FW-C-161: the most words this kind of draft may have; the 120-word cap when left out. */
+  maxWords?: number;
+  /** FW-C-161: how many emoji this kind of draft may carry; none when left out. */
+  maxEmoji?: number;
 }
 
 export interface GateResult {
@@ -70,6 +74,9 @@ export interface GateResult {
 const LINK = /https?:\/\/[^\s<>"')\]]+/gi;
 const SLOT = /\{\{\s*claim_url\s*\}\}/;
 const EMOJI = /[\p{Extended_Pictographic}\u{1F1E6}-\u{1F1FF}\u{FE0F}\u{200D}]/u;
+const GRAPHEMES = new Intl.Segmenter(undefined, { granularity: 'grapheme' });
+/** Emoji as a reader counts them: one with a skin tone or a joiner is one. */
+const emojiCount = (text: string) => [...GRAPHEMES.segment(text)].filter((g) => EMOJI.test(g.segment)).length;
 const SIGN_OFF = /\n\s*Daniel Tyack\s*\n[\s\S]*$/;
 const PS = /\n\s*P\.S\.[\s\S]*$/;
 // Countries, Canadian provinces and territories, and UK nations and regions, by name (FW-C-117).
@@ -195,7 +202,10 @@ export function checkDraft(draft: GateDraft, ctx: GateCtx = {}): GateResult {
 
   if (/[–—]/.test(text)) block('dash', 'it has an em or en dash');
   const emoji = EMOJI.exec(text);
-  if (emoji) block('emoji', `it has an emoji (${emoji[0]})`);
+  const maxEmoji = ctx.maxEmoji ?? 0;
+  if (emoji && maxEmoji === 0) block('emoji', `it has an emoji (${emoji[0]})`);
+  else if (emoji && emojiCount(text) > maxEmoji)
+    block('emoji', `it has ${emojiCount(text)} emoji, over the ${maxEmoji} this note may carry`);
 
   const allowed = allowedDigits(text, ctx);
   const loose = [...new Set(digitRuns(text.replace(LINK, ' ')))].filter((d) => !allowed.has(d));
@@ -216,7 +226,8 @@ export function checkDraft(draft: GateDraft, ctx: GateCtx = {}): GateResult {
     block('no_tagged_link', 'it has no tagged Frequency link');
 
   const words = wordCount(body);
-  if (words > HARD_CAP_WORDS) block('too_long', `${words} words, over the ${HARD_CAP_WORDS}-word cap`);
+  const cap = ctx.maxWords ?? HARD_CAP_WORDS;
+  if (words > cap) block('too_long', `${words} words, over the ${cap}-word cap`);
 
   const touch = typeof draft.touch === 'number' ? draft.touch : (ctx.priorTouches ?? 0) + 1;
   if (touch > MAX_TOUCHES) block('touch_limit', `touch ${touch}, over the lifetime ${MAX_TOUCHES}`);

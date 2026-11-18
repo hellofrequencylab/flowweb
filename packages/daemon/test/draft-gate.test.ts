@@ -6,6 +6,7 @@ import { join } from 'node:path';
 import { afterEach, expect, test } from 'vitest';
 import { checkDraft, type GateCtx, persistDraft, wordCount } from '../src/flows/draft-gate.ts';
 import { readFacts, refreshFacts } from '../src/flows/facts.ts';
+import { NOTE_MAX_EMOJI, NOTE_MAX_WORDS, OWNER_NOTE, VOICE_BRIEF } from '../src/flows/voice.ts';
 import { tempHome } from './api-fixtures.ts';
 
 const cleanups: (() => void)[] = [];
@@ -113,4 +114,21 @@ test('a failed facts refresh keeps the last good file and records why', async ()
   expect(readFacts(h.path)).toMatchObject({ beta_ends: '2026-12-31' });
   const pull = JSON.parse(readFileSync(join(h.path, 'facts-pull.json'), 'utf8'));
   expect(pull).toMatchObject({ ok: false, error: 'Frequency answered 500' });
+});
+
+// FW-C-161: a first hunt note in the Owner's voice may be longer and carry his one emoji; nothing else may.
+test("the Owner's own note passes as a first hunt note and only there", () => {
+  const note: GateCtx = { ...ctx, maxWords: NOTE_MAX_WORDS, maxEmoji: NOTE_MAX_EMOJI };
+  const body = `${OWNER_NOTE}\n\nIf you'd like to host on Frequency, start here: ${LINK}`;
+  expect(codes(body, {}, note)).toEqual([]);
+  expect(codes(body)).toEqual(['emoji']);
+  expect(codes(`${body} \u{1F642}`, {}, note)).toEqual(['emoji']);
+  expect(codes(`${clean} \u{1F64F}\u{1F3FC}`, {}, note)).toEqual([]);
+  const long = `${clean} ${'word '.repeat(110)}`;
+  expect(wordCount(long)).toBeGreaterThan(120);
+  expect(codes(long)).toEqual(['too_long']);
+  expect(codes(long, {}, note)).toEqual([]);
+  expect(codes(`${clean} ${'word '.repeat(NOTE_MAX_WORDS)}`, {}, note)).toEqual(['too_long']);
+  expect(VOICE_BRIEF).toContain(JSON.stringify(OWNER_NOTE));
+  expect(VOICE_BRIEF).not.toMatch(/[\u2013\u2014]/);
 });
