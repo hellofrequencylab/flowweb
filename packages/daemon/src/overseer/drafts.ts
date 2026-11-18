@@ -36,6 +36,13 @@ export interface DraftView {
   gate?: Record<string, unknown>;
   /** FW-C-170: the public page the contact was found on, so the Owner can look before sending. */
   source_url?: string;
+  /** FW-C-171: the contact form, profile or message page a draft with no email address goes through. */
+  contact_url?: string;
+}
+
+/** FW-C-171: a draft's contact page, when it has one and it is a web address. */
+export function contactOf(doc: Record<string, unknown>): string | null {
+  return sourceOf({ source_url: doc.contact_url });
 }
 
 /**
@@ -93,6 +100,7 @@ function view(doc: Record<string, unknown>): DraftView {
       ? { gate: doc.gate as Record<string, unknown> }
       : {}),
     ...(sourceOf(doc) ? { source_url: sourceOf(doc) as string } : {}),
+    ...(contactOf(doc) ? { contact_url: contactOf(doc) as string } : {}),
   };
 }
 

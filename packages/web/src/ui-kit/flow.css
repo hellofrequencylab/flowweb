@@ -3067,3 +3067,16 @@ fieldset.flow-ring {
 .facts-block {
   color: var(--caution-fg);
 }
+
+/* FW-C-171: who an email draft goes to, with one-press copies of the address, subject and message. */
+.draft-recipient {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--space-2, 8px);
+  margin-bottom: var(--space-2, 8px);
+}
+.draft-recipient-to {
+  margin-right: auto;
+  overflow-wrap: anywhere;
+}

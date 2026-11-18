@@ -697,6 +697,8 @@ export interface FlowDraft {
   to?: string;
   /** FW-C-170: the public page the contact was found on. */
   source_url?: string;
+  /** FW-C-171: the contact form, profile or message page a draft with no email address goes through. */
+  contact_url?: string;
 }
 
 export interface GateNote {
