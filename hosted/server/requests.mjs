@@ -181,6 +181,47 @@ function editPayload(b) {
   return Object.keys(payload).length ? { payload } : { error: 'give a name or a note' };
 }
 
+/**
+ * FW-C-156: a targeting edit: playbook lines, the line before the link, and each niche's angles. Only the
+ * shape and the sizes are checked here; fwd checks the rest and is the one that saves.
+ */
+const PLAYBOOK_LINES = ['seek', 'signals', 'where', 'queries', 'skip', 'rank', 'record', 'note'];
+function targetingPayload(b) {
+  const isObj = (v) => !!v && typeof v === 'object' && !Array.isArray(v);
+  if (!isObj(b)) return { error: 'give the lines to change' };
+  const payload = {};
+  if (b.playbook !== undefined) {
+    if (!isObj(b.playbook)) return { error: 'playbook must be an object' };
+    payload.playbook = {};
+    for (const [k, v] of Object.entries(b.playbook)) {
+      if (!PLAYBOOK_LINES.includes(k)) return { error: `playbook has no line named ${k}` };
+      if (typeof v !== 'string' || v.length > 1200) return { error: `${k} must be text of at most 1200 characters` };
+      payload.playbook[k] = v;
+    }
+  }
+  if (b.link_line !== undefined) {
+    if (typeof b.link_line !== 'string' || b.link_line.length > 200)
+      return { error: 'the line before the link must be text of at most 200 characters' };
+    payload.link_line = b.link_line;
+  }
+  if (b.niches !== undefined) {
+    if (!isObj(b.niches)) return { error: 'niches must be an object' };
+    payload.niches = {};
+    for (const [id, n] of Object.entries(b.niches)) {
+      if (!/^[a-z0-9_-]{1,48}$/.test(id) || !isObj(n) || !Array.isArray(n.angles) || n.angles.length > 8)
+        return { error: 'each niche needs a list of at most 8 angles' };
+      const angles = [];
+      for (const a of n.angles) {
+        const line = isObj(a) ? a.line : a;
+        if (typeof line !== 'string' || line.length > 300) return { error: 'an angle must be text of at most 300 characters' };
+        angles.push(isObj(a) && typeof a.key === 'string' ? { key: a.key, line } : { line });
+      }
+      payload.niches[id] = { angles };
+    }
+  }
+  return Object.keys(payload).length ? { payload } : { error: 'give the lines to change' };
+}
+
 /** FW-C-124: a new copy of a flow (FW-C-121): a name, a note and a slug, each optional; fwd picks a free slug. */
 const COPY_SLUG = /^[a-z0-9]+(-[a-z0-9]+)*$/;
 function copyPayload(b) {
@@ -317,6 +358,15 @@ export function requestOf(method, path, body) {
     const c = copyPayload(b);
     return c.error ? c : { kind: 'flow.copy', flow: copy[1], draft_id: null, payload: c.payload };
   }
+  // FW-C-156: who a flow looks for and how its notes read. It travels as a flow.edit whose payload is
+  // { targeting }, so the site needs no new request kind.
+  const targeting = /^\/flows\/([^/]+)\/targeting$/.exec(path);
+  if (targeting) {
+    if (method !== 'POST') return null;
+    if (!FLOW.test(targeting[1])) return { error: 'unknown flow' };
+    const t = targetingPayload(b);
+    return t.error ? t : { kind: 'flow.edit', flow: targeting[1], draft_id: null, payload: { targeting: t.payload } };
+  }
   const admin = /^\/supervisor\/flows\/([^/]+)\/(edit|archive|restore)$/.exec(path);
   if (admin) {
     if (method !== 'POST') return null;
@@ -447,6 +497,10 @@ export function fwdCallFor(req) {
   }
   if (kind === 'flow.archive' || kind === 'flow.restore')
     return { method: 'POST', path: `/supervisor/flows/${f}/${kind.slice(5)}`, body: {} };
+  if (kind === 'flow.edit' && p.targeting !== undefined) {
+    const t = targetingPayload(p.targeting);
+    return t.error ? null : { method: 'POST', path: `/flows/${f}/targeting`, body: t.payload };
+  }
   if (kind === 'flow.edit') {
     const e = editPayload(p);
     return e.error ? null : { method: 'POST', path: `/supervisor/flows/${f}/edit`, body: e.payload };

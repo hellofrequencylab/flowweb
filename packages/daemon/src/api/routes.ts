@@ -706,8 +706,11 @@ export function buildRouter(deps: ApiDeps): Router {
   r.get('/v1/flows/{key}/review/summary', ({ params }) =>
     env(() => {
       const key = params.key ?? '';
-      if (!Object.hasOwn(FLOWS, key)) throw notFound('flow', params.key);
-      return { data: reviewSummary(deps.fwHome, key) };
+      // FW-C-156: a copy's review lives under the copy's own home, in its base flow's folder.
+      const ref = flowRef(deps.fwHome, key);
+      const known = !ref.copy || readSettings(reader).flows[key]?.copy_of === ref.base;
+      if (!known || !Object.hasOwn(FLOWS, ref.base)) throw notFound('flow', params.key);
+      return { data: { ...reviewSummary(ref.home, ref.base), flow: key } };
     }),
   );
   r.get('/v1/flows/{key}', ({ params }) =>
@@ -950,10 +953,16 @@ export function buildRouter(deps: ApiDeps): Router {
   r.get('/v1/flows/{key}/today', ({ req, params, query }) => {
     ownerOnly(req);
     const key = params.key ?? '';
-    if (!shippedFlows(deps.repoRoot).some((f) => f.key === key)) throw notFound('flow', params.key);
+    // FW-C-156: a copy's Today reads the copy's own leads and drafts.
+    const ref = flowRef(deps.fwHome, key);
+    const known = !ref.copy || readSettings(reader).flows[key]?.copy_of === ref.base;
+    if (!known || !shippedFlows(deps.repoRoot).some((f) => f.key === ref.base))
+      throw notFound('flow', params.key);
     const now = new Date();
     const size = todaySize(perDayFor(reader, deps.fwHome, key, now), query.get('size'));
-    return env(() => ({ data: todayView({ fwHome: deps.fwHome, flow: key, size, now }) }));
+    return env(() => ({
+      data: { ...todayView({ fwHome: ref.home, flow: ref.base, size, now }), flow: key },
+    }));
   });
   // FW-C-050: the Owner changes a draft's subject and text before it goes out.
   r.post('/v1/supervisor/flows/{key}/drafts/{id}/edit', async ({ req, params }) => {

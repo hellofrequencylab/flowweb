@@ -443,7 +443,8 @@ function FlowRow({
 }
 
 /** The flows as rows. Pure apart from writes, so it can be tested without fwd. */
-export function Controls({ s, reload }: { s: Supervisor; reload: () => void }) {
+/** `only` is one flow's key: its page shows that flow's controls alone (FW-C-156). */
+export function Controls({ s, reload, only }: { s: Supervisor; reload: () => void; only?: string }) {
   const { busy, run, shown } = useWrite(reload);
   const pause = () =>
     run(
@@ -483,7 +484,7 @@ export function Controls({ s, reload }: { s: Supervisor; reload: () => void }) {
       )}
       <ul className="plain-list flow-cards" aria-label="Flows">
         {s.flows
-          .filter((f) => !f.archived)
+          .filter((f) => (only ? f.key === only : !f.archived))
           .map((f) => (
             <FlowRow
               key={f.key}
@@ -494,7 +495,7 @@ export function Controls({ s, reload }: { s: Supervisor; reload: () => void }) {
             />
           ))}
       </ul>
-      <Archived flows={s.flows.filter((f) => f.archived)} reload={reload} />
+      {!only && <Archived flows={s.flows.filter((f) => f.archived)} reload={reload} />}
       {HOSTED && (
         <p className="muted small">
           Changes here are applied on your Mac, usually within a few seconds while FlowWeb runs there.
@@ -505,7 +506,7 @@ export function Controls({ s, reload }: { s: Supervisor; reload: () => void }) {
 }
 
 /** The controls panel: every flow the Supervisor runs, with its gate word, switch, Run now and dial. */
-export function FlowControls() {
+export function FlowControls({ only }: { only?: string } = {}) {
   const id = useId();
   const res = useResource('supervisor', () => api.supervisor(), ['runs', 'cards']);
   return (
@@ -517,7 +518,7 @@ export function FlowControls() {
         </span>
       </div>
       <ResourceView res={res} what="the flow controls">
-        {(s) => <Controls s={s} reload={res.reload} />}
+        {(s) => <Controls s={s} reload={res.reload} only={only} />}
       </ResourceView>
     </section>
   );

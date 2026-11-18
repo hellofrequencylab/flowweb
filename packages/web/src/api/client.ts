@@ -865,8 +865,8 @@ export const api = {
     return { data_as_of: e.as_of, ...e.data };
   },
 
-  async activationFlow(): Promise<V.ActivationFlow> {
-    const e = await get<Omit<V.ActivationFlow, 'data_as_of'>>('/flows/neighborhood-activation');
+  async activationFlow(key = 'neighborhood-activation'): Promise<V.ActivationFlow> {
+    const e = await get<Omit<V.ActivationFlow, 'data_as_of'>>(`/flows/${enc(key)}`);
     return { data_as_of: e.as_of, ...e.data };
   },
 
@@ -1131,27 +1131,56 @@ export interface LeadHuntInput {
 }
 
 /** The Owner's lead hunts and do-not-contact by address, through fwd's hunt routes. */
-export const leadHunts = {
-  list: async () => (await get<LeadHunt[]>(`${NA}/hunts`)).data ?? [],
-  save: (input: LeadHuntInput, onQueued?: () => void) =>
-    ownerWrite<LeadHunt>('POST', `${NA}/hunts`, input, onQueued),
-  run: (id: string, onQueued?: () => void) =>
-    ownerWrite<{ hunt_id: string; fire_id: string; outcome: string; reason?: string }>(
-      'POST',
-      `${NA}/hunts/${enc(id)}/run`,
-      {},
-      onQueued,
-    ),
-  remove: async (id: string, onQueued?: () => void) => {
-    await ownerWrite<unknown>('DELETE', `${NA}/hunts/${enc(id)}`, undefined, onQueued);
-  },
-  block: (email: string, reason: string, onQueued?: () => void) =>
-    ownerWrite<{ blocked: string; already: boolean }>(
-      'POST',
-      `${NA}/do-not-contact`,
-      { email, reason },
-      onQueued,
-    ),
+/** The hunts of one flow: the base flow, or a copy of it (FW-C-156). Do-not-contact is shared, so it stays on the base. */
+export const huntsFor = (flow: string) => {
+  const at = `/flows/${enc(flow)}`;
+  return {
+    list: async () => (await get<LeadHunt[]>(`${at}/hunts`)).data ?? [],
+    save: (input: LeadHuntInput, onQueued?: () => void) =>
+      ownerWrite<LeadHunt>('POST', `${at}/hunts`, input, onQueued),
+    run: (id: string, onQueued?: () => void) =>
+      ownerWrite<{ hunt_id: string; fire_id: string; outcome: string; reason?: string }>(
+        'POST',
+        `${at}/hunts/${enc(id)}/run`,
+        {},
+        onQueued,
+      ),
+    remove: async (id: string, onQueued?: () => void) => {
+      await ownerWrite<unknown>('DELETE', `${at}/hunts/${enc(id)}`, undefined, onQueued);
+    },
+    block: (email: string, reason: string, onQueued?: () => void) =>
+      ownerWrite<{ blocked: string; already: boolean }>(
+        'POST',
+        `${NA}/do-not-contact`,
+        { email, reason },
+        onQueued,
+      ),
+  };
+};
+export const leadHunts = huntsFor('neighborhood-activation');
+
+/** FW-C-156: who a flow looks for and how its notes read. */
+export interface TargetingAngle {
+  key: string;
+  line: string;
+}
+export interface Targeting {
+  key: string;
+  has_playbook: boolean;
+  playbook: Record<string, string>;
+  link_line: string;
+  door: string | null;
+  niches: { key: string; label: string; angles: TargetingAngle[]; door: string | null }[];
+}
+export interface TargetingEdit {
+  playbook?: Record<string, string>;
+  link_line?: string;
+  niches?: Record<string, { angles: { key?: string; line: string }[] }>;
+}
+export const flowTargeting = {
+  get: async (flow: string) => (await get<Targeting>(`/flows/${enc(flow)}/targeting`)).data,
+  save: (flow: string, edit: TargetingEdit, onQueued?: () => void) =>
+    ownerWrite<Targeting>('POST', `/flows/${enc(flow)}/targeting`, edit, onQueued),
 };
 
 /** FW-C-092: what the AI console sends about the page, and what it gets back. */

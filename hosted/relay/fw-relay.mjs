@@ -142,6 +142,9 @@ async function snapshot() {
       // The flow's saved lead hunts. Only flows with hunts answer; the rest answer 404.
       const hunts = await fwd(`/flows/${encodeURIComponent(key)}/hunts`).catch(ifFound);
       if (hunts) put(`/flows/${key}/hunts`, hunts);
+      // FW-C-156: who the flow looks for and how its notes read. Only flows with hunts answer.
+      const targeting = await fwd(`/flows/${encodeURIComponent(key)}/targeting`).catch(ifFound);
+      if (targeting) put(`/flows/${key}/targeting`, targeting);
       // FW-C-072: what's working, from the flow's latest weekly review. Older fwd builds answer 404.
       const summary = await fwd(`/flows/${encodeURIComponent(key)}/review/summary`).catch(ifFound);
       if (summary) put(`/flows/${key}/review/summary`, summary);

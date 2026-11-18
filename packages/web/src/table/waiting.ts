@@ -12,10 +12,29 @@ export const INBOX_TITLES: Record<(typeof INBOX_FLOWS)[number], string> = {
   'email-queue': 'Emails for Email Studio',
 };
 
+/**
+ * FW-C-156: every flow whose drafts land in the Inbox, with its heading: the fixed two, then each copy of
+ * the base flow that is not archived (a profile flow such as Coaches and Guides), under its own name.
+ */
+export function useInboxFlows(): { key: string; title: string }[] {
+  const sup = useResource('supervisor', () => api.supervisor(), ['runs', 'cards']);
+  const copies = (sup.data?.flows ?? [])
+    .filter((f) => f.copy_of === INBOX_FLOWS[0] && !f.archived)
+    .map((f) => ({ key: f.key, title: `Drafts: ${f.name}` }));
+  return [...INBOX_FLOWS.map((key) => ({ key: key as string, title: INBOX_TITLES[key] })), ...copies];
+}
+
 /** Drafts ready to check and send: no blanks left, not sent, not handled. Null until fwd answers. */
 export function useReadyMessages(): number | null {
-  const res = useResource('inbox-ready', async () => {
-    const lists = await Promise.all(INBOX_FLOWS.map((f) => api.flowDrafts(f)));
+  const keys = useInboxFlows()
+    .map((f) => f.key)
+    .join(',');
+  const res = useResource(`inbox-ready:${keys}`, async () => {
+    // A flow this fwd does not serve (an older build, a copy just removed) counts as no drafts, so one
+    // missing flow never hides the rest.
+    const got = await Promise.all(keys.split(',').map((f) => api.flowDrafts(f).catch(() => null)));
+    const lists = got.filter((l) => l !== null);
+    if (lists.length === 0) throw new Error('no flow answered with its drafts');
     return {
       data_as_of: lists[0]?.data_as_of ?? new Date().toISOString(),
       ready: lists.reduce((n, l) => n + l.drafts.filter((d) => stateOf(d) === 'Ready').length, 0),

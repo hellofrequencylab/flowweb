@@ -3,6 +3,7 @@ import { BuildOverview } from '../dawn/BuildOverview';
 import { EvidencePage } from '../evidence/EvidencePage';
 import { AdminPage } from '../flows';
 import { ActivationPage } from '../flows/ActivationPage';
+import { FlowCopyPage, isCopyKey } from '../flows/FlowCopyPage';
 import { FlowsHome } from '../flows/FlowsHome';
 import { HoodTabs } from '../hood';
 import { LedgerPage } from '../ledger/LedgerPage';
@@ -98,7 +99,7 @@ export function Layout({ pairedAt, onSignedOut }: { pairedAt: string; onSignedOu
       case 'evidence':
         return <EvidencePage id={id} />;
       case 'growth':
-        return <ActivationPage flow={id || undefined} />;
+        return isCopyKey(id) ? <FlowCopyPage flow={id} /> : <ActivationPage flow={id || undefined} />;
       case 'growth-admin':
         return <AdminPage />;
       case 'logs':

@@ -874,6 +874,8 @@ export interface SupervisorFlow {
   default_name?: string;
   note?: string | null;
   archived?: boolean;
+  /** FW-C-121: the shipped flow this one is a copy of, or null. */
+  copy_of?: string | null;
   enabled: boolean;
   dial: SupervisorDial;
   tier: string;
