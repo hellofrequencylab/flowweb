@@ -21,6 +21,7 @@ import * as naAdmin from '../flows/neighborhood-admin.ts';
 import * as outcomes from '../flows/outcomes.ts';
 import * as paidAds from '../flows/paid-ads.ts';
 import * as adsPull from '../flows/paid-ads-ga4.ts';
+import { listProfiles } from '../flows/profiles.ts';
 import { ReplyError, type ReplyResult } from '../flows/reply-helper.ts';
 import * as review from '../flows/review.ts';
 import { reviewSummary } from '../flows/review-summary.ts';
@@ -445,6 +446,19 @@ function addHuntRoutes(r: Router, deps: ApiDeps): void {
       if (e instanceof SupervisorError) throw new ApiError(404, 'not_found', e.message);
       throw kernelError(e);
     }
+  });
+  // FW-C-165: the profiles a flow ships, each with the key of the copy made from it, or null while it is
+  // not made. A copy has no profiles of its own, and neither does a flow that ships none: both answer 404.
+  r.get(`${base}/profiles`, ({ params }) => {
+    const key = params.key ?? '';
+    const list = flowRef(deps.fwHome, key).copy ? [] : listProfiles(deps.repoRoot, key);
+    if (list.length === 0) throw notFound('flow', key);
+    const flows = readSettings(deps.reader).flows;
+    const data = list.map((p) => {
+      const made = `${key}--${p.slug}`;
+      return { slug: p.slug, name: p.name, note: p.note, copy_key: flows[made] ? made : null };
+    });
+    return envelope(deps.reader, () => ({ data }));
   });
   // FW-C-156: who the flow looks for and how its notes read. A save is read by the next cycle.
   r.get(`${base}/targeting`, ({ params }) => {

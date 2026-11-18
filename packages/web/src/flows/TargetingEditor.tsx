@@ -106,6 +106,12 @@ export function TargetingEditor({ flow }: { flow: string }) {
         Notes already written stay as they are.
       </p>
       {!f && !said && <p className="muted">Loading these settings.</p>}
+      {t && !t.has_playbook && (
+        <p className="muted">
+          This flow follows its built-in brief until the first two boxes, who to look for and how the note
+          reads, are filled.
+        </p>
+      )}
       {t && f && (
         <form className="stack" onSubmit={submit}>
           {TARGETING_FIELDS.map((x) => (
