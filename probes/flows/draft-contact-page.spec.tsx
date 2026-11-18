@@ -25,15 +25,18 @@ const draft = (id: string, body: string, over: Record<string, unknown> = {}) => 
 let calls: { method: string; url: string }[] = [];
 let opened: string[] = [];
 let copied = 0;
+let texts: string[] = [];
 
 function stubFwd(drafts: Record<string, unknown>[]) {
   calls = [];
   opened = [];
   copied = 0;
+  texts = [];
   Object.defineProperty(navigator, 'clipboard', {
     configurable: true,
     value: {
-      writeText: async () => {
+      writeText: async (t: string) => {
+        texts.push(t);
         copied += 1;
       },
     },
@@ -92,5 +95,20 @@ describe('A draft with no email address', () => {
     fireEvent.click(within(viewer()).getByRole('button', { name: 'Copy and send' }));
     await waitFor(() => expect(copied).toBe(1));
     expect(opened).toEqual([]);
+  });
+
+  it('an email draft shows the address it goes to, with one-press copies of the address, subject and message', async () => {
+    await open(
+      [draft('d_mail', 'Hi Sol Studio, a note for your inbox.', { to: 'hello@solstudio.example' })],
+      'a note for your inbox.',
+    );
+    expect(viewer().textContent).toContain('To hello@solstudio.example');
+    fireEvent.click(within(viewer()).getByRole('button', { name: 'Copy address' }));
+    fireEvent.click(within(viewer()).getByRole('button', { name: 'Copy subject' }));
+    fireEvent.click(within(viewer()).getByRole('button', { name: 'Copy message' }));
+    await waitFor(() => expect(texts.length).toBe(3));
+    expect(texts).toEqual(['hello@solstudio.example', 'Your Sunday class', 'Hi Sol Studio, a note for your inbox.']);
+    expect(opened).toEqual([]);
+    expect(calls.filter((c) => c.method !== 'GET')).toEqual([]);
   });
 });

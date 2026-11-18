@@ -40,6 +40,8 @@ export function DraftEditor({
   const [asking, setAsking] = useState(false);
   // The same message as a plain link, shown after the press in case the browser blocked the new tab.
   const [mailLink, setMailLink] = useState<string | null>(null);
+  // FW-C-171: which single piece (address, subject or message) was just copied.
+  const [piece, setPiece] = useState<string | null>(null);
   const [mail, setMail] = useState<MailApp>(readMailApp);
   const to = mailAddress(draft);
   // FW-C-171: a draft with no email address goes through a contact form, a profile or a message page.
@@ -138,6 +140,16 @@ export function DraftEditor({
       return false;
     }
   };
+  // FW-C-171: one piece at a time, as plain text, for sending by hand when no message opens.
+  const copyPiece = async (name: string, text: string) => {
+    try {
+      await navigator.clipboard.writeText(text);
+      setPiece(name);
+      setTimeout(() => setPiece(null), 2000);
+    } catch {
+      setNote({ tone: 'fail', text: 'Your browser did not allow copying. Select the text instead.' });
+    }
+  };
   // FW-C-071: with no sender to read the outbox, the Owner sends it from his own mail.
   // FW-C-163: with an address, the same press also starts the message in the Owner's own mail, filled in.
   // He still presses send there; FlowWeb sends nothing.
@@ -178,6 +190,27 @@ export function DraftEditor({
   const why = busy ?? (locked ? 'This draft is already in the outbox.' : null);
   return (
     <div className="draft-editor">
+      {!emailQueue && to && (
+        <div className="draft-recipient">
+          <span className="draft-recipient-to">
+            To <strong>{to}</strong>
+          </span>
+          <Button variant="quiet" onClick={() => copyPiece('address', to)}>
+            <Icon name={piece === 'address' ? 'check' : 'copy'} size={15} />{' '}
+            {piece === 'address' ? 'Copied address' : 'Copy address'}
+          </Button>
+          {draft.subject && (
+            <Button variant="quiet" onClick={() => copyPiece('subject', draft.subject ?? '')}>
+              <Icon name={piece === 'subject' ? 'check' : 'copy'} size={15} />{' '}
+              {piece === 'subject' ? 'Copied subject' : 'Copy subject'}
+            </Button>
+          )}
+          <Button variant="quiet" onClick={() => copyPiece('message', draft.body)}>
+            <Icon name={piece === 'message' ? 'check' : 'copy'} size={15} />{' '}
+            {piece === 'message' ? 'Copied message' : 'Copy message'}
+          </Button>
+        </div>
+      )}
       <div
         className="draft-toolbar"
         role="toolbar"

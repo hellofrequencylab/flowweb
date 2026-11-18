@@ -13,7 +13,7 @@
 //     page's site, and it sends no request;
 //   a draft with neither says before the press that the button only copies the note, and opens nothing.
 //
-// Proves: the daemon checks hold and the component checks pass (2 of them).
+// Proves: the daemon checks hold and the component checks pass (3 of them).
 import { spawnSync } from 'node:child_process';
 import { existsSync, mkdirSync, writeFileSync } from 'node:fs';
 import { join } from 'node:path';
@@ -76,5 +76,5 @@ await probe(NAME, async () => {
   const out = `${r.stdout ?? ''}${r.stderr ?? ''}`;
   const failed = out.split('\n').filter((l) => /✗|×|FAIL|AssertionError|Error:/.test(l)).slice(0, 8);
   check(r.status === 0, `the contact page checks failed (exit ${r.status}):\n${failed.join('\n') || out.slice(-800)}`);
-  check(/Tests\s+2 passed/.test(out), `expected 2 contact page checks to pass:\n${out.slice(-400)}`);
+  check(/Tests\s+3 passed/.test(out), `expected 3 contact page checks to pass:\n${out.slice(-400)}`);
 });
