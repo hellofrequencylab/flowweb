@@ -338,3 +338,33 @@ test('FW-C-151 requires sign-in and propagates the Owner-only queue refusal', as
     else process.env.SUPABASE_ANON_KEY = priorKey;
   }
 });
+
+test('a targeting edit travels as a flow.edit and lands on the flow it names', () => {
+  const COPY = 'neighborhood-activation--coaches-guides';
+  const body = {
+    playbook: { seek: 'Guides who host weekly.' },
+    link_line: 'Have a look:',
+    niches: { coaching: { angles: [{ key: 'fill_room', line: 'One.' }, 'Two.'] } },
+    territories: [],
+  };
+  const req = requestOf('POST', `/flows/${COPY}/targeting`, body);
+  assert.equal(req.kind, 'flow.edit');
+  assert.equal(req.flow, COPY);
+  assert.deepEqual(req.payload.targeting, {
+    playbook: { seek: 'Guides who host weekly.' },
+    link_line: 'Have a look:',
+    niches: { coaching: { angles: [{ key: 'fill_room', line: 'One.' }, { line: 'Two.' }] } },
+  });
+  assert.deepEqual(fwdCallFor(req), {
+    method: 'POST',
+    path: `/flows/${COPY}/targeting`,
+    body: req.payload.targeting,
+  });
+  assert.equal(requestOf('GET', `/flows/${COPY}/targeting`, {}), null);
+  assert.ok(requestOf('POST', `/flows/${COPY}/targeting`, {}).error);
+  assert.ok(requestOf('POST', `/flows/${COPY}/targeting`, { playbook: { nonsense: 'x' } }).error);
+  assert.ok(requestOf('POST', `/flows/${COPY}/targeting`, { playbook: { seek: 'x'.repeat(1201) } }).error);
+  assert.ok(requestOf('POST', '/flows/../targeting', { link_line: 'x' }).error);
+  // A rename is still a rename.
+  assert.equal(fwdCallFor(requestOf('POST', `/supervisor/flows/${COPY}/edit`, { name: 'Coaches' })).path, `/supervisor/flows/${COPY}/edit`);
+});

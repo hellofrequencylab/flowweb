@@ -2,8 +2,8 @@
 // new one (with the pages to search first, one per line), and adds an address or an @domain to
 // do-not-contact, for an organizer who replied "no". Every write goes through fwd, which does the checking.
 // FW-C-062: on flowweb.app the same writes are queued and applied on the Owner's Mac by the relay.
-import { type FormEvent, useCallback, useEffect, useId, useRef, useState } from 'react';
-import { type LeadHunt, leadHunts } from '../api/client';
+import { type FormEvent, useCallback, useEffect, useId, useMemo, useRef, useState } from 'react';
+import { huntsFor, type LeadHunt } from '../api/client';
 import { Button } from '../ui-kit/Button';
 import { when } from '../ui-kit/time';
 
@@ -26,8 +26,13 @@ function Outcome({ said }: { said: Said }) {
   );
 }
 
-export function LeadHunts({ regions }: { regions: Region[] }) {
+type Hunts = ReturnType<typeof huntsFor>;
+const BASE_FLOW = 'neighborhood-activation';
+
+/** `flow` is the flow whose hunts these are: the base flow, or a copy of it (FW-C-156). */
+export function LeadHunts({ regions, flow = BASE_FLOW }: { regions: Region[]; flow?: string }) {
   const id = useId();
+  const leadHunts = useMemo(() => huntsFor(flow), [flow]);
   const [hunts, setHunts] = useState<LeadHunt[] | null>(null);
   const [listSaid, setListSaid] = useState<Said>(null);
   const load = useCallback(async () => {
@@ -36,7 +41,7 @@ export function LeadHunts({ regions }: { regions: Region[] }) {
     } catch (e) {
       setListSaid({ tone: 'warn', text: `Could not load the hunts: ${message(e)}` });
     }
-  }, []);
+  }, [leadHunts]);
   useEffect(() => {
     void load();
   }, [load]);
@@ -120,7 +125,7 @@ export function LeadHunts({ regions }: { regions: Region[] }) {
               <span className="fold-hint">what to look for, where, and how often</span>
             </summary>
             <div className="fold-body">
-              <NewHunt regions={regions} saved={load} />
+              <NewHunt regions={regions} saved={load} leadHunts={leadHunts} />
             </div>
           </details>
           <details className="fold">
@@ -129,7 +134,7 @@ export function LeadHunts({ regions }: { regions: Region[] }) {
               <span className="fold-hint">add them to do-not-contact</span>
             </summary>
             <div className="fold-body">
-              <Block />
+              <Block leadHunts={leadHunts} />
             </div>
           </details>
         </>
@@ -138,7 +143,15 @@ export function LeadHunts({ regions }: { regions: Region[] }) {
   );
 }
 
-function NewHunt({ regions, saved }: { regions: Region[]; saved: () => Promise<void> }) {
+function NewHunt({
+  regions,
+  saved,
+  leadHunts,
+}: {
+  regions: Region[];
+  saved: () => Promise<void>;
+  leadHunts: Hunts;
+}) {
   const [v, setV] = useState({
     name: '',
     looking_for: '',
@@ -230,7 +243,7 @@ function NewHunt({ regions, saved }: { regions: Region[]; saved: () => Promise<v
   );
 }
 
-function Block() {
+function Block({ leadHunts }: { leadHunts: Hunts }) {
   const [address, setAddress] = useState('');
   const [reason, setReason] = useState('');
   const [busy, setBusy] = useState(false);
