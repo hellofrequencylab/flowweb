@@ -4,7 +4,7 @@
     "profile": "core",
     "schema": "ledger-row/1",
     "generated": "2026-11-09",
-    "row_count": 172,
+    "row_count": 173,
     "conventions": {
       "verify_probe": "Same convention as 04-build-plan/backlog.json: 'pnpm probe <path>' runs probes/<path>.probe.ts, a Tier 0 file written before the implementation row starts and never edited by the agent doing the row. Every probe fails today because its target does not exist (a missing probe file exits 2, a missing behaviour exits 1). The probe pack for a milestone is committed by the Owner or a pair session before the milestone's rows start.",
       "status": "All rows start as open. Status lives only in the ledger database (imported with fw ledger sync), never in prose.",
@@ -6046,6 +6046,35 @@
         "packages/web/src/flows/DraftEditor.tsx",
         "packages/web/src/flows/DraftsInbox.tsx",
         "packages/web/src/api/types.ts"
+      ],
+      "origin": "new Core row"
+    },
+    {
+      "id": "FW-C-164",
+      "title": "Kevin can change who a flow looks for and how its notes read, for the main flow and every copy",
+      "core_milestone": "C1",
+      "phase": 1,
+      "epic": "C1.5 First flow",
+      "priority": "P1",
+      "size": "S",
+      "lane": "ui",
+      "agent_suitability": "agent",
+      "gate": "none",
+      "depends_on": [
+        "FW-C-092",
+        "FW-C-156"
+      ],
+      "description": "The 2026-11-18 refinement scan found that Kevin, the console on every page of the site, could turn flows on and off and change their schedule, caps and hunts, but was never told about the targeting control added by FW-C-156, so asking him to change who a flow looks for, who it skips or how its notes read got nowhere. Now Kevin is shown the current targeting of the flow in view (and of each flow when none is in view), is told the control exists, and may propose a change to it for the main flow or any copy. As with every change he proposes, the site's own request rules decide what is kept and nothing changes until the person presses Make this change.",
+      "acceptance": [
+        "With a flow in view the model is given that flow's targeting; with none in view, each listed flow's",
+        "A proposal to change playbook lines is kept as a flow edit for the main flow and for a copy",
+        "A proposal naming a line the control does not have is dropped",
+        "A viewer, and a helper limited to other flows, get no targeting proposal"
+      ],
+      "verify_probe": "pnpm probe ui/kevin-targeting",
+      "files_hint": [
+        "hosted/server/console.mjs",
+        "hosted/test/console.test.mjs"
       ],
       "origin": "new Core row"
     }

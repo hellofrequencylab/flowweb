@@ -1,6 +1,6 @@
 import assert from 'node:assert/strict';
 import { test } from 'node:test';
-import { buildRequestOf, keepProposals } from '../server/console.mjs';
+import { answerConsole, buildRequestOf, CONSOLE_PROMPT, keepProposals } from '../server/console.mjs';
 
 const block = (body) => ({
   type: 'tool_use',
@@ -54,4 +54,49 @@ test('Kevin may propose renaming, archiving and restoring a flow', () => {
     kept.map((k) => k.kind),
     ['flow.edit', 'flow.archive', 'flow.restore'],
   );
+});
+
+test('Kevin may propose a change to who a flow looks for and how its notes read', () => {
+  const b = {
+    type: 'tool_use',
+    id: 'tu_t',
+    name: 'propose_change',
+    input: {
+      summary: 'Make the coaches flow skip national chains.',
+      method: 'POST',
+      path: '/flows/neighborhood-activation--coaches-guides/targeting',
+      body: { playbook: { skip: 'National chains and franchises.' } },
+    },
+  };
+  const [p] = keepProposals([b], { role: 'owner', flows: null });
+  assert.equal(p?.kind, 'flow.edit');
+  assert.equal(p?.flow, 'neighborhood-activation--coaches-guides');
+  const bad = { ...b, input: { ...b.input, body: { playbook: { budget: 'more' } } } };
+  assert.equal(keepProposals([bad], { role: 'owner', flows: null }).length, 0);
+});
+
+test('Kevin is shown the targeting of the flow in view, and of each flow when none is', async () => {
+  const seen = [];
+  const read = async (path) => {
+    seen.push(path);
+    if (path === '/supervisor') return { data: { flows: [{ key: 'alpha' }, { key: 'alpha--copy' }] } };
+    if (path.endsWith('/targeting')) return { data: { playbook: { seek: `SEEK ${path}` } } };
+    return null;
+  };
+  let system = '';
+  const fetchImpl = async (_url, init) => {
+    system = JSON.parse(init.body).system;
+    return new Response(JSON.stringify({ content: [{ type: 'text', text: 'Hello.' }], stop_reason: 'end_turn' }), {
+      status: 200,
+    });
+  };
+  const env = { FW_ASSISTANT_ANTHROPIC_KEY: `sk-ant-api03-${'a'.repeat(40)}` };
+  const one = await answerConsole({ question: 'Who does it look for?', flow: 'alpha' }, { env, fetchImpl, role: 'owner', read });
+  assert.equal(one.status, 200);
+  assert.match(system, /SEEK \/flows\/alpha\/targeting/);
+  assert.match(CONSOLE_PROMPT, /POST \/flows\/FLOW\/targeting/);
+  seen.length = 0;
+  await answerConsole({ question: 'Who do my flows look for?' }, { env, fetchImpl, role: 'owner', read });
+  assert.match(system, /SEEK \/flows\/alpha\/targeting/);
+  assert.match(system, /SEEK \/flows\/alpha--copy\/targeting/);
 });

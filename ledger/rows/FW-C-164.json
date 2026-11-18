@@ -1,0 +1,29 @@
+{
+  "id": "FW-C-164",
+  "title": "Kevin can change who a flow looks for and how its notes read, for the main flow and every copy",
+  "core_milestone": "C1",
+  "phase": 1,
+  "epic": "C1.5 First flow",
+  "priority": "P1",
+  "size": "S",
+  "lane": "ui",
+  "agent_suitability": "agent",
+  "gate": "none",
+  "depends_on": [
+    "FW-C-092",
+    "FW-C-156"
+  ],
+  "description": "The 2026-11-18 refinement scan found that Kevin, the console on every page of the site, could turn flows on and off and change their schedule, caps and hunts, but was never told about the targeting control added by FW-C-156, so asking him to change who a flow looks for, who it skips or how its notes read got nowhere. Now Kevin is shown the current targeting of the flow in view (and of each flow when none is in view), is told the control exists, and may propose a change to it for the main flow or any copy. As with every change he proposes, the site's own request rules decide what is kept and nothing changes until the person presses Make this change.",
+  "acceptance": [
+    "With a flow in view the model is given that flow's targeting; with none in view, each listed flow's",
+    "A proposal to change playbook lines is kept as a flow edit for the main flow and for a copy",
+    "A proposal naming a line the control does not have is dropped",
+    "A viewer, and a helper limited to other flows, get no targeting proposal"
+  ],
+  "verify_probe": "pnpm probe ui/kevin-targeting",
+  "files_hint": [
+    "hosted/server/console.mjs",
+    "hosted/test/console.test.mjs"
+  ],
+  "origin": "new Core row"
+}
