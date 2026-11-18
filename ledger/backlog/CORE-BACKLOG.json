@@ -4,7 +4,7 @@
     "profile": "core",
     "schema": "ledger-row/1",
     "generated": "2026-11-09",
-    "row_count": 181,
+    "row_count": 182,
     "conventions": {
       "verify_probe": "Same convention as 04-build-plan/backlog.json: 'pnpm probe <path>' runs probes/<path>.probe.ts, a Tier 0 file written before the implementation row starts and never edited by the agent doing the row. Every probe fails today because its target does not exist (a missing probe file exits 2, a missing behaviour exits 1). The probe pack for a milestone is committed by the Owner or a pair session before the milestone's rows start.",
       "status": "All rows start as open. Status lives only in the ledger database (imported with fw ledger sync), never in prose.",
@@ -6375,6 +6375,37 @@
         "packages/web/src/flows/DraftEditor.tsx",
         "packages/web/src/api/types.ts",
         "packages/web/src/ui-kit/flow.css"
+      ],
+      "origin": "new Core row"
+    },
+    {
+      "id": "FW-C-172",
+      "title": "Ready only holds drafts with a way to reach the person; the rest sit in a No address group",
+      "core_milestone": "C1",
+      "phase": 1,
+      "epic": "C1.5 First flow",
+      "priority": "P1",
+      "size": "S",
+      "lane": "flows",
+      "agent_suitability": "agent",
+      "gate": "none",
+      "depends_on": [
+        "FW-C-171"
+      ],
+      "description": "The Owner opened the newest Ready draft and found it had no email address and no page to send through, so Ready had handed him a dead end. Now a waiting draft counts as Ready only when it has an email address, a contact page or the page its contact was found on. One with none of them shows No address, sits under its own No address filter, is left out of the ready counts on the flows page and Today, and never opens first while a Ready draft exists. fwd's hunts already refuse a lead with no listed email and no public contact page, so this group only catches drafts that arrive another way. Four older probes (flows/drafts-inbox, ui/flow-hero, ui/inbox, ui/today) built Ready drafts with no address; with the Owner's yes on a decision card (2026-11-18) their sample drafts gain an address and nothing else in them changes.",
+      "acceptance": [
+        "A waiting draft with an email address, an http(s) contact page or an http(s) found-on page is Ready",
+        "A waiting draft with none of them shows No address and is not counted as Ready",
+        "A No address filter lists only those drafts",
+        "The inbox opens a Ready draft first, not a newer No address one"
+      ],
+      "verify_probe": "pnpm probe flows/ready-means-reachable",
+      "files_hint": [
+        "packages/web/src/flows/drafts.ts",
+        "packages/web/src/flows/DraftsInbox.tsx",
+        "packages/web/src/flows/FlowVisuals.tsx",
+        "packages/web/test/drafts.test.ts",
+        "packages/web/test/drafts-inbox-helpers.test.ts"
       ],
       "origin": "new Core row"
     }

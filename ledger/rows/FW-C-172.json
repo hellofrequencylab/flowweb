@@ -1,0 +1,31 @@
+{
+  "id": "FW-C-172",
+  "title": "Ready only holds drafts with a way to reach the person; the rest sit in a No address group",
+  "core_milestone": "C1",
+  "phase": 1,
+  "epic": "C1.5 First flow",
+  "priority": "P1",
+  "size": "S",
+  "lane": "flows",
+  "agent_suitability": "agent",
+  "gate": "none",
+  "depends_on": [
+    "FW-C-171"
+  ],
+  "description": "The Owner opened the newest Ready draft and found it had no email address and no page to send through, so Ready had handed him a dead end. Now a waiting draft counts as Ready only when it has an email address, a contact page or the page its contact was found on. One with none of them shows No address, sits under its own No address filter, is left out of the ready counts on the flows page and Today, and never opens first while a Ready draft exists. fwd's hunts already refuse a lead with no listed email and no public contact page, so this group only catches drafts that arrive another way. Four older probes (flows/drafts-inbox, ui/flow-hero, ui/inbox, ui/today) built Ready drafts with no address; with the Owner's yes on a decision card (2026-11-18) their sample drafts gain an address and nothing else in them changes.",
+  "acceptance": [
+    "A waiting draft with an email address, an http(s) contact page or an http(s) found-on page is Ready",
+    "A waiting draft with none of them shows No address and is not counted as Ready",
+    "A No address filter lists only those drafts",
+    "The inbox opens a Ready draft first, not a newer No address one"
+  ],
+  "verify_probe": "pnpm probe flows/ready-means-reachable",
+  "files_hint": [
+    "packages/web/src/flows/drafts.ts",
+    "packages/web/src/flows/DraftsInbox.tsx",
+    "packages/web/src/flows/FlowVisuals.tsx",
+    "packages/web/test/drafts.test.ts",
+    "packages/web/test/drafts-inbox-helpers.test.ts"
+  ],
+  "origin": "new Core row"
+}

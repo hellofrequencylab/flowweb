@@ -231,6 +231,7 @@ export function PipelineBar({
 export const TONE: Record<DraftState, string> = {
   Ready: 'waiting',
   'Has blanks': 'caution',
+  'No address': 'caution',
   Blocked: 'caution',
   Sent: 'sent',
   Replied: 'replied',

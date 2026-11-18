@@ -14,11 +14,12 @@ import { EmailQueueComposer } from './EmailQueueComposer';
 import { FactsCheck } from './FactsCheck';
 import { DraftBars, ReplyMeter, StatePill, TONE } from './FlowVisuals';
 
-type Filter = 'all' | 'ready' | 'blanks' | 'sent' | 'done';
+type Filter = 'all' | 'ready' | 'blanks' | 'noaddress' | 'sent' | 'done';
 const FILTERS: { key: Filter; label: string; has: (s: DraftState) => boolean }[] = [
   { key: 'all', label: 'All', has: () => true },
   { key: 'ready', label: 'Ready', has: (s) => s === 'Ready' },
   { key: 'blanks', label: 'Has blanks', has: (s) => s === 'Has blanks' || s === 'Blocked' },
+  { key: 'noaddress', label: 'No address', has: (s) => s === 'No address' },
   { key: 'sent', label: 'Sent', has: (s) => s === 'Sent' || s === 'Replied' || s === 'Said no' },
   { key: 'done', label: 'Handled', has: (s) => s === 'Approved' || s === 'Rejected' },
 ];

@@ -57,6 +57,8 @@ const draft = (id: string, over: Record<string, unknown> = {}) => ({
   subject: `Note ${id}`,
   body: `Hi Front Porch Gallery, note ${id}.`,
   status: 'waiting_for_owner',
+  // FW-C-172: a draft needs an address or a page to count as Ready.
+  to: 'someone@studio.example',
   created_at: NOW,
   ...over,
 });
