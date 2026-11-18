@@ -995,7 +995,13 @@ export function buildRouter(deps: ApiDeps): Router {
         outcome: body.outcome,
       });
       // FW-C-065: tell Frequency's CRM what happened. Never blocks or fails the mark.
-      void crm.syncDraft({ repoRoot: deps.repoRoot, fwHome: deps.fwHome, env: process.env, id: data.id });
+      void crm.syncDraft({
+        repoRoot: deps.repoRoot,
+        fwHome: deps.fwHome,
+        env: process.env,
+        ...(params.key ? { flow: params.key } : {}),
+        id: data.id,
+      });
       return env(() => ({ data }));
     } catch (e) {
       throw draftError(e);
