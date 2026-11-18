@@ -7,6 +7,7 @@
 import { existsSync, readdirSync, readFileSync, renameSync, writeFileSync } from 'node:fs';
 import { join } from 'node:path';
 import { CredentialError, resolveCredential } from '../creds/index.ts';
+import { flowRef } from '../overseer/copies.ts';
 import { loadHunts } from './hunts.ts';
 import { FLOW_KEY, loadFlow } from './neighborhood-activation.ts';
 import { OUTCOMES_HANDLE, sign } from './outcomes.ts';
@@ -45,6 +46,7 @@ const marksOf = (doc: Record<string, unknown>) =>
 export function crmPayload(
   doc: Record<string, unknown>,
   huntName: string | null,
+  flow?: string,
 ): Record<string, unknown> | null {
   const email = leadEmail(doc);
   if (!email || typeof doc.body !== 'string' || doc.body.trim() === '') return null;
@@ -52,7 +54,7 @@ export function crmPayload(
   const tag = s(doc, 'tag');
   if (!tag) return null;
   return {
-    flow: s(doc, 'flow') ?? FLOW_KEY,
+    flow: flow ?? s(doc, 'flow') ?? FLOW_KEY,
     lead: {
       email,
       name: s(doc, 'name'),
@@ -94,10 +96,22 @@ interface Ctx {
   fwHome: string;
   env?: NodeJS.ProcessEnv;
   now?: Date;
+  /** FW-C-158: the flow or copy whose drafts these are. Left out, the base flow. */
+  flow?: string;
+}
+
+/** Where a flow's or a copy's drafts live. The secret is always read from the root home. */
+const homeOf = (o: Ctx) => (o.flow ? flowRef(o.fwHome, o.flow).home : o.fwHome);
+
+/** The base flow, then each of its copies that has a home on this machine. */
+export function crmFlows(fwHome: string): string[] {
+  const dir = join(fwHome, 'copies');
+  const copies = existsSync(dir) ? readdirSync(dir).filter((k) => k.startsWith(`${FLOW_KEY}--`)) : [];
+  return [FLOW_KEY, ...copies.sort()];
 }
 
 function setup(o: Ctx): { site: string; secret: string } | { error: string; off?: boolean } {
-  const flow = loadFlow(o.repoRoot, o.fwHome, o.now ?? new Date());
+  const flow = loadFlow(o.repoRoot, homeOf(o), o.now ?? new Date());
   if (!flow) return { error: `the ${FLOW_KEY} flow is not in this repo` };
   try {
     const secret = resolveCredential(OUTCOMES_HANDLE, { home: o.fwHome });
@@ -130,13 +144,14 @@ async function post(site: string, secret: string, body: string, now: Date): Prom
 /** Posts one draft (when it is an email lead) and writes Frequency's answer onto it. Never throws. */
 export async function syncDraft(o: Ctx & { id: string }): Promise<CrmState | null> {
   if (!ID.test(o.id)) return null;
-  const path = join(o.fwHome, 'flows', FLOW_KEY, 'drafts', `${o.id}.json`);
+  const home = homeOf(o);
+  const path = join(home, 'flows', FLOW_KEY, 'drafts', `${o.id}.json`);
   if (!existsSync(path)) return null;
   const now = o.now ?? new Date();
   const cfg = setup({ ...o, now });
   const hunts = (() => {
     try {
-      return loadHunts(o.fwHome);
+      return loadHunts(home);
     } catch {
       return [];
     }
@@ -148,7 +163,7 @@ export async function syncDraft(o: Ctx & { id: string }): Promise<CrmState | nul
     return null;
   }
   const hunt = hunts.find((h) => h.id === doc.hunt_id);
-  const payload = crmPayload(doc, hunt?.name ?? null);
+  const payload = crmPayload(doc, hunt?.name ?? null, o.flow);
   if (!payload) return null;
   const at = now.toISOString();
   let state: CrmState;
@@ -183,24 +198,26 @@ export async function syncDraft(o: Ctx & { id: string }): Promise<CrmState | nul
   return state;
 }
 
-/** Posts every email draft whose state Frequency has not seen today. */
+/** Posts every email draft whose state Frequency has not seen today, for the flow and each of its copies. */
 export async function syncAll(o: Ctx): Promise<{ synced: number; failed: number }> {
-  const dir = join(o.fwHome, 'flows', FLOW_KEY, 'drafts');
   const now = o.now ?? new Date();
   const out = { synced: 0, failed: 0 };
-  if (!existsSync(dir)) return out;
-  for (const f of readdirSync(dir).sort()) {
-    if (!f.endsWith('.json')) continue;
-    let doc: Record<string, unknown>;
-    try {
-      doc = JSON.parse(readFileSync(join(dir, f), 'utf8')) as Record<string, unknown>;
-    } catch {
-      continue;
+  for (const flow of o.flow ? [o.flow] : crmFlows(o.fwHome)) {
+    const dir = join(flowRef(o.fwHome, flow).home, 'flows', FLOW_KEY, 'drafts');
+    if (!existsSync(dir)) continue;
+    for (const f of readdirSync(dir).sort()) {
+      if (!f.endsWith('.json')) continue;
+      let doc: Record<string, unknown>;
+      try {
+        doc = JSON.parse(readFileSync(join(dir, f), 'utf8')) as Record<string, unknown>;
+      } catch {
+        continue;
+      }
+      if (!crmPayload(doc, null) || !needsSync(doc, now)) continue;
+      const r = await syncDraft({ ...o, now, flow, id: f.slice(0, -5) });
+      if (r?.status === 'synced') out.synced++;
+      else if (r) out.failed++;
     }
-    if (!crmPayload(doc, null) || !needsSync(doc, now)) continue;
-    const r = await syncDraft({ ...o, now, id: f.slice(0, -5) });
-    if (r?.status === 'synced') out.synced++;
-    else if (r) out.failed++;
   }
   return out;
 }

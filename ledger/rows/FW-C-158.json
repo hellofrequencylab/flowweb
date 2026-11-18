@@ -1,0 +1,32 @@
+{
+  "id": "FW-C-158",
+  "title": "Leads a flow copy drafts for reach Frequency's CRM",
+  "core_milestone": "C1",
+  "phase": 1,
+  "epic": "C1.5 First flow",
+  "priority": "P1",
+  "size": "S",
+  "lane": "workstreams",
+  "agent_suitability": "agent",
+  "gate": "none",
+  "depends_on": [
+    "FW-C-065",
+    "FW-C-121",
+    "FW-C-152"
+  ],
+  "description": "The 2026-11-18 build audit found that the three profile flows (copies of neighborhood-activation) wrote 15 email drafts and none reached Frequency's CRM: the sync of FW-C-065 reads only the base flow's drafts folder, and a copy keeps its drafts under $FW_HOME/copies/<key>/. Now the daily sync, the sync route and the sync after a mark cover the base flow and every copy that has a home. A copy's post carries the copy's key as its flow, is signed with the same secret (read from the root home), and Frequency's answer is written onto the copy's own draft file. Nothing is sent to a lead; no note wording changes.",
+  "acceptance": [
+    "Soon after fwd starts, an email draft in a copy's drafts folder is posted to Frequency's CRM hook, signed, with flow set to the copy's key",
+    "Frequency's answer is written onto the copy's draft file as crm",
+    "The base flow's draft is still posted with flow neighborhood-activation",
+    "A copy's contact-form draft is never posted",
+    "A sync with nothing changed posts nothing"
+  ],
+  "verify_probe": "pnpm probe flows/copy-crm",
+  "files_hint": [
+    "packages/daemon/src/flows/crm.ts",
+    "packages/daemon/src/api/routes.ts",
+    "packages/daemon/test/crm.test.ts"
+  ],
+  "origin": "new Core row"
+}

@@ -1,5 +1,8 @@
+import { mkdirSync, mkdtempSync } from 'node:fs';
+import { tmpdir } from 'node:os';
+import { join } from 'node:path';
 import { describe, expect, it } from 'vitest';
-import { crmPayload, leadEmail, needsSync } from '../src/flows/crm.ts';
+import { crmFlows, crmPayload, leadEmail, needsSync } from '../src/flows/crm.ts';
 
 const draft = (extra: Record<string, unknown> = {}) => ({
   flow: 'neighborhood-activation',
@@ -24,6 +27,26 @@ describe('crm payload', () => {
       lead: { email: 'hello@frontporch.example', hunt: 'North County events', region: 'north-county-sd' },
       draft: { tag: 'hnt_a-111', sent_at: '2026-11-10T09:00:00.000Z', replied_at: null },
     });
+  });
+  it('names the copy as the flow when a copy drafted the lead (FW-C-158)', () => {
+    const copy = 'neighborhood-activation--coaches-guides';
+    expect(crmPayload(draft(), null, copy)).toMatchObject({ flow: copy });
+    expect(crmPayload(draft(), null)).toMatchObject({ flow: 'neighborhood-activation' });
+  });
+  it('lists the base flow and only its own copies', () => {
+    const home = mkdtempSync(join(tmpdir(), 'fw-crm-'));
+    expect(crmFlows(home)).toEqual(['neighborhood-activation']);
+    for (const k of [
+      'neighborhood-activation--venues-hosts',
+      'neighborhood-activation--coaches-guides',
+      'paid-ads--b',
+    ])
+      mkdirSync(join(home, 'copies', k), { recursive: true });
+    expect(crmFlows(home)).toEqual([
+      'neighborhood-activation',
+      'neighborhood-activation--coaches-guides',
+      'neighborhood-activation--venues-hosts',
+    ]);
   });
   it('skips form leads, untagged drafts and drafts rejected unsent', () => {
     expect(leadEmail(draft({ to: null }))).toBeNull();
