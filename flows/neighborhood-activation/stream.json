@@ -6,7 +6,7 @@
   "version": 1,
   "template": "custom",
   "enabled": false,
-  "trigger": {"type": "cron", "cron": "0 7 * * 1-5", "timezone": "America/Los_Angeles", "catch_up": "skip"},
+  "trigger": {"type": "cron", "cron": "0 7 * * 1-5", "timezone": "America/Los_Angeles", "catch_up": "run_once"},
   "inputs": [
     {"name": "territories_and_leads", "kind": "query", "ref": "flow://neighborhood-activation/state", "untrusted": false},
     {"name": "lead_research", "kind": "scanner", "ref": "flow://neighborhood-activation/research", "untrusted": true}

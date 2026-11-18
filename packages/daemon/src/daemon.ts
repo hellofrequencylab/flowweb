@@ -33,7 +33,7 @@ import { ga4Of, pullDue, pullGa4, readPullStatus } from './flows/paid-ads-ga4.ts
 import { draftReply } from './flows/reply-helper.ts';
 import { runReview } from './flows/review.ts';
 import { batchApprove } from './flows/sequence.ts';
-import { reapOrphanCycles, runFlowCycle } from './overseer/cycle.ts';
+import { reapOrphanCycles, runFlowCycle, syncFlowCatchUp } from './overseer/cycle.ts';
 import { approveDraft, rejectDraft } from './overseer/drafts.ts';
 import {
   copyFlow,
@@ -639,6 +639,8 @@ export async function startDaemon(opts: DaemonOptions): Promise<Daemon> {
   try {
     // FW-C-061: every project with a ledger gets its daily digest stream before the timers are armed.
     registerDigestStreams(writer, { log });
+    // FW-C-153: flow streams registered earlier follow the shipped late-slot rule before timers are armed.
+    syncFlowCatchUp(writer, REPO_ROOT, log);
     await scheduler.start();
   } catch (e) {
     await stop(`scheduler failed to start: ${(e as Error).message}`);
