@@ -4,7 +4,7 @@
     "profile": "core",
     "schema": "ledger-row/1",
     "generated": "2026-11-09",
-    "row_count": 166,
+    "row_count": 167,
     "conventions": {
       "verify_probe": "Same convention as 04-build-plan/backlog.json: 'pnpm probe <path>' runs probes/<path>.probe.ts, a Tier 0 file written before the implementation row starts and never edited by the agent doing the row. Every probe fails today because its target does not exist (a missing probe file exits 2, a missing behaviour exits 1). The probe pack for a milestone is committed by the Owner or a pair session before the milestone's rows start.",
       "status": "All rows start as open. Status lives only in the ledger database (imported with fw ledger sync), never in prose.",
@@ -28,7 +28,7 @@
       }
     },
     "full_plan_rows_included": 37,
-    "new_core_rows": 114
+    "new_core_rows": 115
   },
   "rows": [
     {
@@ -5869,6 +5869,34 @@
         "packages/web/src/api/types.ts",
         "packages/web/src/shell/Layout.tsx",
         "packages/web/test/"
+      ],
+      "origin": "new Core row"
+    },
+    {
+      "id": "FW-C-157",
+      "title": "A hunt flow with no hunt due ends its cycle without calling the engine",
+      "core_milestone": "C1",
+      "phase": 1,
+      "epic": "C1.5 First flow",
+      "priority": "P1",
+      "size": "M",
+      "lane": "workstreams",
+      "agent_suitability": "agent",
+      "gate": "none",
+      "depends_on": [
+        "FW-C-041",
+        "FW-C-038"
+      ],
+      "description": "A cycle of a flow that has saved hunts, none of them due because each ran in the last day, fell through to the brief written for a flow with no hunts and asked the engine for one template invite per funnel. That spent a turn and left blank-slot template drafts in the Owner's list: 12 of them on the saturation flow by 2026-11-18, and the three profile copies were set to do the same on the morning after a run by hand. Now, when the flow has at least one enabled hunt and none is due, the cycle ends at once with no engine call. Its run report says outcome dry, drafts 0, adapter none and a reason starting no hunt is due, and no draft is written. A hunt asked for by hand still runs, a due hunt still runs, and a flow with no saved hunts drafts its templates as before. The windows that decide when a hunt is due and how many people a day are not changed.",
+      "acceptance": [
+        "With an enabled hunt that ran in the last day, POST /v1/supervisor/flows/{key}/run fires a cycle whose run report has outcome dry, drafts 0, adapter none and a reason starting no hunt is due",
+        "That cycle writes no file in the flow's drafts folder",
+        "POST /v1/flows/{key}/hunts/{id}/run right after still runs the hunt on the engine",
+        "A flow with no saved hunts still drafts one template per funnel"
+      ],
+      "verify_probe": "pnpm probe flows/idle-hunts",
+      "files_hint": [
+        "packages/daemon/src/overseer/cycle.ts"
       ],
       "origin": "new Core row"
     }

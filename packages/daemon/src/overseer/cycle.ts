@@ -411,6 +411,13 @@ export async function runFlowCycle(d: CycleDeps, fire: CycleFire): Promise<void>
   return runCycle(d, fire);
 }
 
+/** Ends a hunt flow's cycle early, as dry, when none of its hunts is due. */
+class NothingDue extends Error {
+  constructor() {
+    super('no hunt is due yet: every hunt already ran in the last day, so the engine was not called');
+  }
+}
+
 async function runCycle(d: CycleDeps, fire: CycleFire): Promise<void> {
   const w = d.writer;
   const log = d.log ?? (() => {});
@@ -440,7 +447,11 @@ async function runCycle(d: CycleDeps, fire: CycleFire): Promise<void> {
     if (fire.flow === HUNTS_FLOW) {
       // FW-C-154: waiting drafts whose event has passed are retired first, which frees their contacts.
       retirePastDrafts({ home: d.fwHome, flow: fire.flow, log: d.log });
-      hunts = dueHunts(loadHunts(d.fwHome), new Date());
+      const saved = loadHunts(d.fwHome);
+      hunts = dueHunts(saved, new Date());
+      // FW-C-157: a flow that hunts, with no hunt due, has nothing to do. It ends here without an engine
+      // call; before, it fell through to the template brief and left blank-slot drafts behind.
+      if (hunts.length === 0 && saved.some((h) => h.enabled)) throw new NothingDue();
       if (hunts.length > 0) writeJsonAtomic(join(dir, 'hunts.json'), { hunts });
       // FW-C-155: the hunt is told who the flow and its copies already wrote to, so it looks for others.
       const list = hunts.length > 0 ? knownContacts(owner(d, fire).fwHome, fire.flow) : [];
@@ -715,8 +726,15 @@ async function runCycle(d: CycleDeps, fire: CycleFire): Promise<void> {
       outcome = written > 0 ? 'drafted' : 'dry';
     }
   } catch (e) {
-    reason = redactLiterals((e as Error)?.message ?? String(e), creds?.literals ?? []);
-    log(`supervisor: cycle ${fire.fireId} failed: ${reason}`);
+    if (e instanceof NothingDue) {
+      outcome = 'dry';
+      adapterName = 'none';
+      reason = e.message;
+      log(`supervisor: cycle ${fire.fireId}: ${reason}`);
+    } else {
+      reason = redactLiterals((e as Error)?.message ?? String(e), creds?.literals ?? []);
+      log(`supervisor: cycle ${fire.fireId} failed: ${reason}`);
+    }
   }
   if (metered)
     meterTurn(
