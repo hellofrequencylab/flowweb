@@ -1,0 +1,33 @@
+{
+  "id": "FW-C-154",
+  "title": "A draft never points at an event that has passed",
+  "core_milestone": "C1",
+  "phase": 1,
+  "epic": "C1.5 First flow",
+  "priority": "P0",
+  "size": "M",
+  "lane": "workstreams",
+  "agent_suitability": "agent",
+  "gate": "none",
+  "depends_on": [
+    "FW-C-041",
+    "FW-C-105"
+  ],
+  "description": "On 2026-11-18 the Owner had 41 waiting notes, the oldest written eight days earlier for events that had since happened, and asked never to send about something that has passed. Two guards. The hunt screen leaves out a lead whose event.starts_at is more than a day behind now and counts it as past in the hunt's counts; a lead with no readable date is screened as before. And before each hunt cycle and when fwd starts, for the flow and each of its copies, every waiting hunt draft that was not sent is checked: one whose event started more than a day ago, or one with no readable event date that is over 7 days old, stays on disk as rejected with retired event_passed or no_event_date and held saying why in plain words. Its address or contact page leaves state.json hunt_contacts, so a later hunt may draft for that organizer's next event. Drafts for upcoming events, sent drafts and template drafts are left alone. Nothing is deleted and nothing is sent.",
+  "acceptance": [
+    "screenLeads does not keep a lead whose event started more than a day ago and counts it under past; upcoming and undated leads are kept",
+    "After fwd starts, a waiting hunt draft whose event has passed, and an undated one over 7 days old, are rejected with retired and held saying why; GET drafts shows it",
+    "A draft for an upcoming event, a recent undated one, a sent one and a template draft keep their status",
+    "GET today offers none of the retired drafts and still offers the upcoming one",
+    "The retired drafts' contacts leave hunt_contacts; other contacts and do_not_contact are unchanged"
+  ],
+  "verify_probe": "pnpm probe flows/past-events",
+  "files_hint": [
+    "packages/daemon/src/flows/past-events.ts",
+    "packages/daemon/src/flows/hunts.ts",
+    "packages/daemon/src/overseer/cycle.ts",
+    "packages/daemon/src/daemon.ts",
+    "packages/daemon/test/past-events.test.ts"
+  ],
+  "origin": "new Core row"
+}

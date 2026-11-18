@@ -44,6 +44,7 @@ import {
 import { refreshQuietly } from '../flows/leads.ts';
 import { loadFlow } from '../flows/neighborhood-activation.ts';
 import { writeJsonAtomic } from '../flows/neighborhood-admin.ts';
+import { retirePastDrafts } from '../flows/past-events.ts';
 import { PLAYBOOK_KEYS, type Playbook, playbookOf, sharedReach } from '../flows/profiles.ts';
 import { noDashes, type Shortener, shortenerFor } from '../flows/short-links.ts';
 import { runCredentials } from '../pipeline/credentials.ts';
@@ -435,6 +436,8 @@ async function runCycle(d: CycleDeps, fire: CycleFire): Promise<void> {
     // actually uses (the Owner's override in $FW_HOME when there is one).
     copyFlowFiles(d, fire.flow, dir);
     if (fire.flow === HUNTS_FLOW) {
+      // FW-C-154: waiting drafts whose event has passed are retired first, which frees their contacts.
+      retirePastDrafts({ home: d.fwHome, flow: fire.flow, log: d.log });
       hunts = dueHunts(loadHunts(d.fwHome), new Date());
       if (hunts.length > 0) writeJsonAtomic(join(dir, 'hunts.json'), { hunts });
     }

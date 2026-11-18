@@ -3,6 +3,7 @@
 // A due hunt runs inside the flow's cycle: the adapter answers leads.json, and this module, not the
 // model, decides who gets a message. Every message ends with the Owner's sign-off, the public page the
 // address came from and a one-line opt-out. fwd never sends; Autopilot hands drafts to the outbox.
+
 import { createHash, randomBytes } from 'node:crypto';
 import { existsSync, readFileSync } from 'node:fs';
 import { join } from 'node:path';
@@ -19,6 +20,7 @@ import {
   wordCount,
 } from './neighborhood-activation.ts';
 import { AdminError, adminDir, writeJsonAtomic } from './neighborhood-admin.ts';
+import { eventPassed } from './past-events.ts';
 import { noDashes } from './short-links.ts';
 
 const DAY = 86_400_000;
@@ -54,7 +56,15 @@ export type Hunt = {
   requested_at?: string | null;
 };
 export type HuntCounts = Record<
-  'found' | 'drafted' | 'blocked' | 'not_public' | 'duplicate' | 'capped' | 'restricted' | 'too_long',
+  | 'found'
+  | 'drafted'
+  | 'blocked'
+  | 'not_public'
+  | 'duplicate'
+  | 'capped'
+  | 'restricted'
+  | 'too_long'
+  | 'past',
   number
 >;
 /** FW-C-052: how the organizer can be reached, as the lead says. */
@@ -377,6 +387,7 @@ export function screenLeads(o: {
       capped: 0,
       restricted: 0,
       too_long: 0,
+      past: 0,
     };
   const kept: Kept[] = [];
   for (const lead of o.leads) {
@@ -394,6 +405,8 @@ export function screenLeads(o: {
     const route = routeOf(contact_via);
     const body = reachable && lead.body ? composeBody(o.cfg, h, lead) : '';
     if (!reachable || !isUrl(source_url) || !lead.body) c.not_public++;
+    // FW-C-154: an event that is over is never written about.
+    else if (eventPassed(lead.event.starts_at, o.now)) c.past++;
     else if (restrictedLead(lead)) c.restricted++;
     else if (onDoNotContact(o.state.do_not_contact, email, pages)) c.blocked++;
     else if (
