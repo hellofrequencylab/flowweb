@@ -1,0 +1,33 @@
+{
+  "id": "FW-C-155",
+  "title": "A hunt is told who was already contacted, and Today stops asking about drafted leads",
+  "core_milestone": "C1",
+  "phase": 1,
+  "epic": "C1.5 First flow",
+  "priority": "P1",
+  "size": "M",
+  "lane": "workstreams",
+  "agent_suitability": "agent",
+  "gate": "none",
+  "depends_on": [
+    "FW-C-041",
+    "FW-C-105",
+    "FW-C-154"
+  ],
+  "description": "Two things kept the saturation flow's mornings short. On 2026-11-14 three of a hunt's ten finds were organizers the flow had already written to, so fwd dropped them as duplicates and their places on the list were wasted: the hunt brief never said who had been contacted. And on 2026-11-18 the Owner's Today held 14 approve lead asks and no drafts; each was a lead whose hunt draft had aged off, so the tap led nowhere. Now each hunt cycle that runs after someone has been drafted for gets known.json in its cycle folder: { known: [{ name, contact, page }] }, one entry per address or contact page the flow and its copies still hold in hunt_contacts, newest first, at most 200, with the name and public page from the draft written for them. The brief gains one line telling the engine to leave them out and find others. A contact freed by a retired draft is not listed. The engine may not edit the file. And Today no longer offers an approve_lead ask for a lead a hunt has drafted for, whatever became of the draft (sent, skipped, retired or aged off); a lead with no draft is asked about as before. No note wording changes.",
+  "acceptance": [
+    "A first hunt cycle, with nobody contacted, has no known.json in its cycle folder",
+    "A later hunt cycle has known.json listing every held hunt contact of the flow and its copies with the draft's name and source page",
+    "The work order's goal mentions known.json only when the list is not empty, and the file is on the forbidden list",
+    "GET today has no approve_lead action for a lead whose hunt draft was skipped, retired, sent or aged off",
+    "GET today still has an approve_lead action for a proposed lead with no draft"
+  ],
+  "verify_probe": "pnpm probe flows/known-contacts",
+  "files_hint": [
+    "packages/daemon/src/flows/known.ts",
+    "packages/daemon/src/flows/today.ts",
+    "packages/daemon/src/overseer/cycle.ts",
+    "packages/daemon/test/known.test.ts"
+  ],
+  "origin": "new Core row"
+}

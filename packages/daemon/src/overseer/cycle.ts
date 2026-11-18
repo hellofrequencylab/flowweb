@@ -41,6 +41,7 @@ import {
   saveHunts,
   screenLeads,
 } from '../flows/hunts.ts';
+import { KNOWN_FILE, knownContacts, knownRule } from '../flows/known.ts';
 import { refreshQuietly } from '../flows/leads.ts';
 import { loadFlow } from '../flows/neighborhood-activation.ts';
 import { writeJsonAtomic } from '../flows/neighborhood-admin.ts';
@@ -425,6 +426,7 @@ async function runCycle(d: CycleDeps, fire: CycleFire): Promise<void> {
   let metered: { cost?: TurnCost | null; adapter?: { vendor?: string; model?: string } | null } | null = null;
   const draftIds: string[] = [];
   let hunts: Hunt[] = [];
+  let known = 0;
   let huntCounts: Record<string, HuntCounts> | null = null;
   let creds: InjectedCredentials | null = null;
   try {
@@ -440,6 +442,11 @@ async function runCycle(d: CycleDeps, fire: CycleFire): Promise<void> {
       retirePastDrafts({ home: d.fwHome, flow: fire.flow, log: d.log });
       hunts = dueHunts(loadHunts(d.fwHome), new Date());
       if (hunts.length > 0) writeJsonAtomic(join(dir, 'hunts.json'), { hunts });
+      // FW-C-155: the hunt is told who the flow and its copies already wrote to, so it looks for others.
+      const list = hunts.length > 0 ? knownContacts(owner(d, fire).fwHome, fire.flow) : [];
+      known = list.length;
+      if (known > 0) writeJsonAtomic(join(dir, KNOWN_FILE), { known: list });
+      else rmSync(join(dir, KNOWN_FILE), { force: true });
     }
     // FW-C-057: the agent starts from what the last review learned, while that review is fresh.
     const learned = freshLearnings(d.fwHome, fire.flow);
@@ -484,14 +491,22 @@ async function runCycle(d: CycleDeps, fire: CycleFire): Promise<void> {
         funnelNames(dir),
         learned !== null,
         audienceOf(dir),
-        huntRules(dir),
+        [...huntRules(dir), ...knownRule(known)],
         playbookOf(dir),
       ),
       context_links: ['README.md', 'config.json'],
       // The agent writes its own outputs only; the files fwd put there for it are read-only.
       scope: {
         touches: hunts.length > 0 ? ['drafts.json', 'leads.json'] : ['drafts.json'],
-        forbidden: ['README.md', 'config.json', 'hunts.json', LEARNINGS, VENDOR_RECORD, '.git/**'],
+        forbidden: [
+          'README.md',
+          'config.json',
+          'hunts.json',
+          KNOWN_FILE,
+          LEARNINGS,
+          VENDOR_RECORD,
+          '.git/**',
+        ],
       },
       constraints: {
         // Nothing is committed, so there is no diff to cap; the prompt leaves the diff rule out for 0.
