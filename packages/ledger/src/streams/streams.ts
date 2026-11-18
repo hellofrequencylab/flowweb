@@ -183,6 +183,35 @@ export function setStreamCron(
   cron: string,
   opts: { timezone?: string; actor?: Actor } = {},
 ): { changed: boolean; version: number } {
+  return patchTrigger(w, streamId, opts.actor, (t) => {
+    const timezone = opts.timezone ?? (t.timezone as string | undefined);
+    if (t.cron === cron && t.timezone === timezone) return null;
+    return { ...t, cron, ...(timezone ? { timezone } : {}) };
+  });
+}
+
+/**
+ * FW-C-153: what the scheduler does with a cron slot it reaches late ("skip" records it as missed,
+ * "run_once" fires the newest late slot). Written like a moved cron; a value already set changes nothing.
+ */
+export function setStreamCatchUp(
+  w: Writer,
+  streamId: string,
+  catchUp: 'skip' | 'run_once',
+  opts: { actor?: Actor } = {},
+): { changed: boolean; version: number } {
+  return patchTrigger(w, streamId, opts.actor, (t) =>
+    t.catch_up === catchUp ? null : { ...t, catch_up: catchUp },
+  );
+}
+
+/** Writes a cron stream's changed trigger as a new version with one stream.updated event; null changes nothing. */
+function patchTrigger(
+  w: Writer,
+  streamId: string,
+  by: Actor | undefined,
+  change: (trigger: Record<string, unknown>) => Record<string, unknown> | null,
+): { changed: boolean; version: number } {
   return w.transaction((tx) => {
     const row = tx.get<{ definition: string; version: number; project_id: string }>(
       'SELECT definition, version, project_id FROM streams WHERE id = ?',
@@ -192,15 +221,10 @@ export function setStreamCron(
     const def = JSON.parse(row.definition) as StreamDefinition & { trigger: Record<string, unknown> };
     if (def.trigger.type !== 'cron')
       throw new LedgerError('INVALID_DEFINITION', `stream ${streamId} is not fired by a cron`);
-    const timezone = opts.timezone ?? (def.trigger.timezone as string | undefined);
-    if (def.trigger.cron === cron && def.trigger.timezone === timezone)
-      return { changed: false, version: row.version };
+    const trigger = change(def.trigger);
+    if (!trigger) return { changed: false, version: row.version };
     const version = row.version + 1;
-    const next = {
-      ...def,
-      version,
-      trigger: { ...def.trigger, cron, ...(timezone ? { timezone } : {}) },
-    } as StreamDefinition;
+    const next = { ...def, version, trigger } as StreamDefinition;
     const check = validate('stream-definition', next);
     if (!check.ok)
       throw new LedgerError(
@@ -209,7 +233,7 @@ export function setStreamCron(
       );
     const text = canonicalJson(next);
     const hash = sha256Hex(text);
-    const actor = opts.actor ?? ownerActor(tx);
+    const actor = by ?? ownerActor(tx);
     tx.run(
       `UPDATE streams SET definition = ?, definition_hash = ?, version = ?,
          updated_at = strftime('%Y-%m-%dT%H:%M:%fZ','now') WHERE id = ?`,

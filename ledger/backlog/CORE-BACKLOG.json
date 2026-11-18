@@ -4,7 +4,7 @@
     "profile": "core",
     "schema": "ledger-row/1",
     "generated": "2026-11-09",
-    "row_count": 162,
+    "row_count": 163,
     "conventions": {
       "verify_probe": "Same convention as 04-build-plan/backlog.json: 'pnpm probe <path>' runs probes/<path>.probe.ts, a Tier 0 file written before the implementation row starts and never edited by the agent doing the row. Every probe fails today because its target does not exist (a missing probe file exits 2, a missing behaviour exits 1). The probe pack for a milestone is committed by the Owner or a pair session before the milestone's rows start.",
       "status": "All rows start as open. Status lives only in the ledger database (imported with fw ledger sync), never in prose.",
@@ -28,7 +28,7 @@
       }
     },
     "full_plan_rows_included": 37,
-    "new_core_rows": 110
+    "new_core_rows": 111
   },
   "rows": [
     {
@@ -5729,6 +5729,39 @@
         "packages/daemon/src/overseer/index.ts",
         "packages/daemon/test/profile-engine.test.ts",
         "packages/daemon/test/profile-flows.test.ts"
+      ],
+      "origin": "new Core row"
+    },
+    {
+      "id": "FW-C-153",
+      "title": "A flow's morning run still happens when the Mac reaches the slot late",
+      "core_milestone": "C1",
+      "phase": 1,
+      "epic": "C1.5 First flow",
+      "priority": "P0",
+      "size": "M",
+      "lane": "workstreams",
+      "agent_suitability": "agent",
+      "gate": "none",
+      "depends_on": [
+        "FW-C-038",
+        "FW-C-063"
+      ],
+      "description": "On the Owner's Mac every scheduled 06:00 fire of the saturation flow from 2026-11-11 to 2026-11-18 was recorded as missed: the timer woke 1.0 to 3.3 seconds after the slot, the scheduler's grace is one second, and flows/neighborhood-activation/stream.json says catch_up skip. No scheduled cycle ever ran; only runs started by hand drafted anything, so Today emptied as its drafts aged out. The shipped stream says catch_up run_once, so the scheduler fires the newest late slot once (the Supervisor's gates still decide the fire). A stream registered before this change keeps its stored definition, so when fwd starts, before the scheduler is armed, each registered flow stream whose late-slot rule differs from its shipped stream.json is rewritten the way a moved cron is: a new version, a new definition hash and one stream.updated event. A copy follows its base flow. The scheduler's grace and the other flows' streams are unchanged.",
+      "acceptance": [
+        "flows/neighborhood-activation/stream.json has trigger.catch_up run_once, and turning the flow on registers a stream that carries it",
+        "A scheduler that reaches the flow's cron slot 90 seconds late records that slot once as fired and records no missed row for it",
+        "A stream registered earlier with catch_up skip says run_once after fwd starts, with a higher version and exactly one stream.updated event; a second start changes nothing",
+        "The Supervisor's gates still hold a late fire the way they hold one on time"
+      ],
+      "verify_probe": "pnpm probe flows/late-wake",
+      "files_hint": [
+        "flows/neighborhood-activation/stream.json",
+        "packages/ledger/src/streams/streams.ts",
+        "packages/ledger/src/index.ts",
+        "packages/daemon/src/overseer/cycle.ts",
+        "packages/daemon/src/daemon.ts",
+        "packages/daemon/test/flow-catch-up.test.ts"
       ],
       "origin": "new Core row"
     }

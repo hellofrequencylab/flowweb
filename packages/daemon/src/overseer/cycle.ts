@@ -18,7 +18,14 @@ import { join } from 'node:path';
 import { type AdapterName, createAdapter, isAdapterName, type VendorAdapterInput } from '@fw/adapters';
 import type { WorkOrder } from '@fw/contracts';
 import { newId, nowIso, type Writer } from '@fw/eventlog';
-import { addStream, DEFAULT_AGENTS, isCompleteBrief, ownerActor, readBriefs } from '@fw/ledger';
+import {
+  addStream,
+  DEFAULT_AGENTS,
+  isCompleteBrief,
+  ownerActor,
+  readBriefs,
+  setStreamCatchUp,
+} from '@fw/ledger';
 import { type InjectedCredentials, injectCredentials, redactLiterals } from '../creds/index.ts';
 import { checkDraft, type GateCtx, gateFields } from '../flows/draft-gate.ts';
 import { readFacts, refreshFactsIfDue } from '../flows/facts.ts';
@@ -94,6 +101,37 @@ export function registerFlowStream(w: Writer, repoRoot: string, key: string): vo
   // The shipped file starts off; the Supervisor's own switch decides whether a fire runs.
   addStream(w, { ...def, enabled: true });
   ensureReporter(w);
+}
+
+/**
+ * FW-C-153: a flow's registered stream follows the shipped stream.json on what to do with a late cron
+ * slot. A stream registered before the shipped file changed keeps its old answer otherwise, and a Mac
+ * that wakes a second late then records every morning as missed. Runs before the scheduler starts;
+ * copies follow their base flow. Returns the keys it changed. A failure is logged, never thrown.
+ */
+export function syncFlowCatchUp(w: Writer, repoRoot: string, log: (m: string) => void = () => {}): string[] {
+  const changed: string[] = [];
+  for (const row of w.all<{ id: string; key: string; definition: string }>(
+    'SELECT id, key, definition FROM streams ORDER BY id',
+  )) {
+    try {
+      const shipped = flowStream(repoRoot, flowRef('', row.key).base);
+      const want = (shipped?.trigger as { type?: unknown; catch_up?: unknown } | undefined)?.catch_up;
+      if (want !== 'skip' && want !== 'run_once') continue;
+      const have = (JSON.parse(row.definition) as { trigger?: { type?: unknown; catch_up?: unknown } })
+        .trigger;
+      if (have?.type !== 'cron' || have.catch_up === want) continue;
+      if (setStreamCatchUp(w, row.id, want).changed) {
+        changed.push(row.key);
+        log(`scheduler: ${row.key} now handles a late slot with ${want}, as its shipped stream says`);
+      }
+    } catch (e) {
+      log(
+        `scheduler: could not bring ${row.key} in line with its shipped stream: ${(e as Error)?.message ?? e}`,
+      );
+    }
+  }
+  return changed;
 }
 
 /** The agent that signs a cycle's run report (the one every Core project starts with). */
