@@ -3080,3 +3080,8 @@ fieldset.flow-ring {
   margin-right: auto;
   overflow-wrap: anywhere;
 }
+
+.draft-recipient-open {
+  font-weight: 600;
+  white-space: nowrap;
+}
