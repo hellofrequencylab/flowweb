@@ -10,6 +10,7 @@ import { useResource } from '../api/resource';
 import type { FlowAiAccount, SupervisorFlow } from '../api/types';
 import type { WAccountTest } from '../api/wire';
 import { ResourceView } from '../ui-kit/honest';
+import { useSiteSave, useSiteSettings, waitingWords } from './siteSettings';
 
 type TestKey = keyof WAccountTest['accounts'];
 
@@ -134,6 +135,71 @@ function FlowAiRow({
         </span>
       )}
     </fieldset>
+  );
+}
+
+/** FW-C-169: the model Kevin (the console) answers with, and the Owner's standing instructions to him. */
+export function KevinSettings({ canChange = true }: { canChange?: boolean }) {
+  const { settings, state } = useSiteSettings();
+  const { busy, run, status } = useSiteSave('Saved. Kevin uses it after the next sync, about a minute.');
+  const [model, setModel] = useState<string | null>(null);
+  const [text, setText] = useState<string | null>(null);
+  const chosen = model ?? settings?.kevin.model ?? settings?.models[0]?.id ?? '';
+  const words = text ?? settings?.kevin.instructions ?? '';
+  const off = !canChange || busy;
+  return (
+    <section className="settings-group" aria-labelledby="kevin-h">
+      <h2 id="kevin-h">
+        Kevin
+        <span className="setting-desc">
+          The assistant at the bottom right of flowweb.app. He only proposes changes; you confirm each one.
+        </span>
+      </h2>
+      <div className="settings-body">
+        <div className="panel settings-panel stack">
+          {!settings ? (
+            <p>{waitingWords(state)}</p>
+          ) : (
+            <>
+              <label className="stack">
+                <span className="field-label">Model</span>
+                <select value={chosen} disabled={off} onChange={(e) => setModel(e.target.value)}>
+                  {settings.models.map((m) => (
+                    <option key={m.id} value={m.id}>
+                      {m.label}: {m.about}
+                    </option>
+                  ))}
+                </select>
+              </label>
+              <label className="stack">
+                <span className="field-label">Standing instructions</span>
+                <span className="small muted">
+                  How you want Kevin to answer, for example "answer in three lines". They never widen what he
+                  may propose. Never put a key here.
+                </span>
+                <textarea
+                  rows={4}
+                  maxLength={1500}
+                  value={words}
+                  readOnly={off}
+                  onChange={(e) => setText(e.target.value)}
+                />
+              </label>
+              <button
+                type="button"
+                className="btn"
+                disabled={off}
+                onClick={() => void run({ kevin: { model: chosen, instructions: words } })}
+              >
+                Save
+              </button>
+              {!canChange && <span className="setting-desc">Only an owner or admin can change this.</span>}
+              {status}
+            </>
+          )}
+        </div>
+      </div>
+    </section>
   );
 }
 

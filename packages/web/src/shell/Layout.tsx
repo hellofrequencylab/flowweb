@@ -12,6 +12,7 @@ import { ProjectsPage } from '../projects/ProjectsPage';
 import { RunPage } from '../runs/RunPage';
 import { RunsPage } from '../runs/RunsPage';
 import { SettingsPage } from '../settings/SettingsPage';
+import { useHomeRedirect } from '../settings/siteSettings';
 import { SetupNudge, SetupPage } from '../setup/SetupPage';
 import { SpendPage } from '../spend/SpendPage';
 import { OnePrompt } from '../start/OnePrompt';
@@ -78,6 +79,7 @@ export function Layout({ pairedAt, onSignedOut }: { pairedAt: string; onSignedOu
   // Ctrl/Cmd+Shift+. works even with single-key shortcuts off.
   useKeys({ 'mod+shift+.': () => setKillOpen(true) }, !prefs.shortcuts);
 
+  useHomeRedirect();
   const page = pageFor(loc.path);
 
   function pageFor(p: string): ReactNode {

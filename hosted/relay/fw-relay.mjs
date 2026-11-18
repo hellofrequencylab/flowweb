@@ -129,6 +129,9 @@ async function snapshot() {
   // FW-C-167: the Owner's "How I write" note for Settings. Older fwd builds answer 404.
   const voice = await fwd('/voice').catch(ifFound);
   if (voice) put('/voice', voice);
+  // FW-C-169: Kevin's model and instructions and what the pages show. Older fwd builds answer 404.
+  const site = await fwd('/site-settings').catch(ifFound);
+  if (site) put('/site-settings', site);
   const supervisor = await fwd('/supervisor').catch(ifFound);
   if (supervisor) {
     put('/supervisor', supervisor);
