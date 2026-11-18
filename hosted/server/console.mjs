@@ -19,6 +19,7 @@ const MAX_PAGE_TEXT = 4000;
 const MAX_TURNS = 8;
 const MAX_PROPOSALS = 3;
 const MAX_CONTEXT = 6000;
+const MAX_TARGETINGS = 6;
 const FLOW = /^[a-z0-9][a-z0-9-]{0,63}$/;
 const WRITE_ROLES = new Set(['owner', 'admin', 'helper']);
 /** FW-C-112: who may ask for something FlowWeb cannot do yet (fw_can 'control' in the database). */
@@ -76,6 +77,7 @@ When the person wants something changed, or when the review clearly points to a 
 - POST /supervisor/pause or /supervisor/resume (every flow)
 - POST /supervisor/flows/FLOW/edit {"name","note"} (rename a flow, up to 80 characters, or set its note, up to 500; null or "" puts back the original name or clears the note)
 - POST /supervisor/flows/FLOW/archive {} (put a flow away; it stops running) and /restore {} (bring it back). An archived flow cannot be turned on: propose restore first, then enable.
+- POST /flows/FLOW/targeting {"playbook":{"seek","signals","where","queries","skip","rank","record","note"},"link_line","niches":{"NICHE_KEY":{"angles":[{"line"}]}}} (who the flow looks for and how its notes read; works for the main flow and every copy). Send only the lines that change; a line left out keeps its value. seek is who to look for, signals what marks a good lead, where and queries where to search, skip who to leave out, rank what to put first, record what to note about each lead, note how the message reads (its voice), link_line the sentence before the link, and angles the reasons a niche might care (at most 8 for a niche, each under 300 characters; sending a niche's angles replaces its whole list, so include the ones to keep). No em or en dashes in any line. Read the flow's current targeting below first, quote the line you would change, and keep everything the person did not ask to change.
 - POST /flows/FLOW/hunts {"name","looking_for","region","areas","links","every_days","max_sends","build"} (save a lead hunt; name, looking_for and region are required; links are public web pages to search first, never instagram.com or facebook.com, which FlowWeb never reads; "build": true makes each draft carry a Frequency claim link, a page set up for the organizer's event that they can claim as theirs)
 - POST /flows/FLOW/hunts/HUNT_ID/run, DELETE /flows/FLOW/hunts/HUNT_ID
 - POST /flows/FLOW/do-not-contact {"email" or "lead_id","reason"}
@@ -107,6 +109,15 @@ async function contextFor(flow, read) {
     if (hunts) parts.push(`Lead hunts for ${flow}: ${clip(hunts, 3000)}`);
     const view = await get(`/flows/${flow}`);
     if (view) parts.push(`Flow ${flow}: ${clip(view, MAX_CONTEXT)}`);
+    const targeting = await get(`/flows/${flow}/targeting`);
+    if (targeting) parts.push(`Targeting for ${flow} (who it looks for, how its notes read): ${clip(targeting, MAX_CONTEXT)}`);
+  } else {
+    // With no flow in view, Kevin still needs each flow's lines to change one by name.
+    const keys = (Array.isArray(sup?.flows) ? sup.flows : []).map((f) => String(f?.key ?? '')).filter((k) => FLOW.test(k));
+    for (const k of keys.slice(0, MAX_TARGETINGS)) {
+      const targeting = await get(`/flows/${k}/targeting`);
+      if (targeting) parts.push(`Targeting for ${k}: ${clip(targeting, 1800)}`);
+    }
   }
   return parts.join('\n\n');
 }
