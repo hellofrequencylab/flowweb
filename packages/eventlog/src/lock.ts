@@ -1,8 +1,12 @@
 // Process-level single-writer lock: an exclusively created file next to the database that holds
 // "<pid> <nonce>". A second writer fails fast with WriterLockError instead of waiting.
 // A lock whose pid is no longer alive is stale and is taken over (rename away, check, recreate).
+// FW-C-160: so is a lock whose pid now belongs to a process that started after the lock was written
+// (the holder died in a crash or a reboot and the system gave its pid to something else).
+
+import { execFileSync } from 'node:child_process';
 import { randomBytes } from 'node:crypto';
-import { closeSync, openSync, readFileSync, renameSync, unlinkSync, writeSync } from 'node:fs';
+import { closeSync, openSync, readFileSync, renameSync, statSync, unlinkSync, writeSync } from 'node:fs';
 import { WriterLockError } from './errors.ts';
 
 /** Lock paths held by this process, so two Stores in one process also exclude each other. */
@@ -45,6 +49,41 @@ function isAlive(pid: number): boolean {
   return true;
 }
 
+/** When a live process started, in ms since the epoch, or undefined when ps cannot say. */
+function startedAt(pid: number): number | undefined {
+  try {
+    const out = execFileSync('ps', ['-o', 'lstart=', '-p', String(pid)], {
+      encoding: 'utf8',
+      env: { ...process.env, LC_ALL: 'C', LANG: 'C' },
+      stdio: ['ignore', 'pipe', 'ignore'],
+      timeout: 5_000,
+    }).trim();
+    const at = Date.parse(out);
+    return Number.isFinite(at) ? at : undefined;
+  } catch {
+    return undefined;
+  }
+}
+
+/** How much later than the lock a process must have started before its pid counts as reused. */
+const REUSE_SLACK_MS = 5_000;
+
+/**
+ * True when the lock's pid is alive but cannot be the process that wrote the lock: it started after the
+ * lock file was last written. A holder always starts before it writes its lock. Anything we cannot
+ * measure counts as held, which is the safe side.
+ */
+function pidReused(path: string, pid: number): boolean {
+  let written: number;
+  try {
+    written = statSync(path).mtimeMs;
+  } catch {
+    return false;
+  }
+  const started = startedAt(pid);
+  return started !== undefined && started > written + REUSE_SLACK_MS;
+}
+
 export function acquireWriterLock(path: string): WriterLock {
   if (heldHere.has(path)) throw new WriterLockError(path, process.pid);
   const mine = `${process.pid} ${randomBytes(8).toString('hex')}\n`;
@@ -57,7 +96,8 @@ export function acquireWriterLock(path: string): WriterLock {
       const cur = readLock(path);
       if (!cur) continue; // released between our open and read: try again
       // A file we cannot parse is treated as held: refusing is the safe side.
-      if (cur.pid === undefined || isAlive(cur.pid)) throw new WriterLockError(path, cur.pid);
+      if (cur.pid === undefined || (isAlive(cur.pid) && !pidReused(path, cur.pid)))
+        throw new WriterLockError(path, cur.pid);
       // Stale. Move it aside atomically; only one taker's rename succeeds.
       const aside = `${path}.stale-${process.pid}-${randomBytes(4).toString('hex')}`;
       try {

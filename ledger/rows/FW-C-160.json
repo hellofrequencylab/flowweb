@@ -1,0 +1,24 @@
+{
+  "id": "FW-C-160",
+  "title": "A stale lock left by a dead fwd no longer blocks the next start when its process number was reused",
+  "core_milestone": "C1",
+  "phase": 1,
+  "epic": "C1.5 First flow",
+  "priority": "P2",
+  "size": "S",
+  "lane": "workstreams",
+  "agent_suitability": "agent",
+  "gate": "none",
+  "depends_on": [],
+  "description": "The 2026-11-18 build audit traced a stuck fwd on the Owner's Mac to its writer lock: after fwd died, macOS gave its process number to an unrelated program, the lock check saw that number alive, and every restart was refused until the lock file was removed by hand. Now the lock check also asks when the holding process started. A process that started after the lock file was last written cannot be the one that wrote it, so the lock is treated as stale and taken over. A lock held by a process that is alive and older than the lock is still refused, exactly as before.",
+  "acceptance": [
+    "A lock file naming a live process that started after the lock was written is taken over, and the store opens",
+    "A lock held by a live process that started before the lock was written is still refused with the writer lock error",
+    "A lock naming a dead process is still taken over"
+  ],
+  "verify_probe": "pnpm probe workstreams/lock-reuse",
+  "files_hint": [
+    "packages/eventlog/src/lock.ts"
+  ],
+  "origin": "new Core row"
+}
