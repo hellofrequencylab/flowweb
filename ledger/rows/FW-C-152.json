@@ -1,0 +1,35 @@
+{
+  "id": "FW-C-152",
+  "title": "Three profile flows find coaches and guides, venues and hosts, and local businesses beside the Saturation Engine, and no one hears from two flows",
+  "core_milestone": "C1",
+  "phase": 1,
+  "epic": "C1.5 First flow",
+  "priority": "P0",
+  "size": "L",
+  "lane": "workstreams",
+  "agent_suitability": "agent",
+  "gate": "none",
+  "depends_on": [
+    "FW-C-121",
+    "FW-C-096"
+  ],
+  "description": "Daniel (2026-11-18): keep the primary saturation flow and add three flows that work with Frequency's profiles: coaches and guides, venues and event hosts, and local businesses engaged in the community, each designed to find the people hosting these things. A profile is a shipped preset for a copy of neighborhood-activation, in flows/neighborhood-activation/profiles/<slug>.json: its name and note, a config patch merged one level deep over the base config (hunts.playbook with seek, signals, where, queries, skip, rank, record and note; hunts.link_line; niches with angles and an optional door; the profile's /for page as funnels.host.path and dm_door.path) and its starter hunts. POST /v1/supervisor/flows/{base}/copy { profile } makes the copy <base>--<slug> from it, off and at draft; the Owner's own slug, name, note and config still win, and an unknown profile is 400. A cycle whose config has a playbook builds its hunt brief from it instead of the event lines; the base flow's brief is unchanged. A lead's link opens its niche's door when the niche names one, else the flow's. The base flow and every copy share one do-not-contact list and one record of who was drafted for, read at screening time from each one's state.json, while caps stay per flow. Draft only: nothing here sends. Editing a copy's hunts from the API or the site is a later row.",
+  "acceptance": [
+    "coaches-guides, venues-hosts and local-businesses ship as profiles; each makes a copy with its own name, playbook, niches, page and starter hunt, and keeps the base sign-off, offer address and territories",
+    "An unknown profile answers 400 and makes nothing; the same profile twice answers 409",
+    "A run of a profile copy drafts into the copy's own folder, every draft links to the profile's page after its link line and waits for the Owner, and nothing reaches the outbox",
+    "An address on the base flow's do-not-contact list is blocked in a copy, and a contact a copy drafted for is a duplicate to the base flow",
+    "The hunts, flow-copies, saturation-engine and seed-config checks still pass"
+  ],
+  "verify_probe": "pnpm probe flows/profile-flows",
+  "files_hint": [
+    "flows/neighborhood-activation/profiles/",
+    "packages/daemon/src/flows/profiles.ts",
+    "packages/daemon/src/flows/hunts.ts",
+    "packages/daemon/src/overseer/cycle.ts",
+    "packages/daemon/src/overseer/index.ts",
+    "packages/daemon/test/profile-engine.test.ts",
+    "packages/daemon/test/profile-flows.test.ts"
+  ],
+  "origin": "new Core row"
+}
