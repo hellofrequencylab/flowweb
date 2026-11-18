@@ -1,0 +1,85 @@
+{
+  "version": 1,
+  "slug": "spiritual",
+  "name": "Frequency Spiritual Communities",
+  "note": "Finds local spiritual communities and the people who lead their gatherings, and drafts one note each. Draft only. Ships off.",
+  "config": {
+    "offer": {
+      "pitch": "A free page and calendar for a spiritual community, so the people who gather can find each other between gatherings.",
+      "call_to_action": "Give your community one place to gather"
+    },
+    "niches": [
+      {
+        "key": "sangha",
+        "label": "Meditation groups, sanghas and contemplative circles",
+        "angles": [
+          {
+            "key": "find_each_other",
+            "line": "People sit together and have no way to find each other afterward."
+          },
+          {
+            "key": "scattered",
+            "line": "Announcements go out across an email list, a group chat and a flyer."
+          },
+          {
+            "key": "come_back",
+            "line": "A newcomer comes once and never hears about the next sit."
+          }
+        ]
+      },
+      {
+        "key": "congregation",
+        "label": "Small congregations, kirtan, prayer and study groups",
+        "angles": [
+          {
+            "key": "find_each_other",
+            "line": "Your people already gather and have no one place to find each other."
+          },
+          {
+            "key": "one_calendar",
+            "line": "Small groups, study nights and service days each live on a different list."
+          },
+          {
+            "key": "come_back",
+            "line": "A visitor comes once and never hears about what is next."
+          }
+        ]
+      }
+    ],
+    "dm_door": {
+      "path": "/for/spiritual-community"
+    },
+    "funnels": {
+      "host": {
+        "path": "/for/spiritual-community",
+        "persona": "practitioner"
+      }
+    },
+    "hunts": {
+      "audience": {
+        "focus": [],
+        "steer_away": []
+      },
+      "link_line": "If you'd like a free page for your community on Frequency, start here:",
+      "playbook": {
+        "seek": "Who to find: local spiritual communities in the region and the people who lead their gatherings: meditation groups and sanghas, contemplative and prayer circles, kirtan and chanting groups, study groups, small independent congregations, and interfaith gatherings. Keep one only when a public page shows a regular gathering that is open to newcomers.",
+        "signals": "Strong signs, best first: a weekly or monthly gathering named on a public page with a line welcoming newcomers; small groups or study nights beyond the main gathering; a volunteer-run group with a named organizer and a listed email; a community whose only home is a general listing site. Weak signs: no gathering ahead, or a large institution with its own staff and software.",
+        "where": "Where to look: the community's own website and its gatherings or calendar page, Meetup group pages, the event pages of studios and community rooms that host them, and city and library calendars.",
+        "queries": "Searches that work: \"<town> meditation group\", \"<town> sangha\", \"<town> kirtan\", \"<town> contemplative prayer group\", \"<town> interfaith gathering\", \"<town> spiritual community gathering\", \"<town> study group open to all\". Use each area's own town names.",
+        "skip": "Skip large institutions with their own staff and systems, anything that charges for initiation or rank, groups closed to newcomers, and anyone making health or healing claims.",
+        "rank": "Order leads.json best first, because only the first few are kept: a small, volunteer-run community with a regular open gathering and an organizer's listed email comes first, then one with a gatherings page and a contact form, then the rest. One lead per community, addressed to the person who runs it when the page names them.",
+        "record": "In leads.json the event is the regular gathering: event.title is the community's name or what kind of gathering it is, event.url is the public page that shows it, and starts_at may be empty. The organizer is whoever leads or coordinates it.",
+        "note": "Write a short, warm, personal note to each one. Name the gathering loosely and say what you like about it; never give a date, time, price or address. Be plain and respectful: never comment on belief, practice or teaching, and never use spiritual language of your own. End that opening with an exclamation mark. Then, in a new paragraph, say: \"I'm Daniel, founder of Frequency, a free way for neighbors to find local, in-person gatherings and the people who hold them.\" and ask one easy question that fits them, such as whether they would like one place where the people who gather can find each other."
+      }
+    }
+  },
+  "hunts": [
+    {
+      "name": "Spiritual communities that gather",
+      "looking_for": "Meditation groups, sanghas, circles and small congregations in North County San Diego with a regular gathering open to newcomers",
+      "region": "north-county-sd",
+      "max_sends": 10,
+      "every_days": 1
+    }
+  ]
+}
