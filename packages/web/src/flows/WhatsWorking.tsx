@@ -1,9 +1,11 @@
 // FW-C-072: what's working, from the flow's latest weekly review, in three or four plain lines. When there
 // is no review yet, or too few sent to judge, it says so instead of naming a winner.
-import { useId } from 'react';
+// FW-C-168: what the review proposes shows as cards the Owner accepts or declines one at a time.
+import { useId, useState } from 'react';
 import { api } from '../api/client';
 import { useResource } from '../api/resource';
-import type { ReviewDimension, ReviewSummary, ReviewValue } from '../api/types';
+import type { ReviewDimension, ReviewProposal, ReviewSummary, ReviewValue } from '../api/types';
+import { Button } from '../ui-kit/Button';
 import { IconTile } from '../ui-kit/flow';
 import { AsOf, ResourceView } from '../ui-kit/honest';
 
@@ -103,6 +105,74 @@ function Body({ s }: { s: ReviewSummary }) {
   );
 }
 
+function evidenceOf(p: ReviewProposal): string {
+  const hunts = p.evidence.hunts.map((h) => `${h.name}: ${h.responded} of ${h.sent} sent responded`);
+  const pooled = p.evidence.pooled_rate;
+  return `${hunts.join('; ')}.${pooled === null ? '' : ` Across hunts: ${Math.round(pooled * 100)}%.`}`;
+}
+
+/** The review's open proposals. Accept changes only hunts (a pause, or sends moved between them). */
+function Proposals({ flow }: { flow: string }) {
+  const res = useResource(`review-proposals:${flow}`, () => api.reviewProposals(flow), ['runs']);
+  const [busy, setBusy] = useState(false);
+  const [done, setDone] = useState<string[]>([]);
+  const [said, setSaid] = useState('');
+  const open = (res.data?.proposals ?? []).filter((p) => p.state === 'open' && !done.includes(p.id));
+  const decide = async (p: ReviewProposal, decision: 'accept' | 'decline') => {
+    setBusy(true);
+    setSaid('');
+    try {
+      await api.decideProposal(flow, p.id, decision, () =>
+        setSaid('Sent to your Mac. Waiting for it to answer.'),
+      );
+      setDone((d) => [...d, p.id]);
+      setSaid(
+        decision === 'accept'
+          ? 'Accepted. The next run uses it.'
+          : 'Declined. It will not come up again for 30 days.',
+      );
+      res.reload();
+    } catch (e) {
+      setSaid(`That did not go through: ${(e as Error).message}`);
+    } finally {
+      setBusy(false);
+    }
+  };
+  if (open.length === 0 && !said) return null;
+  return (
+    <div className="review-cards">
+      {open.length > 0 && <h3>The review suggests</h3>}
+      {open.map((p) => (
+        <article key={p.id} className="review-card" aria-label={p.text}>
+          <p>{p.text}</p>
+          <p className="muted small">{evidenceOf(p)}</p>
+          <div className="review-card-actions">
+            <Button
+              className="btn-small"
+              variant="primary"
+              disabled={busy}
+              onClick={() => void decide(p, 'accept')}
+            >
+              Accept
+            </Button>
+            <Button
+              className="btn-small"
+              variant="quiet"
+              disabled={busy}
+              onClick={() => void decide(p, 'decline')}
+            >
+              Decline
+            </Button>
+          </div>
+        </article>
+      ))}
+      <p className="muted small" role="status">
+        {said}
+      </p>
+    </div>
+  );
+}
+
 /** What's working for one flow, from its latest weekly review. */
 export function WhatsWorking({ flow }: { flow: string }) {
   const res = useResource(`review-summary:${flow}`, () => api.reviewSummary(flow), ['runs']);
@@ -119,6 +189,7 @@ export function WhatsWorking({ flow }: { flow: string }) {
       <ResourceView res={res} what="the weekly review">
         {(s) => <Body s={s} />}
       </ResourceView>
+      <Proposals flow={flow} />
     </section>
   );
 }

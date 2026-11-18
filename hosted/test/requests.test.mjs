@@ -400,3 +400,17 @@ test('the "How I write" note travels as a flow.edit for every flow and lands on 
   assert.equal(fwdCallFor({ ...req, payload: { voice: { note: 'A \u2014 B' } } }), null);
   assert.equal(fwdCallFor({ ...req, flow: 'neighborhood-activation' }), null);
 });
+
+test('a review decision travels as a flow.edit and lands on the proposal it names', () => {
+  const COPY = 'neighborhood-activation--coaches-guides';
+  const path = `/flows/${COPY}/review/proposals/shf_0123456789ab`;
+  const req = requestOf('POST', path, { decision: 'accept', extra: 'dropped' });
+  assert.equal(req.kind, 'flow.edit');
+  assert.equal(req.flow, COPY);
+  assert.deepEqual(req.payload, { review_decision: { id: 'shf_0123456789ab', decision: 'accept' } });
+  assert.deepEqual(fwdCallFor(req), { method: 'POST', path, body: { decision: 'accept' } });
+  assert.equal(requestOf('GET', path, {}), null);
+  assert.ok(requestOf('POST', path, { decision: 'send' }).error);
+  assert.ok(requestOf('POST', `/flows/${COPY}/review/proposals/..`, { decision: 'accept' }).error);
+  assert.equal(fwdCallFor({ ...req, payload: { review_decision: { id: 'x', decision: 'accept' } } }), null);
+});

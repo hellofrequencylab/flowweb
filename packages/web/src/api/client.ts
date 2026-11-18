@@ -884,6 +884,17 @@ export const api = {
     return { data_as_of: e.as_of, ...e.data };
   },
 
+  /** FW-C-168: the weekly review's proposals. A fwd or mirror without them reads as none. */
+  async reviewProposals(key: string): Promise<V.ReviewProposals> {
+    const e = await get<Partial<V.ReviewProposals>>(`/flows/${enc(key)}/review/proposals`);
+    return { data_as_of: e.as_of, flow: key, proposals: e.data?.proposals ?? [] };
+  },
+  /** FW-C-168: accept or decline one proposal. On the live site it is queued for the Owner's Mac. */
+  decideProposal(key: string, id: string, decision: 'accept' | 'decline', onQueued?: () => void) {
+    const path = `/flows/${enc(key)}/review/proposals/${enc(id)}`;
+    return ownerWrite<V.ReviewProposal>('POST', path, { decision }, onQueued);
+  },
+
   /** FW-C-105: the flow's Today list, ranked and cut at the day's size. */
   async flowToday(key: string): Promise<V.TodayList> {
     const e = await get<Partial<Omit<V.TodayList, 'data_as_of'>>>(`/flows/${enc(key)}/today`);

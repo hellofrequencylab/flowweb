@@ -24,6 +24,7 @@ import * as adsPull from '../flows/paid-ads-ga4.ts';
 import { listProfiles } from '../flows/profiles.ts';
 import { ReplyError, type ReplyResult } from '../flows/reply-helper.ts';
 import * as review from '../flows/review.ts';
+import { decideProposal, proposalsOf } from '../flows/review-proposals.ts';
 import { reviewSummary } from '../flows/review-summary.ts';
 import { type BatchResult, dueTouches, loadSequence } from '../flows/sequence.ts';
 import * as targeting from '../flows/targeting.ts';
@@ -987,6 +988,31 @@ export function buildRouter(deps: ApiDeps): Router {
       return env(() => ({ data }));
     } catch (e) {
       throw draftError(e);
+    }
+  });
+  // FW-C-168: the weekly review's proposals, for the flow or one of its copies. Accept applies the shift as
+  // the review's own code does; decline keeps it from being raised again for 30 days. Owner only to decide.
+  const reviewHome = (key = '') => {
+    const ref = flowRef(deps.fwHome, key);
+    const known = !ref.copy || readSettings(reader).flows[key]?.copy_of === ref.base;
+    if (!known || ref.base !== neighborhoodActivation.FLOW_KEY) throw notFound('flow', key);
+    return ref.home;
+  };
+  r.get('/v1/flows/{key}/review/proposals', ({ params }) =>
+    env(() => ({ data: { flow: params.key ?? '', proposals: proposalsOf(reviewHome(params.key)) } })),
+  );
+  r.post('/v1/flows/{key}/review/proposals/{id}', async ({ req, params }) => {
+    ownerOnly(req);
+    const home = reviewHome(params.key);
+    const { decision } = await readJsonBody(req);
+    if (decision !== 'accept' && decision !== 'decline')
+      throw new ApiError(400, 'validation_failed', 'decision must be accept or decline');
+    try {
+      const data = decideProposal(home, params.id ?? '', decision);
+      return env(() => ({ data }));
+    } catch (e) {
+      if (!(e instanceof review.ReviewError)) throw e;
+      throw new ApiError(e.status, e.status === 404 ? 'not_found' : 'conflict', e.message);
     }
   });
   // FW-C-105: Today, the ranked list of the morning's actions. Owner only, like the drafts it holds.

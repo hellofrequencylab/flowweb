@@ -181,6 +181,14 @@ function editPayload(b) {
   return Object.keys(payload).length ? { payload } : { error: 'give a name or a note' };
 }
 
+/** FW-C-168: one decision on a weekly review proposal: which one, and accept or decline. */
+function decisionPayload(b) {
+  const ok = b && typeof b === 'object' && /^shf_[0-9a-f]{12}$/.test(b.id ?? '');
+  if (!ok) return { error: 'unknown proposal' };
+  if (b.decision !== 'accept' && b.decision !== 'decline') return { error: 'decision must be accept or decline' };
+  return { payload: { id: b.id, decision: b.decision } };
+}
+
 /**
  * FW-C-156: a targeting edit: playbook lines, the line before the link, and each niche's angles. Only the
  * shape and the sizes are checked here; fwd checks the rest and is the one that saves.
@@ -390,6 +398,14 @@ export function requestOf(method, path, body) {
     const t = targetingPayload(b);
     return t.error ? t : { kind: 'flow.edit', flow: targeting[1], draft_id: null, payload: { targeting: t.payload } };
   }
+  // FW-C-168: accept or decline one proposal of the weekly review. It rides flow.edit like targeting does.
+  const decide = /^\/flows\/([^/]+)\/review\/proposals\/([^/]+)$/.exec(path);
+  if (decide) {
+    if (method !== 'POST') return null;
+    if (!FLOW.test(decide[1])) return { error: 'unknown flow' };
+    const d = decisionPayload({ id: decide[2], decision: b?.decision });
+    return d.error ? d : { kind: 'flow.edit', flow: decide[1], draft_id: null, payload: { review_decision: d.payload } };
+  }
   const admin = /^\/supervisor\/flows\/([^/]+)\/(edit|archive|restore)$/.exec(path);
   if (admin) {
     if (method !== 'POST') return null;
@@ -528,6 +544,12 @@ export function fwdCallFor(req) {
   if (kind === 'flow.edit' && p.targeting !== undefined) {
     const t = targetingPayload(p.targeting);
     return t.error ? null : { method: 'POST', path: `/flows/${f}/targeting`, body: t.payload };
+  }
+  if (kind === 'flow.edit' && p.review_decision !== undefined) {
+    const d = decisionPayload(p.review_decision);
+    return d.error
+      ? null
+      : { method: 'POST', path: `/flows/${f}/review/proposals/${d.payload.id}`, body: { decision: d.payload.decision } };
   }
   if (kind === 'flow.edit') {
     const e = editPayload(p);

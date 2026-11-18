@@ -807,6 +807,22 @@ export interface ReviewSummary extends Envelope {
   learnings: string[];
 }
 
+/** FW-C-168: one thing the weekly review proposes, for the Owner to accept or decline. */
+export interface ReviewProposal {
+  id: string;
+  kind: 'pause' | 'move';
+  text: string;
+  evidence: {
+    pooled_rate: number | null;
+    hunts: { name: string; sent: number; responded: number; from: number | null; to: number | null }[];
+  };
+  state: 'open' | 'accepted' | 'declined';
+}
+export interface ReviewProposals extends Envelope {
+  flow: string;
+  proposals: ReviewProposal[];
+}
+
 /* ---------- Settings / policy ---------- */
 
 export interface PolicyFile extends Envelope {

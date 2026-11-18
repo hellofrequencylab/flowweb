@@ -27,6 +27,7 @@ import {
   setStreamCatchUp,
 } from '@fw/ledger';
 import { type InjectedCredentials, injectCredentials, redactLiterals } from '../creds/index.ts';
+import { anglePlanRule, writeAnglePlan } from '../flows/angle-plan.ts';
 import { checkDraft, type GateCtx, gateFields } from '../flows/draft-gate.ts';
 import { readFacts, refreshFactsIfDue } from '../flows/facts.ts';
 import {
@@ -441,6 +442,7 @@ async function runCycle(d: CycleDeps, fire: CycleFire): Promise<void> {
   const draftIds: string[] = [];
   let hunts: Hunt[] = [];
   let known = 0;
+  let angles = 0;
   let huntCounts: Record<string, HuntCounts> | null = null;
   let creds: InjectedCredentials | null = null;
   try {
@@ -465,6 +467,8 @@ async function runCycle(d: CycleDeps, fire: CycleFire): Promise<void> {
       known = list.length;
       if (known > 0) writeJsonAtomic(join(dir, KNOWN_FILE), { known: list });
       else rmSync(join(dir, KNOWN_FILE), { force: true });
+      // FW-C-168: two angles per niche to alternate this run, so the review can compare them.
+      if (hunts.length > 0) angles = writeAnglePlan(dir, join(d.fwHome, 'flows', fire.flow), d.log);
     }
     // FW-C-057: the agent starts from what the last review learned, while that review is fresh.
     const learned = freshLearnings(d.fwHome, fire.flow);
@@ -509,7 +513,7 @@ async function runCycle(d: CycleDeps, fire: CycleFire): Promise<void> {
         funnelNames(dir),
         learned !== null,
         audienceOf(dir),
-        [...huntRules(dir), ...knownRule(known)],
+        [...huntRules(dir), ...knownRule(known), ...anglePlanRule(angles)],
         playbookOf(dir),
         voiceBlock(owner(d, fire).fwHome),
       ),
