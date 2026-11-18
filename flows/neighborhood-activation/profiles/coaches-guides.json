@@ -1,0 +1,103 @@
+{
+  "version": 1,
+  "slug": "coaches-guides",
+  "name": "Frequency Coaches and Guides",
+  "note": "Finds coaches, healers and guides who already bring people together, and drafts one note each. Draft only.",
+  "config": {
+    "offer": {
+      "pitch": "A free page, calendar and contact list for coaches and guides, in the town where they work.",
+      "call_to_action": "Put your next session on the calendar"
+    },
+    "niches": [
+      {
+        "key": "coaching",
+        "label": "Life, health and wellness coaches",
+        "angles": [
+          {
+            "key": "scattered",
+            "line": "Bookings, client notes and follow-ups live in three different places."
+          },
+          {
+            "key": "fill_room",
+            "line": "Filling a workshop takes more than one post."
+          },
+          {
+            "key": "come_back",
+            "line": "People come to one session and there is no easy way to invite them back."
+          }
+        ]
+      },
+      {
+        "key": "healing",
+        "label": "Healers, bodywork and somatic practitioners",
+        "angles": [
+          {
+            "key": "own_page",
+            "line": "Your sessions live on someone else's booking page, not one of your own."
+          },
+          {
+            "key": "come_back",
+            "line": "People come once and there is no easy way to invite them back."
+          },
+          {
+            "key": "scattered",
+            "line": "Your people are spread across Instagram, text threads and email."
+          }
+        ]
+      },
+      {
+        "key": "guides",
+        "label": "Breathwork, meditation, retreat and ceremony guides",
+        "angles": [
+          {
+            "key": "fill_room",
+            "line": "Filling a circle or a retreat takes more than one post."
+          },
+          {
+            "key": "come_back",
+            "line": "After a circle ends there is no easy way to gather the same people again."
+          },
+          {
+            "key": "fees",
+            "line": "Ticket and platform fees eat into every gathering."
+          }
+        ]
+      }
+    ],
+    "dm_door": {
+      "path": "/for/coaches-and-healers"
+    },
+    "funnels": {
+      "host": {
+        "path": "/for/coaches-and-healers",
+        "persona": "practitioner"
+      }
+    },
+    "hunts": {
+      "audience": {
+        "focus": [],
+        "steer_away": []
+      },
+      "link_line": "If you'd like a free page for your practice on Frequency, start here:",
+      "playbook": {
+        "seek": "Who to find: coaches, healers and guides who work in person in the region and already bring people together: life, health and wellness coaches, breathwork and meditation guides, somatic and bodywork practitioners, sound healers, retreat and ceremony leaders, doulas and nutrition coaches. Keep one only when a public page shows they host something for a group: a workshop, a circle, a group program, a retreat or a regular group session. Skip anyone who only works one to one.",
+        "signals": "Strong signs, best first: a dated group offering in the next 60 days; a recurring circle or class with its own name; they teach at two or more local studios or rooms; their booking link goes to a general tool such as Calendly, Acuity or a ticket site, which means no home of their own; a newsletter sign-up or a line such as \"join my community\"; a named town or neighborhood on the page. Weak signs: a site that has not changed in a year, or no place name anywhere.",
+        "where": "Where to look: the person's own website, single workshop or circle pages on Eventbrite, Meetup and Luma, the teachers and practitioners pages of studios and wellness centers, and local wellness directories.",
+        "queries": "Searches that work: \"<town> breathwork circle\", \"<town> women's circle\", \"<town> sound bath facilitator\", \"<town> life coach workshop\", \"<town> somatic workshop\", \"<town> meditation group\", \"<town> retreat leader\", \"<town> doula class\", \"<studio name> teachers\". Use each area's own town names.",
+        "skip": "Skip national coaching brands, online-only programs, anyone whose main offer is a certification or a course for other coaches, and medical or licensed therapy practices.",
+        "rank": "Order leads.json best first, because only the first few are kept: a solo coach or guide with an upcoming group date and a listed email comes first, then one with a recurring group and a contact form, then the rest. One lead per person, even when they host several things.",
+        "record": "In leads.json the event is the group thing they host: event.title is its name or what kind of thing it is, event.url is the public page that shows it, and starts_at may be empty. The organizer is the coach or guide.",
+        "note": "Write a short, warm, personal note to each one. Name their practice or the thing they host loosely and say what you like about it; never give a date, time, price or place, and never describe a client, a result or a health claim. End that opening with an exclamation mark. Then, in a new paragraph, say: \"I'm Daniel, founder of Frequency, a free way for people nearby to find local, in-person gatherings and the people who lead them.\" and ask one easy question that fits them, such as whether they would like their next workshop where people nearby can find it."
+      }
+    }
+  },
+  "hunts": [
+    {
+      "name": "Coaches and guides who host",
+      "looking_for": "Coaches, healers and guides in North County San Diego with a public workshop, circle, group program or retreat page",
+      "region": "north-county-sd",
+      "max_sends": 10,
+      "every_days": 1
+    }
+  ]
+}

@@ -1,0 +1,103 @@
+{
+  "version": 1,
+  "slug": "local-businesses",
+  "name": "Frequency Local Businesses",
+  "note": "Finds independent local businesses that host or back community gatherings, and drafts one note each. Draft only.",
+  "config": {
+    "offer": {
+      "pitch": "A free page and calendar for a local business and the gatherings it hosts, so regulars can find what is on.",
+      "call_to_action": "Put what you host where neighbors can see it"
+    },
+    "niches": [
+      {
+        "key": "cafe-food",
+        "label": "Cafes, tea houses, breweries and tasting rooms",
+        "angles": [
+          {
+            "key": "quiet_nights",
+            "line": "A slow night is a night a gathering could fill."
+          },
+          {
+            "key": "regulars",
+            "line": "Regulars come in and there is no way to reach them afterward."
+          },
+          {
+            "key": "host_club",
+            "line": "The club that meets at your place has no home online."
+          }
+        ]
+      },
+      {
+        "key": "retail",
+        "label": "Bookstores, plant, record, game and craft shops",
+        "angles": [
+          {
+            "key": "host_club",
+            "line": "The club or class that meets at your shop has no home online."
+          },
+          {
+            "key": "regulars",
+            "line": "Regulars come in and there is no way to reach them afterward."
+          },
+          {
+            "key": "one_calendar",
+            "line": "What you host is spread across a window poster and a few posts."
+          }
+        ]
+      },
+      {
+        "key": "fitness-outdoor",
+        "label": "Climbing and movement gyms, run, bike and surf shops",
+        "angles": [
+          {
+            "key": "host_club",
+            "line": "The run or ride that leaves from your door has no home online."
+          },
+          {
+            "key": "regulars",
+            "line": "People show up for the group and there is no way to reach them afterward."
+          },
+          {
+            "key": "one_calendar",
+            "line": "What you host is spread across a whiteboard and a few posts."
+          }
+        ]
+      }
+    ],
+    "dm_door": {
+      "path": "/for/local-businesses"
+    },
+    "funnels": {
+      "host": {
+        "path": "/for/local-businesses",
+        "persona": "partner"
+      }
+    },
+    "hunts": {
+      "audience": {
+        "focus": [],
+        "steer_away": []
+      },
+      "link_line": "If you'd like a free page for your business on Frequency, start here:",
+      "playbook": {
+        "seek": "Who to find: independent local businesses in the region that already act like a community room: cafes and tea houses, bookstores, plant, record, game and craft shops, climbing and movement gyms, run, bike and surf shops, breweries and tasting rooms, farm stands and markets. Keep one only when a public page shows it hosts or backs something local: a run club, an open mic, a game night, a book club, a class, a pop-up market, or an events page or community board of its own.",
+        "signals": "Strong signs, best first: an events or community page on its own site with something in the next 60 days; a named weekly or monthly gathering that meets there, such as a run club, a game night or an open mic; a club or group it sponsors by name; a community board, a workshop list or a \"host your event here\" line; an owner or manager named on the page. Weak signs: only sales and specials, or a single location of a chain.",
+        "where": "Where to look: the business's own website and events page, city and chamber of commerce calendars, downtown and business association listings, and local news roundups of things to do.",
+        "queries": "Searches that work: \"<town> run club meets at\", \"<town> cafe open mic\", \"<town> bookstore book club\", \"<town> game store game night\", \"<town> brewery trivia community night\", \"<town> plant shop workshop\", \"<town> climbing gym community night\", \"<town> surf shop meetup\", \"<town> downtown association events\". Use each area's own town names.",
+        "skip": "Skip national chains and franchises, businesses with no sign of hosting anything, and anything that is only a sale, a happy hour or a promotion.",
+        "rank": "Order leads.json best first, because only the first few are kept: an independent business with a named recurring gathering and a listed email comes first, then one with an events page and a contact form, then the rest. One lead per business, addressed to the owner or manager when the page names them.",
+        "record": "In leads.json the event is the thing they host: event.title is its name or what kind of thing it is, event.url is the public page that shows it, and starts_at may be empty. The organizer is the business, with the owner's or manager's name when the page gives it.",
+        "note": "Write a short, warm, personal note to each one. Name the thing they host loosely and say what you like about a business that makes room for it; never give a date, time, price or address, and never comment on how busy they are. End that opening with an exclamation mark. Then, in a new paragraph, say: \"I'm Daniel, founder of Frequency, a free way for neighbors to find local, in-person gatherings and the places that hold them.\" and ask one easy question that fits them, such as whether they would like what they host on a calendar neighbors read."
+      }
+    }
+  },
+  "hunts": [
+    {
+      "name": "Businesses that host the community",
+      "looking_for": "Independent businesses in North County San Diego that host or back a run club, open mic, game night, book club, class or market",
+      "region": "north-county-sd",
+      "max_sends": 10,
+      "every_days": 1
+    }
+  ]
+}

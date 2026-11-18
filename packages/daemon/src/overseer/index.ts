@@ -9,10 +9,12 @@ import { join } from 'node:path';
 import type { ActorKind, Reader, Writer } from '@fw/eventlog';
 import { ownerActor, setStreamCron } from '@fw/ledger';
 import * as hostMoments from '../flows/host-moments.ts';
+import { HUNTS_FLOW, type Hunt, newHunt, saveHunts } from '../flows/hunts.ts';
 import { type FunnelsView, funnelsView } from '../flows/live-links.ts';
 import * as localPulse from '../flows/local-pulse.ts';
 import { loadFlow as loadLocalSaturation } from '../flows/local-saturation.ts';
 import * as neighborhood from '../flows/neighborhood-activation.ts';
+import { loadProfile, mergeProfile } from '../flows/profiles.ts';
 import { registerFlowProjects } from '../flows/projects.ts';
 import type { OnFire } from '../scheduler/index.ts';
 import { type FlowAi, writeFlowAi } from './ai.ts';
@@ -716,6 +718,8 @@ export function setFunnelsLive(w: Writer, live: unknown) {
 /**
  * FW-C-121: the Owner copies a shipped flow. Body { slug?, name?, note?, config? }: slug defaults to the next
  * free number from 2; config is a shallow patch over the base flow's config. The copy starts off, at draft.
+ * FW-C-152: { profile } names a shipped preset (flows/<base>/profiles/<slug>.json) whose slug, name, note,
+ * config and starter hunts the copy takes; the Owner's own slug, name, note and config still win.
  */
 export function copyFlow(
   w: Writer,
@@ -733,6 +737,13 @@ export function copyFlow(
       'INVALID',
       `${base} runs fixed templates or one shared queue, so it has no copies`,
     );
+  let profile: ReturnType<typeof loadProfile> = null;
+  if (body.profile !== undefined && body.profile !== null && body.profile !== '') {
+    profile = typeof body.profile === 'string' ? loadProfile(repoRoot, base, body.profile) : null;
+    if (!profile)
+      throw new SupervisorError('INVALID', `${base} has no profile named ${String(body.profile)}`);
+    body = { slug: profile.slug, name: profile.name, note: profile.note || undefined, ...body };
+  }
   const taken = new Set(Object.keys(readSettings(w).flows));
   let slug = body.slug;
   if (slug === undefined || slug === null || slug === '') {
@@ -754,10 +765,28 @@ export function copyFlow(
     if (!t) throw new SupervisorError('INVALID', `${field} must be text of 1 to ${max} characters`);
     fields[field] = t;
   }
-  const cfg = copyConfig(repoRoot, fwHome, base, body.config);
+  let patch = body.config;
+  if (profile) {
+    const start = copyConfig(repoRoot, fwHome, base, undefined);
+    if ('error' in start) throw new SupervisorError('INVALID', start.error);
+    const merged = mergeProfile(start.config, profile.config);
+    const own = patch && typeof patch === 'object' && !Array.isArray(patch) ? patch : {};
+    patch = { ...Object.fromEntries(Object.keys(profile.config).map((k) => [k, merged[k]])), ...own };
+  }
+  const cfg = copyConfig(repoRoot, fwHome, base, patch);
   if ('error' in cfg) throw new SupervisorError('INVALID', cfg.error);
   if (taken.has(key)) throw new SupervisorError('CONFLICT', `${key} exists already`);
+  // The profile's starter hunts, checked against the copy's own regions before anything is written.
+  let hunts: Hunt[] = [];
+  if (profile && base === HUNTS_FLOW)
+    try {
+      const now = new Date();
+      hunts = profile.hunts.map((h) => newHunt(cfg.config as unknown as neighborhood.FlowConfig, h, now));
+    } catch (e) {
+      throw new SupervisorError('INVALID', `profile ${profile.slug}: ${(e as Error).message}`);
+    }
   writeCopyConfig(fwHome, key, cfg.config);
+  if (hunts.length > 0) saveHunts(flowRef(fwHome, key).home, hunts);
   const out = change(w, { flow: key, copy_of: base }, (s) => {
     if (s.flows[key]) return false;
     s.flows[key] = { enabled: false, dial: 'draft', ...fields, copy_of: base };

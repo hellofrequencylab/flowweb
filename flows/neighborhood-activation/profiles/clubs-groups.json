@@ -1,0 +1,85 @@
+{
+  "version": 1,
+  "slug": "clubs-groups",
+  "name": "Frequency Clubs and Groups",
+  "note": "Finds the people who run local clubs and recurring groups, and drafts one note each. Draft only. Ships off.",
+  "config": {
+    "offer": {
+      "pitch": "A free home for a club or group: one page, one calendar and one list of members, in the town where it meets.",
+      "call_to_action": "Give your group a home"
+    },
+    "niches": [
+      {
+        "key": "active",
+        "label": "Run, hike, bike, surf, swim and outdoor clubs",
+        "angles": [
+          {
+            "key": "admin",
+            "line": "The group text, the sign-up sheet and the route all live in different places."
+          },
+          {
+            "key": "come_back",
+            "line": "New people show up once and never hear about the next one."
+          },
+          {
+            "key": "own_page",
+            "line": "The club has no home of its own outside a social feed."
+          }
+        ]
+      },
+      {
+        "key": "social",
+        "label": "Book, game, supper, craft and hobby clubs",
+        "angles": [
+          {
+            "key": "admin",
+            "line": "Keeping the list, the dates and the reminders going eats the fun."
+          },
+          {
+            "key": "fill_room",
+            "line": "Getting enough people to the next one takes more than one post."
+          },
+          {
+            "key": "own_page",
+            "line": "The club has no home of its own outside a group chat."
+          }
+        ]
+      }
+    ],
+    "dm_door": {
+      "path": "/for/clubs-and-groups"
+    },
+    "funnels": {
+      "host": {
+        "path": "/for/clubs-and-groups",
+        "persona": "practitioner"
+      }
+    },
+    "hunts": {
+      "audience": {
+        "focus": [],
+        "steer_away": []
+      },
+      "link_line": "If you'd like a free home for your group on Frequency, start here:",
+      "playbook": {
+        "seek": "Who to find: the people who run local clubs and recurring groups in the region: run, hike, bike, surf and swim clubs, book clubs, board game and tabletop groups, supper clubs, knitting and craft circles, garden clubs, language exchanges, photography and car clubs, and new-in-town social groups. Keep one only when a public page shows it meets in person on a regular rhythm and is open to new people.",
+        "signals": "Strong signs, best first: a regular meeting day and place named on a public page; a line welcoming newcomers; an organizer named with a contact; a group that has clearly been running for months; a group whose only home is a general listing site or a free page. Weak signs: a group with no meeting ahead, or one closed to new members.",
+        "where": "Where to look: club websites, Meetup group pages, city, library and recreation calendars, the community pages of local shops that host clubs, and local news roundups of things to do.",
+        "queries": "Searches that work: \"<town> run club\", \"<town> hiking group\", \"<town> book club new members\", \"<town> board game night group\", \"<town> supper club\", \"<town> knitting circle\", \"<town> garden club\", \"<town> language exchange\", \"<town> new in town social group\". Use each area's own town names.",
+        "skip": "Skip paid membership gyms, national organizations' head offices, singles and dating events, multi-level sales groups, and private clubs closed to new members.",
+        "rank": "Order leads.json best first, because only the first few are kept: a club with a regular open meeting and an organizer's listed email comes first, then one with a group page and a message route, then the rest. One lead per club, addressed to the person who runs it when the page names them.",
+        "record": "In leads.json the event is the club's regular meeting: event.title is the club's name, event.url is the public page that shows when it meets, and starts_at may be empty. The organizer is whoever runs the club.",
+        "note": "Write a short, warm, personal note to each one. Name the club loosely and say what you like about it; never give a date, time, price or address, and never comment on how many people come. End that opening with an exclamation mark. Then, in a new paragraph, say: \"I'm Daniel, founder of Frequency, a free way for neighbors to find local, in-person gatherings and the people who hold them.\" and ask one easy question that fits them, such as whether they would like the club where neighbors who are into the same thing can find it."
+      }
+    }
+  },
+  "hunts": [
+    {
+      "name": "Clubs and recurring groups",
+      "looking_for": "Clubs and recurring groups in North County San Diego that meet in person on a regular rhythm and welcome new people",
+      "region": "north-county-sd",
+      "max_sends": 10,
+      "every_days": 1
+    }
+  ]
+}

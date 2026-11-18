@@ -1,0 +1,85 @@
+{
+  "version": 1,
+  "slug": "networks",
+  "name": "Frequency Networks and Chapters",
+  "note": "Finds groups with local chapters and the people who lead a chapter here, and drafts one note each. Draft only. Ships off.",
+  "config": {
+    "offer": {
+      "pitch": "A free page for each chapter of a group, with its own calendar and members, all connected to the whole.",
+      "call_to_action": "Give every chapter its own circle"
+    },
+    "niches": [
+      {
+        "key": "chapter",
+        "label": "Local chapters of a wider group",
+        "angles": [
+          {
+            "key": "own_page",
+            "line": "Your chapter is one line on the national site, with no page of its own."
+          },
+          {
+            "key": "scattered",
+            "line": "Chapter news goes out by a spreadsheet and a group email."
+          },
+          {
+            "key": "come_back",
+            "line": "A guest comes to one meeting and never hears about the next."
+          }
+        ]
+      },
+      {
+        "key": "regional",
+        "label": "Regional groups with several local chapters",
+        "angles": [
+          {
+            "key": "connected",
+            "line": "Each chapter runs on its own tools and none of them connect."
+          },
+          {
+            "key": "one_calendar",
+            "line": "There is no one calendar showing what every chapter is doing."
+          },
+          {
+            "key": "known",
+            "line": "Nobody can see who is active across chapters."
+          }
+        ]
+      }
+    ],
+    "dm_door": {
+      "path": "/for/networks"
+    },
+    "funnels": {
+      "host": {
+        "path": "/for/networks",
+        "persona": "partner"
+      }
+    },
+    "hunts": {
+      "audience": {
+        "focus": [],
+        "steer_away": []
+      },
+      "link_line": "If you'd like a free page for your chapter on Frequency, start here:",
+      "playbook": {
+        "seek": "Who to find: groups with chapters, and the people who lead a chapter in the region: professional and alumni associations, service clubs, hobby and maker networks, parent groups, women's and men's circles with several locations, mutual aid networks and regional clubs with town chapters. Use niche \"chapter\" for one local chapter and \"regional\" for a group whose own base is in the region and runs several.",
+        "signals": "Strong signs, best first: a chapter page that names local leaders and lists a meeting in the next 60 days; a chapter that meets on a regular rhythm in the region; a find-your-chapter page that points to a general listing site or a form; a regional group listing three or more town chapters. Weak signs: a chapter with no meetings listed, or a national body with its own member software.",
+        "where": "Where to look: the chapter's own page, the wider group's find-a-chapter page, Meetup group pages, city and chamber calendars, and library and community room calendars.",
+        "queries": "Searches that work: \"<town> chapter meeting\", \"<town> alumni chapter\", \"<town> service club meeting\", \"<town> professional association chapter\", \"<town> makers network\", \"<town> parents group chapter\", \"North County chapters\". Use each area's own town names.",
+        "skip": "Skip national head offices, political parties, trade unions, paid business-referral franchises and multi-level sales groups.",
+        "rank": "Order leads.json best first, because only the first few are kept: a local chapter with named leaders, a meeting ahead and a listed email comes first, then a regional group based here with several chapters and a contact form, then the rest. One lead per chapter or group, addressed to the person who runs it when the page names them.",
+        "record": "In leads.json the event is the chapter's regular meeting: event.title is the chapter's name, event.url is the public page that shows it, and starts_at may be empty. The organizer is the chapter lead, or the regional group's coordinator.",
+        "note": "Write a short, warm, personal note to each one. Name the chapter or the group loosely and say what you like about it; never give a date, time, price or address, and never comment on membership numbers. End that opening with an exclamation mark. Then, in a new paragraph, say: \"I'm Daniel, founder of Frequency, a free way for neighbors to find local, in-person gatherings and the people who hold them.\" and ask one easy question that fits them, such as whether they would like their chapter to have a page and calendar of its own that neighbors can find."
+      }
+    }
+  },
+  "hunts": [
+    {
+      "name": "Chapters and regional groups",
+      "looking_for": "Local chapters in North County San Diego with named leaders and regular meetings, and regional groups that run several chapters",
+      "region": "north-county-sd",
+      "max_sends": 10,
+      "every_days": 1
+    }
+  ]
+}

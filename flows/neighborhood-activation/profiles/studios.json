@@ -1,0 +1,85 @@
+{
+  "version": 1,
+  "slug": "studios",
+  "name": "Frequency Studios and Instructors",
+  "note": "Finds independent studios and the instructors who teach across them, and drafts one note each. Draft only. Ships off.",
+  "config": {
+    "offer": {
+      "pitch": "A free page, class calendar and contact list for a studio or an instructor, in the town where they teach.",
+      "call_to_action": "Put your classes on the calendar"
+    },
+    "niches": [
+      {
+        "key": "studio",
+        "label": "Independent yoga, dance, fitness, martial arts and art studios",
+        "angles": [
+          {
+            "key": "teachers_alone",
+            "line": "Each teacher promotes their own class, alone."
+          },
+          {
+            "key": "come_back",
+            "line": "A first-timer takes one class and there is no easy way to bring them back."
+          },
+          {
+            "key": "fees",
+            "line": "Booking software takes a cut of every class."
+          }
+        ]
+      },
+      {
+        "key": "instructor",
+        "label": "Instructors who teach at several places",
+        "angles": [
+          {
+            "key": "own_page",
+            "line": "Your classes live on each studio's page, not one of your own."
+          },
+          {
+            "key": "scattered",
+            "line": "Your students are spread across three studios and a group text."
+          },
+          {
+            "key": "fill_room",
+            "line": "Filling a class every week takes more than one post."
+          }
+        ]
+      }
+    ],
+    "dm_door": {
+      "path": "/for/studios"
+    },
+    "funnels": {
+      "host": {
+        "path": "/for/studios",
+        "persona": "partner"
+      }
+    },
+    "hunts": {
+      "audience": {
+        "focus": [],
+        "steer_away": []
+      },
+      "link_line": "If you'd like a free page and class calendar on Frequency, start here:",
+      "playbook": {
+        "seek": "Who to find: independent studios in the region and the instructors who teach in them: yoga, pilates, dance, martial arts, movement, climbing, pottery, art and music studios with a public class schedule, and instructors whose own page lists classes at two or more places. Use niche \"studio\" for a studio and \"instructor\" for a person.",
+        "signals": "Strong signs, best first: a public weekly schedule with several teachers on it; an intro offer or a first-class-free line; workshops or series beyond the regular schedule; a teachers page with names; an instructor's own site listing where they teach this week. Weak signs: a schedule that has not changed in months, or a studio that is one location of a chain.",
+        "where": "Where to look: studio websites and their schedule, workshops and teachers pages, instructors' own websites, city recreation listings, and class pages on Eventbrite and Meetup.",
+        "queries": "Searches that work: \"<town> yoga studio schedule\", \"<town> dance studio adult classes\", \"<town> pilates studio\", \"<town> martial arts adult classes\", \"<town> pottery studio classes\", \"<town> yoga teacher classes\", \"<studio name> teachers\". Use each area's own town names.",
+        "skip": "Skip national chains and franchises, big-box gyms, kids-only programs, online-only studios and teacher trainings.",
+        "rank": "Order leads.json best first, because only the first few are kept: an independent studio with several teachers on a live schedule and a listed email comes first, then an instructor who teaches at two or more places and lists a contact, then the rest. One lead per studio or instructor, addressed to the person who runs it when the page names them.",
+        "record": "In leads.json the event is their class offering: event.title is the studio's name or the kind of class, event.url is the public schedule or classes page, and starts_at may be empty. The organizer is the studio owner or the instructor.",
+        "note": "Write a short, warm, personal note to each one. Name the studio or the kind of class they teach loosely and say what you like about it; never give a date, time, price or address, and never comment on how full a class is. End that opening with an exclamation mark. Then, in a new paragraph, say: \"I'm Daniel, founder of Frequency, a free way for neighbors to find local, in-person gatherings and the people who hold them.\" and ask one easy question that fits them, such as whether they would like their classes where people nearby can find them."
+      }
+    }
+  },
+  "hunts": [
+    {
+      "name": "Studios and instructors",
+      "looking_for": "Independent studios in North County San Diego with a public class schedule, and instructors who teach at two or more local places",
+      "region": "north-county-sd",
+      "max_sends": 10,
+      "every_days": 1
+    }
+  ]
+}
