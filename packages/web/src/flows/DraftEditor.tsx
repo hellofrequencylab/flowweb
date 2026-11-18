@@ -38,6 +38,8 @@ export function DraftEditor({
   const [copied, setCopied] = useState(false);
   // FW-C-163: after Copy and send, the draft asks whether it went, so marking it is one tap.
   const [asking, setAsking] = useState(false);
+  // The same message as a plain link, shown after the press in case the browser blocked the new tab.
+  const [mailLink, setMailLink] = useState<string | null>(null);
   const [mail, setMail] = useState<MailApp>(readMailApp);
   const to = mailAddress(draft);
 
@@ -137,14 +139,19 @@ export function DraftEditor({
   // FW-C-163: with an address, the same press also starts the message in the Owner's own mail, filled in.
   // He still presses send there; FlowWeb sends nothing.
   const copyToSend = async () => {
-    const ok = await copy();
-    if (to) {
+    // The copy starts and the message opens inside the press itself. Opening it only after the copy
+    // finished let the browser treat it as a pop-up and block it without a word.
+    const copying = copy();
+    const url = to ? composeUrl(mail, to, draft.subject ?? '', draft.body) : null;
+    if (url) {
       try {
-        window.open(composeUrl(mail, to, draft.subject ?? '', draft.body), '_blank', 'noopener');
+        window.open(url, '_blank', 'noopener');
       } catch {
-        // A blocked pop-up leaves the copied text as the way to send.
+        // A blocked pop-up leaves the link below, and the copied text, as the way to send.
       }
     }
+    setMailLink(url);
+    const ok = await copying;
     if (!ok && !to) return;
     setNote({
       tone: 'ok',
@@ -267,6 +274,15 @@ export function DraftEditor({
           role={note.tone === 'fail' ? 'alert' : 'status'}
         >
           {note.text}
+        </p>
+      )}
+      {mailLink && !draft.sent_at && (
+        <p className="muted draft-status">
+          Nothing opened?{' '}
+          <a href={mailLink} target="_blank" rel="noopener noreferrer">
+            Open the message in {MAIL_NAME[mail]}
+          </a>
+          .
         </p>
       )}
 
