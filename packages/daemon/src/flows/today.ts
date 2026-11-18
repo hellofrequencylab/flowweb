@@ -235,6 +235,10 @@ export function todayView(o: { fwHome: string; flow: string; size: number; now?:
   const dnc = doNotContactList(o.fwHome, o.flow);
   let expired = 0;
   for (const d of readDrafts(join(base, 'drafts'))) {
+    // FW-C-155: a lead a hunt already drafted for is never asked about on its own, whatever became of
+    // the draft (sent, skipped, retired or aged off Today). Only people with no draft wait for a tap.
+    const found = text(d, 'hunt_id') ? leadOf(d) : undefined;
+    if (found) drafted.add(found.id);
     if (d.status !== 'waiting_for_owner') continue;
     if (text(d, 'sent_at') || text(d, 'replied_at') || text(d, 'declined_at')) continue;
     // FW-C-117: nobody on do-not-contact is offered, by address, page, lead or host.
