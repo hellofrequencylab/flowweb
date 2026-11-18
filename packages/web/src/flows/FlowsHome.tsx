@@ -12,6 +12,7 @@ import { Figures, PageHead, SectionHead } from '../ui-kit/page';
 import { clock, useNow } from '../ui-kit/time';
 import { stateOf } from './drafts';
 import { DIAL, flowSpec } from './flowState';
+import { MoreProfiles } from './MoreProfiles';
 import { liveFlows } from './visible';
 import './flows-home.css';
 
@@ -164,6 +165,8 @@ export function FlowsHome() {
         <SectionHead id="every-flow" title="Every flow" meta="Open a flow to tune it" />
         <EveryFlow sup={s} counts={c} loading={sup.honesty === 'loading'} />
       </section>
+
+      <MoreProfiles />
 
       <section className="flows-home-section" aria-label="What the flows are moving">
         <SectionHead title="What they are moving" />

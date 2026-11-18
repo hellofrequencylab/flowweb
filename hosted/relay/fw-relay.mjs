@@ -145,6 +145,9 @@ async function snapshot() {
       // FW-C-156: who the flow looks for and how its notes read. Only flows with hunts answer.
       const targeting = await fwd(`/flows/${encodeURIComponent(key)}/targeting`).catch(ifFound);
       if (targeting) put(`/flows/${key}/targeting`, targeting);
+      // FW-C-165: the built profiles of a flow and which are made. Only a flow that ships profiles answers.
+      const profiles = await fwd(`/flows/${encodeURIComponent(key)}/profiles`).catch(ifFound);
+      if (profiles) put(`/flows/${key}/profiles`, profiles);
       // FW-C-072: what's working, from the flow's latest weekly review. Older fwd builds answer 404.
       const summary = await fwd(`/flows/${encodeURIComponent(key)}/review/summary`).catch(ifFound);
       if (summary) put(`/flows/${key}/review/summary`, summary);

@@ -1183,6 +1183,20 @@ export const flowTargeting = {
     ownerWrite<Targeting>('POST', `/flows/${enc(flow)}/targeting`, edit, onQueued),
 };
 
+/** FW-C-165: a profile a flow ships; copy_key is the flow made from it, or null while it is not made. */
+export interface FlowProfile {
+  slug: string;
+  name: string;
+  note: string;
+  copy_key: string | null;
+}
+export const flowProfiles = {
+  list: async (flow: string) => (await get<FlowProfile[]>(`/flows/${enc(flow)}/profiles`)).data,
+  /** Makes the profile's flow. It starts off, on Draft, so nothing runs until the Owner turns it on. */
+  switchOn: (flow: string, profile: string, onQueued?: () => void) =>
+    ownerWrite<{ key?: string } | null>('POST', `/supervisor/flows/${enc(flow)}/copy`, { profile }, onQueued),
+};
+
 /** FW-C-092: what the AI console sends about the page, and what it gets back. */
 export interface ConsoleQuestion {
   question: string;

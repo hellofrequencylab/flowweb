@@ -158,6 +158,19 @@ test('FW-C-124: a flow copy carries only name, note and slug, and the relay maps
   assert.equal(requestOf('GET', '/supervisor/flows/paid-ads/copy', {}), null);
 });
 
+test('FW-C-165: a flow copy may name a built profile, and the relay carries it to fwd', () => {
+  const r = requestOf('POST', '/supervisor/flows/neighborhood-activation/copy', { profile: 'studios' });
+  assert.deepEqual(r, { kind: 'flow.copy', flow: 'neighborhood-activation', draft_id: null, payload: { profile: 'studios' } });
+  assert.deepEqual(fwdCallFor({ id: 'r1', ...r }), {
+    method: 'POST',
+    path: '/supervisor/flows/neighborhood-activation/copy',
+    body: { profile: 'studios' },
+  });
+  for (const profile of ['Bad Slug', '../studios', 'x'.repeat(31), 7])
+    assert.ok(requestOf('POST', '/supervisor/flows/neighborhood-activation/copy', { profile }).error);
+  assert.equal(fwdCallFor({ kind: 'flow.copy', flow: 'neighborhood-activation', payload: { profile: '../x' } }), null);
+});
+
 test('renaming an agent becomes team.edit with only name and voice, and the relay maps it back (FW-C-123)', () => {
   const r = requestOf('POST', '/team/frequency/ceo', { name: ' Nova ', other: 1 });
   assert.deepEqual(r, { kind: 'team.edit', flow: 'all', draft_id: null, payload: { team: 'frequency', role: 'ceo', name: 'Nova' } });

@@ -1,0 +1,37 @@
+{
+  "id": "FW-C-165",
+  "title": "Every flow can be edited on the site, and a built profile can be switched on there",
+  "core_milestone": "C1",
+  "phase": 1,
+  "epic": "C1.5 First flow",
+  "priority": "P1",
+  "size": "M",
+  "lane": "flows",
+  "agent_suitability": "agent",
+  "gate": "none",
+  "depends_on": [
+    "FW-C-156",
+    "FW-C-152"
+  ],
+  "description": "Daniel can edit who the three profile flows look for and how their notes read, but the main flow's page has no such editor, and five profiles that are built (studios, nonprofits, clubs and groups, spiritual, networks) cannot be made into flows from the site. Now the main flow's page shows the same editor as the profile flows, with one line saying the flow follows its built-in brief until the first two boxes, who to look for and how the note reads, are filled. The Flows page lists each built profile that is not a flow yet, with a Switch on button. Switching on makes the flow from that profile through the existing copy request, which now carries the profile; the new flow starts off, on Draft, so nothing runs until Daniel turns it on from its own card. fwd lists a flow's profiles at GET /v1/flows/{key}/profiles, each with the key of the flow made from it or null, and the relay mirrors that list to the site. No new request kind and no schema change. Draft only: nothing here sends.",
+  "acceptance": [
+    "On a fresh fwd, GET /v1/flows/neighborhood-activation/profiles lists every shipped profile with copy_key null",
+    "After a copy from the studios profile, the list marks studios with the new flow's key, and the new flow is off, on Draft",
+    "The site accepts POST /supervisor/flows/neighborhood-activation/copy with a profile as flow.copy, and the relay's call to fwd carries the profile",
+    "The main flow's page shows the editor for who it looks for and how the note reads",
+    "The Flows page shows a Switch on button for each profile not made yet, and pressing it posts the copy request with that profile"
+  ],
+  "verify_probe": "pnpm probe flows/edit-every-flow",
+  "files_hint": [
+    "packages/daemon/src/api/routes.ts",
+    "hosted/relay/fw-relay.mjs",
+    "hosted/server/requests.mjs",
+    "hosted/test/requests.test.mjs",
+    "packages/web/src/api/client.ts",
+    "packages/web/src/flows/ActivationPage.tsx",
+    "packages/web/src/flows/FlowsHome.tsx",
+    "packages/web/src/flows/MoreProfiles.tsx",
+    "packages/web/src/flows/TargetingEditor.tsx"
+  ],
+  "origin": "new Core row"
+}

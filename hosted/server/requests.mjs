@@ -241,6 +241,12 @@ function copyPayload(b) {
       return { error: 'slug must be lowercase letters and digits, with single dashes' };
     payload.slug = b.slug;
   }
+  // FW-C-165: a built profile to make the copy from. fwd checks that the flow ships it.
+  if (b.profile !== undefined && b.profile !== null && b.profile !== '') {
+    if (typeof b.profile !== 'string' || b.profile.length > 30 || !COPY_SLUG.test(b.profile))
+      return { error: 'profile must be lowercase letters and digits, with single dashes' };
+    payload.profile = b.profile;
+  }
   return { payload };
 }
 
