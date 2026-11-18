@@ -45,7 +45,9 @@ export function DraftEditor({
   const [mail, setMail] = useState<MailApp>(readMailApp);
   const to = mailAddress(draft);
   // FW-C-171: a draft with no email address goes through a contact form, a profile or a message page.
-  const page = !to && /^https?:\/\//i.test(draft.contact_url ?? '') ? (draft.contact_url as string) : null;
+  // An older draft has no contact page on record; the page its contact was found on stands in for it.
+  const web = [draft.contact_url, draft.source_url].find((u) => /^https?:\/\//i.test(u ?? '')) ?? null;
+  const page = to ? null : web;
   const pageHost = page ? hostOf(page) : '';
 
   const start = () => {
@@ -190,15 +192,42 @@ export function DraftEditor({
   const why = busy ?? (locked ? 'This draft is already in the outbox.' : null);
   return (
     <div className="draft-editor">
-      {!emailQueue && to && (
+      {!emailQueue && (
         <div className="draft-recipient">
           <span className="draft-recipient-to">
-            To <strong>{to}</strong>
+            {to ? (
+              <>
+                To <strong>{to}</strong>
+              </>
+            ) : page ? (
+              <>
+                No email address. Send it through <strong>{pageHost}</strong>
+              </>
+            ) : (
+              'No email address or page on record.'
+            )}
           </span>
-          <Button variant="quiet" onClick={() => copyPiece('address', to)}>
-            <Icon name={piece === 'address' ? 'check' : 'copy'} size={15} />{' '}
-            {piece === 'address' ? 'Copied address' : 'Copy address'}
-          </Button>
+          {to && (
+            <>
+              <Button variant="quiet" onClick={() => copyPiece('address', to)}>
+                <Icon name={piece === 'address' ? 'check' : 'copy'} size={15} />{' '}
+                {piece === 'address' ? 'Copied address' : 'Copy address'}
+              </Button>
+              <a
+                className="draft-recipient-open"
+                href={composeUrl(mail, to, draft.subject ?? '', draft.body)}
+                target="_blank"
+                rel="noopener noreferrer"
+              >
+                Open in {MAIL_NAME[mail]}
+              </a>
+            </>
+          )}
+          {page && (
+            <a className="draft-recipient-open" href={page} target="_blank" rel="noopener noreferrer">
+              Open their page
+            </a>
+          )}
           {draft.subject && (
             <Button variant="quiet" onClick={() => copyPiece('subject', draft.subject ?? '')}>
               <Icon name={piece === 'subject' ? 'check' : 'copy'} size={15} />{' '}
