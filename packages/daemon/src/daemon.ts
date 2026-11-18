@@ -323,7 +323,7 @@ export async function startDaemon(opts: DaemonOptions): Promise<Daemon> {
   const reviewNow = (flow?: string): void => {
     const tag = flow ? `review: ${flow}:` : 'review:';
     try {
-      const r = runReview({ reader: writer, repoRoot: REPO_ROOT, fwHome, flow });
+      const r = runReview({ reader: writer, repoRoot: REPO_ROOT, fwHome, ...(flow ? { flow } : {}) });
       log(
         `${tag} ${r.shifts.length} shift(s), ${r.auto_apply ? 'applied at Autopilot' : 'waiting for the Owner'}`,
       );
