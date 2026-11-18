@@ -4,7 +4,7 @@
     "profile": "core",
     "schema": "ledger-row/1",
     "generated": "2026-11-09",
-    "row_count": 179,
+    "row_count": 180,
     "conventions": {
       "verify_probe": "Same convention as 04-build-plan/backlog.json: 'pnpm probe <path>' runs probes/<path>.probe.ts, a Tier 0 file written before the implementation row starts and never edited by the agent doing the row. Every probe fails today because its target does not exist (a missing probe file exits 2, a missing behaviour exits 1). The probe pack for a milestone is committed by the Owner or a pair session before the milestone's rows start.",
       "status": "All rows start as open. Status lives only in the ledger database (imported with fw ledger sync), never in prose.",
@@ -6314,6 +6314,36 @@
         "hosted/server/mirror.mjs",
         "hosted/test/mirror.test.mjs",
         "api/v1.mjs"
+      ],
+      "origin": "new Core row"
+    },
+    {
+      "id": "FW-C-170",
+      "title": "Each draft links to the page its contact was found on, so the Owner can look before sending",
+      "core_milestone": "C1",
+      "phase": 1,
+      "epic": "C1.5 First flow",
+      "priority": "P1",
+      "size": "S",
+      "lane": "flows",
+      "agent_suitability": "agent",
+      "gate": "none",
+      "depends_on": [
+        "FW-C-066"
+      ],
+      "description": "The Owner asked to see where an address came from before he sends to it. A hunt already records the public page each contact was found on, but the drafts list dropped it. Now fwd lists it with every draft: the page the hunt recorded, or for a draft without one its contact page, then its event page. Drafts already written get it the same way with no rewrite. Any flow's own draft that names a source page keeps it. The draft viewer shows Found on and the site's name as a link that opens the page in a new tab; a draft with no page says so. Only a web address is ever shown.",
+      "acceptance": [
+        "fwd lists source_url with each draft: the recorded page first, then the contact page, then the event page",
+        "A draft with no page, or with an address that is not http or https, lists none",
+        "The draft viewer shows a link to the page that opens in a new tab and sends no request",
+        "A draft with no page shows no link and says none is on record"
+      ],
+      "verify_probe": "pnpm probe flows/draft-source",
+      "files_hint": [
+        "packages/daemon/src/overseer/drafts.ts",
+        "packages/daemon/src/overseer/cycle.ts",
+        "packages/web/src/flows/DraftsInbox.tsx",
+        "packages/web/src/api/types.ts"
       ],
       "origin": "new Core row"
     }

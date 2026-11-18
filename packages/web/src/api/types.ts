@@ -695,6 +695,8 @@ export interface FlowDraft {
   name?: string;
   /** FW-C-065: the address an email draft goes to. */
   to?: string;
+  /** FW-C-170: the public page the contact was found on. */
+  source_url?: string;
 }
 
 export interface GateNote {

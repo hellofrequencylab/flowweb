@@ -34,6 +34,26 @@ export interface DraftView {
   crm?: Record<string, unknown>;
   /** FW-C-102: why the draft gate blocked it (status gate_blocked), or what it only warned about. */
   gate?: Record<string, unknown>;
+  /** FW-C-170: the public page the contact was found on, so the Owner can look before sending. */
+  source_url?: string;
+}
+
+/**
+ * FW-C-170: where a draft's contact was found. The page the hunt recorded comes first; an older draft
+ * without one falls back to its contact page, then its event page. Only a web address is ever shown.
+ */
+export function sourceOf(doc: Record<string, unknown>): string | null {
+  const event =
+    doc.event && typeof doc.event === 'object' ? (doc.event as Record<string, unknown>).url : null;
+  for (const v of [doc.source_url, doc.contact_url, event]) {
+    if (typeof v !== 'string' || !/^https?:\/\/\S+$/i.test(v.trim())) continue;
+    try {
+      return new URL(v.trim()).href;
+    } catch {
+      // Not a real address: try the next one.
+    }
+  }
+  return null;
 }
 
 const ID = /^[A-Za-z0-9_-]{1,100}$/;
@@ -72,6 +92,7 @@ function view(doc: Record<string, unknown>): DraftView {
     ...(doc.gate && typeof doc.gate === 'object' && !Array.isArray(doc.gate)
       ? { gate: doc.gate as Record<string, unknown> }
       : {}),
+    ...(sourceOf(doc) ? { source_url: sourceOf(doc) as string } : {}),
   };
 }
 
