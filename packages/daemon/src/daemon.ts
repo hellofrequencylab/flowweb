@@ -2,7 +2,7 @@
 // check, and the loopback HTTP API. bin.ts wraps this with flags, signals and exit codes.
 
 import { randomBytes } from 'node:crypto';
-import { chmodSync, mkdirSync, readFileSync } from 'node:fs';
+import { chmodSync, existsSync, mkdirSync, readdirSync, readFileSync } from 'node:fs';
 import { createServer, type IncomingMessage, type Server, type ServerResponse } from 'node:http';
 import { hostname } from 'node:os';
 import { join, resolve } from 'node:path';
@@ -30,6 +30,7 @@ import { loadFlow as loadNaFlow, FLOW_KEY as NA_KEY } from './flows/neighborhood
 import { pullOutcomes } from './flows/outcomes.ts';
 import { loadFlow as loadAdsFlow } from './flows/paid-ads.ts';
 import { ga4Of, pullDue, pullGa4, readPullStatus } from './flows/paid-ads-ga4.ts';
+import { retirePastDrafts } from './flows/past-events.ts';
 import { draftReply } from './flows/reply-helper.ts';
 import { runReview } from './flows/review.ts';
 import { batchApprove } from './flows/sequence.ts';
@@ -190,6 +191,12 @@ export async function startDaemon(opts: DaemonOptions): Promise<Daemon> {
   } catch (e) {
     log(`supervisor: reaping orphaned cycles failed: ${(e as Error)?.message ?? e}`);
   }
+  // FW-C-154: waiting drafts whose event has passed are retired at start, for the flow and its copies.
+  retirePastDrafts({ home: fwHome, flow: NA_KEY, log });
+  const copiesDir = join(fwHome, 'copies');
+  if (existsSync(copiesDir))
+    for (const key of readdirSync(copiesDir))
+      if (key.startsWith(`${NA_KEY}--`)) retirePastDrafts({ home: join(copiesDir, key), flow: NA_KEY, log });
   opts.beforeListen?.(writer);
 
   // ---- chain check, cached ---------------------------------------------------------------
