@@ -9,6 +9,8 @@
 // kill switch, or change a budget or a policy. Approving only hands a draft to the outbox; Core never
 // sends. Pure functions, tested.
 
+import { KEVIN_MODELS, looksLikeSecret } from './assistant.mjs';
+
 const FLOW = /^[a-z0-9][a-z0-9-]{0,63}$/;
 const DRAFT = /^[A-Za-z0-9_-]{1,100}$/;
 const EMAIL_QUEUE = 'email-queue';
@@ -325,6 +327,27 @@ function voicePayload(b) {
 }
 
 /**
+ * FW-C-169: a Settings save for Kevin and the pages. Unknown keys, an unlisted model and key-shaped
+ * instructions are refused here; fwd checks it all again and is the one that saves.
+ */
+const SITE_BASE = 'neighborhood-activation';
+function siteSettingsPayload(b) {
+  const isObj = (v) => !!v && typeof v === 'object' && !Array.isArray(v);
+  const known = (o, keys) => o === undefined || (isObj(o) && Object.keys(o).every((k) => keys.includes(k)));
+  if (!isObj(b) || !Object.keys(b).length || !known(b, ['kevin', 'interface']))
+    return { error: 'give kevin or interface settings' };
+  if (!known(b.kevin, ['model', 'instructions']) || !known(b.interface, ['home', 'sections']))
+    return { error: 'kevin takes model and instructions; interface takes home and sections' };
+  const { model, instructions = '' } = b.kevin ?? {};
+  if (model != null && !KEVIN_MODELS.some((m) => m.id === model)) return { error: 'that model is not one Kevin can use' };
+  if (typeof instructions !== 'string' || instructions.length > 1500)
+    return { error: 'instructions must be text of at most 1500 characters' };
+  if (looksLikeSecret(instructions))
+    return { error: 'That looks like a key, so it was not saved. Keys never go in instructions.' };
+  return { payload: b };
+}
+
+/**
  * The request a site call asks for (FW-C-062): { kind, flow, draft_id, payload }, { error } for a
  * known control with bad input, or null when the path is not one the site may ask for.
  */
@@ -405,6 +428,12 @@ export function requestOf(method, path, body) {
     if (!FLOW.test(decide[1])) return { error: 'unknown flow' };
     const d = decisionPayload({ id: decide[2], decision: b?.decision });
     return d.error ? d : { kind: 'flow.edit', flow: decide[1], draft_id: null, payload: { review_decision: d.payload } };
+  }
+  // FW-C-169: site settings ride a flow.edit on the base flow with payload { site_settings }: no new kind.
+  if (path === '/site-settings') {
+    if (method !== 'POST') return null;
+    const s = siteSettingsPayload(b);
+    return s.error ? s : { kind: 'flow.edit', flow: SITE_BASE, draft_id: null, payload: { site_settings: s.payload } };
   }
   const admin = /^\/supervisor\/flows\/([^/]+)\/(edit|archive|restore)$/.exec(path);
   if (admin) {
@@ -540,6 +569,10 @@ export function fwdCallFor(req) {
   if (kind === 'flow.edit' && p.voice !== undefined) {
     const v = voicePayload(p.voice);
     return v.error || flow !== 'all' ? null : { method: 'POST', path: '/voice', body: v.payload };
+  }
+  if (kind === 'flow.edit' && p.site_settings !== undefined) {
+    const s = siteSettingsPayload(p.site_settings);
+    return s.error || flow !== SITE_BASE ? null : { method: 'POST', path: '/site-settings', body: s.payload };
   }
   if (kind === 'flow.edit' && p.targeting !== undefined) {
     const t = targetingPayload(p.targeting);

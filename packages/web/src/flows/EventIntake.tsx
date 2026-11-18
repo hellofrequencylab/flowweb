@@ -3,6 +3,7 @@
 // nothing here publishes, posts or sends.
 import { type FormEvent, useCallback, useEffect, useId, useState } from 'react';
 import { eventIntake, type IntakeEvent } from '../api/client';
+import { optional } from '../settings/siteSettings';
 import { Button } from '../ui-kit/Button';
 
 type Said = { tone: 'ok' | 'warn'; text: string } | null;
@@ -20,7 +21,7 @@ function Outcome({ said }: { said: Said }) {
 
 const whenOf = (e: IntakeEvent) => (e.starts_at ? e.starts_at.replace('T', ' at ') : 'no date found');
 
-export function EventIntake({ flow }: { flow: string }) {
+function EventIntakePanel({ flow }: { flow: string }) {
   const id = useId();
   const [events, setEvents] = useState<IntakeEvent[] | null>(null);
   const [text, setText] = useState('');
@@ -138,3 +139,6 @@ export function EventIntake({ flow }: { flow: string }) {
     </section>
   );
 }
+
+/** FW-C-169: shown unless the Owner hid it in Settings, Interface. */
+export const EventIntake = optional('event-intake', EventIntakePanel);

@@ -12,10 +12,11 @@ import { Copy, ResourceView } from '../ui-kit/honest';
 import { Icon } from '../ui-kit/Icon';
 import { PageHead } from '../ui-kit/page';
 import { shortHash, when } from '../ui-kit/time';
-import { AiSettings } from './AiSettings';
+import { AiSettings, KevinSettings } from './AiSettings';
 import { BuildRequests } from './BuildRequests';
 import { ConnectionsSettings } from './ConnectionsSettings';
 import { FunnelsSwitch } from './FunnelsSwitch';
+import { InterfaceSettings } from './InterfaceSettings';
 import { ProjectSettings } from './ProjectSettings';
 import { VoiceSettings } from './VoiceSettings';
 
@@ -228,7 +229,9 @@ export function SettingsPage({
 
       <AiSettings hosted={HOSTED} />
       <VoiceSettings />
+      <KevinSettings />
       <FunnelsSwitch />
+      <InterfaceSettings />
       <ProjectSettings />
       <ConnectionsSettings />
       {HOSTED && <FrequencyLinkPanel />}

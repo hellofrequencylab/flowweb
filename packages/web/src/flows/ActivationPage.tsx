@@ -10,6 +10,7 @@ import type {
   SendVia,
   Supervisor,
 } from '../api/types';
+import { Section } from '../settings/siteSettings';
 import { Link } from '../shell/router';
 import { Gauge, IconTile } from '../ui-kit/flow';
 import { AsOf, ResourceView } from '../ui-kit/honest';
@@ -404,13 +405,15 @@ export function ActivationPage({ flow }: { flow?: string } = {}) {
               </Fold>
             </section>
 
-            <ChapterHead
-              n={5}
-              id="na-ads"
-              title="Paid ads"
-              lede="Its own flow: one Google Ads campaign, read only. You change the campaign in Google Ads."
-            />
-            <PaidAdsPanel />
+            <Section name="paid-ads">
+              <ChapterHead
+                n={5}
+                id="na-ads"
+                title="Paid ads"
+                lede="Its own flow: one Google Ads campaign, read only. You change the campaign in Google Ads."
+              />
+              <PaidAdsPanel />
+            </Section>
 
             <ChapterHead
               n={6}

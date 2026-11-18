@@ -4,6 +4,7 @@
 // FW-C-062: on flowweb.app the same writes are queued and applied on the Owner's Mac by the relay.
 import { type FormEvent, useCallback, useEffect, useId, useMemo, useRef, useState } from 'react';
 import { huntsFor, type LeadHunt } from '../api/client';
+import { optional } from '../settings/siteSettings';
 import { Button } from '../ui-kit/Button';
 import { when } from '../ui-kit/time';
 
@@ -30,7 +31,7 @@ type Hunts = ReturnType<typeof huntsFor>;
 const BASE_FLOW = 'neighborhood-activation';
 
 /** `flow` is the flow whose hunts these are: the base flow, or a copy of it (FW-C-156). */
-export function LeadHunts({ regions, flow = BASE_FLOW }: { regions: Region[]; flow?: string }) {
+function LeadHuntsPanel({ regions, flow = BASE_FLOW }: { regions: Region[]; flow?: string }) {
   const id = useId();
   const leadHunts = useMemo(() => huntsFor(flow), [flow]);
   const [hunts, setHunts] = useState<LeadHunt[] | null>(null);
@@ -287,3 +288,6 @@ function Block({ leadHunts }: { leadHunts: Hunts }) {
     </form>
   );
 }
+
+/** FW-C-169: shown unless the Owner hid it in Settings, Interface. */
+export const LeadHunts = optional('lead-hunts', LeadHuntsPanel);

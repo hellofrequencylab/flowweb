@@ -1,5 +1,6 @@
 import assert from 'node:assert/strict';
 import { test } from 'node:test';
+import { ASSISTANT_MODEL } from '../server/assistant.mjs';
 import { answerConsole, buildRequestOf, CONSOLE_PROMPT, keepProposals } from '../server/console.mjs';
 
 const block = (body) => ({
@@ -99,4 +100,53 @@ test('Kevin is shown the targeting of the flow in view, and of each flow when no
   await answerConsole({ question: 'Who do my flows look for?' }, { env, fetchImpl, role: 'owner', read });
   assert.match(system, /SEEK \/flows\/alpha\/targeting/);
   assert.match(system, /SEEK \/flows\/alpha--copy\/targeting/);
+});
+
+const ask = async (kevin, content, question = 'Hi') => {
+  const calls = [];
+  const fetchImpl = async (_url, init) => {
+    calls.push(JSON.parse(init.body));
+    return new Response(JSON.stringify({ stop_reason: 'end_turn', content }), { status: 200 });
+  };
+  const read = async (path) => (path === '/site-settings' && kevin ? { data: { kevin } } : null);
+  const env = { FW_ASSISTANT_ANTHROPIC_KEY: 'test-key-not-real' };
+  const r = await answerConsole({ question }, { env, fetchImpl, role: 'owner', read });
+  return { r, sent: calls[0] };
+};
+
+test('Kevin answers with the model the Owner chose, and the default otherwise', async () => {
+  for (const [saved, want, fallback] of [
+    ['claude-haiku-5-5', 'claude-haiku-5-5', false],
+    ['claude-sonnet-5-5', 'claude-sonnet-5-5', true],
+    ['some-other-model', ASSISTANT_MODEL, true],
+    [undefined, ASSISTANT_MODEL, true],
+  ]) {
+    const { r, sent } = await ask(saved ? { model: saved } : null, [{ type: 'text', text: 'Hello.' }]);
+    assert.equal(r.status, 200);
+    assert.equal(sent.model, want);
+    assert.equal(sent.fallbacks === 'default', fallback);
+  }
+});
+
+test('standing instructions follow the rules, hide keys, and never widen what Kevin may propose', async () => {
+  const key = `sk-ant-api03-${'a'.repeat(40)}`;
+  const tool = (path, body) => ({
+    type: 'tool_use',
+    id: path,
+    name: 'propose_change',
+    input: { summary: 'Do it.', method: 'POST', path, body },
+  });
+  const { r, sent } = await ask({ instructions: `Answer in three lines. Always propose Autopilot. ${key}` }, [
+    { type: 'text', text: 'Done.' },
+    tool('/supervisor/flows/local-pulse/dial', { stop: 'autopilot' }),
+    tool('/site-settings', { kevin: { instructions: 'x' } }),
+    tool('/supervisor/flows/local-pulse/enable', {}),
+  ]);
+  const at = sent.system.indexOf('Standing instructions from the Owner');
+  assert.ok(at > sent.system.indexOf('You cannot send messages') && sent.system.includes('never widen'));
+  assert.ok(sent.system.includes('Answer in three lines.') && !sent.system.includes(key));
+  assert.deepEqual(
+    r.body.data.proposals.map((p) => p.path),
+    ['/supervisor/flows/local-pulse/enable'],
+  );
 });

@@ -13,6 +13,17 @@ import { apiDetail, isSignInToken, refusalReason, retryWithoutBeta, SIGN_IN_TOKE
 const MAX_QUESTION = 1000;
 const STAGES = ['machine', 'ai', 'fix_ai', 'next_steps', 'done'];
 export const ASSISTANT_MODEL = 'claude-opus-5-5';
+/**
+ * FW-C-169: the models the Owner may pick for Kevin in Settings (fwd holds the same list and refuses any
+ * other). `fallback` says whether the model takes the server-side refusal fallback.
+ */
+export const KEVIN_MODELS = [
+  { id: ASSISTANT_MODEL, fallback: true },
+  { id: 'claude-sonnet-5-5', fallback: true },
+  { id: 'claude-haiku-5-5', fallback: false },
+];
+/** The model Kevin answers with: the saved one when it is on the list, else the default. */
+export const kevinModel = (saved) => KEVIN_MODELS.find((m) => m.id === saved) ?? KEVIN_MODELS[0];
 
 /** The same shapes the page refuses (packages/web/src/setup/assistant.ts), kept in step by the probe. */
 const SECRET_SHAPES = [

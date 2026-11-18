@@ -1,0 +1,48 @@
+{
+  "id": "FW-C-169",
+  "title": "The Owner sets Kevin's model and standing instructions, and what the Flows pages show, from Settings",
+  "core_milestone": "C1",
+  "phase": 1,
+  "epic": "C1.5 First flow",
+  "priority": "P2",
+  "size": "L",
+  "lane": "ui",
+  "agent_suitability": "agent",
+  "gate": "none",
+  "depends_on": [
+    "FW-C-092",
+    "FW-C-156"
+  ],
+  "description": "Kevin, the console on flowweb.app, always answered with one fixed model and had no way to remember how the Owner likes to be answered, and every flow page showed every panel. Now Settings has a Kevin block (a model from a short fixed list, and standing instructions of up to 1500 characters) and an Interface block (the page that opens first, and a show or hide switch for each optional panel on a flow page; drafts and controls always show). fwd keeps them in $FW_HOME/site-settings.json and refuses an unlisted model, an unknown key and anything key-shaped. The relay mirrors them, and a save from the site rides the existing flow.edit request, so there is no new table, column, request kind or migration. Kevin reads the model and the instructions from the mirror, falls back to the default model when there is none or it is not on the list, and is told the instructions are preferences that never widen what he may propose: the proposal filter is unchanged, and he cannot propose a change to his own settings.",
+  "acceptance": [
+    "fwd answers the defaults, saves a change to site-settings.json and returns it, and refuses an unlisted model, an unknown key, a key-shaped instruction and a caller with no token, writing nothing",
+    "A save from the site is a flow.edit on the base flow that the relay turns into POST /site-settings, and the relay mirrors GET /site-settings",
+    "Kevin answers with the chosen model and is given the standing instructions after his rules; with no setting or an unlisted model he uses the default",
+    "A proposal outside the allowed list is still dropped when the instructions ask for it",
+    "Settings saves the Kevin block; a hidden panel is not rendered on a flow page; by default, and with an older fwd, every panel shows",
+    "The probe ui/ai-console still passes"
+  ],
+  "verify_probe": "pnpm probe ui/site-settings",
+  "files_hint": [
+    "packages/daemon/src/site-settings.ts",
+    "packages/daemon/src/api/routes.ts",
+    "hosted/relay/fw-relay.mjs",
+    "hosted/server/assistant.mjs",
+    "hosted/server/console.mjs",
+    "hosted/server/requests.mjs",
+    "hosted/test/requests.test.mjs",
+    "hosted/test/console.test.mjs",
+    "packages/web/src/api/client.ts",
+    "packages/web/src/settings/siteSettings.tsx",
+    "packages/web/src/settings/AiSettings.tsx",
+    "packages/web/src/settings/InterfaceSettings.tsx",
+    "packages/web/src/settings/SettingsPage.tsx",
+    "packages/web/src/shell/Layout.tsx",
+    "packages/web/src/flows/ActivationPage.tsx",
+    "packages/web/src/flows/LeadHunts.tsx",
+    "packages/web/src/flows/ReplyHelper.tsx",
+    "packages/web/src/flows/EventIntake.tsx",
+    "packages/web/src/flows/WhatsWorking.tsx"
+  ],
+  "origin": "new Core row"
+}

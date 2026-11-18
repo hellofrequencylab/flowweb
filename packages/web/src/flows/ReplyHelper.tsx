@@ -3,6 +3,7 @@
 // puts the sender on do-not-contact. Nothing here sends anything.
 import { type FormEvent, useId, useState } from 'react';
 import { ownerWrite } from '../api/client';
+import { optional } from '../settings/siteSettings';
 import { Button } from '../ui-kit/Button';
 
 interface ReplyAnswer {
@@ -25,7 +26,7 @@ const INTENT: Record<string, string> = {
   unclear: 'Unclear',
 };
 
-export function ReplyHelper({ flow }: { flow: string }) {
+function ReplyHelperPanel({ flow }: { flow: string }) {
   const id = useId();
   const [text, setText] = useState('');
   const [contact, setContact] = useState('');
@@ -108,3 +109,6 @@ export function ReplyHelper({ flow }: { flow: string }) {
     </section>
   );
 }
+
+/** FW-C-169: shown unless the Owner hid it in Settings, Interface. */
+export const ReplyHelper = optional('reply-helper', ReplyHelperPanel);

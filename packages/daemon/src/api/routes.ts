@@ -45,6 +45,7 @@ import type { RewriteProposal } from '../overseer/rewrite.ts';
 import { type RunHost, RunHostStoppingError } from '../run-host.ts';
 import { isInside, RUN_ID_RE } from '../runtime/paths.ts';
 import { setupReport } from '../setup/index.ts';
+import { readSiteSettings, saveSiteSettings } from '../site-settings.ts';
 import { spendRollup } from '../spend.ts';
 import { brandsOf, enabledFlowsOf, readTeamSettings, TeamError, teamView } from '../team/index.ts';
 import { rowIdOf } from './codes.ts';
@@ -812,6 +813,19 @@ export function buildRouter(deps: ApiDeps): Router {
         throw new ApiError(501, 'not_implemented', 'this fwd cannot switch funnel links');
       return c.setFunnelsLive(body.live);
     });
+  });
+  // FW-C-169: Kevin's model and standing instructions, the first page, and the flow pages' optional panels.
+  r.get('/v1/site-settings', () => env(() => ({ data: readSiteSettings(deps.fwHome) })));
+  r.post('/v1/site-settings', async ({ req }) => {
+    const body = await readJsonBody(req);
+    requireOwner(req);
+    try {
+      const data = saveSiteSettings(deps.fwHome, body);
+      return env(() => ({ data }));
+    } catch (e) {
+      if (e instanceof naAdmin.AdminError) throw new ApiError(400, 'validation_failed', e.message);
+      throw e;
+    }
   });
   // FW-C-123: the Owner's agent teams, and renaming or re-voicing one agent.
   r.get('/v1/team', () =>
