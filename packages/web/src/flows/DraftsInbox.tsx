@@ -172,6 +172,13 @@ function Inbox({
                 draft={selected}
                 sender={sender}
                 onChanged={onChanged}
+                onSent={() => {
+                  // FW-C-163: open the next draft that is ready, so a morning's notes go one after another.
+                  const at = shown.indexOf(selected);
+                  const ready = (d: FlowDraft) => d.id !== selected.id && stateOf(d) === 'Ready';
+                  const next = shown.slice(at + 1).find(ready) ?? shown.find(ready);
+                  if (next) setPicked(next.id);
+                }}
               />
               {(flow === 'email-queue' || selected.gate) && <FactsCheck draft={selected} />}
             </>
