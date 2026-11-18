@@ -1,0 +1,44 @@
+{
+  "id": "FW-C-168",
+  "title": "Each flow tests two message angles on purpose, and the weekly review ends in accept-or-decline cards",
+  "core_milestone": "C1",
+  "phase": 1,
+  "epic": "C1.5 First flow",
+  "priority": "P1",
+  "size": "L",
+  "lane": "flows",
+  "agent_suitability": "agent",
+  "gate": "none",
+  "depends_on": [
+    "FW-C-056",
+    "FW-C-072",
+    "FW-C-101",
+    "FW-C-156"
+  ],
+  "description": "Two gaps in how a flow learns. First, the engine picked any angle for any lead, so no angle reached the 8 sends the weekly review needs to judge it. Now each hunt run gets angle-plan.json in its folder, and one more brief line pointing at it: per niche, the two angles to alternate this run. That is the angle with the best reply rate once it has 8 sends plus the least-tried other angle, and until one is proven the two least-tried (with nothing sent, the first two). Second, what the review proposed was only a file. Now the proposals are short cards under What's working, each with its numbers and Accept and Decline. A pause is one card; the review's moves of sends between hunts are one card together, so accepting can never raise the hunts' total. Accept applies the shift through the review's own code and so changes hunts only: no cap, region or policy changes and nothing is sent. Decline changes nothing and keeps the same proposal from coming back for 30 days. On the site the decision rides the existing flow.edit request, so there is no new request kind.",
+  "acceptance": [
+    "GET /v1/flows/{key}/review/proposals lists the last review's proposals with id, one plain line, evidence numbers and state open, accepted or declined, for the flow or a copy",
+    "POST /v1/flows/{key}/review/proposals/{id} with decision accept applies the shifts to hunts.json as the review's apply does and marks it accepted; Owner only",
+    "Decline leaves hunts.json untouched and the same proposal is not raised by the next review",
+    "The relay copies the proposals and the site carries a decision as flow.edit with payload review_decision",
+    "What's working shows each open proposal as a card with Accept and Decline",
+    "A hunt run writes angle-plan.json naming two angles per niche, the proven one first once it has 8 sends"
+  ],
+  "verify_probe": "pnpm probe flows/review-cards",
+  "files_hint": [
+    "packages/daemon/src/flows/angle-plan.ts",
+    "packages/daemon/src/flows/review-proposals.ts",
+    "packages/daemon/src/flows/review.ts",
+    "packages/daemon/src/overseer/cycle.ts",
+    "packages/daemon/src/api/routes.ts",
+    "packages/daemon/test/angle-plan.test.ts",
+    "hosted/relay/fw-relay.mjs",
+    "hosted/server/requests.mjs",
+    "hosted/test/requests.test.mjs",
+    "packages/web/src/api/client.ts",
+    "packages/web/src/api/types.ts",
+    "packages/web/src/flows/WhatsWorking.tsx",
+    "packages/web/src/ui-kit/flow.css"
+  ],
+  "origin": "new Core row"
+}
