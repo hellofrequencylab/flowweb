@@ -48,6 +48,7 @@ import { writeJsonAtomic } from '../flows/neighborhood-admin.ts';
 import { retirePastDrafts } from '../flows/past-events.ts';
 import { PLAYBOOK_KEYS, type Playbook, playbookOf, sharedReach } from '../flows/profiles.ts';
 import { noDashes, type Shortener, shortenerFor } from '../flows/short-links.ts';
+import { NOTE_MAX_EMOJI, NOTE_MAX_WORDS, VOICE_BRIEF } from '../flows/voice.ts';
 import { runCredentials } from '../pipeline/credentials.ts';
 import { chooseAdapter } from '../pipeline/route.ts';
 import { killOrphanGroup } from '../reconciler.ts';
@@ -377,7 +378,8 @@ export function brief(
         : []),
       'For each event, find how the organizer can be reached, only where they list it publicly (the event page or their own website), and record that page as source_url. Prefer a listed email (contact_via "email"); otherwise a public contact form ("form"), a public social profile ("social") or the event platform\'s message page ("platform"), with its https address as contact_url. Never guess an address and never use a page behind a login.',
       "Record the event's and the organizer's country as two-letter codes (event.country, organizer.country) when you can tell. Skip any organizer or event in the EU or EEA, the UK or Canada: fwd drops them anyway.",
-      'Write a short, warm, personal note to each organizer. Name their event or series loosely (its name or what kind of thing it is) and say you love what they are up to; never give its date, time, price or venue, and do not describe what happens at it in detail. End that opening with an exclamation mark. Then, in a new paragraph, say: "I\'m Daniel, founder of Frequency, a free way for neighbors to find or start local, in-person Circles around what they love." and ask one easy question that fits their event, such as whether they would like to share it with neighbors nearby who are into the same thing. The Owner wrote this one himself: "Hi Elya and team, your Pages in Bloom workshop caught my eye and I love what you are up to. Sounds like a lovely way to spend an evening with the community!\n\nI\'m Daniel, founder of Frequency, a free way for neighbors to find or start local, in-person Circles around what they love. Would you be interested in sharing your workshops with people nearby who enjoy making things?"',
+      VOICE_BRIEF,
+      'An opening of his with a second line: "Hi Elya and team, your Pages in Bloom workshop caught my eye, and I love what you are up to. Sounds like a lovely way to spend an evening with the community!"',
       'Never use an em dash or an en dash in a subject or a note; use a comma or a new sentence. Keep subjects short and leave dates out of them too. Do not add a sign-off, a link, a P.S. or an opt-out line: fwd adds those.',
       'Write leads.json in the current folder as {"leads":[{"hunt_id","event":{"title","starts_at","url","country"},"organizer":{"name","email","source_url","country","contact_via","contact_url"},"subject","body"}]}, at most twice each hunt\'s max_sends.',
       ...rules,
@@ -976,6 +978,9 @@ async function runHunts(
       {
         ...gateCtx,
         requireLink: true,
+        // FW-C-161: a first hunt note in the Owner's voice is longer and may carry his one emoji.
+        maxWords: NOTE_MAX_WORDS,
+        maxEmoji: NOTE_MAX_EMOJI,
         payload: { event: k.lead.event, organizer: k.lead.organizer.name, hunt: k.hunt.name },
         source: k.lead.organizer.source_url,
       },

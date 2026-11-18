@@ -1,0 +1,35 @@
+{
+  "id": "FW-C-161",
+  "title": "Hunt notes read in the Owner's own voice, and the draft gate lets a first hunt note carry it",
+  "core_milestone": "C1",
+  "phase": 1,
+  "epic": "C1.5 First flow",
+  "priority": "P0",
+  "size": "M",
+  "lane": "workstreams",
+  "agent_suitability": "agent",
+  "gate": "none",
+  "depends_on": [
+    "FW-C-102",
+    "FW-C-152",
+    "FW-C-089"
+  ],
+  "description": "Daniel (2026-11-18): the outreach notes sound canned. He rewrote one himself (the Mirabai kirtan note), approved three more on the same model and said do it. The hunt brief for a flow with no playbook now asks for that note: a greeting that names their thing and says it caught his eye, \"I'm Daniel, a local community builder and the founder of Frequency!\", one paragraph on what Frequency is and who he is focused on right now in the recipient's own terms, then one easy question and \"We're beta launching here in North County SD, and I would love for you to come check it out.\" The brief quotes his note word for word. Every shipped profile's playbook note asks for the same four paragraphs with a focus line that fits that profile (mindful and healer words only for coaches and guides). His note is longer than the 120 words the draft gate allows and carries one emoji, so the gate would have blocked every draft written this way. On his decision (card, 2026-11-18) a first hunt note may run to 150 words as the gate counts them and carry one emoji; a second emoji or a longer note is still blocked, and every other kind of draft keeps the 120-word cap and the no-emoji rule. Draft only: nothing here sends.",
+  "acceptance": [
+    "The hunt brief of a flow with no playbook quotes the Owner's approved note and no longer asks for the old two-paragraph note",
+    "Every shipped profile's playbook note carries his three fixed sentences and a focus line, in 1200 characters or fewer, with no em or en dash",
+    "His own note, composed with the link line, sign-off and P.S., passes the draft gate as a first hunt note",
+    "The same notes under the gate's default rules are still blocked: one emoji blocks, and over 120 words blocks",
+    "A first hunt note with two emoji, or over 150 counted words, is blocked",
+    "The draft-voice, draft-gate and profile-flows checks still pass"
+  ],
+  "verify_probe": "pnpm probe flows/owner-voice",
+  "files_hint": [
+    "packages/daemon/src/flows/voice.ts",
+    "packages/daemon/src/flows/draft-gate.ts",
+    "packages/daemon/src/overseer/cycle.ts",
+    "packages/daemon/test/",
+    "flows/neighborhood-activation/profiles/"
+  ],
+  "origin": "new Core row"
+}
