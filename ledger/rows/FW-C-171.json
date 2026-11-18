@@ -1,0 +1,29 @@
+{
+  "id": "FW-C-171",
+  "title": "A draft with no email address opens the contact page it goes through, and says what the button will do",
+  "core_milestone": "C1",
+  "phase": 1,
+  "epic": "C1.5 First flow",
+  "priority": "P1",
+  "size": "S",
+  "lane": "flows",
+  "agent_suitability": "agent",
+  "gate": "none",
+  "depends_on": [
+    "FW-C-163"
+  ],
+  "description": "After one-tap send shipped, the Owner pressed Copy and send on drafts that go by contact form or social message and nothing opened, with no word why: only a draft with an email address starts a message in his mail. Now fwd lists a draft's contact page with it, and for a draft with no email address the same press copies the note and opens that page so he can paste it there. Before the press the viewer says which kind of draft it is: an email one names the address and the mail app, one with a contact page says there is no email address and names the page's site, and one with neither says the button only copies the note. FlowWeb still sends nothing.",
+  "acceptance": [
+    "fwd lists contact_url with a draft that has one, only when it is an http or https address",
+    "Copy and send on a draft with no email address but a contact page opens that page, copies the note and sends no request",
+    "Before the press the viewer says there is no email address and names the page's site",
+    "A draft with neither says the button only copies the note, and opens nothing"
+  ],
+  "verify_probe": "pnpm probe flows/draft-contact-page",
+  "files_hint": [
+    "packages/daemon/src/overseer/drafts.ts",
+    "packages/web/src/flows/DraftEditor.tsx",
+    "packages/web/src/api/types.ts"
+  ],
+  "origin": "new Core row"
+}

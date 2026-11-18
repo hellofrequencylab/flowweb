@@ -42,6 +42,9 @@ export function DraftEditor({
   const [mailLink, setMailLink] = useState<string | null>(null);
   const [mail, setMail] = useState<MailApp>(readMailApp);
   const to = mailAddress(draft);
+  // FW-C-171: a draft with no email address goes through a contact form, a profile or a message page.
+  const page = !to && /^https?:\/\//i.test(draft.contact_url ?? '') ? (draft.contact_url as string) : null;
+  const pageHost = page ? hostOf(page) : '';
 
   const start = () => {
     setSubject(draft.subject ?? '');
@@ -142,7 +145,7 @@ export function DraftEditor({
     // The copy starts and the message opens inside the press itself. Opening it only after the copy
     // finished let the browser treat it as a pop-up and block it without a word.
     const copying = copy();
-    const url = to ? composeUrl(mail, to, draft.subject ?? '', draft.body) : null;
+    const url = to ? composeUrl(mail, to, draft.subject ?? '', draft.body) : page;
     if (url) {
       try {
         window.open(url, '_blank', 'noopener');
@@ -157,7 +160,9 @@ export function DraftEditor({
       tone: 'ok',
       text: to
         ? `Opened a new message to ${to} in ${MAIL_NAME[mail]}${ok ? ', and copied it too' : ''}. Press send there.`
-        : 'Copied. Send it from your own mail, then press Yes, I sent it.',
+        : page
+          ? `This one has no email address, so nothing opens in your mail. Opened their page on ${pageHost}${ok ? ' and copied the note' : ''}. Paste it there.`
+          : 'This one has no email address or contact page on record, so nothing opens. The note is copied: send it your own way, then press Yes, I sent it.',
     });
     if (!draft.sent_at) setAsking(true);
   };
@@ -248,6 +253,13 @@ export function DraftEditor({
           . You press send there.
         </p>
       )}
+      {canApprove && !sender && !to && (
+        <p className="muted draft-status draft-mail-pick">
+          {page
+            ? `No email address for this one. Copy and send copies the note and opens their page on ${pageHost}, where you paste it.`
+            : 'No email address or contact page for this one. Copy and send only copies the note.'}
+        </p>
+      )}
       {asking && !draft.sent_at && (
         <fieldset className="draft-ai draft-sent-ask">
           <legend className="field-label">
@@ -280,7 +292,7 @@ export function DraftEditor({
         <p className="muted draft-status">
           Nothing opened?{' '}
           <a href={mailLink} target="_blank" rel="noopener noreferrer">
-            Open the message in {MAIL_NAME[mail]}
+            {to ? `Open the message in ${MAIL_NAME[mail]}` : `Open their page on ${pageHost}`}
           </a>
           .
         </p>
@@ -377,6 +389,14 @@ function readMailApp(): MailApp {
     return localStorage.getItem(MAIL_PREF) === 'app' ? 'app' : 'gmail';
   } catch {
     return 'gmail';
+  }
+}
+
+function hostOf(url: string): string {
+  try {
+    return new URL(url).hostname.replace(/^www\./, '');
+  } catch {
+    return url;
   }
 }
 
