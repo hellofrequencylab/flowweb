@@ -19,6 +19,8 @@ const draft = (id: string, subject: string, created: string, over: Record<string
   subject,
   body: `Hi there, ${subject}.`,
   status: 'waiting_for_owner',
+  // FW-C-172: a draft needs an address or a page to count as Ready.
+  to: 'someone@studio.example',
   created_at: created,
   ...over,
 });

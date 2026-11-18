@@ -7,6 +7,15 @@ export function hasBlankSlot(d: FlowDraft): boolean {
   return SLOT.test(d.subject ?? '') || SLOT.test(d.body);
 }
 
+const WEB = /^https?:\/\//i;
+const ADDRESS = /^[^\s@<>,;"']+@[^\s@<>,;"']+\.[a-z]{2,}$/i;
+
+/** FW-C-172: an email address, or a page to send through. A draft with neither cannot be sent by anyone. */
+export function hasWayToReach(d: FlowDraft): boolean {
+  if (d.lead_id?.startsWith('template:')) return true;
+  return ADDRESS.test((d.to ?? '').trim()) || WEB.test(d.contact_url ?? '') || WEB.test(d.source_url ?? '');
+}
+
 export interface DraftGroups {
   /** Waiting for you and complete: real people and events, ready to copy and send. */
   ready: FlowDraft[];
@@ -37,7 +46,7 @@ export function groupDrafts(drafts: FlowDraft[]): DraftGroups {
   for (const d of drafts) {
     if (d.status !== 'rejected' && d.sent_at) out.sent.push(d);
     else if (d.status !== 'waiting_for_owner') out.done.push(d);
-    else if (hasBlankSlot(d)) out.templates.push(d);
+    else if (hasBlankSlot(d) || !hasWayToReach(d)) out.templates.push(d);
     else out.ready.push(d);
   }
   out.ready.sort(newestFirst);
@@ -55,6 +64,7 @@ export function groupDrafts(drafts: FlowDraft[]): DraftGroups {
 export type DraftState =
   | 'Ready'
   | 'Has blanks'
+  | 'No address'
   | 'Blocked'
   | 'Sent'
   | 'Replied'
@@ -71,7 +81,8 @@ export function stateOf(d: FlowDraft): DraftState {
   if (o === 'replied') return 'Replied';
   if (o === 'sent') return 'Sent';
   if (d.status !== 'waiting_for_owner') return 'Approved';
-  return hasBlankSlot(d) ? 'Has blanks' : 'Ready';
+  if (hasBlankSlot(d)) return 'Has blanks';
+  return hasWayToReach(d) ? 'Ready' : 'No address';
 }
 
 /** Every draft in inbox order: ready first, then blanks, sent and handled, as groupDrafts sorts them. */

@@ -10,6 +10,8 @@ const d = (id: string, over: Partial<FlowDraft> = {}): FlowDraft => ({
   subject: `Subject ${id}`,
   body: 'Hi there',
   status: 'waiting_for_owner',
+  // FW-C-172: a draft needs an address or a page to count as Ready.
+  to: 'someone@studio.example',
   created_at: '2026-11-10T04:00:00Z',
   ...over,
 });
