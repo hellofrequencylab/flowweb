@@ -267,8 +267,18 @@ export function parseLeads(raw: unknown): HuntLead[] {
  * goes through the one DM door with no persona, its niche, and utm_medium=one-to-one. utm_campaign stays
  * the hunt id and utm_content the draft tag, because outcomes and CRM sync key on them (FW-C-054).
  */
-export function funnelLink(cfg: FlowConfig, h: Hunt, dm?: { niche?: string | null }): string {
+export function funnelLink(
+  cfg: FlowConfig,
+  h: Hunt,
+  dm?: { niche?: string | null },
+  doorNiche: string | null = dm?.niche ?? null,
+): string {
   const f = cfg.funnels.host;
+  // FW-C-152: a niche may name its own page (a profile's /for door); without one the flow's door holds.
+  const door = (cfg.niches as { key: string; door?: unknown }[] | undefined)?.find(
+    (n) => n.key === doorNiche,
+  )?.door;
+  const own = typeof door === 'string' && /^\/[a-z0-9/-]*$/.test(door) ? door : null;
   const q = new URLSearchParams(
     dm ? { region: h.region, src: 'hunt' } : { persona: f.persona, region: h.region, src: 'hunt' },
   );
@@ -277,7 +287,7 @@ export function funnelLink(cfg: FlowConfig, h: Hunt, dm?: { niche?: string | nul
   q.set('utm_source', 'flowweb');
   q.set('utm_medium', dm ? 'one-to-one' : 'email');
   q.set('utm_campaign', h.id);
-  const path = livePath(dm ? (cfg.dm_door?.path ?? f.path) : f.path, funnelsLive(cfg));
+  const path = livePath(own ?? (dm ? (cfg.dm_door?.path ?? f.path) : f.path), funnelsLive(cfg));
   return `${cfg.offer.url.replace(/\/$/, '')}${path}?${q}`;
 }
 
@@ -300,7 +310,12 @@ export function composeBody(cfg: FlowConfig, h: Hunt, lead: HuntLead): string {
       '',
       `Found you on ${lead.organizer.source_url}. Not for you? Just reply "no" and I won't write again.`,
     ].join('\n');
-  const link = h.build ? claim : `If you'd like to host on Frequency, start here: ${funnelLink(cfg, h)}`;
+  const line = (cfg.hunts as { link_line?: unknown } | undefined)?.link_line;
+  const lead_in =
+    typeof line === 'string' && line.trim()
+      ? noDashes(line.trim())
+      : "If you'd like to host on Frequency, start here:";
+  const link = h.build ? claim : `${lead_in} ${funnelLink(cfg, h, undefined, lead.niche ?? null)}`;
   return [
     noDashes(lead.body),
     '',
@@ -341,6 +356,8 @@ export function screenLeads(o: {
   now: Date;
   /** FW-C-063: new people a day, counted over the last 20 hours so each morning starts fresh. */
   perDay?: number;
+  /** FW-C-152: contact keys another copy of the flow (or the flow itself) has already drafted for. */
+  taken?: ReadonlySet<string>;
 }): { kept: Kept[]; counts: Record<string, HuntCounts> } {
   const contacts = { ...(o.state.hunt_contacts ?? {}) };
   const t = o.now.getTime();
@@ -379,7 +396,13 @@ export function screenLeads(o: {
     if (!reachable || !isUrl(source_url) || !lead.body) c.not_public++;
     else if (restrictedLead(lead)) c.restricted++;
     else if (onDoNotContact(o.state.do_not_contact, email, pages)) c.blocked++;
-    else if (contacts[key] || (email && contacts[email])) c.duplicate++;
+    else if (
+      contacts[key] ||
+      (email && contacts[email]) ||
+      o.taken?.has(key) ||
+      (email && o.taken?.has(email))
+    )
+      c.duplicate++;
     else if (route === 'dm' && wordCount(body) > WORDS.hard_cap) c.too_long++;
     else if (c.drafted >= h.max_sends || week >= weekly || today >= daily) c.capped++;
     else {
@@ -425,7 +448,11 @@ export function huntRules(dir: string): string[] {
     `Never fetch, open or crawl any page on ${NEVER_FETCH.join(', ')}. A handle you see in search results may be kept as a social contact_url, but do not open it. fwd refuses those pages as sources to read.`,
     ...(niches.length > 0
       ? [
-          `Give every lead a niche and an angle (the pain point the note leads with) from this list, as "niche" and "angle" in leads.json: ${niches.join('; ')}. Use niche "venue" for a studio or venue.`,
+          `Give every lead a niche and an angle (the pain point the note leads with) from this list, as "niche" and "angle" in leads.json: ${niches.join('; ')}.${
+            (cfg.niches ?? []).some((n) => n.key === 'venue')
+              ? ' Use niche "venue" for a studio or venue.'
+              : ''
+          }`,
         ]
       : []),
     `A note to a social or platform contact is a DM: aim for ${WORDS.dm - 15} words of your own (fwd adds the link and one short line), never more than ${WORDS.hard_cap - 30}; fwd drops a DM over ${WORDS.hard_cap} words. A DM has no sign-off and no P.S.`,
