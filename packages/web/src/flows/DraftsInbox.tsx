@@ -165,6 +165,7 @@ function Inbox({
                   {selected.created_at && ageOf(selected.created_at) !== 'now' ? ' ago' : ''}
                   {selected.channel ? ` · send by ${CHANNEL[selected.channel] ?? selected.channel}` : ''}
                 </span>
+                <SourceLink draft={selected} />
               </header>
               <DraftEditor
                 key={selected.id}
@@ -191,6 +192,27 @@ function Inbox({
         </section>
       </div>
     </>
+  );
+}
+
+/** FW-C-170: where the contact was found, so the Owner can look at the page before sending. */
+function SourceLink({ draft }: { draft: FlowDraft }) {
+  const url = /^https?:\/\//i.test(draft.source_url ?? '') ? (draft.source_url as string) : null;
+  if (!url) return <span className="viewer-meta viewer-source">No source page on record for this one.</span>;
+  let host = url;
+  try {
+    host = new URL(url).hostname.replace(/^www\./, '');
+  } catch {
+    // Keep the whole address as the label.
+  }
+  return (
+    <span className="viewer-meta viewer-source">
+      Found on{' '}
+      <a href={url} target="_blank" rel="noopener noreferrer" title={url}>
+        {host}
+      </a>
+      . Look before you send.
+    </span>
   );
 }
 

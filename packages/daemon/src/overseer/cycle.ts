@@ -262,6 +262,7 @@ interface Draft {
   payload?: unknown;
   event?: unknown;
   source_text?: unknown;
+  source_url?: unknown;
 }
 
 const strOr = (x: unknown) => (typeof x === 'string' ? x : null);
@@ -721,6 +722,9 @@ async function runCycle(d: CycleDeps, fire: CycleFire): Promise<void> {
           ...(handed && handed.outcome !== 'queued' ? { held: handed.reason } : {}),
           ...(unaddressed ? { held: unaddressed } : {}),
           ...gateFields(gate, created),
+          // FW-C-170: where the contact was found, so the draft card can link to it.
+          ...(strOr(x.source_url) ? { source_url: strOr(x.source_url) } : {}),
+          ...(strOr(x.contact_url) ? { contact_url: strOr(x.contact_url) } : {}),
           created_at: created,
         };
         writeFileSync(join(out, `${id}.json`), `${JSON.stringify(doc, null, 2)}\n`, { mode: 0o600 });
