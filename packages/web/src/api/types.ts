@@ -693,6 +693,8 @@ export interface FlowDraft {
   preheader?: string;
   /** Who the draft is for, as fwd names it (a queue email names its opted-in list). */
   name?: string;
+  /** FW-C-065: the address an email draft goes to. */
+  to?: string;
 }
 
 export interface GateNote {
