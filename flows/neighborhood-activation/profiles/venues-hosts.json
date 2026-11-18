@@ -1,0 +1,86 @@
+{
+  "version": 1,
+  "slug": "venues-hosts",
+  "name": "Frequency Venues and Event Hosts",
+  "note": "Finds rooms that host several groups and people who run a recurring series, and drafts one note each. Draft only.",
+  "config": {
+    "offer": {
+      "pitch": "A free page and one shared calendar for a venue and every group that meets there, or for a host and every date in their series.",
+      "call_to_action": "Put your calendar where neighbors can see it"
+    },
+    "niches": [
+      {
+        "key": "venue",
+        "label": "Venues and rooms that host",
+        "angles": [
+          {
+            "key": "teachers_alone",
+            "line": "Every group that uses your room promotes its own night, alone."
+          },
+          {
+            "key": "one_calendar",
+            "line": "One page and calendar for every group that meets in your space."
+          },
+          {
+            "key": "quiet_nights",
+            "line": "The quiet nights on the calendar are hard to fill."
+          }
+        ]
+      },
+      {
+        "key": "series-host",
+        "label": "Hosts of a recurring series",
+        "angles": [
+          {
+            "key": "guest_list",
+            "line": "Your guest list lives on the ticket site, not with you."
+          },
+          {
+            "key": "fees",
+            "line": "Ticket and platform fees eat into every date."
+          },
+          {
+            "key": "next_date",
+            "line": "There is no easy way to tell past guests about the next date."
+          }
+        ],
+        "door": "/for/event-hosts"
+      }
+    ],
+    "dm_door": {
+      "path": "/for/venues"
+    },
+    "funnels": {
+      "host": {
+        "path": "/for/venues",
+        "persona": "partner"
+      }
+    },
+    "hunts": {
+      "audience": {
+        "focus": [],
+        "steer_away": []
+      },
+      "link_line": "If you'd like a free page and calendar on Frequency, start here:",
+      "playbook": {
+        "seek": "Who to find: two kinds of hosts in the region. Venues: yoga and dance studios, community rooms, galleries, makerspaces, retreat centers, coworking spaces, farms and gardens whose public calendar or events page shows more than one group or teacher, or whose site says the room can be booked for gatherings. Series hosts: a person or small team that runs a recurring series under its own name, such as a supper club, a monthly market, a concert series or a weekly dance. Use niche \"venue\" for a room and \"series-host\" for a series.",
+        "signals": "Strong signs for a venue, best first: a public calendar with three or more different groups or teachers on it; a rentals or \"host your event\" page; a teachers or residents page; events listed on a general ticket site instead of its own page. Strong signs for a series host: the series has a name and has run three or more times; the next date is announced; past dates are listed on a ticket site; the host names themself on the page. Weak signs: a calendar with nothing ahead, or a room that only holds its owner's own classes.",
+        "where": "Where to look: venue and studio websites and their events, calendar and rentals pages, city, library and community calendars, and series pages on Eventbrite, Meetup and Luma.",
+        "queries": "Searches that work: \"<town> event space rental\", \"<town> studio rental workshop\", \"<town> community room calendar\", \"<town> gallery events\", \"<town> makerspace classes\", \"<town> retreat center\", \"<town> supper club\", \"<town> monthly market\", \"<town> concert series\", \"<town> weekly dance\". Use each area's own town names.",
+        "skip": "Skip hotels and convention centers, wedding-only venues, bars with nothing but drink specials, national chains and one-off events with no series behind them.",
+        "rank": "Order leads.json best first, because only the first few are kept: an independent room with several outside groups on its calendar and a listed email comes first, then a named series with a date ahead, then the rest. One lead per venue or series, addressed to the person who runs it when the page names them.",
+        "record": "In leads.json the event is the calendar or the series: event.title is the venue's or the series' name, event.url is its public calendar, events or series page, and starts_at may be empty. The organizer is whoever runs the room or the series.",
+        "note": "Write a short, warm, personal note to each one. Name the room or the series loosely and say what you like about what happens there; never give a date, time, price or address. End that opening with an exclamation mark. Then, in a new paragraph, say: \"I'm Daniel, founder of Frequency, a free way for neighbors to find local, in-person gatherings and the places that hold them.\" and ask one easy question that fits them: for a venue, whether they would like every group that meets there on one calendar neighbors can see; for a series, whether they would like a way to tell past guests about the next one."
+      }
+    }
+  },
+  "hunts": [
+    {
+      "name": "Venues and series hosts",
+      "looking_for": "Venues in North County San Diego whose public calendar shows several groups, and hosts who run a recurring local series",
+      "region": "north-county-sd",
+      "max_sends": 10,
+      "every_days": 1
+    }
+  ]
+}
