@@ -5,6 +5,7 @@ import { useId, useState } from 'react';
 import { api } from '../api/client';
 import { useResource } from '../api/resource';
 import type { ReviewDimension, ReviewProposal, ReviewSummary, ReviewValue } from '../api/types';
+import { optional } from '../settings/siteSettings';
 import { Button } from '../ui-kit/Button';
 import { IconTile } from '../ui-kit/flow';
 import { AsOf, ResourceView } from '../ui-kit/honest';
@@ -174,7 +175,7 @@ function Proposals({ flow }: { flow: string }) {
 }
 
 /** What's working for one flow, from its latest weekly review. */
-export function WhatsWorking({ flow }: { flow: string }) {
+function WhatsWorkingPanel({ flow }: { flow: string }) {
   const res = useResource(`review-summary:${flow}`, () => api.reviewSummary(flow), ['runs']);
   const head = useId();
   return (
@@ -193,3 +194,6 @@ export function WhatsWorking({ flow }: { flow: string }) {
     </section>
   );
 }
+
+/** FW-C-169: shown unless the Owner hid it in Settings, Interface. */
+export const WhatsWorking = optional('whats-working', WhatsWorkingPanel);

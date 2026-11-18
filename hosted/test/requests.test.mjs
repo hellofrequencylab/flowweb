@@ -414,3 +414,28 @@ test('a review decision travels as a flow.edit and lands on the proposal it name
   assert.ok(requestOf('POST', `/flows/${COPY}/review/proposals/..`, { decision: 'accept' }).error);
   assert.equal(fwdCallFor({ ...req, payload: { review_decision: { id: 'x', decision: 'accept' } } }), null);
 });
+
+test('a site settings save rides a flow.edit on the base flow and lands on /site-settings', () => {
+  const body = {
+    kevin: { model: 'claude-sonnet-5-5', instructions: 'Answer in three lines.' },
+    interface: { home: 'drafts', sections: { 'paid-ads': false } },
+  };
+  const req = requestOf('POST', '/site-settings', body);
+  assert.equal(req.kind, 'flow.edit');
+  assert.equal(req.flow, 'neighborhood-activation');
+  assert.deepEqual(req.payload, { site_settings: body });
+  assert.deepEqual(fwdCallFor(req), { method: 'POST', path: '/site-settings', body });
+  assert.equal(requestOf('GET', '/site-settings', {}), null);
+  for (const refused of [
+    {},
+    { kevin: { model: 'gpt-9' } },
+    { kevin: { temperature: 1 } },
+    { budget: 5 },
+    { interface: { theme: 'dark' } },
+    { kevin: { instructions: `use sk-ant-api03-${'a'.repeat(40)}` } },
+  ])
+    assert.ok(requestOf('POST', '/site-settings', refused).error, JSON.stringify(refused));
+  // The relay refuses one that was changed after it was queued, or aimed at another flow.
+  assert.equal(fwdCallFor({ ...req, payload: { site_settings: { kevin: { model: 'gpt-9' } } } }), null);
+  assert.equal(fwdCallFor({ ...req, flow: 'local-pulse' }), null);
+});

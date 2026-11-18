@@ -1225,6 +1225,24 @@ export const ownerVoice = {
   save: (note: string, onQueued?: () => void) => ownerWrite<unknown>('POST', '/voice', { note }, onQueued),
 };
 
+/** FW-C-169: Kevin's model and standing instructions, the first page, and the flow pages' optional panels. */
+export interface SiteSettings {
+  kevin: { model: string | null; instructions: string };
+  interface: { home: 'today' | 'flows' | 'drafts'; sections: Record<string, boolean> };
+  note: string | null;
+  models: { id: string; label: string; about: string }[];
+  section_names: string[];
+}
+export interface SiteSettingsEdit {
+  kevin?: Partial<SiteSettings['kevin']>;
+  interface?: Partial<SiteSettings['interface']>;
+}
+export const siteSettings = {
+  get: async () => (await get<SiteSettings>('/site-settings')).data,
+  save: (edit: SiteSettingsEdit, onQueued?: () => void) =>
+    ownerWrite<SiteSettings>('POST', '/site-settings', edit, onQueued),
+};
+
 /** FW-C-092: what the AI console sends about the page, and what it gets back. */
 export interface ConsoleQuestion {
   question: string;
