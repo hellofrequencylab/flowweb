@@ -25,7 +25,9 @@ import { ReplyError, type ReplyResult } from '../flows/reply-helper.ts';
 import * as review from '../flows/review.ts';
 import { reviewSummary } from '../flows/review-summary.ts';
 import { type BatchResult, dueTouches, loadSequence } from '../flows/sequence.ts';
+import * as targeting from '../flows/targeting.ts';
 import { isSkipReason, recordSkip, todaySize, todayView } from '../flows/today.ts';
+import { flowRef } from '../overseer/copies.ts';
 import { type DraftView, editDraft, listDrafts, markDraft } from '../overseer/drafts.ts';
 import {
   listFlows,
@@ -276,7 +278,7 @@ function addFlowAdminRoutes(r: Router, deps: ApiDeps): void {
     });
   }
   r.get(`${base}/config`, () => envelope(deps.reader, () => ({ data: load(new Date()).cfg })));
-  addHuntRoutes(r, deps, base, load);
+  addHuntRoutes(r, deps);
   // FW-C-055: what became of the people the flow reached, pulled from Frequency (daily, or now).
   r.get(`${base}/outcomes`, () =>
     envelope(deps.reader, () => ({ data: outcomes.readOutcomes(deps.fwHome) })),
@@ -372,55 +374,92 @@ function addLeadRoutes(r: Router, deps: ApiDeps): void {
  * folder and the admin log. Run asks for the hunt in the next cycle and fires the flow by hand through
  * the scheduler, so the Supervisor still decides it.
  */
-function addHuntRoutes(r: Router, deps: ApiDeps, base: string, load: (now: Date) => NaFlow): void {
-  const log = (now: Date, summary: string) =>
-    naAdmin.appendAdminLog(deps.fwHome, { at: now.toISOString(), action: 'hunt', summary });
-  const find = (id: string) => {
-    const list = hunts.loadHunts(deps.fwHome);
+function addHuntRoutes(r: Router, deps: ApiDeps): void {
+  const base = '/v1/flows/{key}';
+  /** The flow's home and config: the base flow's, or a copy's own (FW-C-156). Anything else is 404. */
+  const at = (key = '') => {
+    const ref = flowRef(deps.fwHome, key);
+    const known = ref.copy ? readSettings(deps.reader).flows[key]?.copy_of === ref.base : true;
+    const f =
+      known && ref.base === neighborhoodActivation.FLOW_KEY
+        ? neighborhoodActivation.loadFlow(deps.repoRoot, ref.home, new Date())
+        : null;
+    if (!f) throw notFound('flow', key);
+    return { key, home: ref.home, cfg: f.cfg };
+  };
+  const log = (home: string, now: Date, summary: string) =>
+    naAdmin.appendAdminLog(home, { at: now.toISOString(), action: 'hunt', summary });
+  const find = (home: string, id: string) => {
+    const list = hunts.loadHunts(home);
     const h = list.find((x) => x.id === id);
     if (!h) throw notFound('hunt', id);
     return { list, h };
   };
-  r.get(`${base}/hunts`, () => envelope(deps.reader, () => ({ data: hunts.loadHunts(deps.fwHome) })));
-  r.post(`${base}/hunts`, async ({ req, res }) => {
+  const refuse = (e: unknown): never => {
+    if (!(e instanceof naAdmin.AdminError)) throw e;
+    throw new ApiError(e.status, ADMIN_CODES[e.status], e.message, e.details);
+  };
+  r.get(`${base}/hunts`, ({ params }) => {
+    const { home } = at(params.key);
+    return envelope(deps.reader, () => ({ data: hunts.loadHunts(home) }));
+  });
+  r.post(`${base}/hunts`, async ({ req, res, params }) => {
     const body = await readJsonBody(req);
     const now = new Date();
+    const { home, cfg } = at(params.key);
     let h: hunts.Hunt;
     try {
-      h = hunts.newHunt(load(now).cfg, body, now);
+      h = hunts.newHunt(cfg, body, now);
     } catch (e) {
-      if (!(e instanceof naAdmin.AdminError)) throw e;
-      throw new ApiError(e.status, ADMIN_CODES[e.status], e.message, e.details);
+      return refuse(e);
     }
-    hunts.saveHunts(deps.fwHome, [...hunts.loadHunts(deps.fwHome), h]);
-    log(now, `Saved the hunt "${h.name}".`);
+    hunts.saveHunts(home, [...hunts.loadHunts(home), h]);
+    log(home, now, `Saved the hunt "${h.name}".`);
     sendJson(res, 201, { data: h });
     return undefined;
   });
   r.add('DELETE', `${base}/hunts/{id}`, ({ params }) => {
-    const { list, h } = find(params.id ?? '');
+    const { home } = at(params.key);
+    const { list, h } = find(home, params.id ?? '');
     hunts.saveHunts(
-      deps.fwHome,
+      home,
       list.filter((x) => x.id !== h.id),
     );
-    log(new Date(), `Deleted the hunt "${h.name}".`);
+    log(home, new Date(), `Deleted the hunt "${h.name}".`);
     return envelope(deps.reader, () => ({ data: { deleted: h.id } }));
   });
   r.post(`${base}/hunts/{id}/run`, async ({ params }) => {
-    const { list, h } = find(params.id ?? '');
+    const { key, home } = at(params.key);
+    const { list, h } = find(home, params.id ?? '');
     const c = deps.supervisor;
     if (!c?.runFlow) throw new ApiError(501, 'not_implemented', 'this fwd cannot run flows by hand');
     const now = new Date().toISOString();
     hunts.saveHunts(
-      deps.fwHome,
+      home,
       list.map((x) => (x.id === h.id ? { ...x, requested_at: now } : x)),
     );
     try {
-      const out = await c.runFlow(neighborhoodActivation.FLOW_KEY);
+      const out = await c.runFlow(key);
       return envelope(deps.reader, () => ({ data: { hunt_id: h.id, ...out } }));
     } catch (e) {
       if (e instanceof SupervisorError) throw new ApiError(404, 'not_found', e.message);
       throw kernelError(e);
+    }
+  });
+  // FW-C-156: who the flow looks for and how its notes read. A save is read by the next cycle.
+  r.get(`${base}/targeting`, ({ params }) => {
+    const { key } = at(params.key);
+    return envelope(deps.reader, () => ({ data: targeting.readTargeting(deps.repoRoot, deps.fwHome, key) }));
+  });
+  r.post(`${base}/targeting`, async ({ req, params }) => {
+    const body = await readJsonBody(req);
+    const { key, home } = at(params.key);
+    try {
+      const out = targeting.saveTargeting(deps.repoRoot, deps.fwHome, key, body);
+      naAdmin.appendAdminLog(home, { at: new Date().toISOString(), action: 'config', summary: out.summary });
+      return envelope(deps.reader, () => ({ data: out.targeting }));
+    } catch (e) {
+      return refuse(e);
     }
   });
 }
@@ -674,7 +713,11 @@ export function buildRouter(deps: ApiDeps): Router {
   r.get('/v1/flows/{key}', ({ params }) =>
     env(() => {
       const key = params.key ?? '';
-      const view = FLOWS[key]?.(deps.repoRoot, deps.fwHome, new Date()) as Record<string, unknown> | null;
+      // FW-C-156: a copy shows its base flow's view, read from the copy's own home.
+      const ref = flowRef(deps.fwHome, key);
+      const known = !ref.copy || readSettings(reader).flows[key]?.copy_of === ref.base;
+      const made = known ? FLOWS[ref.base]?.(deps.repoRoot, ref.home, new Date()) : null;
+      const view = made as Record<string, unknown> | null | undefined;
       if (!view) throw notFound('flow', params.key);
       // FW-C-064: on/off is the Owner's Supervisor switch, not the shipped stream.json (always off),
       // and the waiting count is the drafts that wait for the Owner, not a counter nothing writes.

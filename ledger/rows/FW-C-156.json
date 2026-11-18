@@ -1,0 +1,41 @@
+{
+  "id": "FW-C-156",
+  "title": "The Owner edits each flow copy from the site: who it looks for, how its notes read, its hunts, and it has its own page",
+  "core_milestone": "C1",
+  "phase": 1,
+  "epic": "C1.5 First flow",
+  "priority": "P0",
+  "size": "L",
+  "lane": "workstreams",
+  "agent_suitability": "agent",
+  "gate": "none",
+  "depends_on": [
+    "FW-C-152",
+    "FW-C-121"
+  ],
+  "description": "Daniel (2026-11-18): the three profile flows show on flowweb.app but he cannot edit them. Opening a copy shows the base flow's page, and the hunt routes only serve the base flow. This row gives every copy of neighborhood-activation the same admin the base flow has. fwd: GET /v1/flows/{key} answers a copy with the base flow's view read from the copy's own home; /v1/flows/{key}/hunts (list, save, delete, run) works for a copy and writes the copy's own hunts.json; GET and POST /v1/flows/{key}/targeting read and save who the flow looks for and how its notes read (the eight playbook lines, the line before the link, and each niche's angles) in that flow's own config.json, so the next cycle uses them with no restart. A save refuses an em or en dash, an unknown field, an over-long line and a playbook without its seek and note lines, and never touches another flow's config. Site: a new request kind flow.targeting carries the same edit through the relay, and /flows/<copy key> opens a page for that copy with its controls, its drafts, its hunts and the targeting editor. The daily cap keeps its existing intensity control. Draft only: nothing here sends.",
+  "acceptance": [
+    "GET /v1/flows/{copy} answers 200 with the copy's own view, and an unknown copy key answers 404",
+    "A hunt saved, listed, run and deleted under /v1/flows/{copy}/hunts lives in the copy's hunts.json and the base flow's hunts do not change",
+    "POST /v1/flows/{copy}/targeting saves playbook lines, the link line and niche angles to the copy's config.json only; the base flow and other copies keep theirs",
+    "A targeting save with an em dash, an unknown field, or a playbook that loses its seek line answers 400 and writes nothing",
+    "After a save, the copy's next run writes drafts that carry the new link line",
+    "The profile-flows, hunts and flow-copies checks still pass"
+  ],
+  "verify_probe": "pnpm probe flows/flow-targeting",
+  "files_hint": [
+    "packages/daemon/src/flows/targeting.ts",
+    "packages/daemon/src/api/routes.ts",
+    "packages/daemon/test/targeting.test.ts",
+    "hosted/server/requests.mjs",
+    "hosted/test/requests.test.mjs",
+    "hosted/supabase/migrations/0015_flowweb_flow_targeting.sql",
+    "hosted/relay/fw-relay.mjs",
+    "packages/web/src/flows/",
+    "packages/web/src/api/client.ts",
+    "packages/web/src/api/types.ts",
+    "packages/web/src/shell/Layout.tsx",
+    "packages/web/test/"
+  ],
+  "origin": "new Core row"
+}
