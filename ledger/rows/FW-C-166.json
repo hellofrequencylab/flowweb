@@ -1,0 +1,35 @@
+{
+  "id": "FW-C-166",
+  "title": "Outcome pull, the weekly review and What's working cover every copy of the flow, not just the main one",
+  "core_milestone": "C1",
+  "phase": 1,
+  "epic": "C1.5 First flow",
+  "priority": "P1",
+  "size": "M",
+  "lane": "flows",
+  "agent_suitability": "agent",
+  "gate": "none",
+  "depends_on": [
+    "FW-C-055",
+    "FW-C-056",
+    "FW-C-159"
+  ],
+  "description": "A copy of the saturation flow (a profile flow) keeps its drafts and hunts under its own home, but the daily outcome pull and the weekly review only ever read the main flow's folder. So a copy's sent drafts were never scored and its page's What's working stayed empty. Now the pull and the review run per flow: the main flow, then each live copy (in the Supervisor settings as a copy of it, not archived). Each reads its own hunts and drafts and writes its own outcomes.json, pull.json and review.json under its own home, so each copy learns from its own results and its next hunt reads its own learnings. A copy's pull names the copy and its drafts' tags and keeps only the rows for them. The main flow's request, files and answers are unchanged. A copy's review obeys the copy's own dial: at Draft and Copilot shifts only wait as proposals, and no review widens a cap, a region or policy. Drafts fwd retired because their event passed are not counted as sent or as the Owner's skips.",
+  "acceptance": [
+    "A pull makes one more signed request per live copy naming the copy's key and its drafts' tags, and writes the copy's own pull.json and outcomes.json with only its rows",
+    "A review run writes the copy's own review.json scoring the copy's sent and replied drafts",
+    "GET /v1/flows/<copy>/review/summary shows those totals; the main flow's review and summary count none of them",
+    "A freshly started fwd reviews a copy whose review.json is missing within 20 seconds",
+    "The main flow's request body, file locations and existing probes are unchanged"
+  ],
+  "verify_probe": "pnpm probe flows/learn-every-copy",
+  "files_hint": [
+    "packages/daemon/src/flows/outcomes.ts",
+    "packages/daemon/src/flows/review.ts",
+    "packages/daemon/src/overseer/copies.ts",
+    "packages/daemon/src/daemon.ts",
+    "packages/daemon/src/api/routes.ts",
+    "packages/daemon/test/review.test.ts"
+  ],
+  "origin": "new Core row"
+}

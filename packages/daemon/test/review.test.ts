@@ -4,6 +4,7 @@ import { join } from 'node:path';
 import { describe, expect, it } from 'vitest';
 import { type Hunt, saveHunts } from '../src/flows/hunts.ts';
 import { type HuntCard, proposeShifts, reviewDue } from '../src/flows/review.ts';
+import { liveCopies } from '../src/overseer/copies.ts';
 
 const hunt = (id: string, max_sends: number): Hunt =>
   ({ id, name: id, max_sends, enabled: true }) as unknown as Hunt;
@@ -72,5 +73,21 @@ describe('reviewDue (FW-C-159)', () => {
     expect(reviewDue(h, WEEK, now)).toBe(false);
     write(h, new Date(now.getTime() - 8 * 86_400_000).toISOString());
     expect(reviewDue(h, WEEK, now)).toBe(true);
+  });
+});
+
+describe('liveCopies (FW-C-166)', () => {
+  it('lists the copies of a base flow that are not archived', () => {
+    const flows = {
+      'neighborhood-activation': {},
+      'neighborhood-activation--b': { copy_of: 'neighborhood-activation' },
+      'neighborhood-activation--a': { copy_of: 'neighborhood-activation' },
+      'neighborhood-activation--old': { copy_of: 'neighborhood-activation', archived: true },
+      'local-pulse--x': { copy_of: 'local-pulse' },
+    };
+    expect(liveCopies(flows, 'neighborhood-activation')).toEqual([
+      'neighborhood-activation--a',
+      'neighborhood-activation--b',
+    ]);
   });
 });

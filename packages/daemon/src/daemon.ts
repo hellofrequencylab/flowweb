@@ -34,6 +34,7 @@ import { retirePastDrafts } from './flows/past-events.ts';
 import { draftReply } from './flows/reply-helper.ts';
 import { reviewDue, runReview } from './flows/review.ts';
 import { batchApprove } from './flows/sequence.ts';
+import { flowRef, liveCopies } from './overseer/copies.ts';
 import { reapOrphanCycles, runFlowCycle, syncFlowCatchUp } from './overseer/cycle.ts';
 import { approveDraft, rejectDraft } from './overseer/drafts.ts';
 import {
@@ -280,6 +281,15 @@ export async function startDaemon(opts: DaemonOptions): Promise<Daemon> {
   void pullAds();
   const adsTimer = setInterval(() => void pullAds(), opts.adsPullCheckMs ?? 10 * 60_000);
   adsTimer.unref();
+  /** FW-C-166: the saturation flow's live copies; an unreadable settings row reads as none. */
+  const naCopies = (): string[] => {
+    try {
+      return liveCopies(readSettings(writer).flows, NA_KEY);
+    } catch (e) {
+      log(`copies: could not list them: ${(e as Error)?.message ?? e}`);
+      return [];
+    }
+  };
   // ---- flow outcomes (FW-C-055) -------------------------------------------------------------
   // Soon after start, then once a day: ask Frequency what became of the people the flow reached.
   const pullNow = (): void => {
@@ -287,6 +297,12 @@ export async function startDaemon(opts: DaemonOptions): Promise<Daemon> {
       (n) => log(`outcomes: pulled ${n.outcomes} outcome row(s) and ${n.regions} region(s) from Frequency`),
       (e) => log(`outcomes: pull failed: ${(e as Error)?.message ?? e}`),
     );
+    // FW-C-166: each live copy asks about its own drafts and keeps its own outcomes.json and pull.json.
+    for (const flow of naCopies())
+      pullOutcomes({ repoRoot: REPO_ROOT, fwHome, env: process.env, flow }).then(
+        (n) => log(`outcomes: ${flow}: pulled ${n.outcomes} outcome row(s) from Frequency`),
+        (e) => log(`outcomes: ${flow}: pull failed: ${(e as Error)?.message ?? e}`),
+      );
     // FW-C-065: and tell Frequency's CRM where each lead is, which also picks up who signed up.
     syncCrm({ repoRoot: REPO_ROOT, fwHome, env: process.env }).then(
       (n) => {
@@ -304,27 +320,31 @@ export async function startDaemon(opts: DaemonOptions): Promise<Daemon> {
   pullTimer.unref();
   // ---- weekly review (FW-C-056) ---------------------------------------------------------------
   // Scores the flow's hunts and shifts effort toward what works, as far as the dial allows.
-  const reviewNow = (): void => {
+  const reviewNow = (flow?: string): void => {
+    const tag = flow ? `review: ${flow}:` : 'review:';
     try {
-      const r = runReview({ reader: writer, repoRoot: REPO_ROOT, fwHome });
+      const r = runReview({ reader: writer, repoRoot: REPO_ROOT, fwHome, flow });
       log(
-        `review: ${r.shifts.length} shift(s), ${r.auto_apply ? 'applied at Autopilot' : 'waiting for the Owner'}`,
+        `${tag} ${r.shifts.length} shift(s), ${r.auto_apply ? 'applied at Autopilot' : 'waiting for the Owner'}`,
       );
     } catch (e) {
-      log(`review: failed: ${(e as Error)?.message ?? e}`);
+      log(`${tag} failed: ${(e as Error)?.message ?? e}`);
     }
   };
   // FW-C-159: the review runs when it is due (missing or a week old), checked soon after start and then
   // a few times a day, so a restart no longer pushes it a whole week out.
   const reviewEveryMs = Number(process.env.FW_REVIEW_EVERY_MS) || 7 * 86_400_000;
   const reviewIfDue = (): void => {
-    let due = false;
-    try {
-      due = reviewDue(fwHome, reviewEveryMs);
-    } catch (e) {
-      log(`review: could not tell whether one is due: ${(e as Error)?.message ?? e}`);
+    // FW-C-166: the base flow, then each live copy, each by its own review.json.
+    for (const flow of [undefined, ...naCopies()]) {
+      let due = false;
+      try {
+        due = reviewDue(flow ? flowRef(fwHome, flow).home : fwHome, reviewEveryMs);
+      } catch (e) {
+        log(`review: could not tell whether one is due: ${(e as Error)?.message ?? e}`);
+      }
+      if (due) reviewNow(flow);
     }
-    if (due) reviewNow();
   };
   const firstReview = setTimeout(reviewIfDue, 5_000);
   firstReview.unref();
