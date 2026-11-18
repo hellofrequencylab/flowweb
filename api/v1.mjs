@@ -6,7 +6,7 @@
 // kill switch, answer a card) are refused with 501 and a reason, never faked. The exceptions are the
 // draft changes and flow controls in hosted/server/requests.mjs: the site queues them and the relay on
 // the Owner's machine applies them through fwd; the answer says it is queued, not done.
-import { resolveRead, routeOfUrl } from '../hosted/server/mirror.mjs';
+import { freshEnvelope, resolveRead, routeOfUrl } from '../hosted/server/mirror.mjs';
 import { answerSetupQuestion } from '../hosted/server/assistant.mjs';
 import { answerConsole } from '../hosted/server/console.mjs';
 import { requestOf } from '../hosted/server/requests.mjs';
@@ -63,17 +63,17 @@ function mirrorStore(token, account) {
   return {
     async lookup(keys) {
       const list = `(${keys.map(quote).join(',')})`;
-      const r = await supa(`/rest/v1/fw_mirror?select=key,envelope&${acc}&key=in.${encodeURIComponent(list)}`, {
+      const r = await supa(`/rest/v1/fw_mirror?select=key,envelope,synced_at&${acc}&key=in.${encodeURIComponent(list)}`, {
         token,
       });
       if (!r.ok) throw new Error(`mirror read failed (${r.status})`);
-      return new Map(r.data.map((x) => [x.key, x.envelope]));
+      return new Map(r.data.map((x) => [x.key, freshEnvelope(x.envelope, x.synced_at)]));
     },
     async lookupPrefix(prefix) {
       const pat = encodeURIComponent(`${prefix}*`);
-      const r = await supa(`/rest/v1/fw_mirror?select=key,envelope&${acc}&key=like.${pat}&order=key`, { token });
+      const r = await supa(`/rest/v1/fw_mirror?select=key,envelope,synced_at&${acc}&key=like.${pat}&order=key`, { token });
       if (!r.ok) throw new Error(`mirror read failed (${r.status})`);
-      return r.data.map((x) => [x.key, x.envelope]);
+      return r.data.map((x) => [x.key, freshEnvelope(x.envelope, x.synced_at)]);
     },
   };
 }
